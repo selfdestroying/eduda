@@ -2,6 +2,8 @@
 
 import prisma from '@/src/lib/prisma'
 import { hashPassword } from 'better-auth/crypto'
+import { startOfDay } from 'date-fns'
+import { fromZonedTime } from 'date-fns-tz'
 import { revalidatePath } from 'next/cache'
 import { parseCSV } from '../lib/csv-parser'
 import {
@@ -232,7 +234,7 @@ async function importGroups(rows: Record<string, string>[], organizationId: numb
     const name = row['Название Группы']
     const dayOfWeek = parseDayOfWeek(row['День недели'])
     const time = row['Время начала']
-    const startDate = new Date(row['Дата Старта'])
+    const startDate = fromZonedTime(startOfDay(new Date(row['Дата Старта'])), 'Europe/Moscow')
     const lessonCount = parseInt(row['Количество уроков']) || 24
 
     const locationName = row['Локация']?.trim()
@@ -244,6 +246,12 @@ async function importGroups(rows: Record<string, string>[], organizationId: numb
 
     // Поиск курса по имени группы (если курс есть в названии)
     const courseId = defaultCourse.id
+
+    const lessons = Array.from({ length: lessonCount ?? 0 }).map((_, index) => {
+      const date = new Date(startDate)
+      date.setDate(date.getDate() + index * 7)
+      return { date, time, organizationId }
+    })
 
     // Создаём группу с уроками
     const group = await prisma.group.create({
@@ -260,11 +268,7 @@ async function importGroups(rows: Record<string, string>[], organizationId: numb
         locationId: location?.id ?? null,
         lessons: {
           createMany: {
-            data: generateLessonDates(startDate, dayOfWeek, lessonCount, time).map((d) => ({
-              date: d.date,
-              time: d.time,
-              organizationId,
-            })),
+            data: lessons,
           },
         },
       },
@@ -313,7 +317,7 @@ function generateLessonDates(
   time: string | null
 ): { date: Date; time: string | null }[] {
   const dates: { date: Date; time: string | null }[] = []
-  const current = new Date(startDate)
+  const current = startDate
 
   // Корректируем на нужный день недели
   const currentDay = current.getDay()
@@ -323,10 +327,10 @@ function generateLessonDates(
 
   for (let i = 0; i < lessonCount; i++) {
     dates.push({
-      date: new Date(current),
+      date: current,
       time,
     })
-    current.setDate(current.getDate() + 7)
+    current.setDate(current.getDate() + i * 7)
   }
 
   return dates
@@ -371,7 +375,7 @@ async function importStudents(rows: Record<string, string>[], organizationId: nu
     })
 
     // Привязка к группам
-    const groupNames = row['Названия Групп ']?.split(',').map((g) => g.trim()) ?? []
+    const groupNames = row['Названия Групп']?.split(',').map((g) => g.trim()) ?? []
     for (const groupName of groupNames) {
       if (!groupName) continue
       const group = groups.find((g) => g.name.toLowerCase() === groupName.toLowerCase())
@@ -387,6 +391,7 @@ async function importStudents(rows: Record<string, string>[], organizationId: nu
           })
         } catch {
           // Дубликат связи — пропускаем
+          console.warn(`Студент ${fullName} уже привязан к группе ${group.name}`)
         }
       }
     }
