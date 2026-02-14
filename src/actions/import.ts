@@ -317,7 +317,7 @@ function generateLessonDates(
   time: string | null
 ): { date: Date; time: string | null }[] {
   const dates: { date: Date; time: string | null }[] = []
-  const current = startDate
+  const current = new Date(startDate)
 
   // Корректируем на нужный день недели
   const currentDay = current.getDay()
@@ -327,10 +327,10 @@ function generateLessonDates(
 
   for (let i = 0; i < lessonCount; i++) {
     dates.push({
-      date: current,
+      date: new Date(current),
       time,
     })
-    current.setDate(current.getDate() + i * 7)
+    current.setDate(current.getDate() + 7)
   }
 
   return dates
