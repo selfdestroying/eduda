@@ -7,6 +7,7 @@ import { LogOut, RefreshCw } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
 import AdminStats from './admin-stats'
+import ImportTab from './import-tab'
 import MembersTable from './members-table'
 import OrganizationsTable from './organizations-table'
 import type { AdminDashboardData } from './types'
@@ -63,6 +64,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
           <TabsTrigger value="users">Пользователи</TabsTrigger>
           <TabsTrigger value="organizations">Организации</TabsTrigger>
           <TabsTrigger value="members">Участники</TabsTrigger>
+          <TabsTrigger value="import">Импорт данных</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
@@ -75,6 +77,10 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
 
         <TabsContent value="members">
           <MembersTable data={initialData} onRefresh={handleRefresh} />
+        </TabsContent>
+
+        <TabsContent value="import">
+          <ImportTab data={initialData} onRefresh={handleRefresh} />
         </TabsContent>
       </Tabs>
     </div>
