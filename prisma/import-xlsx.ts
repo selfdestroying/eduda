@@ -785,6 +785,7 @@ async function main() {
         parentsPhone: row.parentsPhone || null,
         url: row.url || null,
         lessonsBalance,
+        totalLessons: lessonsBalance,
         totalPayments,
         organizationId: ORG_ID,
       },
