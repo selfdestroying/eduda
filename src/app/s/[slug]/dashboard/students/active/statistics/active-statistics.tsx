@@ -152,7 +152,7 @@ export default function ActiveStatistics({
         />
         <KpiCard
           title="Топ курс"
-          value={courses[0]?.name ?? '—'}
+          value={courses[0]?.name ?? '-'}
           icon={GraduationCap}
           subtitle={courses[0] ? `${courses[0].count} учеников` : undefined}
         />

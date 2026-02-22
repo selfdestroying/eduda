@@ -246,7 +246,7 @@ export async function getStudentGroupHistory(
   for (const [groupId, stats] of groupStats) {
     const name = buildGroupName(stats.group)
 
-    // Зачисление — первый урок в группе
+    // Зачисление - первый урок в группе
     entries.push({
       type: 'joined',
       date: stats.firstDate,
@@ -255,7 +255,7 @@ export async function getStudentGroupHistory(
       status: currentGroupMap.get(groupId) ?? undefined,
     })
 
-    // Отчисление — если ученик больше не в группе, последний урок
+    // Отчисление - если ученик больше не в группе, последний урок
     if (!currentGroupMap.has(groupId)) {
       entries.push({
         type: 'dismissed',

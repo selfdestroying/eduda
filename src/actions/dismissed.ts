@@ -210,7 +210,7 @@ export async function getDismissedStatistics(organizationId: number) {
     churnRate,
     thisMonthCount,
     prevMonthCount,
-    topCourseName: topCourse?.[0] ?? '—',
+    topCourseName: topCourse?.[0] ?? '-',
     topCourseCount: topCourse?.[1] ?? 0,
     monthly,
     teachers,

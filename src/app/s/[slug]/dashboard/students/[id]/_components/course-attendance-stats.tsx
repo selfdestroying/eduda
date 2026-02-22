@@ -35,12 +35,12 @@ function computeCourseStats(student: StudentWithGroupsAndAttendance): CourseStat
   }
 
   // Обрабатываем все посещения (включая старые группы)
-  // Отработки в чужих группах полностью пропускаем — они не влияют на статистику
+  // Отработки в чужих группах полностью пропускаем - они не влияют на статистику
   for (const attendance of student.attendances) {
     const group = attendance.lesson.group
     const isMakeup = !!attendance.asMakeupFor
 
-    // Отработка в группе, где ученик не состоит — пропускаем полностью
+    // Отработка в группе, где ученик не состоит - пропускаем полностью
     if (isMakeup && !countedGroupIds.has(group.id) && !currentGroupIds.has(group.id)) {
       continue
     }
@@ -60,7 +60,7 @@ function computeCourseStats(student: StudentWithGroupsAndAttendance): CourseStat
 
     const stats = courseStats.get(courseId)!
 
-    // Если группа не среди текущих и это не отработка — считаем уроки из посещений
+    // Если группа не среди текущих и это не отработка - считаем уроки из посещений
     if (!countedGroupIds.has(group.id) && !isMakeup) {
       countedGroupIds.add(group.id)
       const lessonsInGroup = student.attendances.filter(
