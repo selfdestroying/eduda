@@ -754,9 +754,67 @@ async function main() {
   let attendanceCount = 0
   const usedLogins = new Set<string>()
 
+  // Дедупликация: объединяем строки одного и того же студента (по имени+фамилии)
+  interface MergedStudent {
+    firstName: string
+    lastName: string
+    birthDate: string
+    parentsName: string
+    parentsPhone: string
+    groups: Set<string>
+    lessonsBalance: number
+    totalPayments: number
+    url: string
+  }
+
+  const mergedStudentsMap = new Map<string, MergedStudent>()
+
   for (const row of studentsData) {
     const firstName = row.firstName.trim()
     const lastName = row.lastName.trim()
+    const birthDateRaw = row.birthDate?.trim() || ''
+    const key = `${normalizeName(firstName)}::${normalizeName(lastName)}::${birthDateRaw}`
+
+    const existing = mergedStudentsMap.get(key)
+    const rowGroups = row.groups
+      .split(',')
+      .map((g) => g.trim())
+      .filter(Boolean)
+
+    if (existing) {
+      // Мержим группы
+      for (const g of rowGroups) existing.groups.add(g)
+      // Берём непустые значения, если в текущей записи они заполнены
+      if (!existing.parentsName && row.parentsName) existing.parentsName = row.parentsName
+      if (!existing.parentsPhone && row.parentsPhone) existing.parentsPhone = row.parentsPhone
+      if (!existing.url && row.url) existing.url = row.url
+      if (!existing.birthDate && row.birthDate) existing.birthDate = row.birthDate
+      // Суммируем балансы
+      existing.lessonsBalance += row.lessonsBalance || 0
+      existing.totalPayments += row.totalPayments || 0
+
+      console.log(`  ℹ Дубликат студента "${firstName} ${lastName}" — группы объединены`)
+    } else {
+      mergedStudentsMap.set(key, {
+        firstName,
+        lastName,
+        birthDate: row.birthDate,
+        parentsName: row.parentsName || '',
+        parentsPhone: row.parentsPhone || '',
+        groups: new Set(rowGroups),
+        lessonsBalance: row.lessonsBalance || 0,
+        totalPayments: row.totalPayments || 0,
+        url: row.url || '',
+      })
+    }
+  }
+
+  console.log(
+    `  Уникальных студентов: ${mergedStudentsMap.size} (из ${studentsData.length} строк)\n`
+  )
+
+  for (const merged of mergedStudentsMap.values()) {
+    const { firstName, lastName } = merged
 
     // Генерация уникального логина
     let login = generateLogin(firstName, lastName)
@@ -768,10 +826,8 @@ async function main() {
     usedLogins.add(login)
 
     const password = generatePassword()
-    const birthDate = parseDate(row.birthDate)
+    const birthDate = parseDate(merged.birthDate)
     const age = calculateAge(birthDate)
-    const lessonsBalance = row.lessonsBalance || 0
-    const totalPayments = row.totalPayments || 0
 
     const student = await prisma.student.create({
       data: {
@@ -781,24 +837,19 @@ async function main() {
         password,
         age,
         birthDate,
-        parentsName: row.parentsName || null,
-        parentsPhone: row.parentsPhone || null,
-        url: row.url || null,
-        lessonsBalance,
-        totalLessons: lessonsBalance,
-        totalPayments,
+        parentsName: merged.parentsName || null,
+        parentsPhone: merged.parentsPhone || null,
+        url: merged.url || null,
+        lessonsBalance: merged.lessonsBalance,
+        totalLessons: merged.lessonsBalance,
+        totalPayments: merged.totalPayments,
         organizationId: ORG_ID,
       },
     })
     studentCount++
 
     // Привязка к группам
-    const studentGroups = row.groups
-      .split(',')
-      .map((g) => g.trim())
-      .filter(Boolean)
-
-    for (const gName of studentGroups) {
+    for (const gName of merged.groups) {
       const groupId = groupMap.get(normalizeName(gName))
       if (!groupId) {
         console.warn(`  ⚠ Группа "${gName}" не найдена для студента "${firstName} ${lastName}"`)
