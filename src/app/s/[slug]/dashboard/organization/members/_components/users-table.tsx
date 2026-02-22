@@ -52,8 +52,8 @@ const columns: ColumnDef<Prisma.MemberGetPayload<{ include: { user: true } }>>[]
     cell: ({ row }) => {
       const { bidForLesson, bidForIndividual, bonusPerStudent } = row.original.user
       const parts = [
-        `${bidForLesson?.toLocaleString() ?? '—'}`,
-        `${bidForIndividual?.toLocaleString() ?? '—'}`,
+        `${bidForLesson?.toLocaleString() ?? '-'}`,
+        `${bidForIndividual?.toLocaleString() ?? '-'}`,
         `${bonusPerStudent?.toLocaleString() ?? '0'}`,
       ]
       return (

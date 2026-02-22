@@ -22,7 +22,7 @@
 | Динамика набора   | Area chart | Количество новых уникальных студентов по месяцу их `createdAt`. Сортировка хронологическая (по timestamp). Формат оси X: `"янв. 26"`                                       |
 | По курсам         | Bar list   | Топ-5 курсов по числу уникальных студентов. Студент считается в курсе, если состоит в группе этого курса                                                                   |
 | По преподавателям | Bar list   | Топ-5 преподавателей. Студент считается у преподавателя, если состоит в группе, к которой привязан этот преподаватель. Один студент может быть у нескольких преподавателей |
-| По локациям       | Bar list   | Топ-5 локаций. Аналогично — уникальные студенты через `Set<studentId>`                                                                                                     |
+| По локациям       | Bar list   | Топ-5 локаций. Аналогично - уникальные студенты через `Set<studentId>`                                                                                                     |
 
 ### Особенности подсчёта
 
@@ -44,8 +44,8 @@
 | Отработано      | `totalSaved`      | Число пропусков, у которых `missedMakeup.makeUpAttendance.status === 'PRESENT'` (отработка назначена и ученик пришёл)     |
 | % отработок     | `makeupRate`      | `(totalSaved / totalAbsences) * 100`, округление до 1 десятичного знака                                                   |
 | Средняя ставка  | `averagePrice`    | Глобальная: `SUM(payment.price) / SUM(payment.lessonCount)` по всем оплатам организации с `lessonCount > 0` и `price > 0` |
-| Потери (₽)      | `totalLostMoney`  | `SUM(missedMoney - savedMoney)` по всем месяцам — деньги за неотработанные пропуски                                       |
-| Возвращено (₽)  | `totalSavedMoney` | `SUM(savedMoney)` по всем месяцам — деньги, которые «спасли» через отработки                                              |
+| Потери (₽)      | `totalLostMoney`  | `SUM(missedMoney - savedMoney)` по всем месяцам - деньги за неотработанные пропуски                                       |
+| Возвращено (₽)  | `totalSavedMoney` | `SUM(savedMoney)` по всем месяцам - деньги, которые «спасли» через отработки                                              |
 
 ### Расчёт стоимости пропуска
 
@@ -61,7 +61,7 @@ rate = student.totalPayments / student.totalLessons
 
 | График                | Тип                  | Описание                                                                                     |
 | --------------------- | -------------------- | -------------------------------------------------------------------------------------------- |
-| Пропуски vs отработки | Area chart (2 линии) | Красная — пропущено, зелёная — отработано. Переключение: кол-во / деньги (₽), месяц / неделя |
+| Пропуски vs отработки | Area chart (2 линии) | Красная - пропущено, зелёная - отработано. Переключение: кол-во / деньги (₽), месяц / неделя |
 
 ### Режимы отображения
 
@@ -89,10 +89,10 @@ rate = student.totalPayments / student.totalLessons
 
 | Метрика           | Поле             | Формула                                                                                                                                    |
 | ----------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Всего отчислено   | `totalDismissed` | `dismissed.length` — общее число записей в `Dismissed`                                                                                     |
+| Всего отчислено   | `totalDismissed` | `dismissed.length` - общее число записей в `Dismissed`                                                                                     |
 | Churn rate        | `churnRate`      | `totalDismissed / (activeCount + totalDismissed) * 100`, округление до 1 десятичного знака. `activeCount` = число записей в `StudentGroup` |
 | В этом месяце     | `thisMonthCount` | Число отчислений с `dismissed.date` в текущем месяце                                                                                       |
-| Тренд             | `monthDelta`     | `thisMonthCount - prevMonthCount`. Зелёный если **уменьшились** (инверсия — меньше отчислений = лучше)                                     |
+| Тренд             | `monthDelta`     | `thisMonthCount - prevMonthCount`. Зелёный если **уменьшились** (инверсия - меньше отчислений = лучше)                                     |
 | Самый частый курс | `topCourseName`  | Курс с максимальным числом отчислений                                                                                                      |
 
 ### Графики
@@ -112,8 +112,8 @@ percentage = dismissedCount / (totalStudents + dismissedCount) * 100
 
 Где:
 
-- `dismissedCount` — число отчисленных из групп этого преподавателя
-- `totalStudents` — число **текущих активных** студентов в группах преподавателя (`TeacherGroup → Group._count.students`)
+- `dismissedCount` - число отчисленных из групп этого преподавателя
+- `totalStudents` - число **текущих активных** студентов в группах преподавателя (`TeacherGroup → Group._count.students`)
 
 Это даёт процент оттока от **всех когда-либо бывших** (активные + ушедшие).
 
@@ -128,7 +128,7 @@ src/actions/
   dismissed.ts    → getDismissedStatistics()
 
 src/app/s/[slug]/dashboard/students/
-  active/statistics/active-statistics.tsx      — KPI + area chart + bar lists
-  absent/statistics/absent-statistics.tsx      — KPI + area chart с переключением
-  dismissed/statistics/dismissed-statistics.tsx — KPI + area chart + bar lists
+  active/statistics/active-statistics.tsx      - KPI + area chart + bar lists
+  absent/statistics/absent-statistics.tsx      - KPI + area chart с переключением
+  dismissed/statistics/dismissed-statistics.tsx - KPI + area chart + bar lists
 ```
