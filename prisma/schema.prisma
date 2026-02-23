@@ -235,11 +235,13 @@ model Group {
   course         Course       @relation(fields: [courseId], references: [id])
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  lessons    Lesson[]
-  students   StudentGroup[]
-  teachers   TeacherGroup[]
-  dismisseds Dismissed[]
-  schedules  GroupSchedule[]
+  lessons               Lesson[]
+  students              StudentGroup[]
+  teachers              TeacherGroup[]
+  dismisseds            Dismissed[]
+  schedules             GroupSchedule[]
+  payments              Payment[]
+  balanceHistoryEntries StudentLessonsBalanceHistory[]
 
   @@index([organizationId])
   @@index([courseId])
@@ -320,6 +322,7 @@ model StudentLessonsBalanceHistory {
   studentId      Int
   organizationId Int
   actorUserId    Int?
+  groupId        Int?
   field          StudentFinancialField             @default(LESSONS_BALANCE)
   reason         StudentLessonsBalanceChangeReason
   delta          Int
@@ -333,10 +336,12 @@ model StudentLessonsBalanceHistory {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
   actorUser    User?        @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  group        Group?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
   @@index([studentId, createdAt])
   @@index([actorUserId, createdAt])
   @@index([organizationId])
+  @@index([groupId])
 }
 
 // 
@@ -344,9 +349,12 @@ model StudentLessonsBalanceHistory {
 // Relation models
 
 model StudentGroup {
-  status    StudentStatus
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  status         StudentStatus
+  lessonsBalance Int           @default(0)
+  totalLessons   Int           @default(0)
+  totalPayments  Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   // Relations
   organizationId Int
@@ -473,12 +481,15 @@ model Payment {
   // Relations
   organizationId Int
   studentId      Int
+  groupId        Int?
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   student        Student      @relation(fields: [studentId], references: [id])
+  group          Group?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
   @@index([studentId])
   @@index([organizationId])
   @@index([createdAt])
+  @@index([groupId])
 }
 
 model UnprocessedPayment {
@@ -599,6 +610,7 @@ enum GroupType {
   GROUP
   INDIVIDUAL
   INTENSIVE
+  SPLIT
 }
 
 enum AttendanceStatus {
@@ -635,6 +647,7 @@ enum StudentLessonsBalanceChangeReason {
   MANUAL_SET
   TOTAL_PAYMENTS_MANUAL_SET
   TOTAL_LESSONS_MANUAL_SET
+  BALANCE_REDISTRIBUTED
 }
 
 enum StudentFinancialField {
