@@ -11,6 +11,7 @@ import { PrismaClient } from './generated/client'
 
 const TIMEZONE = 'Europe/Moscow'
 const DEFAULT_PASSWORD = '12345'
+const DEFAULT_BIRTH_DATE = new Date(1900, 0, 1) // 01.01.1900 — маркер отсутствующей даты рождения
 const FILE_NAME = process.argv[2] || 'import-template-improved.xlsx'
 
 // ─── Prisma клиент ──────────────────────────────────────────────────────────
@@ -164,13 +165,36 @@ function parseGroupType(raw: string): 'GROUP' | 'INDIVIDUAL' | 'INTENSIVE' {
   throw new Error(`Неизвестный тип группы: "${raw}"`)
 }
 
-function parseDate(raw: string): Date {
+function parseDate(raw: string | Date): Date {
+  // Если Excel вернул объект Date напрямую
+  if (raw instanceof Date) {
+    if (isNaN(raw.getTime())) throw new Error(`Невалидный объект Date`)
+    return new Date(raw.getFullYear(), raw.getMonth(), raw.getDate())
+  }
+
   const trimmed = raw.trim()
+
   // Формат DD.MM.YYYY
-  const match = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/)
-  if (!match) throw new Error(`Неверный формат даты: "${raw}". Ожидается ДД.ММ.ГГГГ`)
-  const [, day, month, year] = match
-  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+  const ddmmyyyy = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/)
+  if (ddmmyyyy) {
+    const [, day, month, year] = ddmmyyyy
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+  }
+
+  // Формат YYYY-MM-DD (ISO)
+  const iso = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)
+  if (iso) {
+    const [, year, month, day] = iso
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+  }
+
+  // JS Date.toString() формат (например "Fri Aug 15 2025 00:00:00 GMT+0000 ...")
+  const jsDate = new Date(trimmed)
+  if (!isNaN(jsDate.getTime())) {
+    return new Date(jsDate.getFullYear(), jsDate.getMonth(), jsDate.getDate())
+  }
+
+  throw new Error(`Неверный формат даты: "${raw}". Ожидается ДД.ММ.ГГГГ`)
 }
 
 function parseRoleToMemberRole(raw: string): string {
@@ -211,10 +235,45 @@ function normalizeName(name: string): string {
 
 function cellToString(cell: ExcelJS.CellValue): string {
   if (cell === null || cell === undefined) return ''
-  if (typeof cell === 'object' && 'text' in cell)
+  if (cell instanceof Date) {
+    // Excel хранит время как Date с базовой датой 1899-12-30 — извлекаем HH:MM
+    const hours = cell.getUTCHours().toString().padStart(2, '0')
+    const minutes = cell.getUTCMinutes().toString().padStart(2, '0')
+    if (cell.getFullYear() <= 1900) {
+      return `${hours}:${minutes}`
+    }
+    return cell.toString()
+  }
+  if (typeof cell !== 'object') return String(cell).trim()
+
+  // Гиперссылка: { text: string | { richText: [...] }, hyperlink: string }
+  if ('hyperlink' in cell) {
+    const hCell = cell as { text?: unknown; hyperlink?: string }
+    if (typeof hCell.text === 'string') return hCell.text.trim()
+    if (hCell.hyperlink)
+      return String(hCell.hyperlink)
+        .replace(/^mailto:/, '')
+        .trim()
+  }
+
+  // Простое текстовое значение
+  if ('text' in cell && typeof (cell as { text: unknown }).text === 'string') {
     return String((cell as { text: string }).text).trim()
-  if (typeof cell === 'object' && 'result' in cell)
+  }
+
+  // Rich text: { richText: [{ text: string }, ...] }
+  if ('richText' in cell && Array.isArray((cell as { richText: unknown[] }).richText)) {
+    return (cell as { richText: Array<{ text: string }> }).richText
+      .map((part) => part.text)
+      .join('')
+      .trim()
+  }
+
+  // Формула: { result: ... }
+  if ('result' in cell) {
     return String((cell as { result: unknown }).result).trim()
+  }
+
   return String(cell).trim()
 }
 
@@ -379,7 +438,6 @@ async function main() {
     ...validateRequired(studentsData, 'Студенты', [
       { key: 'firstName', label: 'Имя' },
       { key: 'lastName', label: 'Фамилия' },
-      { key: 'birthDate', label: 'Дата рождения' },
       { key: 'groups', label: 'Группы' },
     ]),
   ]
@@ -576,6 +634,7 @@ async function main() {
         bidForLesson,
         bidForIndividual,
         bonusPerStudent,
+        role: 'user',
       },
     })
 
@@ -826,8 +885,14 @@ async function main() {
     usedLogins.add(login)
 
     const password = generatePassword()
-    const birthDate = parseDate(merged.birthDate)
+    const birthDate = merged.birthDate ? parseDate(merged.birthDate) : DEFAULT_BIRTH_DATE
     const age = calculateAge(birthDate)
+
+    if (!merged.birthDate) {
+      console.warn(
+        `  ⚠ Дата рождения не указана для "${firstName} ${lastName}" — установлено 01.01.1900`
+      )
+    }
 
     const student = await prisma.student.create({
       data: {
