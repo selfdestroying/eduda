@@ -16,12 +16,62 @@ import {
 } from '@/src/components/ui/sheet'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import { useIsMobile } from '@/src/hooks/use-mobile'
+import { getAgeFromBirthDate } from '@/src/lib/utils'
 import { CreateStudentSchema, CreateStudentSchemaType } from '@/src/schemas/student'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader, Plus } from 'lucide-react'
+import { Loader, Plus, Sparkles } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
+
+const transliterateToLatin = (value: string) => {
+  const map: Record<string, string> = {
+    а: 'a',
+    б: 'b',
+    в: 'v',
+    г: 'g',
+    д: 'd',
+    е: 'e',
+    ё: 'e',
+    ж: 'zh',
+    з: 'z',
+    и: 'i',
+    й: 'y',
+    к: 'k',
+    л: 'l',
+    м: 'm',
+    н: 'n',
+    о: 'o',
+    п: 'p',
+    р: 'r',
+    с: 's',
+    т: 't',
+    у: 'u',
+    ф: 'f',
+    х: 'h',
+    ц: 'ts',
+    ч: 'ch',
+    ш: 'sh',
+    щ: 'sch',
+    ъ: '',
+    ы: 'y',
+    ь: '',
+    э: 'e',
+    ю: 'yu',
+    я: 'ya',
+  }
+
+  return value
+    .toLowerCase()
+    .split('')
+    .map((char) => map[char] ?? char)
+    .join('')
+}
+
+const normalizeLogin = (value: string) =>
+  transliterateToLatin(value)
+    .replace(/[^a-z]/g, '')
+    .trim()
 
 export default function CreateStudentDialog() {
   const { data: session, isLoading: isSessionLoading } = useSessionQuery()
@@ -33,21 +83,39 @@ export default function CreateStudentDialog() {
     defaultValues: {
       firstName: '',
       lastName: '',
-      age: 0,
-      birthDate: '' as unknown as Date,
-      parentsName: '',
-      url: '',
       login: '',
       password: '',
+      birthDate: '' as unknown as Date,
+      parentsName: undefined,
+      parentsPhone: undefined,
+      url: undefined,
       coins: 0,
     },
   })
+  const selectedBirthDate = form.watch('birthDate')
+  const calculatedAge =
+    selectedBirthDate instanceof Date && !isNaN(selectedBirthDate.getTime())
+      ? getAgeFromBirthDate(selectedBirthDate)
+      : null
+
+  const generateLogin = () => {
+    const first = normalizeLogin(form.getValues('firstName'))
+    const last = normalizeLogin(form.getValues('lastName'))
+
+    if (first && last) {
+      const login = `${first}${last}`
+      form.setValue('login', login, { shouldValidate: true })
+    }
+  }
 
   const onSubmit = (values: CreateStudentSchemaType) => {
+    const age = getAgeFromBirthDate(values.birthDate)
+
     startTransition(() => {
       const ok = createStudent({
         data: {
           ...values,
+          age,
           organizationId: session!.organizationId!,
           cart: { create: {} },
         },
@@ -83,7 +151,7 @@ export default function CreateStudentDialog() {
           id="create-student-form"
           className="no-scrollbar overflow-auto px-6 py-2"
         >
-          <FieldGroup className="no-scrollbar max-h-[60vh] overflow-y-auto">
+          <FieldGroup className="no-scrollbar overflow-y-auto">
             <Controller
               control={form.control}
               name="firstName"
@@ -110,25 +178,6 @@ export default function CreateStudentDialog() {
             />
             <Controller
               control={form.control}
-              name="age"
-              disabled={isPending}
-              render={({ field, fieldState }) => (
-                <Field>
-                  <FieldLabel htmlFor="age-field">Возраст</FieldLabel>
-                  <Input
-                    id="age-field"
-                    {...field}
-                    type="number"
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                </Field>
-              )}
-            />
-
-            <Controller
-              control={form.control}
               name="birthDate"
               disabled={isPending}
               render={({ field, fieldState }) => (
@@ -148,18 +197,7 @@ export default function CreateStudentDialog() {
                     }
                     aria-invalid={fieldState.invalid}
                   />
-                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                </Field>
-              )}
-            />
-            <Controller
-              control={form.control}
-              name="url"
-              disabled={isPending}
-              render={({ field, fieldState }) => (
-                <Field>
-                  <FieldLabel htmlFor="url-field">CRM URL</FieldLabel>
-                  <Input id="url-field" {...field} aria-invalid={fieldState.invalid} />
+                  <p className="text-muted-foreground text-sm">Возраст: {calculatedAge ?? '—'}</p>
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>
               )}
@@ -171,7 +209,50 @@ export default function CreateStudentDialog() {
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel htmlFor="parentsName-field">ФИО Родителя</FieldLabel>
-                  <Input id="parentsName-field" {...field} aria-invalid={fieldState.invalid} />
+                  <Input
+                    id="parentsName-field"
+                    {...field}
+                    aria-invalid={fieldState.invalid}
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value || undefined)}
+                  />
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+            <Controller
+              control={form.control}
+              name="parentsPhone"
+              disabled={isPending}
+              render={({ field, fieldState }) => (
+                <Field>
+                  <FieldLabel htmlFor="parentsPhone-field">Телефон родителя</FieldLabel>
+                  <Input
+                    id="parentsPhone-field"
+                    type="tel"
+                    {...field}
+                    aria-invalid={fieldState.invalid}
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value || undefined)}
+                  />
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+            <Controller
+              control={form.control}
+              name="url"
+              disabled={isPending}
+              render={({ field, fieldState }) => (
+                <Field>
+                  <FieldLabel htmlFor="url-field">Ссылка</FieldLabel>
+                  <Input
+                    id="url-field"
+                    {...field}
+                    aria-invalid={fieldState.invalid}
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value || undefined)}
+                  />
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>
               )}
@@ -182,7 +263,20 @@ export default function CreateStudentDialog() {
               disabled={isPending}
               render={({ field, fieldState }) => (
                 <Field>
-                  <FieldLabel htmlFor="login-field">Логин</FieldLabel>
+                  <div className="flex w-full items-center justify-between">
+                    <FieldLabel htmlFor="login-field">Логин</FieldLabel>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={generateLogin}
+                      className="h-auto px-2 py-1 text-xs"
+                    >
+                      <Sparkles className="mr-1 h-3 w-3" />
+                      Из имени
+                    </Button>
+                  </div>
                   <Input id="login-field" {...field} aria-invalid={fieldState.invalid} />
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>
@@ -194,19 +288,7 @@ export default function CreateStudentDialog() {
               disabled={isPending}
               render={({ field, fieldState }) => (
                 <Field>
-                  <div className="flex w-full items-center justify-between">
-                    <FieldLabel htmlFor="password-field">Пароль</FieldLabel>
-                    {/* <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => form.setValue('password', crypto.randomUUID().slice(0, 8))}
-                      className="h-auto px-2 py-1 text-xs"
-                    >
-                      <Sparkles className="mr-1 h-3 w-3" />
-                      Сгенерировать
-                    </Button> */}
-                  </div>
+                  <FieldLabel htmlFor="password-field">Пароль</FieldLabel>
                   <Input id="password-field" {...field} aria-invalid={fieldState.invalid} />
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>

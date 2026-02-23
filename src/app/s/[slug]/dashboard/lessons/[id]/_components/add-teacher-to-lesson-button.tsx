@@ -60,7 +60,11 @@ export default function AddTeacherToLessonButton({ lesson }: AddTeacherToLessonB
     defaultValues: {
       teacherId: undefined,
       bid:
-        lesson.group.type === 'INDIVIDUAL' ? 750 : lesson.group.type === 'GROUP' ? 1100 : undefined,
+        lesson.group.type === 'INDIVIDUAL'
+          ? 750
+          : lesson.group.type === 'GROUP' || lesson.group.type === 'SPLIT'
+            ? 1100
+            : undefined,
     },
   })
 

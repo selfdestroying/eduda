@@ -125,7 +125,7 @@ export default function CreateGroupForm() {
 
   const selectedMember = members?.find((member) => member.userId === Number(watchedTeacher?.value))
   const teacherBid =
-    watchedType === 'GROUP'
+    watchedType === 'GROUP' || watchedType === 'SPLIT'
       ? (selectedMember?.user?.bidForLesson ?? 0)
       : watchedType === 'INDIVIDUAL'
         ? (selectedMember?.user?.bidForIndividual ?? 0)
@@ -194,7 +194,7 @@ export default function CreateGroupForm() {
                   organizationId: organizationId!,
                   teacherId: Number(member?.userId) as number,
                   bid:
-                    values.type === 'GROUP'
+                    values.type === 'GROUP' || values.type === 'SPLIT'
                       ? (member?.user?.bidForLesson ?? 0)
                       : (member?.user.bidForIndividual ?? 0),
                   bonusPerStudent: member?.user?.bonusPerStudent ?? 0,
@@ -345,7 +345,15 @@ export default function CreateGroupForm() {
                 {...field}
                 value={field.value || ''}
                 onValueChange={field.onChange}
-                itemToStringLabel={(itemValue) => (itemValue === 'GROUP' ? 'Группа' : 'Индив.')}
+                itemToStringLabel={(itemValue) => {
+                  const map: Record<string, string> = {
+                    GROUP: 'Группа',
+                    INDIVIDUAL: 'Индив.',
+                    INTENSIVE: 'Интенсив',
+                    SPLIT: 'Сплит',
+                  }
+                  return map[itemValue] ?? ''
+                }}
               >
                 <SelectTrigger id="type-field" aria-invalid={fieldState.invalid}>
                   <SelectValue placeholder="Выберите тип" />
@@ -354,6 +362,8 @@ export default function CreateGroupForm() {
                   <SelectGroup>
                     <SelectItem value="GROUP">Группа</SelectItem>
                     <SelectItem value="INDIVIDUAL">Индив.</SelectItem>
+                    <SelectItem value="INTENSIVE">Интенсив</SelectItem>
+                    <SelectItem value="SPLIT">Сплит</SelectItem>
                   </SelectGroup>
                 </SelectContent>
               </Select>

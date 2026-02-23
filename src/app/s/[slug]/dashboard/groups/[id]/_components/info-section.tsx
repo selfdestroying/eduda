@@ -10,6 +10,7 @@ const groupTypeMap: Record<GroupType, string> = {
   GROUP: 'Группа',
   INDIVIDUAL: 'Индив.',
   INTENSIVE: 'Интенсив',
+  SPLIT: 'Сплит',
 }
 
 export default async function InfoSection({ group }: { group: GroupDTO }) {

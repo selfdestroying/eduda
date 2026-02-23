@@ -42,12 +42,14 @@ export default async function StudentGroupsSection({ student, groups }: StudentG
         <div className="space-y-6">
           {student.groups.map((groupData) => (
             <div key={groupData.group.id} className="space-y-2">
-              <Link
-                href={`/dashboard/groups/${groupData.group.id}`}
-                className="text-primary hover:underline"
-              >
-                {getGroupName(groupData.group)}
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link
+                  href={`/dashboard/groups/${groupData.group.id}`}
+                  className="text-primary hover:underline"
+                >
+                  {getGroupName(groupData.group)}
+                </Link>
+              </div>
               <GroupAttendanceTable lessons={groupData.group.lessons} data={[student]} />
             </div>
           ))}

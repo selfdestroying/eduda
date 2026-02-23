@@ -51,6 +51,7 @@ import {
   Users,
   X,
 } from 'lucide-react'
+import Link from 'next/link'
 import {
   Dispatch,
   SetStateAction,
@@ -66,12 +67,14 @@ const groupTypeMap: Record<GroupType, string> = {
   GROUP: 'Группа',
   INDIVIDUAL: 'Индив.',
   INTENSIVE: 'Интенсив',
+  SPLIT: 'Сплит',
 }
 
 const groupTypeIcon: Record<GroupType, React.ReactNode> = {
   GROUP: <Users className="h-3 w-3" />,
   INDIVIDUAL: <UserIcon className="h-3 w-3" />,
   INTENSIVE: <TrendingUp className="h-3 w-3" />,
+  SPLIT: <Users className="h-3 w-3" />,
 }
 
 type LessonWithPrice = Prisma.LessonGetPayload<{
@@ -705,9 +708,15 @@ function LessonItem({ lesson }: LessonItemProps) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className={cn('truncate font-medium', isCancelled && 'line-through')}>
+            <Link
+              href={`/dashboard/lessons/${lesson.id}`}
+              className={cn(
+                'text-primary truncate font-medium hover:underline',
+                isCancelled && 'line-through'
+              )}
+            >
               {getGroupName(lesson.group)}
-            </span>
+            </Link>
             <Badge className={cn('shrink-0', lessonStatusVariants({ status: lesson.status }))}>
               {lessonStatusMap[lesson.status]}
             </Badge>

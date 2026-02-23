@@ -73,7 +73,7 @@ import { DateRange } from 'react-day-picker'
 // Типы данных
 type LessonWithAttendance = Prisma.LessonGetPayload<{
   include: {
-    attendance: { include: { student: true } }
+    attendance: { include: { student: { include: { groups: true } } } }
     group: { include: { course: true; location: true } }
     teachers: { include: { teacher: true } }
   }
@@ -149,17 +149,27 @@ const groupTypeMap: Record<GroupType, string> = {
   GROUP: 'Группа',
   INDIVIDUAL: 'Индив.',
   INTENSIVE: 'Интенсив',
+  SPLIT: 'Сплит',
 }
 
 const groupTypeIcon: Record<GroupType, React.ReactNode> = {
   GROUP: <Users className="h-3 w-3" />,
   INDIVIDUAL: <User className="h-3 w-3" />,
   INTENSIVE: <TrendingUp className="h-3 w-3" />,
+  SPLIT: <Users className="h-3 w-3" />,
 }
 
-// Функция расчета выручки по ученику
-function calculateStudentRevenue(student: { totalLessons: number; totalPayments: number }): number {
-  return student.totalLessons !== 0 ? student.totalPayments / student.totalLessons : 0
+// Функция расчета выручки по ученику (агрегирует per-group + глобальные остатки)
+function calculateStudentRevenue(student: {
+  totalLessons: number
+  totalPayments: number
+  groups: { totalLessons: number; totalPayments: number }[]
+}): number {
+  const totalLessons =
+    student.groups.reduce((sum, g) => sum + g.totalLessons, 0) + student.totalLessons
+  const totalPayments =
+    student.groups.reduce((sum, g) => sum + g.totalPayments, 0) + student.totalPayments
+  return totalLessons !== 0 ? totalPayments / totalLessons : 0
 }
 
 // Трансформация уроков в данные выручки
@@ -267,7 +277,7 @@ export default function RevenueClient() {
         },
         include: {
           attendance: {
-            include: { student: true },
+            include: { student: { include: { groups: true } } },
           },
           group: { include: { course: true, location: true } },
           teachers: { include: { teacher: true } },

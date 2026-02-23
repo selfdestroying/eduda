@@ -14,6 +14,8 @@ import CourseAttendanceStats from './_components/course-attendance-stats'
 import EditStudentDialog from './_components/edit-student-dialog'
 import GroupHistory from './_components/group-history'
 import LessonsBalanceHistory from './_components/lessons-balance-history'
+import PaymentSection from './_components/payment-section'
+import RedistributeBalance from './_components/redistribute-balance'
 import StudentCard from './_components/student-card'
 import StudentGroupsSection from './_components/student-groups-section'
 
@@ -132,6 +134,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         </CardHeader>
         <CardContent className="space-y-6">
           <StudentCard student={student} />
+          <PaymentSection student={student} />
+          <RedistributeBalance student={student} />
           <StudentGroupsSection student={student} groups={groups} />
           <CourseAttendanceStats student={student} />
 

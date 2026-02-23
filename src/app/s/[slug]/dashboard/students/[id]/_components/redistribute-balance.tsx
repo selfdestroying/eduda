@@ -2,7 +2,7 @@
 
 import { redistributeBalance } from '@/src/actions/students'
 import { Button } from '@/src/components/ui/button'
-import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field'
+import { Field, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
 import { Label } from '@/src/components/ui/label'
 import { getGroupName } from '@/src/lib/utils'
@@ -15,46 +15,77 @@ interface RedistributeBalanceProps {
   student: StudentWithGroupsAndAttendance
 }
 
+type GroupAllocation = {
+  lessons: number
+  totalLessons: number
+  totalPayments: number
+}
+
 export default function RedistributeBalance({ student }: RedistributeBalanceProps) {
   const [isPending, startTransition] = useTransition()
 
-  const allocatedBalance = student.groups.reduce((sum, sg) => sum + sg.lessonsBalance, 0)
-  const unallocatedBalance = student.lessonsBalance
+  const unallocatedLessons = student.lessonsBalance
+  const unallocatedTotalLessons = student.totalLessons
+  const unallocatedTotalPayments = student.totalPayments
 
-  const [allocations, setAllocations] = useState<Record<number, number>>(() => {
-    const initial: Record<number, number> = {}
+  const hasAnythingToRedistribute =
+    unallocatedLessons > 0 || unallocatedTotalLessons > 0 || unallocatedTotalPayments > 0
+
+  const [allocations, setAllocations] = useState<Record<number, GroupAllocation>>(() => {
+    const initial: Record<number, GroupAllocation> = {}
     for (const sg of student.groups) {
-      initial[sg.groupId] = 0
+      initial[sg.groupId] = { lessons: 0, totalLessons: 0, totalPayments: 0 }
     }
     return initial
   })
 
-  const totalToAllocate = Object.values(allocations).reduce((sum, v) => sum + v, 0)
-  const remaining = unallocatedBalance - totalToAllocate
+  const sumLessons = Object.values(allocations).reduce((s, a) => s + a.lessons, 0)
+  const sumTotalLessons = Object.values(allocations).reduce((s, a) => s + a.totalLessons, 0)
+  const sumTotalPayments = Object.values(allocations).reduce((s, a) => s + a.totalPayments, 0)
+
+  const remainingLessons = unallocatedLessons - sumLessons
+  const remainingTotalLessons = unallocatedTotalLessons - sumTotalLessons
+  const remainingTotalPayments = unallocatedTotalPayments - sumTotalPayments
+
+  const hasOverflow =
+    remainingLessons < 0 || remainingTotalLessons < 0 || remainingTotalPayments < 0
+  const hasChanges = sumLessons > 0 || sumTotalLessons > 0 || sumTotalPayments > 0
+
+  const updateField = (groupId: number, field: keyof GroupAllocation, value: number) => {
+    setAllocations((prev) => ({
+      ...prev,
+      [groupId]: { ...prev[groupId], [field]: Math.max(0, value) },
+    }))
+  }
 
   const handleSubmit = () => {
-    if (remaining < 0) {
+    if (hasOverflow) {
       toast.error('Сумма распределений превышает нераспределённый баланс')
       return
     }
 
-    const allocationEntries = Object.entries(allocations)
-      .filter(([, amount]) => amount > 0)
-      .map(([groupId, amount]) => ({ groupId: Number(groupId), lessons: amount }))
+    const entries = Object.entries(allocations)
+      .filter(([, a]) => a.lessons > 0 || a.totalLessons > 0 || a.totalPayments > 0)
+      .map(([groupId, a]) => ({
+        groupId: Number(groupId),
+        lessons: a.lessons || undefined,
+        totalLessons: a.totalLessons || undefined,
+        totalPayments: a.totalPayments || undefined,
+      }))
 
-    if (allocationEntries.length === 0) {
+    if (entries.length === 0) {
       toast.error('Укажите хотя бы одну группу для распределения')
       return
     }
 
     startTransition(async () => {
       try {
-        await redistributeBalance(student.id, allocationEntries)
+        await redistributeBalance(student.id, entries)
         toast.success('Баланс успешно перераспределён!')
         setAllocations((prev) => {
-          const reset: Record<number, number> = {}
+          const reset: Record<number, GroupAllocation> = {}
           for (const k of Object.keys(prev)) {
-            reset[Number(k)] = 0
+            reset[Number(k)] = { lessons: 0, totalLessons: 0, totalPayments: 0 }
           }
           return reset
         })
@@ -64,7 +95,7 @@ export default function RedistributeBalance({ student }: RedistributeBalanceProp
     })
   }
 
-  if (unallocatedBalance <= 0 || student.groups.length === 0) {
+  if (!hasAnythingToRedistribute || student.groups.length === 0) {
     return null
   }
 
@@ -75,60 +106,122 @@ export default function RedistributeBalance({ student }: RedistributeBalanceProp
         Распределение баланса
       </h3>
 
-      <div className="space-y-1">
-        <div className="flex items-center justify-between text-sm">
-          <span>Нераспределённый баланс</span>
-          <span className="font-semibold">{unallocatedBalance} ур.</span>
-        </div>
-        <div className="flex items-center justify-between text-sm">
-          <span>Уже распределено</span>
-          <span className="font-medium">{allocatedBalance} ур.</span>
-        </div>
+      <div className="space-y-1 text-sm">
+        {unallocatedLessons > 0 && (
+          <div className="flex items-center justify-between">
+            <span>Нераспр. баланс уроков</span>
+            <span className="font-semibold">{unallocatedLessons} ур.</span>
+          </div>
+        )}
+        {unallocatedTotalLessons > 0 && (
+          <div className="flex items-center justify-between">
+            <span>Нераспр. всего уроков</span>
+            <span className="font-semibold">{unallocatedTotalLessons}</span>
+          </div>
+        )}
+        {unallocatedTotalPayments > 0 && (
+          <div className="flex items-center justify-between">
+            <span>Нераспр. сумма оплат</span>
+            <span className="font-semibold">{unallocatedTotalPayments} ₽</span>
+          </div>
+        )}
       </div>
 
-      <FieldGroup>
-        {student.groups.map((sg) => (
-          <Field key={sg.groupId}>
-            <FieldLabel>{getGroupName(sg.group)}</FieldLabel>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min={0}
-                max={unallocatedBalance}
-                value={allocations[sg.groupId] ?? 0}
-                onChange={(e) =>
-                  setAllocations((prev) => ({
-                    ...prev,
-                    [sg.groupId]: Math.max(0, Number(e.target.value)),
-                  }))
-                }
-                disabled={isPending}
-                className="w-24"
-              />
-              <Label className="text-muted-foreground text-sm">
-                текущий: {sg.lessonsBalance} ур.
-              </Label>
+      <div className="space-y-4">
+        {student.groups.map((sg) => {
+          const alloc = allocations[sg.groupId]
+          return (
+            <div key={sg.groupId} className="space-y-2">
+              <Label className="text-sm font-medium">{getGroupName(sg.group)}</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {unallocatedLessons > 0 && (
+                  <Field>
+                    <FieldLabel className="text-xs">Баланс ур.</FieldLabel>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={alloc?.lessons ?? 0}
+                      onChange={(e) => updateField(sg.groupId, 'lessons', Number(e.target.value))}
+                      disabled={isPending}
+                    />
+                    <span className="text-muted-foreground text-xs">
+                      сейчас: {sg.lessonsBalance}
+                    </span>
+                  </Field>
+                )}
+                {unallocatedTotalLessons > 0 && (
+                  <Field>
+                    <FieldLabel className="text-xs">Всего ур.</FieldLabel>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={alloc?.totalLessons ?? 0}
+                      onChange={(e) =>
+                        updateField(sg.groupId, 'totalLessons', Number(e.target.value))
+                      }
+                      disabled={isPending}
+                    />
+                    <span className="text-muted-foreground text-xs">сейчас: {sg.totalLessons}</span>
+                  </Field>
+                )}
+                {unallocatedTotalPayments > 0 && (
+                  <Field>
+                    <FieldLabel className="text-xs">Оплаты ₽</FieldLabel>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={alloc?.totalPayments ?? 0}
+                      onChange={(e) =>
+                        updateField(sg.groupId, 'totalPayments', Number(e.target.value))
+                      }
+                      disabled={isPending}
+                    />
+                    <span className="text-muted-foreground text-xs">
+                      сейчас: {sg.totalPayments}
+                    </span>
+                  </Field>
+                )}
+              </div>
             </div>
-          </Field>
-        ))}
-      </FieldGroup>
+          )
+        })}
+      </div>
 
-      <div className="flex items-center justify-between">
-        <div className="text-sm">
-          {remaining >= 0 ? (
-            <span>
-              Останется нераспределённых: <strong>{remaining}</strong> ур.
+      <div className="space-y-1 text-sm">
+        {unallocatedLessons > 0 && (
+          <div className="flex items-center justify-between">
+            <span>Останется баланс ур.:</span>
+            <span className={remainingLessons < 0 ? 'text-destructive font-medium' : 'font-medium'}>
+              {remainingLessons}
             </span>
-          ) : (
-            <span className="text-destructive font-medium">
-              Превышено на {Math.abs(remaining)} ур.
+          </div>
+        )}
+        {unallocatedTotalLessons > 0 && (
+          <div className="flex items-center justify-between">
+            <span>Останется всего ур.:</span>
+            <span
+              className={remainingTotalLessons < 0 ? 'text-destructive font-medium' : 'font-medium'}
+            >
+              {remainingTotalLessons}
             </span>
-          )}
-        </div>
-        <Button
-          onClick={handleSubmit}
-          disabled={isPending || remaining < 0 || totalToAllocate === 0}
-        >
+          </div>
+        )}
+        {unallocatedTotalPayments > 0 && (
+          <div className="flex items-center justify-between">
+            <span>Останется оплат ₽:</span>
+            <span
+              className={
+                remainingTotalPayments < 0 ? 'text-destructive font-medium' : 'font-medium'
+              }
+            >
+              {remainingTotalPayments}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-end">
+        <Button onClick={handleSubmit} disabled={isPending || hasOverflow || !hasChanges}>
           {isPending && <Loader className="mr-2 animate-spin" />}
           Распределить
         </Button>

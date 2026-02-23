@@ -119,7 +119,15 @@ const columns: ColumnDef<GroupDTO>[] = [
   },
   {
     header: 'Тип',
-    accessorFn: (value) => (value.type === 'GROUP' ? 'Группа' : 'Индивидуальное занятие'),
+    accessorFn: (value) => {
+      const map: Record<string, string> = {
+        GROUP: 'Группа',
+        INDIVIDUAL: 'Индив.',
+        INTENSIVE: 'Интенсив',
+        SPLIT: 'Сплит',
+      }
+      return value.type ? (map[value.type] ?? value.type) : '-'
+    },
   },
   {
     header: 'Ссылка в БО',
