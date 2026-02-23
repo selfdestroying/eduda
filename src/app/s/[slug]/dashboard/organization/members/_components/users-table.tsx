@@ -28,10 +28,10 @@ const columns: ColumnDef<Prisma.MemberGetPayload<{ include: { user: true } }>>[]
   {
     id: 'user',
     header: 'Полное имя',
-    accessorFn: (value) => value.id,
+    accessorFn: (value) => value.userId,
     cell: ({ row }) => (
       <Link
-        href={`/dashboard/organization/members/${row.original.id}`}
+        href={`/dashboard/organization/members/${row.original.userId}`}
         className="text-primary hover:underline"
       >
         {row.original.user.name}
