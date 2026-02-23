@@ -23,6 +23,7 @@ export default async function Page() {
     where: { organizationId: session.organizationId! },
     include: {
       student: true,
+      group: { include: { course: true, location: true } },
     },
     orderBy: { createdAt: 'desc' },
   })
@@ -33,6 +34,13 @@ export default async function Page() {
   const students = await getStudents({
     where: { organizationId: session.organizationId! },
     orderBy: { id: 'asc' },
+    include: {
+      groups: {
+        include: {
+          group: { include: { course: true, location: true } },
+        },
+      },
+    },
   })
 
   return (

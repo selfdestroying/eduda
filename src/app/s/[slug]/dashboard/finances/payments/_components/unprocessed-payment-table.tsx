@@ -53,7 +53,7 @@ import {
   SelectValue,
 } from '@/src/components/ui/select'
 
-import { Student, UnprocessedPayment } from '@/prisma/generated/client'
+import { Prisma, UnprocessedPayment } from '@/prisma/generated/client'
 import { Label } from '@/src/components/ui/label'
 import { cn } from '@/src/lib/utils'
 import UnprocessedPaymentsActions from './unprocessed-payment-actions'
@@ -63,12 +63,22 @@ const filterOptions: TableFilterItem[] = [
   { label: 'Неразобрано', value: 'unresolved' },
 ]
 
+type StudentWithGroups = Prisma.StudentGetPayload<{
+  include: {
+    groups: {
+      include: {
+        group: { include: { course: true; location: true } }
+      }
+    }
+  }
+}>
+
 export default function UnprocessedPaymentTable({
   data,
   students,
 }: {
   data: UnprocessedPayment[]
-  students: Student[]
+  students: StudentWithGroups[]
 }) {
   const columns: ColumnDef<UnprocessedPayment>[] = useMemo(
     () => [
