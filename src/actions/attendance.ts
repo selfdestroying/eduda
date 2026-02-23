@@ -129,15 +129,17 @@ export const updateAttendance = async (payload: Prisma.AttendanceUpdateArgs) => 
         )
 
         if (delta !== 0) {
-          const student = await tx.student.findUnique({
-            where: { id: oldAttendance.studentId },
+          const groupId = oldAttendance.lesson.groupId
+
+          const studentGroup = await tx.studentGroup.findUnique({
+            where: { studentId_groupId: { studentId: oldAttendance.studentId, groupId } },
             select: { lessonsBalance: true },
           })
-          if (!student) throw new Error('Ученик не найден')
+          if (!studentGroup) throw new Error('Ученик не найден в группе')
 
-          const balanceBefore = student.lessonsBalance
-          const updated = await tx.student.update({
-            where: { id: oldAttendance.studentId },
+          const balanceBefore = studentGroup.lessonsBalance
+          const updated = await tx.studentGroup.update({
+            where: { studentId_groupId: { studentId: oldAttendance.studentId, groupId } },
             data: {
               lessonsBalance: delta > 0 ? { increment: delta } : { decrement: Math.abs(delta) },
             },
@@ -170,6 +172,7 @@ export const updateAttendance = async (payload: Prisma.AttendanceUpdateArgs) => 
             organizationId: session.organizationId!,
             studentId: oldAttendance.studentId,
             actorUserId: Number(session.user.id),
+            groupId,
             reason,
             delta: balanceAfter - balanceBefore,
             balanceBefore,
@@ -178,6 +181,7 @@ export const updateAttendance = async (payload: Prisma.AttendanceUpdateArgs) => 
               attendanceId: oldAttendance.id,
               lessonId: oldAttendance.lessonId,
               lessonName,
+              groupId,
 
               oldStatus: oldAttendance.status,
               newStatus: status,
@@ -275,7 +279,7 @@ export const getAbsentStatistics = async (organizationId: number) => {
 
   absences.forEach((att) => {
     const date = toZonedTime(new Date(att.lesson.date), 'Europe/Moscow')
-    const rate = att.student.totalPayments / att.student.totalLessons || averagePrice
+    const rate = studentRates.get(att.studentId) || averagePrice
 
     // Monthly Grouping
     // Key: YYYY-MM

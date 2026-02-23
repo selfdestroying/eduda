@@ -12,6 +12,7 @@ import { protocol, rootDomain } from '../lib/utils'
 export type PaymentsWithStudentAndGroup = Prisma.PaymentGetPayload<{
   include: {
     student: true
+    group: { include: { course: true; location: true } }
   }
 }>
 
@@ -43,26 +44,63 @@ export const cancelPayment = async (payload: Prisma.PaymentDeleteArgs) => {
   await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.delete(payload)
 
-    const student = await tx.student.findUnique({
-      where: { id: payment.studentId },
-      select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
-    })
-    if (!student) throw new Error('Ученик не найден')
+    // Determine where to decrement: per-group or global (legacy)
+    const hasGroup = payment.groupId != null
+    let balancesBefore: { lessonsBalance: number; totalPayments: number; totalLessons: number }
+    let balancesAfter: { lessonsBalance: number; totalPayments: number; totalLessons: number }
 
-    const updated = await tx.student.update({
-      where: { id: payment.studentId },
-      data: {
-        totalLessons: { decrement: payment.lessonCount },
-        totalPayments: { decrement: payment.price },
-        lessonsBalance: { decrement: payment.lessonCount },
-      },
-      select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
-    })
+    if (hasGroup) {
+      const sg = await tx.studentGroup.findUnique({
+        where: {
+          studentId_groupId: { studentId: payment.studentId, groupId: payment.groupId! },
+        },
+        select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
+      })
+      if (!sg) throw new Error('Ученик не найден в группе')
+
+      balancesBefore = sg
+
+      const updatedSg = await tx.studentGroup.update({
+        where: {
+          studentId_groupId: { studentId: payment.studentId, groupId: payment.groupId! },
+        },
+        data: {
+          totalLessons: { decrement: payment.lessonCount },
+          totalPayments: { decrement: payment.price },
+          lessonsBalance: { decrement: payment.lessonCount },
+        },
+        select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
+      })
+
+      balancesAfter = updatedSg
+    } else {
+      // Legacy payments without groupId — decrement global student balance
+      const student = await tx.student.findUnique({
+        where: { id: payment.studentId },
+        select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
+      })
+      if (!student) throw new Error('Ученик не найден')
+
+      balancesBefore = student
+
+      const updated = await tx.student.update({
+        where: { id: payment.studentId },
+        data: {
+          totalLessons: { decrement: payment.lessonCount },
+          totalPayments: { decrement: payment.price },
+          lessonsBalance: { decrement: payment.lessonCount },
+        },
+        select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
+      })
+
+      balancesAfter = updated
+    }
 
     const commonMeta = {
       paymentId: payment.id,
       lessonCount: payment.lessonCount,
       price: payment.price,
+      groupId: payment.groupId,
     }
 
     const fields = [
@@ -81,12 +119,13 @@ export const cancelPayment = async (payload: Prisma.PaymentDeleteArgs) => {
     ]
 
     for (const f of fields) {
-      const before = student[f.key]
-      const after = updated[f.key]
+      const before = balancesBefore[f.key]
+      const after = balancesAfter[f.key]
       await writeFinancialHistoryTx(tx, {
         organizationId: session.organizationId!,
         studentId: payment.studentId,
         actorUserId: Number(session.user.id),
+        groupId: payment.groupId,
         field: f.field,
         reason: StudentLessonsBalanceChangeReason.PAYMENT_CANCELLED,
         delta: after - before,

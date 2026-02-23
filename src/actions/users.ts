@@ -45,7 +45,7 @@ export const updateUser = async (payload: Prisma.UserUpdateArgs, isApplyToLesson
           teacherId: user.id,
           lesson: {
             date: { gt: new Date() },
-            group: { type: 'GROUP' },
+            group: { type: { in: ['GROUP', 'SPLIT'] } },
           },
         },
         data: {
@@ -69,7 +69,7 @@ export const updateUser = async (payload: Prisma.UserUpdateArgs, isApplyToLesson
       await tx.teacherGroup.updateMany({
         where: {
           teacherId: user.id,
-          group: { type: 'GROUP' },
+          group: { type: { in: ['GROUP', 'SPLIT'] } },
         },
         data: {
           bid: user.bidForLesson,

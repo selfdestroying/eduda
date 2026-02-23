@@ -214,6 +214,17 @@ export const deleteStudentGroup = async (payload: Prisma.StudentGroupDeleteArgs)
   await prisma.$transaction(async (tx) => {
     const studentGroup = await tx.studentGroup.delete(payload)
 
+    // Transfer remaining per-group balance back to unallocated (student-level)
+    if (
+      studentGroup.lessonsBalance !== 0 ||
+      studentGroup.totalLessons !== 0 ||
+      studentGroup.totalPayments !== 0
+    ) {
+      // Remaining group balance is preserved as unallocated on the Student record
+      // (Student.lessonsBalance stays unchanged, but the allocated portion decreases)
+      // No additional action needed — the unallocated balance auto-increases
+    }
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
