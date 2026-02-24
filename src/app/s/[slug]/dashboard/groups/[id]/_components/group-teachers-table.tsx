@@ -12,11 +12,7 @@ type TeacherGroupWithRate = Prisma.TeacherGroupGetPayload<{
   include: { teacher: true; rate: true }
 }>
 
-export default function GroupTeachersTable({
-  data,
-}: {
-  data: TeacherGroupWithRate[]
-}) {
+export default function GroupTeachersTable({ data }: { data: TeacherGroupWithRate[] }) {
   const { data: canEdit } = useOrganizationPermissionQuery({ teacherGroup: ['update'] })
   const columns: ColumnDef<TeacherGroupWithRate>[] = useMemo(
     () => [
@@ -33,17 +29,11 @@ export default function GroupTeachersTable({
       },
       {
         header: 'Ставка',
-        cell: ({ row }) => (
-          <div className="flex flex-col">
-            <span className="text-xs font-medium">{row.original.rate.name}</span>
-            <span className="text-muted-foreground text-xs">
-              <BalanceBadge balance={row.original.rate.bid} />
-              {row.original.rate.bonusPerStudent > 0 && (
-                <span> + {row.original.rate.bonusPerStudent} ₽/уч.</span>
-              )}
-            </span>
-          </div>
-        ),
+        cell: ({ row }) => <BalanceBadge balance={row.original.rate.bid} />,
+      },
+      {
+        header: 'Бонус за уч.',
+        cell: ({ row }) => <BalanceBadge balance={row.original.rate.bonusPerStudent} />,
       },
       {
         id: 'actions',

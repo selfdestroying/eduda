@@ -3,6 +3,14 @@ import { Prisma } from '@/prisma/generated/client'
 import { createTeacherLesson } from '@/src/actions/lessons'
 import { Button } from '@/src/components/ui/button'
 import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from '@/src/components/ui/combobox'
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -12,16 +20,8 @@ import {
 } from '@/src/components/ui/dialog'
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/src/components/ui/select'
 import { Skeleton } from '@/src/components/ui/skeleton'
-import { useMemberListQuery } from '@/src/data/member/member-list-query'
+import { useMappedMemberListQuery } from '@/src/data/member/member-list-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus } from 'lucide-react'
@@ -40,11 +40,17 @@ interface AddTeacherToLessonButtonProps {
 }
 
 const LessonTeacherSchema = z.object({
-  teacherId: z.number('Не выбран преподаватель').int().positive(),
-  bid: z
-    .number('Не указана ставка')
-    .int('Ставка должна быть числом')
-    .gte(0, 'Ставка должна быть >= 0'),
+  teacher: z.object(
+    {
+      value: z.string(),
+      label: z.string(),
+    },
+    'Преподаватель не выбран'
+  ),
+  bid: z.number('Не указана ставка').int('Ставка должна быть числом'),
+  bonusPerStudent: z
+    .number('Не указан бонус за ученика')
+    .int('Бонус за ученика должен быть числом'),
 })
 
 type LessonTeacherSchemaType = z.infer<typeof LessonTeacherSchema>
@@ -58,23 +64,27 @@ export default function AddTeacherToLessonButton({ lesson }: AddTeacherToLessonB
   const form = useForm<LessonTeacherSchemaType>({
     resolver: zodResolver(LessonTeacherSchema),
     defaultValues: {
-      teacherId: undefined,
+      teacher: undefined,
       bid:
         lesson.group.type === 'INDIVIDUAL'
           ? 750
           : lesson.group.type === 'GROUP' || lesson.group.type === 'SPLIT'
             ? 1100
             : undefined,
+      bonusPerStudent: 0,
     },
   })
 
   const handleSubmit = (data: LessonTeacherSchemaType) => {
     startTransition(() => {
-      const { ...payload } = data
+      const { teacher, bid, bonusPerStudent, ...payload } = data
       const ok = createTeacherLesson({
         data: {
           organizationId: organizationId!,
           lessonId: lesson.id,
+          teacherId: Number(teacher.value),
+          bid: Number(bid),
+          bonusPerStudent: Number(bonusPerStudent),
           ...payload,
         },
       })
@@ -127,16 +137,23 @@ interface LessonTeacherFormProps {
 }
 
 function LessonTeacherForm({ form, onSubmit, organizationId }: LessonTeacherFormProps) {
-  const { data: members, isLoading: isMembersLoading } = useMemberListQuery(organizationId)
+  const { data: members, isLoading: isMembersLoading } = useMappedMemberListQuery(organizationId)
 
   if (isMembersLoading) {
     return <Skeleton className="h-full w-full" />
+  }
+  if (!members) {
+    return (
+      <div className="h-full w-full">
+        <p>Не найдены преподаватели</p>
+      </div>
+    )
   }
   return (
     <form id="lesson-teacher-form" onSubmit={form.handleSubmit(onSubmit)}>
       <FieldGroup className="gap-2">
         <Controller
-          name="teacherId"
+          name="teacher"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field>
@@ -144,28 +161,23 @@ function LessonTeacherForm({ form, onSubmit, organizationId }: LessonTeacherForm
                 <FieldLabel htmlFor="form-rhf-select-teacher">Преподаватель</FieldLabel>
                 {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </FieldContent>
-              <Select
-                name={field.name}
-                value={field.value?.toString() || ''}
-                onValueChange={(value) => field.onChange(Number(value))}
-                itemToStringLabel={(itemValue) => {
-                  const teacher = members?.find((t) => t.id === Number(itemValue))
-                  return teacher ? teacher.user.name : 'Выберите преподавателя'
-                }}
-              >
-                <SelectTrigger id="form-rhf-select-teacher" aria-invalid={fieldState.invalid}>
-                  <SelectValue placeholder="Выберите преподавателя" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {members?.map((teacher) => (
-                      <SelectItem key={teacher.id} value={teacher.userId.toString()}>
-                        {teacher.user.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <Combobox items={members} onValueChange={field.onChange}>
+                <ComboboxInput
+                  id="form-rhf-select-teacher"
+                  aria-invalid={fieldState.invalid}
+                  placeholder="Выберите преподавателя"
+                />
+                <ComboboxContent>
+                  <ComboboxEmpty>Не найдены преподаватели</ComboboxEmpty>
+                  <ComboboxList>
+                    {(member: (typeof members)[number]) => (
+                      <ComboboxItem key={member.value} value={member}>
+                        {member.label}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
             </Field>
           )}
         />
@@ -181,6 +193,25 @@ function LessonTeacherForm({ form, onSubmit, organizationId }: LessonTeacherForm
               </FieldContent>
               <Input
                 id="form-rhf-input-bid"
+                type="number"
+                {...field}
+                value={field.value ?? ''}
+                onChange={(e) => field.onChange(Number(e.target.value))}
+              />
+            </Field>
+          )}
+        />
+        <Controller
+          name="bonusPerStudent"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field>
+              <FieldContent>
+                <FieldLabel htmlFor="form-rhf-input-bonusPerStudent">Бонус за ученика</FieldLabel>
+                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+              </FieldContent>
+              <Input
+                id="form-rhf-input-bonusPerStudent"
                 type="number"
                 {...field}
                 value={field.value ?? ''}

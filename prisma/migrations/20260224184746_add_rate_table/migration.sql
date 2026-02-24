@@ -1,23 +1,29 @@
--- Migration: Extract Rate as a separate entity
--- 1. Create Rate table
--- 2. Populate Rate from unique (bid, bonusPerStudent, organizationId) combinations in TeacherGroup
--- 3. Add rateId FK to TeacherGroup and link existing rows
--- 4. Drop old columns from TeacherGroup and User
+/*
+  Warnings:
 
--- Step 1: Create Rate table
-CREATE TABLE IF NOT EXISTS "Rate" (
-    "id" SERIAL PRIMARY KEY,
+  - You are about to drop the column `bid` on the `TeacherGroup` table. All the data in the column will be lost.
+  - You are about to drop the column `bonusPerStudent` on the `TeacherGroup` table. All the data in the column will be lost.
+  - You are about to drop the column `bidForIndividual` on the `User` table. All the data in the column will be lost.
+  - You are about to drop the column `bidForLesson` on the `User` table. All the data in the column will be lost.
+  - You are about to drop the column `bonusPerStudent` on the `User` table. All the data in the column will be lost.
+  - Added the required column `rateId` to the `TeacherGroup` table without a default value. This is not possible if the table is not empty.
+
+*/
+
+-- CreateTable
+CREATE TABLE "Rate" (
+    "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "bid" INTEGER NOT NULL,
     "bonusPerStudent" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
     "organizationId" INTEGER NOT NULL,
-    CONSTRAINT "Rate_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-CREATE INDEX "Rate_organizationId_idx" ON "Rate"("organizationId");
 
--- Step 2: Populate Rate from existing TeacherGroup combinations
+    CONSTRAINT "Rate_pkey" PRIMARY KEY ("id")
+);
+
+-- -- Step 2: Populate Rate from existing TeacherGroup combinations
 INSERT INTO "Rate" ("name", "bid", "bonusPerStudent", "organizationId", "updatedAt")
 SELECT DISTINCT
     CASE

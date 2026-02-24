@@ -28,9 +28,10 @@ export const useMappedRateListQuery = (organizationId: number) => {
     select: (rates) =>
       rates.map((rate) => ({
         value: rate.id.toString(),
-        label: rate.bonusPerStudent > 0
-          ? `${rate.name} (${rate.bid} ₽ + ${rate.bonusPerStudent} ₽/уч.)`
-          : `${rate.name} (${rate.bid} ₽)`,
+        label:
+          rate.bonusPerStudent > 0
+            ? `${rate.name} (${rate.bid} ₽ + ${rate.bonusPerStudent} ₽/уч.)`
+            : `${rate.name} (${rate.bid} ₽)`,
       })),
   })
 }
