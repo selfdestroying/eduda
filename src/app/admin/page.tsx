@@ -33,8 +33,6 @@ export default async function Page() {
         banned: true,
         createdAt: true,
         emailVerified: true,
-        bidForLesson: true,
-        bidForIndividual: true,
       },
     }),
   ])

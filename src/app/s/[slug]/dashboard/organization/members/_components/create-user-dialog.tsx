@@ -45,9 +45,6 @@ export default function CreateUserDialog() {
       lastName: '',
       password: '',
       role: undefined,
-      bidForLesson: 1100,
-      bidForIndividual: 750,
-      bonusPerStudent: 0,
     },
   })
 
@@ -62,9 +59,6 @@ export default function CreateUserDialog() {
           data: {
             firstName: values.firstName,
             lastName: values.lastName,
-            bidForLesson: values.bidForLesson,
-            bidForIndividual: values.bidForIndividual,
-            bonusPerStudent: values.bonusPerStudent,
           },
         },
         memberRole: values.role,
@@ -154,16 +148,6 @@ export default function CreateUserDialog() {
                 <Field>
                   <div className="flex w-full items-center justify-between">
                     <FieldLabel htmlFor="password-field">Пароль</FieldLabel>
-                    {/* <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => form.setValue('password', randomUUID().slice(0, 8))}
-                      className="h-auto px-2 py-1 text-xs"
-                    >
-                      <Sparkles className="mr-1 h-3 w-3" />
-                      Сгенерировать
-                    </Button> */}
                   </div>
                   <Input id="password-field" {...field} aria-invalid={fieldState.invalid} />
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
@@ -193,62 +177,6 @@ export default function CreateUserDialog() {
                       </SelectGroup>
                     </SelectContent>
                   </Select>
-                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                </Field>
-              )}
-            />
-            <Controller
-              control={form.control}
-              name="bidForLesson"
-              disabled={isPending}
-              render={({ field, fieldState }) => (
-                <Field>
-                  <FieldLabel htmlFor="bidForLesson-field">Ставка за урок</FieldLabel>
-                  <Input
-                    id="bidForLesson-field"
-                    {...field}
-                    type="number"
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                </Field>
-              )}
-            />
-            <Controller
-              control={form.control}
-              name="bidForIndividual"
-              disabled={isPending}
-              render={({ field, fieldState }) => (
-                <Field>
-                  <FieldLabel htmlFor="bidForIndividual-field">
-                    Ставка за индивидуальное занятие
-                  </FieldLabel>
-                  <Input
-                    id="bidForIndividual-field"
-                    {...field}
-                    type="number"
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                </Field>
-              )}
-            />
-            <Controller
-              control={form.control}
-              name="bonusPerStudent"
-              disabled={isPending}
-              render={({ field, fieldState }) => (
-                <Field>
-                  <FieldLabel htmlFor="bonusPerStudent-field">Бонус за ученика</FieldLabel>
-                  <Input
-                    id="bonusPerStudent-field"
-                    {...field}
-                    type="number"
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                    aria-invalid={fieldState.invalid}
-                  />
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>
               )}

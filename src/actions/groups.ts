@@ -26,22 +26,27 @@ export const createGroup = async (
     const group = await tx.group.create({
       ...payload,
       include: {
-        teachers: { select: { bid: true, bonusPerStudent: true, teacherId: true } },
+        teachers: {
+          select: { teacherId: true, rateId: true },
+          include: { rate: true },
+        },
         lessons: { select: { id: true } },
       },
     })
-    for (const lesson of group.lessons) {
-      await tx.teacherLesson.create({
-        data: {
-          organizationId: group.organizationId,
-          lessonId: lesson.id,
-          teacherId: group.teachers[0].teacherId,
-          bid: group.teachers[0].bid,
-          bonusPerStudent: group.teachers[0].bonusPerStudent,
-        },
-      })
+    const firstTeacher = group.teachers[0]
+    if (firstTeacher) {
+      for (const lesson of group.lessons) {
+        await tx.teacherLesson.create({
+          data: {
+            organizationId: group.organizationId,
+            lessonId: lesson.id,
+            teacherId: firstTeacher.teacherId,
+            bid: firstTeacher.rate.bid,
+            bonusPerStudent: firstTeacher.rate.bonusPerStudent,
+          },
+        })
+      }
     }
-    // Создаём записи расписания
     if (schedule && schedule.length > 0) {
       await tx.groupSchedule.createMany({
         data: schedule.map((s) => ({
@@ -256,7 +261,10 @@ export const updateTeacherGroup = async (
   isApplyToLessons: boolean
 ) => {
   await prisma.$transaction(async (tx) => {
-    const teacherGroup = await tx.teacherGroup.update(payload)
+    const teacherGroup = await tx.teacherGroup.update({
+      ...payload,
+      include: { rate: true },
+    })
 
     if (isApplyToLessons) {
       await tx.teacherLesson.updateMany({
@@ -268,8 +276,8 @@ export const updateTeacherGroup = async (
           },
         },
         data: {
-          bid: teacherGroup.bid,
-          bonusPerStudent: teacherGroup.bonusPerStudent,
+          bid: teacherGroup.rate.bid,
+          bonusPerStudent: teacherGroup.rate.bonusPerStudent,
         },
       })
     }
@@ -286,6 +294,7 @@ export const createTeacherGroup = async (
     const teacherGroup = await tx.teacherGroup.create({
       ...payload,
       include: {
+        rate: true,
         group: {
           include: {
             lessons: {
@@ -305,8 +314,8 @@ export const createTeacherGroup = async (
             organizationId: lesson.organizationId,
             lessonId: lesson.id,
             teacherId: payload.data.teacherId as number,
-            bid: teacherGroup.bid,
-            bonusPerStudent: teacherGroup.bonusPerStudent,
+            bid: teacherGroup.rate.bid,
+            bonusPerStudent: teacherGroup.rate.bonusPerStudent,
           },
         })
       }

@@ -11,6 +11,7 @@ export const statement = {
   paycheck: ['create', 'read', 'update', 'delete'],
   salary: ['readSelf', 'readAll'],
 
+  rate: ['create', 'read', 'update', 'delete'],
   teacherGroup: ['create', 'read', 'update', 'delete'],
   teacherLesson: ['create', 'read', 'update', 'delete'],
   studentGroup: ['create', 'read', 'update', 'delete'],
@@ -29,6 +30,7 @@ export const teacher = ac.newRole({
   paycheck: ['read'],
   salary: ['readSelf'],
 
+  rate: ['read'],
   teacherGroup: ['read'],
   studentGroup: ['read'],
   teacherLesson: ['read'],
@@ -44,6 +46,7 @@ export const manager = ac.newRole({
   member: ['read', 'create', 'update', 'delete'],
   salary: ['readSelf', 'readAll'],
 
+  rate: ['create', 'read', 'update', 'delete'],
   teacherGroup: ['create', 'read', 'update', 'delete'],
   studentGroup: ['create', 'read', 'update', 'delete'],
   teacherLesson: ['create', 'read', 'update', 'delete'],

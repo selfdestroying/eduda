@@ -34,8 +34,6 @@ const createUserSchema = z.object({
   email: z.string().email('Некорректный email'),
   password: z.string().min(8, 'Минимум 8 символов'),
   role: z.enum(['user', 'admin', 'owner']),
-  bidForLesson: z.number().min(0, 'Минимум 0'),
-  bidForIndividual: z.number().min(0, 'Минимум 0'),
 })
 
 type CreateUserFormValues = z.infer<typeof createUserSchema>
@@ -62,8 +60,6 @@ export default function CreateUserDialog({ onSuccess }: CreateUserDialogProps) {
       email: '',
       password: '',
       role: 'user',
-      bidForLesson: 1100,
-      bidForIndividual: 750,
     },
   })
 
@@ -88,8 +84,6 @@ export default function CreateUserDialog({ onSuccess }: CreateUserDialogProps) {
           data: {
             firstName: values.firstName,
             lastName: values.lastName,
-            bidForLesson: values.bidForLesson,
-            bidForIndividual: values.bidForIndividual,
           },
         })
         if (error) throw new Error(error.message)
@@ -204,31 +198,6 @@ export default function CreateUserDialog({ onSuccess }: CreateUserDialogProps) {
                 </Field>
               )}
             />
-
-            <div className="grid grid-cols-2 gap-3">
-              <Controller
-                control={control}
-                name="bidForLesson"
-                render={({ field }) => (
-                  <Field>
-                    <FieldLabel>Ставка (группа)</FieldLabel>
-                    <Input {...field} type="number" placeholder="0" />
-                    <FieldError>{errors.bidForLesson?.message}</FieldError>
-                  </Field>
-                )}
-              />
-              <Controller
-                control={control}
-                name="bidForIndividual"
-                render={({ field }) => (
-                  <Field>
-                    <FieldLabel>Ставка (индив.)</FieldLabel>
-                    <Input {...field} type="number" placeholder="0" />
-                    <FieldError>{errors.bidForIndividual?.message}</FieldError>
-                  </Field>
-                )}
-              />
-            </div>
           </FieldGroup>
 
           <div className="flex justify-end gap-2">

@@ -24,8 +24,6 @@ import type { AdminUser } from './types'
 const editUserSchema = z.object({
   name: z.string().min(1, 'Имя обязательно'),
   email: z.string().email('Некорректный email'),
-  bidForLesson: z.number().min(0, 'Минимум 0'),
-  bidForIndividual: z.number().min(0, 'Минимум 0'),
 })
 
 type EditUserFormValues = z.infer<typeof editUserSchema>
@@ -50,26 +48,19 @@ export default function EditUserDialog({ user, onSuccess, disabled }: EditUserDi
     defaultValues: {
       name: user.name,
       email: user.email,
-      bidForLesson: user.bidForLesson,
-      bidForIndividual: user.bidForIndividual,
     },
   })
 
   const onSubmit = (values: EditUserFormValues) => {
     startTransition(async () => {
       try {
-        await updateUser(
-          {
-            where: { id: user.id },
-            data: {
-              name: values.name,
-              email: values.email,
-              bidForLesson: values.bidForLesson,
-              bidForIndividual: values.bidForIndividual,
-            },
+        await updateUser({
+          where: { id: user.id },
+          data: {
+            name: values.name,
+            email: values.email,
           },
-          false
-        )
+        })
         toast.success('Пользователь обновлён')
         setOpen(false)
         onSuccess()
@@ -85,8 +76,6 @@ export default function EditUserDialog({ user, onSuccess, disabled }: EditUserDi
       reset({
         name: user.name,
         email: user.email,
-        bidForLesson: user.bidForLesson,
-        bidForIndividual: user.bidForIndividual,
       })
     }
   }
@@ -132,31 +121,6 @@ export default function EditUserDialog({ user, onSuccess, disabled }: EditUserDi
                 </Field>
               )}
             />
-
-            <div className="grid grid-cols-2 gap-3">
-              <Controller
-                control={control}
-                name="bidForLesson"
-                render={({ field }) => (
-                  <Field>
-                    <FieldLabel>Ставка (группа)</FieldLabel>
-                    <Input {...field} type="number" placeholder="0" />
-                    <FieldError>{errors.bidForLesson?.message}</FieldError>
-                  </Field>
-                )}
-              />
-              <Controller
-                control={control}
-                name="bidForIndividual"
-                render={({ field }) => (
-                  <Field>
-                    <FieldLabel>Ставка (индив.)</FieldLabel>
-                    <Input {...field} type="number" placeholder="0" />
-                    <FieldError>{errors.bidForIndividual?.message}</FieldError>
-                  </Field>
-                )}
-              />
-            </div>
           </FieldGroup>
 
           <div className="flex justify-end gap-2">

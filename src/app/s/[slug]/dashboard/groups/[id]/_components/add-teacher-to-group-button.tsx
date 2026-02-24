@@ -12,7 +12,6 @@ import {
   DialogTrigger,
 } from '@/src/components/ui/dialog'
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -23,6 +22,7 @@ import {
 } from '@/src/components/ui/select'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { useMemberListQuery } from '@/src/data/member/member-list-query'
+import { useRateListQuery } from '@/src/data/rate/rate-list-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus } from 'lucide-react'
@@ -38,14 +38,7 @@ interface AddTeacherToGroupButtonProps {
 
 const GroupTeacherSchema = z.object({
   teacherId: z.number('Не выбран преподаватель').int().positive(),
-  bid: z
-    .number('Не указана ставка')
-    .int('Ставка должна быть числом')
-    .gte(0, 'Ставка должна быть >= 0'),
-  bonusPerStudent: z
-    .number('Не указан бонус')
-    .int('Бонус должен быть целым числом')
-    .gte(0, 'Бонус должен быть >= 0'),
+  rateId: z.number('Не выбрана ставка').int().positive(),
   isApplyToLesson: z.boolean(),
 })
 
@@ -61,13 +54,7 @@ export default function AddTeacherToGroupButton({ group }: AddTeacherToGroupButt
     resolver: zodResolver(GroupTeacherSchema),
     defaultValues: {
       teacherId: undefined,
-      bid:
-        group.type === 'INDIVIDUAL'
-          ? 750
-          : group.type === 'GROUP' || group.type === 'SPLIT'
-            ? 1100
-            : undefined,
-      bonusPerStudent: 0,
+      rateId: undefined,
       isApplyToLesson: false,
     },
   })
@@ -135,8 +122,9 @@ interface GroupTeacherFormProps {
 
 function GroupTeacherForm({ form, onSubmit, organizationId }: GroupTeacherFormProps) {
   const { data: members, isLoading: isMembersLoading } = useMemberListQuery(organizationId)
+  const { data: rates, isLoading: isRatesLoading } = useRateListQuery(organizationId)
 
-  if (isMembersLoading) {
+  if (isMembersLoading || isRatesLoading) {
     return <Skeleton className="h-full w-full" />
   }
 
@@ -179,39 +167,37 @@ function GroupTeacherForm({ form, onSubmit, organizationId }: GroupTeacherFormPr
         />
 
         <Controller
-          name="bid"
+          name="rateId"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field>
               <FieldContent>
-                <FieldLabel htmlFor="form-rhf-input-bid">Ставка</FieldLabel>
+                <FieldLabel htmlFor="form-rhf-select-rate">Ставка</FieldLabel>
                 {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </FieldContent>
-              <Input
-                id="form-rhf-input-bid"
-                type="number"
-                {...field}
-                onChange={(e) => field.onChange(Number(e.target.value))}
-              />
-            </Field>
-          )}
-        />
-
-        <Controller
-          name="bonusPerStudent"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field>
-              <FieldContent>
-                <FieldLabel htmlFor="form-rhf-input-bonus">Бонус за ученика</FieldLabel>
-                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-              </FieldContent>
-              <Input
-                id="form-rhf-input-bonus"
-                type="number"
-                {...field}
-                onChange={(e) => field.onChange(Number(e.target.value))}
-              />
+              <Select
+                name={field.name}
+                value={field.value?.toString() || ''}
+                onValueChange={(value) => field.onChange(Number(value))}
+                itemToStringLabel={(itemValue) => {
+                  const rate = rates?.find((r) => r.id === Number(itemValue))
+                  return rate ? rate.name : 'Выберите ставку'
+                }}
+              >
+                <SelectTrigger id="form-rhf-select-rate" aria-invalid={fieldState.invalid}>
+                  <SelectValue placeholder="Выберите ставку" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {rates?.map((rate) => (
+                      <SelectItem key={rate.id} value={rate.id.toString()}>
+                        {rate.name} — {rate.bid} ₽
+                        {rate.bonusPerStudent > 0 && ` + ${rate.bonusPerStudent} ₽/уч.`}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </Field>
           )}
         />

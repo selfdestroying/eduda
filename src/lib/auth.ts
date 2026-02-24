@@ -23,8 +23,6 @@ const options = {
     additionalFields: {
       firstName: { type: 'string', required: true },
       lastName: { type: 'string', required: true },
-      bidForLesson: { type: 'number', required: true },
-      bidForIndividual: { type: 'number', required: true },
     },
   },
   session: {

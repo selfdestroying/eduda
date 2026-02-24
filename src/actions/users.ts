@@ -14,9 +14,6 @@ export interface UserCreateParams {
   data: {
     firstName: string
     lastName: string
-    bidForLesson: number
-    bidForIndividual: number
-    bonusPerStudent: number
   }
 }
 
@@ -36,58 +33,7 @@ export const createUser = async (params: UserCreateParams) => {
   return await auth.api.createUser({ body: params, headers: await headers() })
 }
 
-export const updateUser = async (payload: Prisma.UserUpdateArgs, isApplyToLessons: boolean) => {
-  await prisma.$transaction(async (tx) => {
-    const user = await tx.user.update(payload)
-    if (isApplyToLessons) {
-      await tx.teacherLesson.updateMany({
-        where: {
-          teacherId: user.id,
-          lesson: {
-            date: { gt: new Date() },
-            group: { type: { in: ['GROUP', 'SPLIT'] } },
-          },
-        },
-        data: {
-          bid: user.bidForLesson,
-          bonusPerStudent: user.bonusPerStudent,
-        },
-      })
-      await tx.teacherLesson.updateMany({
-        where: {
-          teacherId: user.id,
-          lesson: {
-            date: { gt: new Date() },
-            group: { type: 'INDIVIDUAL' },
-          },
-        },
-        data: {
-          bid: user.bidForIndividual,
-          bonusPerStudent: user.bonusPerStudent,
-        },
-      })
-      await tx.teacherGroup.updateMany({
-        where: {
-          teacherId: user.id,
-          group: { type: { in: ['GROUP', 'SPLIT'] } },
-        },
-        data: {
-          bid: user.bidForLesson,
-          bonusPerStudent: user.bonusPerStudent,
-        },
-      })
-      await tx.teacherGroup.updateMany({
-        where: {
-          teacherId: user.id,
-          group: { type: 'INDIVIDUAL' },
-        },
-        data: {
-          bid: user.bidForIndividual,
-          bonusPerStudent: user.bonusPerStudent,
-        },
-      })
-    }
-  })
-
+export const updateUser = async (payload: Prisma.UserUpdateArgs) => {
+  await prisma.user.update(payload)
   revalidatePath(`dashboard/users/${payload.where.id}`)
 }

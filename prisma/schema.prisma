@@ -10,10 +10,7 @@ datasource db {
 // Better-auth models
 
 model User {
-  id               Int @id @default(autoincrement())
-  bidForLesson     Int
-  bidForIndividual Int
-  bonusPerStudent  Int @default(0)
+  id Int @id @default(autoincrement())
 
   // better-auth fields
   name          String
@@ -100,6 +97,7 @@ model Organization {
   metadata                       String?
   members                        Member[]
   invitations                    Invitation[]
+  rates                          Rate[]
   courses                        Course[]
   locations                      Location[]
   students                       Student[]
@@ -389,7 +387,9 @@ model Dismissed {
   @@index([organizationId])
 }
 
-model TeacherGroup {
+model Rate {
+  id              Int      @id @default(autoincrement())
+  name            String
   bid             Int
   bonusPerStudent Int      @default(0)
   createdAt       DateTime @default(now())
@@ -397,15 +397,30 @@ model TeacherGroup {
 
   // Relations
   organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teacherGroups  TeacherGroup[]
+
+  @@index([organizationId])
+}
+
+model TeacherGroup {
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  organizationId Int
   groupId        Int
   teacherId      Int
+  rateId         Int
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   group          Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
   teacher        User         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  rate           Rate         @relation(fields: [rateId], references: [id])
 
   @@id([teacherId, groupId])
   @@index([groupId])
   @@index([organizationId])
+  @@index([rateId])
 }
 
 model TeacherLesson {

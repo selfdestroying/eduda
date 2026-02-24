@@ -8,8 +8,6 @@ export type AdminUser = {
   banned: boolean | null
   createdAt: Date
   emailVerified: boolean
-  bidForLesson: number
-  bidForIndividual: number
 }
 
 export type AdminOrganization = Prisma.OrganizationGetPayload<{

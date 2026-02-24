@@ -27,6 +27,7 @@ import { Toggle } from '@/src/components/ui/toggle'
 import { useMappedCourseListQuery } from '@/src/data/course/course-list-query'
 import { useMappedLocationListQuery } from '@/src/data/location/location-list-query'
 import { useMappedMemberListQuery, useMemberListQuery } from '@/src/data/member/member-list-query'
+import { useRateListQuery } from '@/src/data/rate/rate-list-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import { DaysOfWeek } from '@/src/lib/utils'
 import { CreateGroupSchema, CreateGroupSchemaType } from '@/src/schemas/group'
@@ -89,6 +90,7 @@ export default function CreateGroupForm() {
     organizationId!
   )
   const { data: members, isLoading: isMembersLoading } = useMemberListQuery(organizationId!)
+  const { data: rates, isLoading: isRatesLoading } = useRateListQuery(organizationId!)
   const [isPending, startTransition] = useTransition()
 
   const form = useForm<CreateGroupSchemaType>({
@@ -101,6 +103,7 @@ export default function CreateGroupForm() {
       course: undefined,
       location: undefined,
       teacher: undefined,
+      rate: undefined,
       lessonCount: undefined,
       maxStudents: 10,
       schedule: [],
@@ -123,15 +126,6 @@ export default function CreateGroupForm() {
     }
   }, [watchedType, form])
 
-  const selectedMember = members?.find((member) => member.userId === Number(watchedTeacher?.value))
-  const teacherBid =
-    watchedType === 'GROUP' || watchedType === 'SPLIT'
-      ? (selectedMember?.user?.bidForLesson ?? 0)
-      : watchedType === 'INDIVIDUAL'
-        ? (selectedMember?.user?.bidForIndividual ?? 0)
-        : null
-  const teacherBonus = selectedMember?.user?.bonusPerStudent ?? 0
-
   const scheduleDays = fields.map((f) => f.dayOfWeek)
   const lastLessonDate = computeLastLessonDate(watchedStartDate, scheduleDays, watchedLessonCount)
 
@@ -151,7 +145,7 @@ export default function CreateGroupForm() {
 
   const onSubmit = (values: CreateGroupSchemaType) => {
     startTransition(() => {
-      const { course, location, teacher, startDate, lessonCount, url, schedule } = values
+      const { course, location, teacher, rate, startDate, lessonCount, url, schedule } = values
       const member = members?.find((m) => m.userId === Number(teacher.value))
 
       const sortedSchedule = [...schedule].sort(
@@ -193,11 +187,7 @@ export default function CreateGroupForm() {
                 {
                   organizationId: organizationId!,
                   teacherId: Number(member?.userId) as number,
-                  bid:
-                    values.type === 'GROUP' || values.type === 'SPLIT'
-                      ? (member?.user?.bidForLesson ?? 0)
-                      : (member?.user.bidForIndividual ?? 0),
-                  bonusPerStudent: member?.user?.bonusPerStudent ?? 0,
+                  rateId: Number(rate.value),
                 },
               ],
             },
@@ -221,7 +211,7 @@ export default function CreateGroupForm() {
     })
   }
 
-  if (isMappedMembersLoading || isLocationsLoading || isCoursesLoading || isMembersLoading) {
+  if (isMappedMembersLoading || isLocationsLoading || isCoursesLoading || isMembersLoading || isRatesLoading) {
     return null
   }
 
@@ -325,12 +315,57 @@ export default function CreateGroupForm() {
                 </SelectContent>
               </Select>
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-              {selectedMember && teacherBid !== null && (
-                <FieldDescription>
-                  Ставка: {teacherBid} ₽ за занятие
-                  {teacherBonus > 0 && ` + ${teacherBonus} ₽ за ученика`}
-                </FieldDescription>
+            </Field>
+          )}
+        />
+        <Controller
+          control={form.control}
+          name="rate"
+          disabled={isPending}
+          render={({ field, fieldState }) => (
+            <Field>
+              <FieldLabel htmlFor="rateId-field">Ставка</FieldLabel>
+              {isRatesLoading ? (
+                <div className="text-muted-foreground text-sm">Загрузка...</div>
+              ) : (
+                <Select
+                  items={
+                    rates?.map((r) => ({
+                      value: r.id.toString(),
+                      label: r.bonusPerStudent > 0
+                        ? `${r.name} (${r.bid} ₽ + ${r.bonusPerStudent} ₽/уч.)`
+                        : `${r.name} (${r.bid} ₽)`,
+                    })) ?? []
+                  }
+                  {...field}
+                  value={field.value || ''}
+                  onValueChange={field.onChange}
+                  isItemEqualToValue={(itemValue, value) => itemValue.value === value.value}
+                >
+                  <SelectTrigger id="rateId-field" aria-invalid={fieldState.invalid}>
+                    <SelectValue placeholder="Выберите ставку" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {rates?.map((r) => (
+                        <SelectItem
+                          key={r.id}
+                          value={{
+                            value: r.id.toString(),
+                            label: r.bonusPerStudent > 0
+                              ? `${r.name} (${r.bid} ₽ + ${r.bonusPerStudent} ₽/уч.)`
+                              : `${r.name} (${r.bid} ₽)`,
+                          }}
+                        >
+                          {r.name} — {r.bid} ₽
+                          {r.bonusPerStudent > 0 && ` + ${r.bonusPerStudent} ₽/уч.`}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               )}
+              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}
         />
