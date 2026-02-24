@@ -34,12 +34,7 @@ export default function LessonTeachersTable({
         },
         {
           header: 'Бонус за уч.',
-          cell: ({ row }) =>
-            row.original.bonusPerStudent > 0 ? (
-              <BalanceBadge balance={row.original.bonusPerStudent} />
-            ) : (
-              <span className="text-muted-foreground">-</span>
-            ),
+          cell: ({ row }) => <BalanceBadge balance={row.original.bonusPerStudent} />,
         },
         {
           id: 'actions',

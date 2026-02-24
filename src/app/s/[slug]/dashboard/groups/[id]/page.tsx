@@ -36,6 +36,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       teachers: {
         include: {
           teacher: true,
+          rate: true,
         },
       },
       students: {

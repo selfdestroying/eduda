@@ -7,7 +7,6 @@ import { Prisma } from '@/prisma/generated/client'
 import { updateUser } from '@/src/actions/users'
 import { memberRoleLabels } from '@/src/components/sidebar/nav-user'
 import { Button } from '@/src/components/ui/button'
-import { Checkbox } from '@/src/components/ui/checkbox'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import {
   Select,
@@ -27,12 +26,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/src/components/ui/sheet'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip'
 import { useIsMobile } from '@/src/hooks/use-mobile'
 import { OrganizationRole } from '@/src/lib/auth'
 import { authClient } from '@/src/lib/auth-client'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { AlertTriangle, Pen } from 'lucide-react'
+import { Pen } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod/v4'
@@ -56,18 +54,7 @@ const EditUserSchema = z.object({
     },
     'Выберите роль'
   ),
-  bidForLesson: z
-    .number('Укажите корректную ставку за урок')
-    .gte(0, 'Бонус не может быть отрицательным'),
-  bidForIndividual: z
-    .number('Укажите корректную ставку за индивидуальное занятие')
-    .gte(0, 'Бонус не может быть отрицательным'),
-  bonusPerStudent: z
-    .number('Укажите корректный бонус за ученика')
-    .int()
-    .gte(0, 'Бонус не может быть отрицательным'),
   banned: z.boolean(),
-  isApplyToLessons: z.boolean(),
 })
 
 type EditUserSchemaType = z.infer<typeof EditUserSchema>
@@ -101,27 +88,20 @@ export default function EditUserButton({
       role: member.user.role
         ? { label: memberRoleLabels[member.role as OrganizationRole], value: member.role }
         : undefined,
-      bidForLesson: member.user.bidForLesson,
-      bidForIndividual: member.user.bidForIndividual,
-      bonusPerStudent: member.user.bonusPerStudent,
-      isApplyToLessons: false,
       banned: member.user.banned !== null ? member.user.banned : undefined,
     },
   })
 
   const onSubmit = (values: EditUserSchemaType) => {
     startTransition(() => {
-      const { role, isApplyToLessons, firstName, lastName, ...payload } = values
-      const ok = updateUser(
-        {
-          where: { id: member.user.id },
-          data: {
-            ...payload,
-            name: `${firstName} ${lastName || ''}`.trim(),
-          },
+      const { role, firstName, lastName, ...payload } = values
+      const ok = updateUser({
+        where: { id: member.user.id },
+        data: {
+          ...payload,
+          name: `${firstName} ${lastName || ''}`.trim(),
         },
-        isApplyToLessons
-      ).then(() =>
+      }).then(() =>
         authClient.organization.updateMemberRole({
           memberId: member.id.toString(),
           role: role.value,
@@ -257,86 +237,6 @@ export default function EditUserButton({
                       </SelectGroup>
                     </SelectContent>
                   </Select>
-                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                </Field>
-              )}
-            />
-
-            <Controller
-              control={form.control}
-              name="bidForLesson"
-              render={({ field, fieldState }) => (
-                <Field>
-                  <FieldLabel>Ставка за групповой урок</FieldLabel>
-                  <Input
-                    type="number"
-                    {...field}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                </Field>
-              )}
-            />
-
-            <Controller
-              control={form.control}
-              name="bidForIndividual"
-              render={({ field, fieldState }) => (
-                <Field>
-                  <FieldLabel>Ставка за индивидуальный урок</FieldLabel>
-                  <Input
-                    type="number"
-                    {...field}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                </Field>
-              )}
-            />
-            <Controller
-              control={form.control}
-              name="bonusPerStudent"
-              render={({ field, fieldState }) => (
-                <Field>
-                  <FieldLabel>Бонус за ученика на уроке</FieldLabel>
-                  <Input
-                    type="number"
-                    {...field}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                </Field>
-              )}
-            />
-            <Controller
-              control={form.control}
-              name="isApplyToLessons"
-              render={({ field, fieldState }) => (
-                <Field orientation={'horizontal'}>
-                  <Checkbox
-                    name={field.name}
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                    aria-invalid={fieldState.invalid}
-                  />
-                  <FieldLabel>
-                    <span>Применить ставки к группам и урокам</span>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <AlertTriangle
-                          className="text-warning h-4 w-4 cursor-help"
-                          aria-label="Бета"
-                        />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Ставки за групповой и индивидуальный урок будут применены ко всем группам и
-                        будущим урокам.
-                      </TooltipContent>
-                    </Tooltip>
-                  </FieldLabel>
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>
               )}

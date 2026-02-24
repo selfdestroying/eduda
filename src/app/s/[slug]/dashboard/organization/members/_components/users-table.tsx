@@ -47,25 +47,7 @@ const columns: ColumnDef<Prisma.MemberGetPayload<{ include: { user: true } }>>[]
       return filterValue.length === 0 || filterValue.includes(row.original.role)
     },
   },
-  {
-    header: 'Ставки',
-    cell: ({ row }) => {
-      const { bidForLesson, bidForIndividual, bonusPerStudent } = row.original.user
-      const parts = [
-        `${bidForLesson?.toLocaleString() ?? '-'}`,
-        `${bidForIndividual?.toLocaleString() ?? '-'}`,
-        `${bonusPerStudent?.toLocaleString() ?? '0'}`,
-      ]
-      return (
-        <span
-          className="text-xs tabular-nums"
-          title={`Группа: ${parts[0]} ₽ / Индив: ${parts[1]} ₽ / Бонус: ${parts[2]} ₽`}
-        >
-          {parts[0]} / {parts[1]} / {parts[2]} ₽
-        </span>
-      )
-    },
-  },
+
   {
     header: 'Статус',
     accessorKey: 'status',

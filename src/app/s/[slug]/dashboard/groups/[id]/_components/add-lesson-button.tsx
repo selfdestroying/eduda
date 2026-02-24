@@ -24,6 +24,7 @@ import {
 } from '@/src/components/ui/select'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { useSessionQuery } from '@/src/data/user/session-query'
+import { timeSlots } from '@/src/shared/time-slots'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'
 import { Plus } from 'lucide-react'
@@ -31,10 +32,11 @@ import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod/v4'
-import { timeSlots } from '@/src/shared/time-slots'
 
 interface AddLessonButtonProps {
-  group: Prisma.GroupGetPayload<{ include: { students: true; teachers: true } }>
+  group: Prisma.GroupGetPayload<{
+    include: { students: true; teachers: { include: { rate: true } } }
+  }>
 }
 
 const AddLessonSchema = z.object({
@@ -66,10 +68,11 @@ export default function AddLessonButton({ group }: AddLessonButtonProps) {
         status: 'UNSPECIFIED' as const,
         comment: '',
       }))
-      const teacherLessons = group.teachers.map((teacher) => ({
+      const teacherLessons = group.teachers.map((teacherGroup) => ({
         organizationId: organizationId!,
-        teacherId: teacher.teacherId,
-        bid: teacher.bid,
+        teacherId: teacherGroup.teacherId,
+        bid: teacherGroup.rate.bid,
+        bonusPerStudent: teacherGroup.rate.bonusPerStudent,
       }))
       const ok = createLesson({
         data: {

@@ -82,7 +82,7 @@ export default function AddPaymentButton({
       label: getGroupName(sg.group),
       value: sg.groupId,
     }))
-  }, [selectedStudent?.value, students])
+  }, [selectedStudent, selectedStudent?.value, students])
 
   const onSubmit = (values: AddPaymentSchemaType) => {
     startTransition(async () => {

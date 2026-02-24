@@ -8,46 +8,40 @@ import { useMemo } from 'react'
 import BalanceBadge from '../../../lessons/[id]/_components/balance-badge'
 import GroupTeacherActions from './group-teachers-actions'
 
-export default function GroupTeachersTable({
-  data,
-}: {
-  data: Prisma.TeacherGroupGetPayload<{ include: { teacher: true } }>[]
-}) {
+type TeacherGroupWithRate = Prisma.TeacherGroupGetPayload<{
+  include: { teacher: true; rate: true }
+}>
+
+export default function GroupTeachersTable({ data }: { data: TeacherGroupWithRate[] }) {
   const { data: canEdit } = useOrganizationPermissionQuery({ teacherGroup: ['update'] })
-  const columns: ColumnDef<Prisma.TeacherGroupGetPayload<{ include: { teacher: true } }>>[] =
-    useMemo(
-      () => [
-        {
-          header: 'Преподаватель',
-          cell: ({ row }) => (
-            <Link
-              href={`/dashboard/organization/members/${row.original.teacher.id}`}
-              className="text-primary hover:underline"
-            >
-              {row.original.teacher.name}
-            </Link>
-          ),
-        },
-        {
-          header: 'Ставка',
-          cell: ({ row }) => <BalanceBadge balance={row.original.bid} />,
-        },
-        {
-          header: 'Бонус за уч.',
-          cell: ({ row }) =>
-            row.original.bonusPerStudent > 0 ? (
-              <BalanceBadge balance={row.original.bonusPerStudent} />
-            ) : (
-              <span className="text-muted-foreground">-</span>
-            ),
-        },
-        {
-          id: 'actions',
-          cell: ({ row }) => (canEdit?.success ? <GroupTeacherActions tg={row.original} /> : null),
-        },
-      ],
-      [canEdit]
-    )
+  const columns: ColumnDef<TeacherGroupWithRate>[] = useMemo(
+    () => [
+      {
+        header: 'Преподаватель',
+        cell: ({ row }) => (
+          <Link
+            href={`/dashboard/organization/members/${row.original.teacher.id}`}
+            className="text-primary hover:underline"
+          >
+            {row.original.teacher.name}
+          </Link>
+        ),
+      },
+      {
+        header: 'Ставка',
+        cell: ({ row }) => <BalanceBadge balance={row.original.rate.bid} />,
+      },
+      {
+        header: 'Бонус за уч.',
+        cell: ({ row }) => <BalanceBadge balance={row.original.rate.bonusPerStudent} />,
+      },
+      {
+        id: 'actions',
+        cell: ({ row }) => (canEdit?.success ? <GroupTeacherActions tg={row.original} /> : null),
+      },
+    ],
+    [canEdit]
+  )
 
   const table = useReactTable({
     data,

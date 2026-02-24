@@ -28,6 +28,11 @@ const navLists: NavGroup[] = [
         url: '/dashboard/organization/members',
         roles: ['owner', 'manager'],
       },
+      {
+        title: 'Ставки',
+        url: '/dashboard/organization/rates',
+        roles: ['owner', 'manager'],
+      },
     ],
   },
   {

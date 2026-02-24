@@ -11,6 +11,13 @@ export const CreateGroupSchema = z.object({
     },
     'Выберите преподавателя'
   ),
+  rate: z.object(
+    {
+      label: z.string(),
+      value: z.string(),
+    },
+    'Выберите ставку'
+  ),
   course: z.object(
     {
       label: z.string(),

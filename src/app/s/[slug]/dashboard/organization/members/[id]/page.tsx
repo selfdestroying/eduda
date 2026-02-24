@@ -95,28 +95,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             <EditUserButton member={member} />
           </CardAction>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4">
-            <div>
-              <div className="text-muted-foreground text-xs">Ставка за урок</div>
-              <div className="text-sm font-bold">
-                {member.user.bidForLesson?.toLocaleString() ?? '-'} ₽
-              </div>
-            </div>
-            <div>
-              <div className="text-muted-foreground text-xs">Ставка за индив.</div>
-              <div className="text-sm font-bold">
-                {member.user.bidForIndividual?.toLocaleString() ?? '-'} ₽
-              </div>
-            </div>
-            <div>
-              <div className="text-muted-foreground text-xs">Бонус за ученика</div>
-              <div className="text-sm font-bold">
-                {member.user.bonusPerStudent?.toLocaleString() ?? '0'} ₽
-              </div>
-            </div>
-          </div>
-        </CardContent>
+        <CardContent />
       </Card>
       <Card>
         <CardHeader>

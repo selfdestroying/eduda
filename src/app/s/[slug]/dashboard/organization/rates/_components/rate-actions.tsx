@@ -1,6 +1,7 @@
 'use client'
+
 import { Prisma } from '@/prisma/generated/client'
-import { deleteTeacherGroup, updateTeacherGroup } from '@/src/actions/groups'
+import { deleteRate, updateRate } from '@/src/actions/rates'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -28,85 +29,57 @@ import {
   DropdownMenuTrigger,
 } from '@/src/components/ui/dropdown-menu'
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Label } from '@/src/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/src/components/ui/select'
-import { Skeleton } from '@/src/components/ui/skeleton'
-import { useRateListQuery } from '@/src/data/rate/rate-list-query'
-import { useSessionQuery } from '@/src/data/user/session-query'
+import { Input } from '@/src/components/ui/input'
+import { EditRateSchema, EditRateSchemaType } from '@/src/schemas/rate'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, MoreVertical, Pen, Trash } from 'lucide-react'
 import { useEffect, useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import z from 'zod/v4'
 
-interface UsersActionsProps {
-  tg: Prisma.TeacherGroupGetPayload<{
-    include: {
-      teacher: true
-      rate: true
-    }
-  }>
+type RateWithCount = Prisma.RateGetPayload<{
+  include: { _count: { select: { teacherGroups: true } } }
+}>
+
+interface RateActionsProps {
+  rate: RateWithCount
 }
 
-const editGroupTeacherSchema = z.object({
-  rateId: z.number('Выберите ставку').int().positive('Выберите ставку'),
-  isApplyToLessons: z.boolean(),
-})
-
-type EditGroupTeacherSchemaType = z.infer<typeof editGroupTeacherSchema>
-
-export default function GroupTeacherActions({ tg }: UsersActionsProps) {
+export default function RateActions({ rate }: RateActionsProps) {
   const [open, setOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [isApplyToLessons, setIsApplyToLessons] = useState(false)
   const [isDeleteDisabled, setIsDeleteDisabled] = useState(false)
   const [deleteCountdown, setDeleteCountdown] = useState(0)
 
-  const { data: session } = useSessionQuery()
-  const organizationId = session?.organizationId
-  const { data: rates, isLoading: isRatesLoading } = useRateListQuery(organizationId!)
-
-  const form = useForm<EditGroupTeacherSchemaType>({
-    resolver: zodResolver(editGroupTeacherSchema),
+  const form = useForm<EditRateSchemaType>({
+    resolver: zodResolver(EditRateSchema),
     defaultValues: {
-      rateId: tg.rateId,
+      name: rate.name,
+      bid: rate.bid,
+      bonusPerStudent: rate.bonusPerStudent,
       isApplyToLessons: false,
     },
   })
 
-  const handleEdit = (data: EditGroupTeacherSchemaType) => {
+  const handleEdit = (data: EditRateSchemaType) => {
     startTransition(() => {
       const { isApplyToLessons, ...payload } = data
-      const ok = updateTeacherGroup(
+      const ok = updateRate(
         {
-          where: {
-            teacherId_groupId: {
-              teacherId: tg.teacherId,
-              groupId: tg.groupId,
-            },
-          },
+          where: { id: rate.id },
           data: payload,
         },
         isApplyToLessons
       )
       toast.promise(ok, {
-        loading: 'Загрузка...',
+        loading: 'Обновление ставки...',
         success: 'Ставка успешно обновлена',
         error: 'Ошибка при обновлении ставки',
         finally: () => {
           setEditDialogOpen(false)
           setOpen(false)
-          setIsApplyToLessons(false)
         },
       })
     })
@@ -114,25 +87,17 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
 
   const handleDelete = () => {
     startTransition(() => {
-      const ok = deleteTeacherGroup(
-        {
-          where: {
-            teacherId_groupId: {
-              teacherId: tg.teacherId,
-              groupId: tg.groupId,
-            },
-          },
-        },
-        isApplyToLessons
-      )
+      const ok = deleteRate({ where: { id: rate.id } })
       toast.promise(ok, {
-        loading: 'Загрузка...',
-        success: 'Учитель успешно удален',
-        error: 'Ошибка при удалении учителя',
+        loading: 'Удаление ставки...',
+        success: 'Ставка удалена',
+        error:
+          rate._count.teacherGroups > 0
+            ? 'Невозможно удалить ставку, которая используется в группах'
+            : 'Ошибка при удалении ставки',
         finally: () => {
           setDeleteDialogOpen(false)
           setOpen(false)
-          setIsApplyToLessons(false)
         },
       })
     })
@@ -158,10 +123,13 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
   }, [deleteDialogOpen])
 
   useEffect(() => {
-    form.reset({ rateId: tg.rateId, isApplyToLessons: false })
-  }, [form, editDialogOpen, tg.rateId])
-
-  const selectedRate = rates?.find((r) => r.id === form.watch('rateId'))
+    form.reset({
+      name: rate.name,
+      bid: rate.bid,
+      bonusPerStudent: rate.bonusPerStudent,
+      isApplyToLessons: false,
+    })
+  }, [form, editDialogOpen, rate])
 
   return (
     <>
@@ -169,7 +137,6 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
         <DropdownMenuTrigger render={<Button variant="ghost" />}>
           <MoreVertical />
         </DropdownMenuTrigger>
-
         <DropdownMenuContent className="w-max">
           <DropdownMenuItem
             onClick={() => {
@@ -201,31 +168,25 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Подтвердите удаление</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены что хотите удалить <b>{tg.teacher.name}</b> из списка преподавателей?
+              Вы уверены что хотите удалить ставку <b>{rate.name}</b>?
+              {rate._count.teacherGroups > 0 && (
+                <>
+                  {' '}
+                  Эта ставка используется в {rate._count.teacherGroups} группе(ах). Сначала
+                  переназначьте ставки в этих группах.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
-
-          <Label className="hover:bg-accent/50 flex items-start gap-2 rounded-lg border p-2 has-aria-checked:border-violet-600 has-aria-checked:bg-violet-50 dark:has-aria-checked:border-violet-900 dark:has-aria-checked:bg-violet-950">
-            <Checkbox
-              defaultChecked={isApplyToLessons}
-              checked={isApplyToLessons}
-              onCheckedChange={(checked) => setIsApplyToLessons(Boolean(checked))}
-              className="data-[state=checked]:border-violet-600 data-[state=checked]:bg-violet-600 data-[state=checked]:text-white dark:data-[state=checked]:border-violet-700 dark:data-[state=checked]:bg-violet-700"
-            />
-            <div className="grid gap-2 font-normal">
-              <p className="text-sm leading-none font-medium">Применить к урокам</p>
-            </div>
-          </Label>
-
           <AlertDialogFooter>
-            <Button variant={'secondary'} size={'sm'} onClick={() => setDeleteDialogOpen(false)}>
+            <Button variant="secondary" size="sm" onClick={() => setDeleteDialogOpen(false)}>
               Отмена
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
-              disabled={isPending || isDeleteDisabled}
-              size={'sm'}
+              disabled={isPending || isDeleteDisabled || rate._count.teacherGroups > 0}
+              size="sm"
             >
               {isPending ? (
                 <Loader2 className="animate-spin" />
@@ -242,55 +203,60 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Редактировать</DialogTitle>
-            <DialogDescription>{tg.teacher.name}</DialogDescription>
+            <DialogTitle>Редактировать ставку</DialogTitle>
+            <DialogDescription>{rate.name}</DialogDescription>
           </DialogHeader>
 
-          <form id="teacher-group-edit-form" onSubmit={form.handleSubmit(handleEdit)}>
+          <form id="rate-edit-form" onSubmit={form.handleSubmit(handleEdit)}>
             <FieldGroup className="gap-2">
               <Controller
-                name="rateId"
+                name="name"
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field>
                     <FieldContent>
-                      <FieldLabel htmlFor="form-rhf-select-rate">Ставка</FieldLabel>
+                      <FieldLabel htmlFor="form-rate-name">Название</FieldLabel>
                       {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                     </FieldContent>
-                    {isRatesLoading ? (
-                      <Skeleton className="h-9 w-full" />
-                    ) : (
-                      <Select
-                        name={field.name}
-                        value={field.value?.toString() || ''}
-                        onValueChange={(value) => field.onChange(Number(value))}
-                        itemToStringLabel={(itemValue) => {
-                          const rate = rates?.find((r) => r.id === Number(itemValue))
-                          return rate ? rate.name : 'Выберите ставку'
-                        }}
-                      >
-                        <SelectTrigger id="form-rhf-select-rate" aria-invalid={fieldState.invalid}>
-                          <SelectValue placeholder="Выберите ставку" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {rates?.map((rate) => (
-                              <SelectItem key={rate.id} value={rate.id.toString()}>
-                                {rate.name} — {rate.bid} ₽
-                                {rate.bonusPerStudent > 0 && ` + ${rate.bonusPerStudent} ₽/уч.`}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    )}
-                    {selectedRate && (
-                      <p className="text-muted-foreground text-xs">
-                        {selectedRate.bid} ₽ за урок
-                        {selectedRate.bonusPerStudent > 0 &&
-                          ` + ${selectedRate.bonusPerStudent} ₽ за ученика`}
-                      </p>
-                    )}
+                    <Input id="form-rate-name" {...field} />
+                  </Field>
+                )}
+              />
+
+              <Controller
+                name="bid"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field>
+                    <FieldContent>
+                      <FieldLabel htmlFor="form-rate-bid">Ставка за урок (₽)</FieldLabel>
+                      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </FieldContent>
+                    <Input
+                      id="form-rate-bid"
+                      type="number"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
+                  </Field>
+                )}
+              />
+
+              <Controller
+                name="bonusPerStudent"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field>
+                    <FieldContent>
+                      <FieldLabel htmlFor="form-rate-bonus">Бонус за ученика (₽)</FieldLabel>
+                      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </FieldContent>
+                    <Input
+                      id="form-rate-bonus"
+                      type="number"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
                   </Field>
                 )}
               />
@@ -302,18 +268,23 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
                   <Field>
                     <Field orientation="horizontal">
                       <FieldLabel
-                        htmlFor="toggle-apply-to-lessons"
+                        htmlFor="toggle-apply-rate-to-lessons"
                         className="hover:bg-accent/50 flex items-start gap-2 rounded-lg border p-2 has-aria-checked:border-violet-600 has-aria-checked:bg-violet-50 dark:has-aria-checked:border-violet-900 dark:has-aria-checked:bg-violet-950"
                       >
                         <Checkbox
-                          id="toggle-apply-to-lessons"
+                          id="toggle-apply-rate-to-lessons"
                           name={field.name}
                           checked={field.value}
                           onCheckedChange={field.onChange}
                           className="data-[state=checked]:border-violet-600 data-[state=checked]:bg-violet-600 data-[state=checked]:text-white dark:data-[state=checked]:border-violet-700 dark:data-[state=checked]:bg-violet-700"
                         />
                         <div className="grid gap-2 font-normal">
-                          <p className="text-sm leading-none font-medium">Применить к урокам</p>
+                          <p className="text-sm leading-none font-medium">
+                            Применить к будущим урокам
+                          </p>
+                          <p className="text-muted-foreground text-xs">
+                            Обновит ставки во всех будущих уроках, привязанных к этой ставке
+                          </p>
                         </div>
                       </FieldLabel>
                     </Field>
@@ -324,9 +295,9 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
           </form>
 
           <DialogFooter>
-            <DialogClose render={<Button variant="secondary" size={'sm'} />}>Отмена</DialogClose>
-            <Button type="submit" size={'sm'} form="teacher-group-edit-form" disabled={isPending}>
-              Подтвердить
+            <DialogClose render={<Button variant="secondary" size="sm" />}>Отмена</DialogClose>
+            <Button type="submit" size="sm" form="rate-edit-form" disabled={isPending}>
+              Сохранить
             </Button>
           </DialogFooter>
         </DialogContent>

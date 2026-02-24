@@ -4,6 +4,14 @@ import { createTeacherGroup } from '@/src/actions/groups'
 import { Button } from '@/src/components/ui/button'
 import { Checkbox } from '@/src/components/ui/checkbox'
 import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from '@/src/components/ui/combobox'
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -12,17 +20,9 @@ import {
   DialogTrigger,
 } from '@/src/components/ui/dialog'
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/src/components/ui/select'
 import { Skeleton } from '@/src/components/ui/skeleton'
-import { useMemberListQuery } from '@/src/data/member/member-list-query'
+import { useMappedMemberListQuery } from '@/src/data/member/member-list-query'
+import { useMappedRateListQuery } from '@/src/data/rate/rate-list-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus } from 'lucide-react'
@@ -37,15 +37,20 @@ interface AddTeacherToGroupButtonProps {
 }
 
 const GroupTeacherSchema = z.object({
-  teacherId: z.number('Не выбран преподаватель').int().positive(),
-  bid: z
-    .number('Не указана ставка')
-    .int('Ставка должна быть числом')
-    .gte(0, 'Ставка должна быть >= 0'),
-  bonusPerStudent: z
-    .number('Не указан бонус')
-    .int('Бонус должен быть целым числом')
-    .gte(0, 'Бонус должен быть >= 0'),
+  teacher: z.object(
+    {
+      value: z.string(),
+      label: z.string(),
+    },
+    'Преподаватель не выбран'
+  ),
+  rate: z.object(
+    {
+      value: z.string(),
+      label: z.string(),
+    },
+    'Ставка не выбрана'
+  ),
   isApplyToLesson: z.boolean(),
 })
 
@@ -60,26 +65,22 @@ export default function AddTeacherToGroupButton({ group }: AddTeacherToGroupButt
   const form = useForm<GroupTeacherSchemaType>({
     resolver: zodResolver(GroupTeacherSchema),
     defaultValues: {
-      teacherId: undefined,
-      bid:
-        group.type === 'INDIVIDUAL'
-          ? 750
-          : group.type === 'GROUP' || group.type === 'SPLIT'
-            ? 1100
-            : undefined,
-      bonusPerStudent: 0,
+      teacher: undefined,
+      rate: undefined,
       isApplyToLesson: false,
     },
   })
 
   const handleSubmit = (data: GroupTeacherSchemaType) => {
     startTransition(() => {
-      const { isApplyToLesson, ...payload } = data
+      const { isApplyToLesson, teacher, rate, ...payload } = data
       const ok = createTeacherGroup(
         {
           data: {
             organizationId: group.organizationId,
             groupId: group.id,
+            teacherId: Number(teacher.value),
+            rateId: Number(rate.value),
             ...payload,
           },
         },
@@ -134,17 +135,26 @@ interface GroupTeacherFormProps {
 }
 
 function GroupTeacherForm({ form, onSubmit, organizationId }: GroupTeacherFormProps) {
-  const { data: members, isLoading: isMembersLoading } = useMemberListQuery(organizationId)
+  const { data: members, isLoading: isMembersLoading } = useMappedMemberListQuery(organizationId)
+  const { data: rates, isLoading: isRatesLoading } = useMappedRateListQuery(organizationId)
 
-  if (isMembersLoading) {
+  if (isMembersLoading || isRatesLoading) {
     return <Skeleton className="h-full w-full" />
+  }
+
+  if (!members || !rates) {
+    return (
+      <div className="h-full w-full">
+        <p>Не найдены преподаватели или ставки</p>
+      </div>
+    )
   }
 
   return (
     <form id="group-teacher-form" onSubmit={form.handleSubmit(onSubmit)}>
       <FieldGroup className="gap-2">
         <Controller
-          name="teacherId"
+          name="teacher"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field>
@@ -152,66 +162,53 @@ function GroupTeacherForm({ form, onSubmit, organizationId }: GroupTeacherFormPr
                 <FieldLabel htmlFor="form-rhf-select-teacher">Преподаватель</FieldLabel>
                 {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </FieldContent>
-              <Select
-                name={field.name}
-                value={field.value?.toString() || ''}
-                onValueChange={(value) => field.onChange(Number(value))}
-                itemToStringLabel={(itemValue) => {
-                  const teacher = members?.find((t) => t.userId === Number(itemValue))
-                  return teacher ? `${teacher.user.name}` : 'Выберите преподавателя'
-                }}
-              >
-                <SelectTrigger id="form-rhf-select-teacher" aria-invalid={fieldState.invalid}>
-                  <SelectValue placeholder="Выберите преподавателя" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {members?.map((teacher) => (
-                      <SelectItem key={teacher.id} value={teacher.userId.toString()}>
-                        {teacher.user.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <Combobox items={members} onValueChange={field.onChange}>
+                <ComboboxInput
+                  id="form-rhf-select-teacher"
+                  aria-invalid={fieldState.invalid}
+                  placeholder="Выберите преподавателя"
+                />
+                <ComboboxContent>
+                  <ComboboxEmpty>Не найдены преподаватели</ComboboxEmpty>
+                  <ComboboxList>
+                    {(member: (typeof members)[number]) => (
+                      <ComboboxItem key={member.value} value={member}>
+                        {member.label}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
             </Field>
           )}
         />
 
         <Controller
-          name="bid"
+          name="rate"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field>
               <FieldContent>
-                <FieldLabel htmlFor="form-rhf-input-bid">Ставка</FieldLabel>
+                <FieldLabel htmlFor="form-rhf-select-rate">Ставка</FieldLabel>
                 {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </FieldContent>
-              <Input
-                id="form-rhf-input-bid"
-                type="number"
-                {...field}
-                onChange={(e) => field.onChange(Number(e.target.value))}
-              />
-            </Field>
-          )}
-        />
-
-        <Controller
-          name="bonusPerStudent"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field>
-              <FieldContent>
-                <FieldLabel htmlFor="form-rhf-input-bonus">Бонус за ученика</FieldLabel>
-                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-              </FieldContent>
-              <Input
-                id="form-rhf-input-bonus"
-                type="number"
-                {...field}
-                onChange={(e) => field.onChange(Number(e.target.value))}
-              />
+              <Combobox items={rates} onValueChange={field.onChange}>
+                <ComboboxInput
+                  id="form-rhf-select-teacher"
+                  aria-invalid={fieldState.invalid}
+                  placeholder="Выберите преподавателя"
+                />
+                <ComboboxContent>
+                  <ComboboxEmpty>Не найдены преподаватели</ComboboxEmpty>
+                  <ComboboxList>
+                    {(rate: (typeof rates)[number]) => (
+                      <ComboboxItem key={rate.value} value={rate}>
+                        {rate.label}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
             </Field>
           )}
         />
