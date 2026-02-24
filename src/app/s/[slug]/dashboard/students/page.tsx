@@ -28,6 +28,9 @@ export default async function Page() {
     where: {
       organizationId: session.organizationId!,
     },
+    include: {
+      groups: true,
+    },
   })
 
   const { success: canCreate } = await auth.api.hasPermission({

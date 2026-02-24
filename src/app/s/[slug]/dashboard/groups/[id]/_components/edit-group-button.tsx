@@ -226,15 +226,15 @@ function EditGroupForm({ form, onSubmit, organizationId }: EditGroupFormProps) {
                 name={field.name}
                 value={field.value?.toString() || ''}
                 onValueChange={field.onChange}
-                itemToStringLabel={(itemValue) =>
-                  itemValue === GroupType.GROUP
-                    ? 'Группа'
-                    : itemValue === GroupType.INDIVIDUAL
-                      ? 'Индив.'
-                      : itemValue === GroupType.INTENSIVE
-                        ? 'Интенсив'
-                        : ''
-                }
+                itemToStringLabel={(itemValue) => {
+                  const map: Record<string, string> = {
+                    [GroupType.GROUP]: 'Группа',
+                    [GroupType.INDIVIDUAL]: 'Индив.',
+                    [GroupType.INTENSIVE]: 'Интенсив',
+                    [GroupType.SPLIT]: 'Сплит',
+                  }
+                  return map[itemValue] ?? ''
+                }}
               >
                 <SelectTrigger id="form-rhf-select-type" aria-invalid={fieldState.invalid}>
                   <SelectValue placeholder="Выберите тип" />
@@ -249,6 +249,9 @@ function EditGroupForm({ form, onSubmit, organizationId }: EditGroupFormProps) {
                     </SelectItem>
                     <SelectItem key={GroupType.INTENSIVE} value={GroupType.INTENSIVE}>
                       Интенсив
+                    </SelectItem>
+                    <SelectItem key={GroupType.SPLIT} value={GroupType.SPLIT}>
+                      Сплит
                     </SelectItem>
                   </SelectGroup>
                 </SelectContent>

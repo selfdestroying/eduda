@@ -13,7 +13,7 @@ import {
   updateAttendance,
 } from '@/src/actions/attendance'
 import { createMakeUp } from '@/src/actions/makeup'
-import { updateStudent } from '@/src/actions/students'
+import { updateStudentGroupBalance } from '@/src/actions/students'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -138,11 +138,12 @@ const AttendanceActions = ({ attendance }: { attendance: AttendanceWithStudents 
             missedAttendanceId: attendance.id,
             makeUpAttendanceId: a.id,
           })
-          await updateStudent(
-            {
-              where: { id: attendance.studentId, organizationId: organizationId! },
-              data: { lessonsBalance: { increment: 1 } },
-            },
+          // Credit +1 to the ORIGINAL group (where student missed)
+          const originalGroupId = attendance.lesson.groupId
+          await updateStudentGroupBalance(
+            attendance.studentId,
+            originalGroupId,
+            { lessonsBalance: { increment: 1 } },
             {
               [StudentFinancialField.LESSONS_BALANCE]: {
                 reason: StudentLessonsBalanceChangeReason.MAKEUP_GRANTED,
@@ -151,6 +152,7 @@ const AttendanceActions = ({ attendance }: { attendance: AttendanceWithStudents 
                   makeUpAttendanceId: a.id,
                   makeUpLessonId: selectedLesson?.value,
                   makeUpLessonName: selectedLesson.label,
+                  originalGroupId,
                 },
               },
             }

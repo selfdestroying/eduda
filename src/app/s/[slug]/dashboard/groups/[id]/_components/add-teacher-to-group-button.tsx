@@ -61,7 +61,12 @@ export default function AddTeacherToGroupButton({ group }: AddTeacherToGroupButt
     resolver: zodResolver(GroupTeacherSchema),
     defaultValues: {
       teacherId: undefined,
-      bid: group.type === 'INDIVIDUAL' ? 750 : group.type === 'GROUP' ? 1100 : undefined,
+      bid:
+        group.type === 'INDIVIDUAL'
+          ? 750
+          : group.type === 'GROUP' || group.type === 'SPLIT'
+            ? 1100
+            : undefined,
       bonusPerStudent: 0,
       isApplyToLesson: false,
     },

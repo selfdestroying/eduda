@@ -1,5 +1,5 @@
 'use client'
-import { Student } from '@/prisma/generated/client'
+import { Prisma } from '@/prisma/generated/client'
 import DataTable from '@/src/components/data-table'
 import { Input } from '@/src/components/ui/input'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
@@ -16,7 +16,13 @@ import {
 } from '@tanstack/react-table'
 import Link from 'next/link'
 
-const columns: ColumnDef<Student>[] = [
+type StudentWithGroups = Prisma.StudentGetPayload<{ include: { groups: true } }>
+
+function getAggregateBalance(student: StudentWithGroups) {
+  return student.groups.reduce((sum, sg) => sum + sg.lessonsBalance, 0) + student.lessonsBalance
+}
+
+const columns: ColumnDef<StudentWithGroups>[] = [
   {
     header: 'Имя',
     accessorFn: (value) => value.id,
@@ -35,20 +41,21 @@ const columns: ColumnDef<Student>[] = [
   },
   {
     header: 'Всего оплат',
-    accessorKey: 'totalPayments',
+    accessorFn: (row) =>
+      row.groups.reduce((sum, sg) => sum + sg.totalPayments, 0) + row.totalPayments,
   },
   {
     header: 'Всего уроков',
-    accessorKey: 'totalLessons',
+    accessorFn: (row) =>
+      row.groups.reduce((sum, sg) => sum + sg.totalLessons, 0) + row.totalLessons,
   },
   {
     header: 'Баланс уроков',
-    accessorKey: 'lessonsBalance',
-    cell: ({ row }) => (
-      <span className={row.original.lessonsBalance < 2 ? 'text-destructive' : undefined}>
-        {row.original.lessonsBalance}
-      </span>
-    ),
+    accessorFn: (row) => getAggregateBalance(row),
+    cell: ({ row }) => {
+      const balance = getAggregateBalance(row.original)
+      return <span className={balance < 2 ? 'text-destructive' : undefined}>{balance}</span>
+    },
   },
   {
     header: 'Имя родителя',
@@ -68,7 +75,7 @@ const columns: ColumnDef<Student>[] = [
   },
 ]
 
-export default function StudentsTable({ data }: { data: Student[] }) {
+export default function StudentsTable({ data }: { data: StudentWithGroups[] }) {
   const { globalFilter, setGlobalFilter, pagination, setPagination, sorting, setSorting } =
     useTableSearchParams({
       search: true,

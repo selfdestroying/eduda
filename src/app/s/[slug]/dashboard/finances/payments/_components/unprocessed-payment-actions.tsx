@@ -1,9 +1,9 @@
 'use client'
 
-import { Student, UnprocessedPayment } from '@/prisma/generated/client'
+import { Prisma, UnprocessedPayment } from '@/prisma/generated/client'
 import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@/prisma/generated/enums'
 import { deleteUnprocessedPayment, updateUnprocessedPayment } from '@/src/actions/payments'
-import { updateStudent } from '@/src/actions/students'
+import { updateStudentGroupBalance } from '@/src/actions/students'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -37,16 +37,26 @@ import {
 } from '@/src/components/ui/dropdown-menu'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
-import { getFullName } from '@/src/lib/utils'
+import { getFullName, getGroupName } from '@/src/lib/utils'
 import { AddPaymentSchema, AddPaymentSchemaType } from '@/src/schemas/payments'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Check, CircleX, Loader2, MoreVertical } from 'lucide-react'
 import { useMemo, useState, useTransition } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 
+type StudentWithGroups = Prisma.StudentGetPayload<{
+  include: {
+    groups: {
+      include: {
+        group: { include: { course: true; location: true } }
+      }
+    }
+  }
+}>
+
 interface PaymentsActionsProps {
-  students: Student[]
+  students: StudentWithGroups[]
   unprocessedPayment: UnprocessedPayment
 }
 
@@ -77,59 +87,57 @@ export default function UnprocessedPaymentsActions({
     },
   })
 
+  const selectedStudent = useWatch({ control: form.control, name: 'student' })
+
+  const mappedGroups = useMemo(() => {
+    if (!selectedStudent?.value) return []
+    const student = students.find((s) => s.id === selectedStudent.value)
+    if (!student) return []
+    return student.groups.map((sg) => ({
+      label: getGroupName(sg.group),
+      value: sg.groupId,
+    }))
+  }, [selectedStudent?.value, students])
+
   const onSubmit = (values: AddPaymentSchemaType) => {
     startTransition(() => {
-      const { student, ...payload } = values
-      const ok = updateStudent(
+      const { student, group, ...payload } = values
+      const paymentMeta = {
+        lessonCount: payload.lessonCount,
+        price: payload.price,
+        leadName: payload.leadName,
+        productName: payload.productName,
+        groupId: group.value,
+        unprocessedPaymentId: unprocessedPayment.id,
+      }
+      const ok = updateStudentGroupBalance(
+        student.value,
+        group.value,
         {
-          where: { id: student.value },
-          data: {
-            lessonsBalance: { increment: payload.lessonCount },
-            totalLessons: { increment: payload.lessonCount },
-            totalPayments: { increment: payload.price },
-            payments: {
-              create: {
-                organizationId: unprocessedPayment.organizationId,
-                lessonCount: payload.lessonCount,
-                price: payload.price,
-                bidForLesson: payload.price / payload.lessonCount,
-                leadName: payload.leadName,
-                productName: payload.productName,
-              },
-            },
-          },
+          lessonsBalance: { increment: payload.lessonCount },
+          totalLessons: { increment: payload.lessonCount },
+          totalPayments: { increment: payload.price },
         },
         {
           [StudentFinancialField.LESSONS_BALANCE]: {
             reason: StudentLessonsBalanceChangeReason.PAYMENT_CREATED,
-            meta: {
-              lessonCount: payload.lessonCount,
-              price: payload.price,
-              leadName: payload.leadName,
-              productName: payload.productName,
-              unprocessedPaymentId: unprocessedPayment.id,
-            },
+            meta: paymentMeta,
           },
           [StudentFinancialField.TOTAL_PAYMENTS]: {
             reason: StudentLessonsBalanceChangeReason.PAYMENT_CREATED,
-            meta: {
-              lessonCount: payload.lessonCount,
-              price: payload.price,
-              leadName: payload.leadName,
-              productName: payload.productName,
-              unprocessedPaymentId: unprocessedPayment.id,
-            },
+            meta: paymentMeta,
           },
           [StudentFinancialField.TOTAL_LESSONS]: {
             reason: StudentLessonsBalanceChangeReason.PAYMENT_CREATED,
-            meta: {
-              lessonCount: payload.lessonCount,
-              price: payload.price,
-              leadName: payload.leadName,
-              productName: payload.productName,
-              unprocessedPaymentId: unprocessedPayment.id,
-            },
+            meta: paymentMeta,
           },
+        },
+        {
+          lessonCount: payload.lessonCount,
+          price: payload.price,
+          bidForLesson: payload.price / payload.lessonCount,
+          leadName: payload.leadName,
+          productName: payload.productName,
         }
       ).then(() =>
         updateUnprocessedPayment({
@@ -239,6 +247,40 @@ export default function UnprocessedPaymentsActions({
                       />
                       <ComboboxContent>
                         <ComboboxEmpty>Нет доступных студентов</ComboboxEmpty>
+                        <ComboboxList>
+                          {(item) => (
+                            <ComboboxItem key={item.value} value={item}>
+                              {item.label}
+                            </ComboboxItem>
+                          )}
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </Combobox>
+                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                  </Field>
+                )}
+              />
+              <Controller
+                name="group"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field>
+                    <FieldLabel htmlFor="form-rhf-select-group">Группа</FieldLabel>
+                    <Combobox
+                      items={mappedGroups}
+                      value={field.value || ''}
+                      onValueChange={field.onChange}
+                      isItemEqualToValue={(itemValue, selectedValue) =>
+                        itemValue.value === selectedValue.value
+                      }
+                    >
+                      <ComboboxInput
+                        id="form-rhf-select-group"
+                        aria-invalid={fieldState.invalid}
+                        disabled={!selectedStudent?.value}
+                      />
+                      <ComboboxContent>
+                        <ComboboxEmpty>Нет доступных групп</ComboboxEmpty>
                         <ComboboxList>
                           {(item) => (
                             <ComboboxItem key={item.value} value={item}>

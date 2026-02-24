@@ -122,19 +122,19 @@ const columns: ColumnDef<ActiveStudent>[] = [
     },
   },
   {
-    header: 'Всего оплат',
-    accessorKey: 'student.totalPayments',
+    header: 'Оплат',
+    accessorFn: (row) => row.totalPayments,
   },
   {
-    header: 'Всего уроков',
-    accessorKey: 'student.totalLessons',
+    header: 'Уроков',
+    accessorFn: (row) => row.totalLessons,
   },
   {
     header: 'Баланс уроков',
-    accessorKey: 'student.lessonsBalance',
+    accessorFn: (row) => row.lessonsBalance,
     cell: ({ row }) => (
-      <span className={row.original.student.lessonsBalance < 2 ? 'text-destructive' : undefined}>
-        {row.original.student.lessonsBalance}
+      <span className={row.original.lessonsBalance < 2 ? 'text-destructive' : undefined}>
+        {row.original.lessonsBalance}
       </span>
     ),
   },

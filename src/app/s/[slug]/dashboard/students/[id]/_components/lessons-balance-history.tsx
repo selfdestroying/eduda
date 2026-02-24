@@ -50,6 +50,13 @@ type HistoryRow = {
   comment: string | null
   actorUser: User | null
   meta: JsonValue | null
+  group: {
+    id: number
+    course: { name: string }
+    location?: { name: string } | null
+    dayOfWeek?: number | null
+    time?: string | null
+  } | null
 }
 
 const reasonLabel: Record<StudentLessonsBalanceChangeReason, string> = {
@@ -63,6 +70,7 @@ const reasonLabel: Record<StudentLessonsBalanceChangeReason, string> = {
   MANUAL_SET: 'Ручная правка',
   TOTAL_PAYMENTS_MANUAL_SET: 'Ручная правка (сумма оплат)',
   TOTAL_LESSONS_MANUAL_SET: 'Ручная правка (всего уроков)',
+  BALANCE_REDISTRIBUTED: 'Перераспределение баланса',
 }
 
 const fieldLabel: Record<StudentFinancialField, string> = {
@@ -192,6 +200,19 @@ const columns: ColumnDef<HistoryRow>[] = [
         {toZonedTime(new Date(row.original.createdAt), 'Europe/Moscow').toLocaleString('ru-RU')}
       </span>
     ),
+  },
+  {
+    header: 'Группа',
+    cell: ({ row }) => {
+      const group = row.original.group
+      if (!group) return <span className="text-muted-foreground">—</span>
+      const name = group.course.name + (group.location ? ` (${group.location.name})` : '')
+      return (
+        <Link href={`/dashboard/groups/${group.id}`} className="text-primary hover:underline">
+          {name}
+        </Link>
+      )
+    },
   },
   {
     header: 'Поле',
