@@ -47,7 +47,7 @@ const columns: ColumnDef<Prisma.MemberGetPayload<{ include: { user: true } }>>[]
       return filterValue.length === 0 || filterValue.includes(row.original.role)
     },
   },
-  
+
   {
     header: 'Статус',
     accessorKey: 'status',

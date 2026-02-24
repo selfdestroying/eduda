@@ -211,7 +211,13 @@ export default function CreateGroupForm() {
     })
   }
 
-  if (isMappedMembersLoading || isLocationsLoading || isCoursesLoading || isMembersLoading || isRatesLoading) {
+  if (
+    isMappedMembersLoading ||
+    isLocationsLoading ||
+    isCoursesLoading ||
+    isMembersLoading ||
+    isRatesLoading
+  ) {
     return null
   }
 
@@ -332,9 +338,10 @@ export default function CreateGroupForm() {
                   items={
                     rates?.map((r) => ({
                       value: r.id.toString(),
-                      label: r.bonusPerStudent > 0
-                        ? `${r.name} (${r.bid} ₽ + ${r.bonusPerStudent} ₽/уч.)`
-                        : `${r.name} (${r.bid} ₽)`,
+                      label:
+                        r.bonusPerStudent > 0
+                          ? `${r.name} (${r.bid} ₽ + ${r.bonusPerStudent} ₽/уч.)`
+                          : `${r.name} (${r.bid} ₽)`,
                     })) ?? []
                   }
                   {...field}
@@ -352,9 +359,10 @@ export default function CreateGroupForm() {
                           key={r.id}
                           value={{
                             value: r.id.toString(),
-                            label: r.bonusPerStudent > 0
-                              ? `${r.name} (${r.bid} ₽ + ${r.bonusPerStudent} ₽/уч.)`
-                              : `${r.name} (${r.bid} ₽)`,
+                            label:
+                              r.bonusPerStudent > 0
+                                ? `${r.name} (${r.bid} ₽ + ${r.bonusPerStudent} ₽/уч.)`
+                                : `${r.name} (${r.bid} ₽)`,
                           }}
                         >
                           {r.name} — {r.bid} ₽

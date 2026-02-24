@@ -91,9 +91,10 @@ export default function RateActions({ rate }: RateActionsProps) {
       toast.promise(ok, {
         loading: 'Удаление ставки...',
         success: 'Ставка удалена',
-        error: rate._count.teacherGroups > 0
-          ? 'Невозможно удалить ставку, которая используется в группах'
-          : 'Ошибка при удалении ставки',
+        error:
+          rate._count.teacherGroups > 0
+            ? 'Невозможно удалить ставку, которая используется в группах'
+            : 'Ошибка при удалении ставки',
         finally: () => {
           setDeleteDialogOpen(false)
           setOpen(false)
@@ -171,18 +172,14 @@ export default function RateActions({ rate }: RateActionsProps) {
               {rate._count.teacherGroups > 0 && (
                 <>
                   {' '}
-                  Эта ставка используется в {rate._count.teacherGroups} группе(ах).
-                  Сначала переназначьте ставки в этих группах.
+                  Эта ставка используется в {rate._count.teacherGroups} группе(ах). Сначала
+                  переназначьте ставки в этих группах.
                 </>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setDeleteDialogOpen(false)}
-            >
+            <Button variant="secondary" size="sm" onClick={() => setDeleteDialogOpen(false)}>
               Отмена
             </Button>
             <Button
@@ -298,9 +295,7 @@ export default function RateActions({ rate }: RateActionsProps) {
           </form>
 
           <DialogFooter>
-            <DialogClose render={<Button variant="secondary" size="sm" />}>
-              Отмена
-            </DialogClose>
+            <DialogClose render={<Button variant="secondary" size="sm" />}>Отмена</DialogClose>
             <Button type="submit" size="sm" form="rate-edit-form" disabled={isPending}>
               Сохранить
             </Button>

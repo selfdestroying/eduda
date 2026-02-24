@@ -269,10 +269,7 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
                           return rate ? rate.name : 'Выберите ставку'
                         }}
                       >
-                        <SelectTrigger
-                          id="form-rhf-select-rate"
-                          aria-invalid={fieldState.invalid}
-                        >
+                        <SelectTrigger id="form-rhf-select-rate" aria-invalid={fieldState.invalid}>
                           <SelectValue placeholder="Выберите ставку" />
                         </SelectTrigger>
                         <SelectContent>
@@ -280,8 +277,7 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
                             {rates?.map((rate) => (
                               <SelectItem key={rate.id} value={rate.id.toString()}>
                                 {rate.name} — {rate.bid} ₽
-                                {rate.bonusPerStudent > 0 &&
-                                  ` + ${rate.bonusPerStudent} ₽/уч.`}
+                                {rate.bonusPerStudent > 0 && ` + ${rate.bonusPerStudent} ₽/уч.`}
                               </SelectItem>
                             ))}
                           </SelectGroup>

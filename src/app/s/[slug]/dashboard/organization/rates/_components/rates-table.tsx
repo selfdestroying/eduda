@@ -23,9 +23,7 @@ export default function RatesTable({ data }: RatesTableProps) {
       {
         header: 'Название',
         accessorKey: 'name',
-        cell: ({ row }) => (
-          <span className="font-medium">{row.original.name}</span>
-        ),
+        cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
       },
       {
         header: 'Ставка',
@@ -54,8 +52,7 @@ export default function RatesTable({ data }: RatesTableProps) {
       },
       {
         id: 'actions',
-        cell: ({ row }) =>
-          canEdit?.success ? <RateActions rate={row.original} /> : null,
+        cell: ({ row }) => (canEdit?.success ? <RateActions rate={row.original} /> : null),
       },
     ],
     [canEdit]
