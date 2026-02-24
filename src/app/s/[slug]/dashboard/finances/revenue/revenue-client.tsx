@@ -159,17 +159,16 @@ const groupTypeIcon: Record<GroupType, React.ReactNode> = {
   SPLIT: <Users className="h-3 w-3" />,
 }
 
-// Функция расчета выручки по ученику (агрегирует per-group + глобальные остатки)
-function calculateStudentRevenue(student: {
-  totalLessons: number
-  totalPayments: number
-  groups: { totalLessons: number; totalPayments: number }[]
-}): number {
-  const totalLessons =
-    student.groups.reduce((sum, g) => sum + g.totalLessons, 0) + student.totalLessons
-  const totalPayments =
-    student.groups.reduce((sum, g) => sum + g.totalPayments, 0) + student.totalPayments
-  return totalLessons !== 0 ? totalPayments / totalLessons : 0
+// Функция расчета выручки по ученику в конкретной группе
+function calculateStudentRevenue(
+  student: {
+    groups: { groupId: number; totalLessons: number; totalPayments: number }[]
+  },
+  groupId: number
+): number {
+  const group = student.groups.find((g) => g.groupId === groupId)
+  if (!group || group.totalLessons === 0) return 0
+  return group.totalPayments / group.totalLessons
 }
 
 // Трансформация уроков в данные выручки
@@ -191,7 +190,7 @@ function transformLessonsToRevenueData(lessons: LessonWithAttendance[]): DayReve
           name: `${att.student.firstName} ${att.student.lastName ?? ''}`.trim(),
           revenue:
             att.studentStatus !== 'TRIAL' && att.status === 'PRESENT'
-              ? calculateStudentRevenue(att.student)
+              ? calculateStudentRevenue(att.student, lesson.group.id)
               : 0,
           isTrial: att.studentStatus === 'TRIAL',
           isAbsent: att.status === 'ABSENT',

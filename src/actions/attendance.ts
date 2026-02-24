@@ -220,7 +220,7 @@ export const getAbsentStatistics = async (organizationId: number) => {
       status: 'ABSENT',
     },
     include: {
-      student: true,
+      student: { include: { groups: true } },
       lesson: true,
       missedMakeup: {
         include: {
@@ -235,37 +235,27 @@ export const getAbsentStatistics = async (organizationId: number) => {
     },
   })
 
-  // Calculate student rates
-  const payments = await prisma.payment.groupBy({
-    by: ['studentId'],
-    _sum: {
-      price: true,
-      lessonCount: true,
-    },
-    where: {
-      organizationId,
-      lessonCount: { gt: 0 },
-      price: { gt: 0 },
-    },
-  })
+  console.log(absences)
 
-  const studentRates = new Map<number, number>()
-  let globalTotalMoney = 0
-  let globalTotalLessons = 0
+  function getPerGroupRate(
+    studentGroups: { groupId: number; totalPayments: number; totalLessons: number }[],
+    groupId: number
+  ): number {
+    const sg = studentGroups.find((g) => g.groupId === groupId)
+    if (!sg || sg.totalLessons === 0) return 0
+    return sg.totalPayments / sg.totalLessons
+  }
 
-  payments.forEach((p) => {
-    const price = p._sum.price || 0
-    const count = p._sum.lessonCount || 0
-    globalTotalMoney += price
-    globalTotalLessons += count
-
-    if (count > 0) {
-      studentRates.set(p.studentId, price / count)
+  let rateSum = 0
+  let rateCount = 0
+  absences.forEach((att) => {
+    const rate = getPerGroupRate(att.student.groups, att.lesson.groupId)
+    if (rate > 0) {
+      rateSum += rate
+      rateCount++
     }
   })
-
-  const averagePrice =
-    globalTotalLessons > 0 ? Math.round(globalTotalMoney / globalTotalLessons) : 0
+  const averagePrice = rateCount > 0 ? Math.round(rateSum / rateCount) : 0
 
   // Aggregation
   const monthlyStatsMap = new Map<
@@ -279,7 +269,7 @@ export const getAbsentStatistics = async (organizationId: number) => {
 
   absences.forEach((att) => {
     const date = toZonedTime(new Date(att.lesson.date), 'Europe/Moscow')
-    const rate = studentRates.get(att.studentId) || averagePrice
+    const rate = getPerGroupRate(att.student.groups, att.lesson.groupId)
 
     // Monthly Grouping
     // Key: YYYY-MM
