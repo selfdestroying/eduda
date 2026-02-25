@@ -109,7 +109,15 @@ export const updateAttendance = async (payload: Prisma.AttendanceUpdateArgs) => 
               },
             },
           },
-          asMakeupFor: true,
+          asMakeupFor: {
+            include: {
+              missedAttendance: {
+                include: {
+                  lesson: true
+                }
+              }
+            }
+          },
         },
       })
 
@@ -129,7 +137,7 @@ export const updateAttendance = async (payload: Prisma.AttendanceUpdateArgs) => 
         )
 
         if (delta !== 0) {
-          const groupId = oldAttendance.asMakeupFor ? oldAttendance.asMakeupFor.missedAttendanceId : oldAttendance.lesson.groupId
+          const groupId = oldAttendance.asMakeupFor ? oldAttendance.asMakeupFor.missedAttendance.lesson.groupId : oldAttendance.lesson.groupId
 
           const studentGroup = await tx.studentGroup.findUnique({
             where: { studentId_groupId: { studentId: oldAttendance.studentId, groupId } },
