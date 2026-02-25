@@ -129,7 +129,7 @@ export const updateAttendance = async (payload: Prisma.AttendanceUpdateArgs) => 
         )
 
         if (delta !== 0) {
-          const groupId = oldAttendance.lesson.groupId
+          const groupId = oldAttendance.asMakeupFor ? oldAttendance.asMakeupFor.missedAttendanceId : oldAttendance.lesson.groupId
 
           const studentGroup = await tx.studentGroup.findUnique({
             where: { studentId_groupId: { studentId: oldAttendance.studentId, groupId } },
@@ -369,10 +369,10 @@ export const getAbsentStatistics = async (organizationId: number) => {
     makeupRate:
       absences.length > 0
         ? Math.round(
-            (absences.filter((a) => a.missedMakeup?.makeUpAttendance?.status === 'PRESENT').length /
-              absences.length) *
-              1000
-          ) / 10
+          (absences.filter((a) => a.missedMakeup?.makeUpAttendance?.status === 'PRESENT').length /
+            absences.length) *
+          1000
+        ) / 10
         : 0,
     totalLostMoney: Math.round(monthly.reduce((s, m) => s + m.missedMoney - m.savedMoney, 0)),
     totalSavedMoney: Math.round(monthly.reduce((s, m) => s + m.savedMoney, 0)),
