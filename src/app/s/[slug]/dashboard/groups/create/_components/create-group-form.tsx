@@ -121,7 +121,6 @@ export default function CreateGroupForm() {
 
   const watchedStartDate = form.watch('startDate')
   const watchedGroupTypeId = form.watch('groupTypeId')
-  const watchedTeacher = form.watch('teacher')
   const watchedLessonCount = form.watch('lessonCount')
 
   useEffect(() => {
@@ -340,6 +339,38 @@ export default function CreateGroupForm() {
         />
         <Controller
           control={form.control}
+          name="groupTypeId"
+          disabled={isPending}
+          render={({ field, fieldState }) => (
+            <Field>
+              <FieldLabel htmlFor="groupType-field">Тип группы</FieldLabel>
+              <Select
+                name={field.name}
+                value={field.value?.toString() || ''}
+                onValueChange={(value) => field.onChange(Number(value))}
+                itemToStringLabel={(itemValue) =>
+                  groupTypes?.find((gt) => gt.id === Number(itemValue))?.name || ''
+                }
+              >
+                <SelectTrigger id="groupType-field" aria-invalid={fieldState.invalid}>
+                  <SelectValue placeholder="Выберите тип группы" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {groupTypes?.map((gt) => (
+                      <SelectItem key={gt.id} value={gt.id.toString()}>
+                        {gt.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+            </Field>
+          )}
+        />
+        <Controller
+          control={form.control}
           name="rate"
           disabled={isPending}
           render={({ field, fieldState }) => (
@@ -391,38 +422,7 @@ export default function CreateGroupForm() {
             </Field>
           )}
         />
-        <Controller
-          control={form.control}
-          name="groupTypeId"
-          disabled={isPending}
-          render={({ field, fieldState }) => (
-            <Field>
-              <FieldLabel htmlFor="groupType-field">Тип группы</FieldLabel>
-              <Select
-                name={field.name}
-                value={field.value?.toString() || ''}
-                onValueChange={(value) => field.onChange(Number(value))}
-                itemToStringLabel={(itemValue) =>
-                  groupTypes?.find((gt) => gt.id === Number(itemValue))?.name || ''
-                }
-              >
-                <SelectTrigger id="groupType-field" aria-invalid={fieldState.invalid}>
-                  <SelectValue placeholder="Выберите тип группы" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {groupTypes?.map((gt) => (
-                      <SelectItem key={gt.id} value={gt.id.toString()}>
-                        {gt.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-            </Field>
-          )}
-        />
+
         <Controller
           control={form.control}
           name="maxStudents"
