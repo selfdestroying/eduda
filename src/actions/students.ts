@@ -19,18 +19,6 @@ import { auth } from '../lib/auth'
 import { protocol, rootDomain } from '../lib/utils'
 
 export type StudentWithGroups = Student & { groups: Group[] }
-export type StudentWithGroupsAndAttendance = Prisma.StudentGetPayload<{
-  include: {
-    groups: { include: { group: { include: { lessons: true } } } }
-    attendances: {
-      include: {
-        lesson: { include: { group: { include: { course: true } } } }
-        asMakeupFor: { include: { missedAttendance: { include: { lesson: true } } } }
-        missedMakeup: { include: { makeUpAttendance: { include: { lesson: true } } } }
-      }
-    }
-  }
-}>
 
 export const getStudents = async <T extends Prisma.StudentFindManyArgs>(
   payload?: Prisma.SelectSubset<T, Prisma.StudentFindManyArgs>

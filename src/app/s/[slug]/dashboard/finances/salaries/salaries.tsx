@@ -1,7 +1,6 @@
 'use client'
 import { PayCheck, Prisma } from '@/prisma/generated/browser'
 import { User } from '@/prisma/generated/client'
-import { GroupType } from '@/prisma/generated/enums'
 import { getLessons } from '@/src/actions/lessons'
 import { getPaychecks } from '@/src/actions/paycheck'
 import TableFilter, { TableFilterItem } from '@/src/components/table-filter'
@@ -63,20 +62,6 @@ import {
 } from 'react'
 import { type DateRange } from 'react-day-picker'
 
-const groupTypeMap: Record<GroupType, string> = {
-  GROUP: 'Группа',
-  INDIVIDUAL: 'Индив.',
-  INTENSIVE: 'Интенсив',
-  SPLIT: 'Сплит',
-}
-
-const groupTypeIcon: Record<GroupType, React.ReactNode> = {
-  GROUP: <Users className="h-3 w-3" />,
-  INDIVIDUAL: <UserIcon className="h-3 w-3" />,
-  INTENSIVE: <TrendingUp className="h-3 w-3" />,
-  SPLIT: <Users className="h-3 w-3" />,
-}
-
 type LessonWithPrice = Prisma.LessonGetPayload<{
   include: {
     teachers: {
@@ -93,6 +78,7 @@ type LessonWithPrice = Prisma.LessonGetPayload<{
       include: {
         course: true
         location: true
+        groupType: true
       }
     }
     _count: { select: { attendance: { where: { status: 'PRESENT' } } } }
@@ -194,6 +180,7 @@ export default function Salaries() {
               include: {
                 course: true,
                 location: true,
+                groupType: true,
               },
             },
             _count: { select: { attendance: { where: { status: 'PRESENT' } } } },
@@ -735,13 +722,15 @@ function LessonItem({ lesson }: LessonItemProps) {
                 {lesson.group.location.name}
               </span>
             )}
-            <Tooltip>
-              <TooltipTrigger className="flex items-center gap-1">
-                {groupTypeIcon[lesson.group.type!]}
-                {groupTypeMap[lesson.group.type!]}
-              </TooltipTrigger>
-              <TooltipContent>Тип занятия</TooltipContent>
-            </Tooltip>
+            {lesson.group.groupType && (
+              <Tooltip>
+                <TooltipTrigger className="flex items-center gap-1">
+                  <FileText className="h-3 w-3" />
+                  {lesson.group.groupType.name}
+                </TooltipTrigger>
+                <TooltipContent>Тип занятия</TooltipContent>
+              </Tooltip>
+            )}
             {hasBonus && (
               <Tooltip>
                 <TooltipTrigger className="flex items-center gap-1">

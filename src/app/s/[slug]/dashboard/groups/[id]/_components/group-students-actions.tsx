@@ -38,6 +38,7 @@ import {
 } from '@/src/components/ui/dropdown-menu'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
+import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/src/components/ui/item'
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { useSessionQuery } from '@/src/data/user/session-query'
@@ -45,7 +46,15 @@ import { getFullName, getGroupName } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { CalendarIcon, DoorOpen, GitCompare, Loader2, MoreVertical, Trash } from 'lucide-react'
+import {
+  CalendarIcon,
+  DoorOpen,
+  GitCompare,
+  Loader2,
+  MoreVertical,
+  Trash,
+  TriangleAlert,
+} from 'lucide-react'
 import { useEffect, useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -424,6 +433,18 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
               />
             </FieldGroup>
           </form>
+
+          <Item variant="outline" size="sm">
+            <ItemMedia variant="icon">
+              <TriangleAlert />
+            </ItemMedia>
+            <ItemContent>
+              <ItemTitle>Внимание</ItemTitle>
+              <ItemDescription>
+                Неотмеченные записи посещаемости в текущей группе будут удалены.
+              </ItemDescription>
+            </ItemContent>
+          </Item>
 
           <DialogFooter>
             <DialogClose render={<Button variant="secondary" size={'sm'} />}>Cancel</DialogClose>

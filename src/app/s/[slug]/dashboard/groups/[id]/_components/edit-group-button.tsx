@@ -1,5 +1,4 @@
 'use client'
-import { GroupType } from '@/prisma/generated/enums'
 import { updateGroup } from '@/src/actions/groups'
 import { Button } from '@/src/components/ui/button'
 import {
@@ -23,6 +22,7 @@ import {
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip'
 import { useCourseListQuery } from '@/src/data/course/course-list-query'
+import { useGroupTypeListQuery } from '@/src/data/group-type/group-type-list-query'
 import { useLocationListQuery } from '@/src/data/location/location-list-query'
 import { useOrganizationPermissionQuery } from '@/src/data/organization/organization-permission-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
@@ -53,7 +53,7 @@ export default function EditGroupButton({ group }: EditGroupButtonProps) {
       locationId: group.locationId!,
       time: group.time!,
       url: group.url ?? '',
-      type: group.type!,
+      groupTypeId: group.groupTypeId ?? undefined,
       dayOfWeek: group.dayOfWeek!,
     },
   })
@@ -109,8 +109,9 @@ interface EditGroupFormProps {
 function EditGroupForm({ form, onSubmit, organizationId }: EditGroupFormProps) {
   const { data: locations, isLoading: isLocationsLoading } = useLocationListQuery(organizationId)
   const { data: courses, isLoading: isCoursesLoading } = useCourseListQuery(organizationId)
+  const { data: groupTypes, isLoading: isGroupTypesLoading } = useGroupTypeListQuery(organizationId)
 
-  if (isLocationsLoading || isCoursesLoading) {
+  if (isLocationsLoading || isCoursesLoading || isGroupTypesLoading) {
     return <Skeleton className="h-full w-full" />
   }
 
@@ -214,45 +215,32 @@ function EditGroupForm({ form, onSubmit, organizationId }: EditGroupFormProps) {
           )}
         />
         <Controller
-          name="type"
+          name="groupTypeId"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field>
               <FieldContent>
-                <FieldLabel htmlFor="form-rhf-select-type">Тип группы</FieldLabel>
+                <FieldLabel htmlFor="form-rhf-select-groupType">Тип группы</FieldLabel>
                 {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </FieldContent>
               <Select
                 name={field.name}
                 value={field.value?.toString() || ''}
-                onValueChange={field.onChange}
-                itemToStringLabel={(itemValue) => {
-                  const map: Record<string, string> = {
-                    [GroupType.GROUP]: 'Группа',
-                    [GroupType.INDIVIDUAL]: 'Индив.',
-                    [GroupType.INTENSIVE]: 'Интенсив',
-                    [GroupType.SPLIT]: 'Сплит',
-                  }
-                  return map[itemValue] ?? ''
-                }}
+                onValueChange={(value) => field.onChange(Number(value))}
+                itemToStringLabel={(itemValue) =>
+                  groupTypes?.find((gt) => gt.id === Number(itemValue))?.name || ''
+                }
               >
-                <SelectTrigger id="form-rhf-select-type" aria-invalid={fieldState.invalid}>
-                  <SelectValue placeholder="Выберите тип" />
+                <SelectTrigger id="form-rhf-select-groupType" aria-invalid={fieldState.invalid}>
+                  <SelectValue placeholder="Выберите тип группы" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectItem key={GroupType.GROUP} value={GroupType.GROUP}>
-                      Группа
-                    </SelectItem>
-                    <SelectItem key={GroupType.INDIVIDUAL} value={GroupType.INDIVIDUAL}>
-                      Индив.
-                    </SelectItem>
-                    <SelectItem key={GroupType.INTENSIVE} value={GroupType.INTENSIVE}>
-                      Интенсив
-                    </SelectItem>
-                    <SelectItem key={GroupType.SPLIT} value={GroupType.SPLIT}>
-                      Сплит
-                    </SelectItem>
+                    {groupTypes?.map((gt) => (
+                      <SelectItem key={gt.id} value={gt.id.toString()}>
+                        {gt.name}
+                      </SelectItem>
+                    ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>

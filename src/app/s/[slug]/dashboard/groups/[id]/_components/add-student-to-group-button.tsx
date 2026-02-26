@@ -1,6 +1,7 @@
 'use client'
 import { Group } from '@/prisma/generated/client'
 import { createStudentGroup } from '@/src/actions/groups'
+import { getStudents } from '@/src/actions/students'
 import { Button } from '@/src/components/ui/button'
 import { Checkbox } from '@/src/components/ui/checkbox'
 import {
@@ -36,10 +37,11 @@ import z from 'zod/v4'
 
 interface AddStudentToGroupButtonProps {
   students?: StudentDTO[]
-  group?: Group // When adding a student to this group
-  groups?: GroupDTO[] // When adding this student to a group
+  excludeStudentIds?: number[]
+  group?: Group
+  groups?: GroupDTO[]
   student?: StudentDTO
-  isFull?: boolean // Whether the current group is at max capacity (for isAddToGroup mode)
+  isFull?: boolean
 }
 
 const Schema = z.object({
@@ -56,7 +58,8 @@ const Schema = z.object({
 type SchemaType = z.infer<typeof Schema>
 
 export default function AddStudentToGroupButton({
-  students,
+  students: studentsProp,
+  excludeStudentIds,
   group,
   groups,
   student,
@@ -67,10 +70,27 @@ export default function AddStudentToGroupButton({
   const { data: hasPermission } = useOrganizationPermissionQuery({ studentGroup: ['create'] })
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [lazyStudents, setLazyStudents] = useState<StudentDTO[] | null>(null)
 
-  // Determine the mode
-  const isAddToGroup = !!group && !!students
+  const isAddToGroup = !!group && (!!studentsProp || !!excludeStudentIds)
   const isAddToStudent = !!student && !!groups
+
+  useEffect(() => {
+    startTransition(() => {
+      if (!dialogOpen || !isAddToGroup || studentsProp || !organizationId || !excludeStudentIds)
+        return
+      getStudents({
+        where: {
+          organizationId,
+          NOT: { id: { in: excludeStudentIds } },
+        },
+      }).then((data) => {
+        setLazyStudents(data as StudentDTO[])
+      })
+    })
+  }, [dialogOpen, isAddToGroup, studentsProp, organizationId, excludeStudentIds])
+
+  const students = studentsProp ?? lazyStudents
 
   const items = useMemo(() => {
     if (isAddToGroup && students) {
@@ -132,9 +152,7 @@ export default function AddStudentToGroupButton({
     form.reset()
   }, [dialogOpen, form])
 
-  if ((!isAddToGroup && !isAddToStudent) || !hasPermission) {
-    return null
-  }
+  if ((!isAddToGroup && !isAddToStudent) || !hasPermission) return null
 
   const isGroupFull = isAddToGroup && isFull
 

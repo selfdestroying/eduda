@@ -36,6 +36,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           students: { include: { student: true } },
           course: true,
           location: true,
+          groupType: { include: { rate: true } },
         },
       },
       attendance: {

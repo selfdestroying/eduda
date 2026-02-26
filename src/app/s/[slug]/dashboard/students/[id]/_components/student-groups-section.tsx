@@ -1,34 +1,31 @@
 import { Prisma } from '@/prisma/generated/client'
-import { auth } from '@/src/lib/auth'
 import { getGroupName } from '@/src/lib/utils'
-import { StudentWithGroupsAndAttendance } from '@/src/types/student'
+import type { StudentWithGroupsAndAttendance } from '@/src/types/student'
 import { Users } from 'lucide-react'
-import { headers } from 'next/headers'
 import Link from 'next/link'
 import AddStudentToGroupButton from '../../../groups/[id]/_components/add-student-to-group-button'
-import { GroupAttendanceTable } from '../../../groups/[id]/_components/group-attendance-table'
+import { StudentAttendanceTable } from './attendance-table'
 
 interface StudentGroupsSectionProps {
   student: StudentWithGroupsAndAttendance
+  canCreateStudentGroup: boolean
   groups: Prisma.GroupGetPayload<{
     include: {
       location: true
       course: true
       students: true
       schedules: true
+      groupType: { include: { rate: true } }
       teachers: { include: { teacher: true } }
     }
   }>[]
 }
 
-export default async function StudentGroupsSection({ student, groups }: StudentGroupsSectionProps) {
-  const { success: canCreateStudentGroup } = await auth.api.hasPermission({
-    headers: await headers(),
-    body: {
-      permission: { studentGroup: ['create'] },
-    },
-  })
-
+export default function StudentGroupsSection({
+  student,
+  groups,
+  canCreateStudentGroup,
+}: StudentGroupsSectionProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
@@ -50,7 +47,7 @@ export default async function StudentGroupsSection({ student, groups }: StudentG
                   {getGroupName(groupData.group)}
                 </Link>
               </div>
-              <GroupAttendanceTable lessons={groupData.group.lessons} data={[student]} />
+              <StudentAttendanceTable lessons={groupData.group.lessons} students={[student]} />
             </div>
           ))}
         </div>

@@ -1,8 +1,6 @@
-import { GroupType } from '@/prisma/generated/enums'
 import { z } from 'zod/v4'
 
 export const CreateGroupSchema = z.object({
-  // required
   name: z.string(),
   teacher: z.object(
     {
@@ -33,7 +31,7 @@ export const CreateGroupSchema = z.object({
     'Выберите локацию'
   ),
   startDate: z.date('Выберите дату старта'),
-  type: z.enum(GroupType, 'Выберите тип группы'),
+  groupTypeId: z.number({ error: 'Выберите тип группы' }).int().positive(),
   schedule: z
     .array(
       z.object({
@@ -49,14 +47,13 @@ export const CreateGroupSchema = z.object({
     .number('Введите максимальное количество учеников')
     .int()
     .positive('Количество должно быть положительным'),
-  // optional
   url: z.url('Неверный URL').optional(),
 })
 
 export const editGroupSchema = z.object({
   courseId: z.number().int().positive().optional(),
   locationId: z.number().int().positive().optional(),
-  type: z.enum(GroupType).optional(),
+  groupTypeId: z.number().int().positive().optional(),
   time: z.string().optional(),
   url: z.string().optional(),
   dayOfWeek: z.number().int().optional(),

@@ -27,26 +27,22 @@ export const createGroup = async (
       ...payload,
       include: {
         teachers: {
-          select: { teacherId: true, rateId: true },
           include: { rate: true },
         },
         lessons: { select: { id: true } },
       },
     })
     const firstTeacher = group.teachers[0]
-    if (firstTeacher) {
-      for (const lesson of group.lessons) {
-        await tx.teacherLesson.create({
-          data: {
-            organizationId: group.organizationId,
-            lessonId: lesson.id,
-            teacherId: firstTeacher.teacherId,
-            bid: firstTeacher.rate.bid,
-            bonusPerStudent: firstTeacher.rate.bonusPerStudent,
-          },
-        })
-      }
-    }
+    const lessons = group.lessons.map((l) => ({
+      organizationId: group.organizationId,
+      lessonId: l.id,
+      teacherId: firstTeacher.teacherId,
+      bid: firstTeacher.rate.bid,
+      bonusPerStudent: firstTeacher.rate.bonusPerStudent,
+    }))
+    await tx.teacherLesson.createMany({
+      data: lessons,
+    })
     if (schedule && schedule.length > 0) {
       await tx.groupSchedule.createMany({
         data: schedule.map((s) => ({
@@ -158,32 +154,22 @@ export const updateStudentGroup = async (
 
     if (!isApplyToLessons) return
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
     const isGroupChanged = oldStudentGroup.groupId !== sg.groupId
 
     // Удаляем посещаемость из старой группы при переводе
     if (isGroupChanged) {
-      const oldFutureLessons = await tx.lesson.findMany({
+      await tx.attendance.deleteMany({
         where: {
-          groupId: oldStudentGroup.groupId,
-          date: { gte: today },
-        },
-        select: { id: true },
-      })
-
-      if (oldFutureLessons.length > 0) {
-        await tx.attendance.deleteMany({
-          where: {
-            studentId: sg.studentId,
-            lessonId: { in: oldFutureLessons.map((l) => l.id) },
-            status: 'UNSPECIFIED',
+          studentId: sg.studentId,
+          status: 'UNSPECIFIED',
+          lesson: {
+            groupId: oldStudentGroup.groupId,
           },
-        })
-      }
+        },
+      })
     }
 
+    const today = startOfDay(new Date())
     // Создаём посещаемость в новой группе
     const newFutureLessons = await tx.lesson.findMany({
       where: {
