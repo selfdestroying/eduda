@@ -55,16 +55,14 @@ const getColumns = (
             href={`/dashboard/lessons/${row.original.asMakeupFor.missedAttendance.lessonId}`}
             className="text-primary hover:underline"
           >
-            Отработка за{' '}
-            {formatDateOnly(row.original.asMakeupFor.missedAttendance.lesson!.date)}
+            Отработка за {formatDateOnly(row.original.asMakeupFor.missedAttendance.lesson!.date)}
           </Link>
         ) : row.original.missedMakeup ? (
           <Link
             href={`/dashboard/lessons/${row.original.missedMakeup.makeUpAttendance.lessonId}`}
             className="text-primary hover:underline"
           >
-            Отработка{' '}
-            {formatDateOnly(row.original.missedMakeup.makeUpAttendance.lesson!.date)}
+            Отработка {formatDateOnly(row.original.missedMakeup.makeUpAttendance.lesson!.date)}
           </Link>
         ) : null,
     },

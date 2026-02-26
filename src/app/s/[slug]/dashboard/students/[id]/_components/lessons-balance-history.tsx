@@ -195,11 +195,7 @@ const columns: ColumnDef<HistoryRow>[] = [
   {
     header: 'Дата',
     accessorFn: (row) => row.createdAt,
-    cell: ({ row }) => (
-      <span>
-        {toMoscow(row.original.createdAt).toLocaleString('ru-RU')}
-      </span>
-    ),
+    cell: ({ row }) => <span>{toMoscow(row.original.createdAt).toLocaleString('ru-RU')}</span>,
   },
   {
     header: 'Группа',

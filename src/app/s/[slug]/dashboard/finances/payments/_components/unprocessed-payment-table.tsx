@@ -133,8 +133,7 @@ export default function UnprocessedPaymentTable({
       {
         header: 'Дата',
         accessorKey: 'createdAt',
-        cell: ({ row }) =>
-          toMoscow(row.original.createdAt).toLocaleString('ru-RU'),
+        cell: ({ row }) => toMoscow(row.original.createdAt).toLocaleString('ru-RU'),
       },
       {
         id: 'actions',

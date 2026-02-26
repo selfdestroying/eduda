@@ -79,9 +79,7 @@ export default async function InfoSection({ lesson }: InfoSectionsProps) {
                 Дата
               </span>
             </div>
-            <div className="truncate">
-              {formatDateOnly(lesson.date)}
-            </div>
+            <div className="truncate">{formatDateOnly(lesson.date)}</div>
           </div>
 
           <div className="flex flex-col">

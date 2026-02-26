@@ -89,9 +89,7 @@ export default async function InfoSection({ group }: { group: GroupDTO }) {
                 Период
               </span>
             </div>
-            <div className="truncate">
-              {formatDateOnly(group.startDate)}
-            </div>
+            <div className="truncate">{formatDateOnly(group.startDate)}</div>
           </div>
           <div className="flex flex-col">
             <div className="text-muted-foreground/60 flex items-center gap-2 text-xs font-medium">

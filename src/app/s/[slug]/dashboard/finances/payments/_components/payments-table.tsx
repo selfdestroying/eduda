@@ -81,8 +81,7 @@ const columns: ColumnDef<PaymentsWithStudentAndGroup>[] = [
   {
     header: 'Дата оплаты',
     accessorKey: 'createdAt',
-    cell: ({ row }) =>
-      toMoscow(row.original.createdAt).toLocaleDateString('ru-RU'),
+    cell: ({ row }) => toMoscow(row.original.createdAt).toLocaleDateString('ru-RU'),
   },
   {
     id: 'actions',
