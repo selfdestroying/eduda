@@ -8,10 +8,10 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from '@/src/components/ui/alert-dialog'
 import { Button } from '@/src/components/ui/button'
-import { Checkbox } from '@/src/components/ui/checkbox'
 import {
   Dialog,
   DialogClose,
@@ -28,8 +28,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/src/components/ui/dropdown-menu'
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
+import { Switch } from '@/src/components/ui/switch'
 import { EditRateSchema, EditRateSchemaType } from '@/src/schemas/rate'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, MoreVertical, Pen, Trash } from 'lucide-react'
@@ -59,7 +68,7 @@ export default function RateActions({ rate }: RateActionsProps) {
       name: rate.name,
       bid: rate.bid,
       bonusPerStudent: rate.bonusPerStudent,
-      isApplyToLessons: false,
+      isApplyToLessons: true,
     },
   })
 
@@ -127,7 +136,7 @@ export default function RateActions({ rate }: RateActionsProps) {
       name: rate.name,
       bid: rate.bid,
       bonusPerStudent: rate.bonusPerStudent,
-      isApplyToLessons: false,
+      isApplyToLessons: true,
     })
   }, [form, editDialogOpen, rate])
 
@@ -166,6 +175,9 @@ export default function RateActions({ rate }: RateActionsProps) {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
+            <AlertDialogMedia>
+              <Trash />
+            </AlertDialogMedia>
             <AlertDialogTitle>Подтвердите удаление</AlertDialogTitle>
             <AlertDialogDescription>
               Вы уверены что хотите удалить ставку <b>{rate.name}</b>?
@@ -191,7 +203,7 @@ export default function RateActions({ rate }: RateActionsProps) {
               {isPending ? (
                 <Loader2 className="animate-spin" />
               ) : isDeleteDisabled && deleteCountdown > 0 ? (
-                `Удалить (${deleteCountdown}с)`
+                `${deleteCountdown} с`
               ) : (
                 'Удалить'
               )}
@@ -266,28 +278,22 @@ export default function RateActions({ rate }: RateActionsProps) {
                 control={form.control}
                 render={({ field }) => (
                   <Field>
-                    <Field orientation="horizontal">
-                      <FieldLabel
-                        htmlFor="toggle-apply-rate-to-lessons"
-                        className="hover:bg-accent/50 flex items-start gap-2 rounded-lg border p-2 has-aria-checked:border-violet-600 has-aria-checked:bg-violet-50 dark:has-aria-checked:border-violet-900 dark:has-aria-checked:bg-violet-950"
-                      >
-                        <Checkbox
+                    <FieldLabel htmlFor="toggle-apply-rate-to-lessons">
+                      <Field orientation="horizontal">
+                        <FieldContent>
+                          <FieldTitle>Применить к будущим урокам</FieldTitle>
+                          <FieldDescription className="text-muted-foreground text-xs">
+                            Обновит ставки во всех будущих уроках, привязанных к этой ставке
+                          </FieldDescription>
+                        </FieldContent>
+                        <Switch
                           id="toggle-apply-rate-to-lessons"
                           name={field.name}
                           checked={field.value}
                           onCheckedChange={field.onChange}
-                          className="data-[state=checked]:border-violet-600 data-[state=checked]:bg-violet-600 data-[state=checked]:text-white dark:data-[state=checked]:border-violet-700 dark:data-[state=checked]:bg-violet-700"
                         />
-                        <div className="grid gap-2 font-normal">
-                          <p className="text-sm leading-none font-medium">
-                            Применить к будущим урокам
-                          </p>
-                          <p className="text-muted-foreground text-xs">
-                            Обновит ставки во всех будущих уроках, привязанных к этой ставке
-                          </p>
-                        </div>
-                      </FieldLabel>
-                    </Field>
+                      </Field>
+                    </FieldLabel>
                   </Field>
                 )}
               />

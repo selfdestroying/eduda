@@ -2,8 +2,15 @@
 
 import { PasswordInput } from '@/src/components/password-input'
 import { Button } from '@/src/components/ui/button'
-import { Checkbox } from '@/src/components/ui/checkbox'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
+import {
+  Field,
+  FieldContent,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from '@/src/components/ui/field'
+import { Switch } from '@/src/components/ui/switch'
 import { useChangePasswordMutation } from '@/src/data/user/user-change-password-mutation'
 
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -131,17 +138,19 @@ export function ChangePasswordForm({ onSuccess, onError }: ChangePasswordFormPro
           name="revokeOtherSessions"
           control={control}
           render={({ field }) => (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="revoke-sessions"
-                checked={field.value}
-                onCheckedChange={field.onChange}
-                disabled={changePasswordMutation.isPending}
-              />
-              <label htmlFor="revoke-sessions" className="text-sm">
-                Выйти со всех устройств
-              </label>
-            </div>
+            <FieldLabel htmlFor="revoke-sessions">
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldTitle>Выйти со всех устройств</FieldTitle>
+                </FieldContent>
+                <Switch
+                  id="revoke-sessions"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  disabled={changePasswordMutation.isPending}
+                />
+              </Field>
+            </FieldLabel>
           )}
         />
 

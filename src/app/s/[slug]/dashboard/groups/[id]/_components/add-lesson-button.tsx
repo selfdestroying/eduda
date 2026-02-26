@@ -2,7 +2,7 @@
 import { Prisma } from '@/prisma/generated/client'
 import { createLesson } from '@/src/actions/lessons'
 import { Button } from '@/src/components/ui/button'
-import { Calendar, CalendarDayButton } from '@/src/components/ui/calendar'
+import { Calendar } from '@/src/components/ui/calendar'
 import {
   Dialog,
   DialogClose,
@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from '@/src/components/ui/dialog'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
+import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -27,7 +28,7 @@ import { useSessionQuery } from '@/src/data/user/session-query'
 import { timeSlots } from '@/src/shared/time-slots'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'
-import { Plus } from 'lucide-react'
+import { CalendarIcon, Plus } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -128,21 +129,31 @@ export default function AddLessonButton({ group }: AddLessonButtonProps) {
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel htmlFor="lesson-date-field">Дата урока</FieldLabel>
-                  <Calendar
-                    id="lesson-date-field"
-                    mode="single"
-                    selected={field.value || null}
-                    onSelect={field.onChange}
-                    locale={ru}
-                    components={{
-                      DayButton: (props) => (
-                        <CalendarDayButton
-                          {...props}
-                          data-day={props.day.date.toLocaleDateString('ru-RU')}
+                  <Popover>
+                    <PopoverTrigger
+                      render={
+                        <Button
+                          variant="outline"
+                          className="w-full font-normal"
+                          aria-invalid={fieldState.invalid}
                         />
-                      ),
-                    }}
-                  />
+                      }
+                    >
+                      <CalendarIcon />
+                      {field.value
+                        ? field.value.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+                        : 'Выберите день'}
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        onSelect={field.onChange}
+                        locale={ru}
+                        selected={field.value}
+                      />
+                    </PopoverContent>
+                  </Popover>
+
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>
               )}

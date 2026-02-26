@@ -10,7 +10,6 @@ import {
   AlertDialogTitle,
 } from '@/src/components/ui/alert-dialog'
 import { Button } from '@/src/components/ui/button'
-import { Checkbox } from '@/src/components/ui/checkbox'
 import {
   Dialog,
   DialogClose,
@@ -27,8 +26,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/src/components/ui/dropdown-menu'
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Label } from '@/src/components/ui/label'
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from '@/src/components/ui/field'
 import {
   Select,
   SelectContent,
@@ -38,6 +44,7 @@ import {
   SelectValue,
 } from '@/src/components/ui/select'
 import { Skeleton } from '@/src/components/ui/skeleton'
+import { Switch } from '@/src/components/ui/switch'
 import { useRateListQuery } from '@/src/data/rate/rate-list-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -68,7 +75,7 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [isApplyToLessons, setIsApplyToLessons] = useState(false)
+  const [isDeleteFromLessons, setIsDeleteFromLessons] = useState(true)
   const [isDeleteDisabled, setIsDeleteDisabled] = useState(false)
   const [deleteCountdown, setDeleteCountdown] = useState(0)
 
@@ -80,7 +87,7 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
     resolver: zodResolver(editGroupTeacherSchema),
     defaultValues: {
       rateId: tg.rateId,
-      isApplyToLessons: false,
+      isApplyToLessons: true,
     },
   })
 
@@ -106,7 +113,7 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
         finally: () => {
           setEditDialogOpen(false)
           setOpen(false)
-          setIsApplyToLessons(false)
+          setIsDeleteFromLessons(false)
         },
       })
     })
@@ -123,7 +130,7 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
             },
           },
         },
-        isApplyToLessons
+        isDeleteFromLessons
       )
       toast.promise(ok, {
         loading: 'Загрузка...',
@@ -132,7 +139,7 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
         finally: () => {
           setDeleteDialogOpen(false)
           setOpen(false)
-          setIsApplyToLessons(false)
+          setIsDeleteFromLessons(false)
         },
       })
     })
@@ -158,7 +165,7 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
   }, [deleteDialogOpen])
 
   useEffect(() => {
-    form.reset({ rateId: tg.rateId, isApplyToLessons: false })
+    form.reset({ rateId: tg.rateId, isApplyToLessons: true })
   }, [form, editDialogOpen, tg.rateId])
 
   const selectedRate = rates?.find((r) => r.id === form.watch('rateId'))
@@ -205,17 +212,21 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <Label className="hover:bg-accent/50 flex items-start gap-2 rounded-lg border p-2 has-aria-checked:border-violet-600 has-aria-checked:bg-violet-50 dark:has-aria-checked:border-violet-900 dark:has-aria-checked:bg-violet-950">
-            <Checkbox
-              defaultChecked={isApplyToLessons}
-              checked={isApplyToLessons}
-              onCheckedChange={(checked) => setIsApplyToLessons(Boolean(checked))}
-              className="data-[state=checked]:border-violet-600 data-[state=checked]:bg-violet-600 data-[state=checked]:text-white dark:data-[state=checked]:border-violet-700 dark:data-[state=checked]:bg-violet-700"
-            />
-            <div className="grid gap-2 font-normal">
-              <p className="text-sm leading-none font-medium">Применить к урокам</p>
-            </div>
-          </Label>
+          <FieldLabel htmlFor="toggle-apply-to-lessons-delete">
+            <Field orientation="horizontal">
+              <FieldContent>
+                <FieldTitle>Применить к урокам</FieldTitle>
+                <FieldDescription>
+                  Удалит преподавателя из всех будущих уроков, привязанных к этой группе
+                </FieldDescription>
+              </FieldContent>
+              <Switch
+                id="toggle-apply-to-lessons-delete"
+                checked={isDeleteFromLessons}
+                onCheckedChange={(checked) => setIsDeleteFromLessons(Boolean(checked))}
+              />
+            </Field>
+          </FieldLabel>
 
           <AlertDialogFooter>
             <Button variant={'secondary'} size={'sm'} onClick={() => setDeleteDialogOpen(false)}>
@@ -230,7 +241,7 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
               {isPending ? (
                 <Loader2 className="animate-spin" />
               ) : isDeleteDisabled && deleteCountdown > 0 ? (
-                `Удалить (${deleteCountdown}с)`
+                `${deleteCountdown} с`
               ) : (
                 'Удалить'
               )}
@@ -301,20 +312,21 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
                 render={({ field }) => (
                   <Field>
                     <Field orientation="horizontal">
-                      <FieldLabel
-                        htmlFor="toggle-apply-to-lessons"
-                        className="hover:bg-accent/50 flex items-start gap-2 rounded-lg border p-2 has-aria-checked:border-violet-600 has-aria-checked:bg-violet-50 dark:has-aria-checked:border-violet-900 dark:has-aria-checked:bg-violet-950"
-                      >
-                        <Checkbox
-                          id="toggle-apply-to-lessons"
-                          name={field.name}
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          className="data-[state=checked]:border-violet-600 data-[state=checked]:bg-violet-600 data-[state=checked]:text-white dark:data-[state=checked]:border-violet-700 dark:data-[state=checked]:bg-violet-700"
-                        />
-                        <div className="grid gap-2 font-normal">
-                          <p className="text-sm leading-none font-medium">Применить к урокам</p>
-                        </div>
+                      <FieldLabel htmlFor="toggle-apply-to-lessons">
+                        <Field orientation="horizontal">
+                          <FieldContent>
+                            <FieldTitle>Применить к урокам</FieldTitle>
+                            <FieldDescription>
+                              Добавит преподавателя во все будущие уроки, привязанные к этой группе
+                            </FieldDescription>
+                          </FieldContent>
+                          <Switch
+                            id="toggle-apply-to-lessons"
+                            name={field.name}
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </Field>
                       </FieldLabel>
                     </Field>
                   </Field>

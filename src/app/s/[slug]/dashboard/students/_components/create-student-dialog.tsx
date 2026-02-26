@@ -3,7 +3,9 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/f
 
 import { createStudent } from '@/src/actions/students'
 import { Button } from '@/src/components/ui/button'
+import { Calendar } from '@/src/components/ui/calendar'
 import { Input } from '@/src/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
 import {
   Sheet,
   SheetClose,
@@ -19,7 +21,8 @@ import { useIsMobile } from '@/src/hooks/use-mobile'
 import { getAgeFromBirthDate } from '@/src/lib/utils'
 import { CreateStudentSchema, CreateStudentSchemaType } from '@/src/schemas/student'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader, Plus, Sparkles } from 'lucide-react'
+import { ru } from 'date-fns/locale'
+import { CalendarIcon, Loader, Plus, Sparkles } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -85,7 +88,7 @@ export default function CreateStudentDialog() {
       lastName: '',
       login: '',
       password: '',
-      birthDate: '' as unknown as Date,
+      birthDate: undefined,
       parentsName: undefined,
       parentsPhone: undefined,
       url: undefined,
@@ -101,11 +104,14 @@ export default function CreateStudentDialog() {
   const generateLogin = () => {
     const first = normalizeLogin(form.getValues('firstName'))
     const last = normalizeLogin(form.getValues('lastName'))
-
-    if (first && last) {
-      const login = `${first}${last}`
-      form.setValue('login', login, { shouldValidate: true })
+    let login = ''
+    if (first) {
+      login += first
     }
+    if (last) {
+      login += last
+    }
+    form.setValue('login', login, { shouldValidate: true })
   }
 
   const onSubmit = (values: CreateStudentSchemaType) => {
@@ -183,20 +189,25 @@ export default function CreateStudentDialog() {
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel htmlFor="birthDate-field">Дата рождения</FieldLabel>
-                  <Input
-                    id="birthDate-field"
-                    type="date"
-                    {...field}
-                    value={
-                      field.value instanceof Date && !isNaN(field.value.getTime())
-                        ? field.value.toISOString().split('T')[0]
-                        : ''
-                    }
-                    onChange={(e) =>
-                      field.onChange(e.target.value ? new Date(e.target.value) : undefined)
-                    }
-                    aria-invalid={fieldState.invalid}
-                  />
+                  <Popover>
+                    <PopoverTrigger
+                      render={<Button variant="outline" className="w-full font-normal" />}
+                    >
+                      <CalendarIcon />
+                      {field.value
+                        ? field.value.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+                        : 'Выберите день'}
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        onSelect={field.onChange}
+                        locale={ru}
+                        selected={field.value}
+                        captionLayout="dropdown"
+                      />
+                    </PopoverContent>
+                  </Popover>
                   <p className="text-muted-foreground text-sm">Возраст: {calculatedAge ?? '—'}</p>
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>

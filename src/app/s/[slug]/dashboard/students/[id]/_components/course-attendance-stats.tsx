@@ -68,14 +68,14 @@ function computeCourseStats(student: StudentWithGroupsAndAttendance): CourseStat
       stats.totalLessons += lessonsPerGroup.get(group.id) ?? 0
     }
 
+    if (attendance.studentStatus === 'TRIAL') continue
+
     if (attendance.status === 'PRESENT') {
       stats.attended++
     } else if (attendance.status === 'ABSENT') {
       stats.missed++
-      if (attendance.missedMakeup) {
-        if (attendance.missedMakeup.makeUpAttendance.status === 'PRESENT') {
-          stats.madeUp++
-        }
+      if (attendance.missedMakeup?.makeUpAttendance.status === 'PRESENT') {
+        stats.madeUp++
       }
     }
   }

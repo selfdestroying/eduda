@@ -2,16 +2,18 @@
 import { Prisma } from '@/prisma/generated/client'
 import { createDismissed } from '@/src/actions/dismissed'
 import { deleteStudentGroup, getGroups, updateStudentGroup } from '@/src/actions/groups'
+import { Alert, AlertDescription } from '@/src/components/ui/alert'
 import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from '@/src/components/ui/alert-dialog'
 import { Button } from '@/src/components/ui/button'
-import { Calendar, CalendarDayButton } from '@/src/components/ui/calendar'
+import { Calendar } from '@/src/components/ui/calendar'
 import {
   Combobox,
   ComboboxContent,
@@ -38,13 +40,12 @@ import {
 } from '@/src/components/ui/dropdown-menu'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
-import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/src/components/ui/item'
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@/src/components/ui/item'
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { useSessionQuery } from '@/src/data/user/session-query'
-import { getFullName, getGroupName } from '@/src/lib/utils'
+import { cn, getGroupName } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import {
   CalendarIcon,
@@ -91,7 +92,18 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
   const [isPending, startTransition] = useTransition()
   const [isDeleteDisabled, setIsDeleteDisabled] = useState(false)
   const [deleteCountdown, setDeleteCountdown] = useState(0)
-  const [groups, setGroups] = useState<{ label: string; value: number; disabled?: boolean }[]>([])
+  const [groups, setGroups] = useState<
+    {
+      label: string
+      value: number
+      disabled?: boolean
+      itemType?: 'group'
+      teachers?: string
+      location?: string
+      students?: number
+      maxStudents?: number
+    }[]
+  >([])
 
   useEffect(() => {
     async function fetchGroups() {
@@ -116,15 +128,15 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
       })
       setGroups(
         data.map((group) => {
-          const name = getGroupName(group)
-          const location = group.location?.name
-          const teachers = group.teachers.map((t) => t.teacher.name).join(', ')
-          const parts = [name, location, teachers].filter(Boolean)
-          const isFull = group.students.length >= group.maxStudents
           return {
-            label: `${parts.join(' · ')} (${group.students.length}/${group.maxStudents})`,
+            label: `${getGroupName(group)}`,
+            itemType: 'group' as const,
+            teachers: `${group.teachers.map((t) => t.teacher.name).join(', ')}`,
+            location: group.location.name,
+            students: group.students.length,
+            maxStudents: group.maxStudents,
             value: group.id,
-            disabled: isFull,
+            disabled: group.students.length >= group.maxStudents,
           }
         })
       )
@@ -299,10 +311,12 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
+            <AlertDialogMedia>
+              <TriangleAlert />
+            </AlertDialogMedia>
             <AlertDialogTitle>Подтвердите удаление</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены что хотите удалить{' '}
-              <b>{getFullName(sg.student.firstName, sg.student.lastName)}</b> из списка учеников?
+              Неотмеченные записи посещаемости в текущей группе будут удалены.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -319,7 +333,7 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
               {isPending ? (
                 <Loader2 className="animate-spin" />
               ) : isDeleteDisabled && deleteCountdown > 0 ? (
-                `Удалить (${deleteCountdown}с)`
+                `${deleteCountdown} с`
               ) : (
                 'Удалить'
               )}
@@ -345,25 +359,24 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
                 render={({ field }) => (
                   <Field>
                     <FieldLabel>Дата отчисления</FieldLabel>
-                    <Popover modal>
-                      <PopoverTrigger render={<Button variant="outline" />}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value ? format(field.value, 'dd.MM.yyyy') : 'Выбрать дату'}
+                    <Popover>
+                      <PopoverTrigger
+                        render={<Button variant="outline" className="w-full font-normal" />}
+                      >
+                        <CalendarIcon />
+                        {field.value
+                          ? field.value.toLocaleDateString('ru-RU', {
+                              day: 'numeric',
+                              month: 'long',
+                            })
+                          : 'Выберите день'}
                       </PopoverTrigger>
-                      <PopoverContent>
+                      <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                           mode="single"
-                          selected={field.value}
                           onSelect={field.onChange}
                           locale={ru}
-                          components={{
-                            DayButton: (props) => (
-                              <CalendarDayButton
-                                {...props}
-                                data-day={props.day.date.toLocaleDateString('ru-RU')}
-                              />
-                            ),
-                          }}
+                          selected={field.value}
                         />
                       </PopoverContent>
                     </Popover>
@@ -383,6 +396,13 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
               />
             </FieldGroup>
           </form>
+
+          <Alert>
+            <TriangleAlert />
+            <AlertDescription>
+              Неотмеченные записи посещаемости в текущей группе будут удалены.
+            </AlertDescription>
+          </Alert>
 
           <DialogFooter>
             <DialogClose render={<Button variant="secondary" size={'sm'} />}>Cancel</DialogClose>
@@ -415,13 +435,32 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
                         itemValue.value === selectedValue.value
                       }
                     >
-                      <ComboboxInput id="form-rhf-select-group" aria-invalid={fieldState.invalid} />
+                      <ComboboxInput
+                        id="form-rhf-select-group"
+                        placeholder="Выберите группу"
+                        aria-invalid={fieldState.invalid}
+                      />
                       <ComboboxContent>
-                        <ComboboxEmpty>Нет доступных студентов</ComboboxEmpty>
+                        <ComboboxEmpty>Нет доступных групп</ComboboxEmpty>
                         <ComboboxList>
                           {(item) => (
                             <ComboboxItem key={item.value} value={item} disabled={item.disabled}>
-                              {item.label}
+                              <Item size="xs" className="p-0">
+                                <ItemContent>
+                                  <ItemTitle className="whitespace-nowrap">{item.label}</ItemTitle>
+                                  <ItemDescription>
+                                    {item.teachers} | {item.location} |{' '}
+                                    <span
+                                      className={cn(
+                                        'tabular-nums',
+                                        item.disabled && 'text-destructive'
+                                      )}
+                                    >
+                                      {item.students}/{item.maxStudents}
+                                    </span>
+                                  </ItemDescription>
+                                </ItemContent>
+                              </Item>
                             </ComboboxItem>
                           )}
                         </ComboboxList>
@@ -434,20 +473,15 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
             </FieldGroup>
           </form>
 
-          <Item variant="outline" size="sm">
-            <ItemMedia variant="icon">
-              <TriangleAlert />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>Внимание</ItemTitle>
-              <ItemDescription>
-                Неотмеченные записи посещаемости в текущей группе будут удалены.
-              </ItemDescription>
-            </ItemContent>
-          </Item>
+          <Alert>
+            <TriangleAlert />
+            <AlertDescription>
+              Неотмеченные записи посещаемости в текущей группе будут удалены.
+            </AlertDescription>
+          </Alert>
 
           <DialogFooter>
-            <DialogClose render={<Button variant="secondary" size={'sm'} />}>Cancel</DialogClose>
+            <DialogClose render={<Button variant="secondary" size={'sm'} />}>Отмена</DialogClose>
             <Button type="submit" size={'sm'} form="transfer-form" disabled={isPending}>
               Подтвердить
             </Button>

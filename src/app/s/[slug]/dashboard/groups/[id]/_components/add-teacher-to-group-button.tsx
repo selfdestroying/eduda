@@ -2,7 +2,6 @@
 import { Prisma } from '@/prisma/generated/client'
 import { createTeacherGroup } from '@/src/actions/groups'
 import { Button } from '@/src/components/ui/button'
-import { Checkbox } from '@/src/components/ui/checkbox'
 import {
   Combobox,
   ComboboxContent,
@@ -19,8 +18,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/src/components/ui/dialog'
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from '@/src/components/ui/field'
 import { Skeleton } from '@/src/components/ui/skeleton'
+import { Switch } from '@/src/components/ui/switch'
 import { useMappedMemberListQuery } from '@/src/data/member/member-list-query'
 import { useMappedRateListQuery } from '@/src/data/rate/rate-list-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
@@ -84,7 +92,7 @@ export default function AddTeacherToGroupButton({ group }: AddTeacherToGroupButt
     defaultValues: {
       teacher: undefined,
       rate: defaultRate,
-      isApplyToLesson: false,
+      isApplyToLesson: true,
     },
   })
 
@@ -241,20 +249,21 @@ function GroupTeacherForm({ form, onSubmit, organizationId }: GroupTeacherFormPr
           render={({ field }) => (
             <Field>
               <Field orientation="horizontal">
-                <FieldLabel
-                  htmlFor="toggle-apply-to-lessons"
-                  className="hover:bg-accent/50 flex items-start gap-2 rounded-lg border p-2 has-aria-checked:border-violet-600 has-aria-checked:bg-violet-50 dark:has-aria-checked:border-violet-900 dark:has-aria-checked:bg-violet-950"
-                >
-                  <Checkbox
-                    id="toggle-apply-to-lessons"
-                    name={field.name}
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                    className="data-[state=checked]:border-violet-600 data-[state=checked]:bg-violet-600 data-[state=checked]:text-white dark:data-[state=checked]:border-violet-700 dark:data-[state=checked]:bg-violet-700"
-                  />
-                  <div className="grid gap-1.5 font-normal">
-                    <p className="text-sm leading-none font-medium">Применить к урокам</p>
-                  </div>
+                <FieldLabel htmlFor="toggle-apply-to-lessons">
+                  <Field orientation="horizontal">
+                    <FieldContent>
+                      <FieldTitle>Применить к урокам</FieldTitle>
+                      <FieldDescription>
+                        Добавит преподавателя во все будущие уроки, привязанные к этой группе
+                      </FieldDescription>
+                    </FieldContent>
+                    <Switch
+                      id="toggle-apply-to-lessons"
+                      name={field.name}
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </Field>
                 </FieldLabel>
               </Field>
             </Field>
