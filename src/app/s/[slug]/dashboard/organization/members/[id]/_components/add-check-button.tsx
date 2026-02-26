@@ -1,7 +1,7 @@
 'use client'
 import { createPaycheck } from '@/src/actions/paycheck'
 import { Button } from '@/src/components/ui/button'
-import { Calendar, CalendarDayButton } from '@/src/components/ui/calendar'
+import { Calendar } from '@/src/components/ui/calendar'
 import {
   Dialog,
   DialogContent,
@@ -13,9 +13,10 @@ import {
 } from '@/src/components/ui/dialog'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'
-import { Plus } from 'lucide-react'
+import { CalendarIcon, Plus } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -110,20 +111,24 @@ export default function AddCheckButton({ organizationId, userId, userName }: Add
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Дата</FieldLabel>
-                  <Calendar
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    locale={ru}
-                    components={{
-                      DayButton: (props) => (
-                        <CalendarDayButton
-                          {...props}
-                          data-day={props.day.date.toLocaleDateString('ru-RU')}
-                        />
-                      ),
-                    }}
-                  />
+                  <Popover>
+                    <PopoverTrigger
+                      render={<Button variant="outline" className="w-full font-normal" />}
+                    >
+                      <CalendarIcon />
+                      {field.value
+                        ? field.value.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+                        : 'Выберите день'}
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        onSelect={field.onChange}
+                        locale={ru}
+                        selected={field.value}
+                      />
+                    </PopoverContent>
+                  </Popover>
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>
               )}
