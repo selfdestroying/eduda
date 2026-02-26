@@ -1,19 +1,12 @@
 // components/DeleteDropdown.tsx
 'use client'
 
-import {
-  StudentFinancialField,
-  StudentLessonsBalanceChangeReason,
-  StudentStatus,
-} from '@/prisma/generated/enums'
+import { StudentStatus } from '@/prisma/generated/enums'
 import {
   AttendanceWithStudents,
-  createAttendance,
   deleteAttendance,
   updateAttendance,
 } from '@/src/actions/attendance'
-import { createMakeUp } from '@/src/actions/makeup'
-import { updateStudentGroupBalance } from '@/src/actions/students'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -28,7 +21,6 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -52,16 +44,15 @@ import {
 } from '@/src/components/ui/select'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { useSessionQuery } from '@/src/data/user/session-query'
-import { getFullName } from '@/src/lib/utils'
 import { CalendarCog, CalendarPlus, Loader2, MoreVertical, Trash2, UserPen } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { StudentStatusMap } from './attendance-table'
-import CreateMakeUpForm from './create-makeup-dialog'
+import MakeUpDialog from './create-makeup-dialog'
 
 const AttendanceActions = ({ attendance }: { attendance: AttendanceWithStudents }) => {
   const { data: session, isLoading: isSessionLoading } = useSessionQuery()
-  const organizationId = session?.organizationId ?? undefined
+  const organizationId = session?.organizationId
   const [open, setOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [makeupOpen, setMakeupOpen] = useState(false)
@@ -70,10 +61,6 @@ const AttendanceActions = ({ attendance }: { attendance: AttendanceWithStudents 
   const [isPending, startTransition] = useTransition()
   const [isStudentStatusPending, startStudentStatusTransition] = useTransition()
   const [studentStatus, setStudentStatus] = useState<StudentStatus>(attendance.studentStatus)
-
-  const [selectedLesson, setSelectedLesson] = useState<{ label: string; value: number } | null>(
-    null
-  )
 
   const studentFullName = `${attendance.student.firstName} ${attendance.student.lastName}`
 
@@ -103,7 +90,7 @@ const AttendanceActions = ({ attendance }: { attendance: AttendanceWithStudents 
   const handleStudentStatusConfirm = () => {
     startStudentStatusTransition(() => {
       const ok = updateAttendance({
-        where: { id: attendance.id, organizationId },
+        where: { id: attendance.id, organizationId: organizationId! },
         data: { studentStatus },
       })
       toast.promise(ok, {
@@ -114,59 +101,6 @@ const AttendanceActions = ({ attendance }: { attendance: AttendanceWithStudents 
       setOpen(false)
       setStatusOpen(false)
     })
-  }
-
-  const handleCreateMakeUp = () => {
-    try {
-      if (!selectedLesson) {
-        toast.error('Пожалуйста, выберите урок для отработки.')
-        return
-      }
-      toast.promise(
-        (async () => {
-          if (attendance.missedMakeup && attendance.missedMakeup.makeUpAttendanceId)
-            await deleteAttendance({ where: { id: attendance.missedMakeup.makeUpAttendanceId } })
-          const a = await createAttendance({
-            organizationId: organizationId!,
-            studentId: attendance.studentId,
-            lessonId: selectedLesson?.value,
-            comment: '',
-            status: 'UNSPECIFIED',
-          })
-          await createMakeUp({
-            organizationId: organizationId!,
-            missedAttendanceId: attendance.id,
-            makeUpAttendanceId: a.id,
-          })
-          // Credit +1 to the ORIGINAL group (where student missed)
-          const originalGroupId = attendance.lesson.groupId
-          await updateStudentGroupBalance(
-            attendance.studentId,
-            originalGroupId,
-            { lessonsBalance: { increment: 1 } },
-            {
-              [StudentFinancialField.LESSONS_BALANCE]: {
-                reason: StudentLessonsBalanceChangeReason.MAKEUP_GRANTED,
-                meta: {
-                  missedAttendanceId: attendance.id,
-                  makeUpAttendanceId: a.id,
-                  makeUpLessonId: selectedLesson?.value,
-                  makeUpLessonName: selectedLesson.label,
-                  originalGroupId,
-                },
-              },
-            }
-          )
-        })(),
-        {
-          loading: 'Сохраняем...',
-          success: 'Отработка успешно создана',
-          error: (e) => e.message,
-        }
-      )
-    } catch (e) {
-      console.error(e)
-    }
   }
 
   if (isSessionLoading) {
@@ -291,21 +225,7 @@ const AttendanceActions = ({ attendance }: { attendance: AttendanceWithStudents 
         </DialogContent>
       </Dialog>
 
-      <Dialog open={makeupOpen} onOpenChange={setMakeupOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Отработка</DialogTitle>
-            <DialogDescription>
-              {getFullName(attendance.student.firstName, attendance.student.lastName)}
-            </DialogDescription>
-          </DialogHeader>
-          <CreateMakeUpForm selectedLesson={selectedLesson} setSelectedLesson={setSelectedLesson} />
-          <DialogFooter>
-            <DialogClose render={<Button type="button" variant="outline" />}>Отмена</DialogClose>
-            <Button onClick={handleCreateMakeUp}>Создать</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <MakeUpDialog open={makeupOpen} onOpenChange={setMakeupOpen} attendance={attendance} />
     </>
   )
 }
