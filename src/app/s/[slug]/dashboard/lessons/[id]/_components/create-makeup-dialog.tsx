@@ -1,9 +1,6 @@
 'use client'
 
-import {
-  StudentFinancialField,
-  StudentLessonsBalanceChangeReason,
-} from '@/prisma/generated/enums'
+import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@/prisma/generated/enums'
 import {
   AttendanceWithStudents,
   createAttendance,
@@ -75,7 +72,7 @@ export default function MakeUpDialog({ open, onOpenChange, attendance }: MakeUpD
       if (!value) resetForm()
       onOpenChange(value)
     },
-    [onOpenChange, resetForm],
+    [onOpenChange, resetForm]
   )
 
   const handleCreate = async () => {
@@ -113,7 +110,7 @@ export default function MakeUpDialog({ open, onOpenChange, attendance }: MakeUpD
               originalGroupId,
             },
           },
-        },
+        }
       )
     }
   }
@@ -197,10 +194,7 @@ export default function MakeUpDialog({ open, onOpenChange, attendance }: MakeUpD
             onValueChange={setSelectedLesson}
             isItemEqualToValue={(a, b) => a?.value === b?.value}
           >
-            <ComboboxInput
-              id="form-rhf-select-lesson"
-              placeholder="Выберите урок для отработки"
-            />
+            <ComboboxInput id="form-rhf-select-lesson" placeholder="Выберите урок для отработки" />
             <ComboboxContent>
               <ComboboxEmpty>Не найдены уроки</ComboboxEmpty>
               <ComboboxList>
