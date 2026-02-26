@@ -23,7 +23,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { startOfDay } from 'date-fns'
-import { fromZonedTime, toZonedTime } from 'date-fns-tz'
+import { formatDateOnly } from '@/src/lib/timezone'
 import { ru } from 'date-fns/locale'
 import Link from 'next/link'
 import { parseAsIsoDate, useQueryState } from 'nuqs'
@@ -119,8 +119,7 @@ const columns: ColumnDef<AttendanceWithStudents>[] = [
     id: 'date',
     header: 'Дата пропуска',
     accessorKey: 'lesson.date',
-    cell: ({ row }) =>
-      toZonedTime(new Date(row.original.lesson.date), 'Europe/Moscow').toLocaleDateString('ru-RU'),
+    cell: ({ row }) => formatDateOnly(row.original.lesson.date),
     filterFn: (row, columnId, filterValue) => {
       const lessonDate = startOfDay(new Date(row.getValue<Date>(columnId)))
       const fromDate = startOfDay(new Date(filterValue.from))
@@ -170,8 +169,8 @@ export default function StudentsTable({ data }: { data: AttendanceWithStudents[]
       filters.push({
         id: 'date',
         value: {
-          from: fromZonedTime(dateFrom, 'Europe/Moscow'),
-          to: fromZonedTime(dateTo, 'Europe/Moscow'),
+          from: dateFrom,
+          to: dateTo,
         },
       })
     }

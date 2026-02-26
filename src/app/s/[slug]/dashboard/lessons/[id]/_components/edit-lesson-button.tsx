@@ -2,6 +2,7 @@
 
 import { Lesson } from '@/prisma/generated/client'
 import { updateLesson } from '@/src/actions/lessons'
+import { normalizeDateOnly } from '@/src/lib/timezone'
 import { Button } from '@/src/components/ui/button'
 import { Calendar, CalendarDayButton } from '@/src/components/ui/calendar'
 import {
@@ -42,7 +43,7 @@ const statusItems = [
 ]
 
 const EditLessonSchema = z.object({
-  date: z.date('Выберите дату урока'),
+  date: z.date('Выберите дату урока').transform(normalizeDateOnly),
   time: z.string('Выберите время урока'),
   status: z.enum(['ACTIVE', 'CANCELLED'], 'Выберите статус урока'),
 })

@@ -2,6 +2,7 @@
 import { Prisma } from '@/prisma/generated/client'
 import { createDismissed } from '@/src/actions/dismissed'
 import { deleteStudentGroup, getGroups, updateStudentGroup } from '@/src/actions/groups'
+import { normalizeDateOnly } from '@/src/lib/timezone'
 import { Alert, AlertDescription } from '@/src/components/ui/alert'
 import {
   AlertDialog,
@@ -66,7 +67,7 @@ interface UsersActionsProps {
 }
 
 const dismissStudentSchema = z.object({
-  date: z.date('Укажите дату'),
+  date: z.date('Укажите дату').transform(normalizeDateOnly),
   comment: z.string('Укажите комментарий'),
 })
 

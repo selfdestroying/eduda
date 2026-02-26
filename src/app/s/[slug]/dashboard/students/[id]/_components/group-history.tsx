@@ -5,7 +5,7 @@ import DataTable from '@/src/components/data-table'
 import { Badge } from '@/src/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip'
 import { ColumnDef, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table'
-import { toZonedTime } from 'date-fns-tz'
+import { formatDateOnly } from '@/src/lib/timezone'
 import { ArrowRightLeft, Info } from 'lucide-react'
 import Link from 'next/link'
 
@@ -16,12 +16,7 @@ const statusLabels: Record<string, string> = {
 }
 
 function formatDate(date: Date) {
-  const d = toZonedTime(date, 'Europe/Moscow')
-  return d.toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+  return formatDateOnly(date, { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 const columns: ColumnDef<StudentGroupHistoryEntry>[] = [

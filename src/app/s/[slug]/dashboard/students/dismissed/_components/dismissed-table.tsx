@@ -18,7 +18,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { toZonedTime } from 'date-fns-tz'
+import { formatDateOnly } from '@/src/lib/timezone'
 import Link from 'next/link'
 import DismissedActions from './dismissed-actions'
 
@@ -112,8 +112,7 @@ const columns: ColumnDef<DismissedWithStudentAndGroup>[] = [
   {
     header: 'Дата отчисления',
     accessorKey: 'date',
-    cell: ({ row }) =>
-      toZonedTime(new Date(row.original.date), 'Europe/Moscow').toLocaleDateString('ru-RU'),
+    cell: ({ row }) => formatDateOnly(row.original.date),
   },
   {
     id: 'actions',

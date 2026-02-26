@@ -1,4 +1,5 @@
 import { z } from 'zod/v4'
+import { normalizeDateOnly } from '../lib/timezone'
 
 export const CreateGroupSchema = z.object({
   name: z.string(),
@@ -30,7 +31,7 @@ export const CreateGroupSchema = z.object({
     },
     'Выберите локацию'
   ),
-  startDate: z.date('Выберите дату старта'),
+  startDate: z.date('Выберите дату старта').transform(normalizeDateOnly),
   groupTypeId: z.number({ error: 'Выберите тип группы' }).int().positive(),
   schedule: z
     .array(
@@ -75,7 +76,7 @@ export const DismissSchema = z.object({
   groupId: z.number(),
   studentId: z.number(),
   comment: z.string(),
-  date: z.date(),
+  date: z.date().transform(normalizeDateOnly),
 })
 
 export type CreateGroupSchemaType = z.infer<typeof CreateGroupSchema>

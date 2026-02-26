@@ -17,7 +17,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { cva } from 'class-variance-authority'
-import { toZonedTime } from 'date-fns-tz'
+import { toMoscow } from '@/src/lib/timezone'
 import Link from 'next/link'
 import { useState } from 'react'
 import OrderActions from './order-actions'
@@ -73,7 +73,7 @@ const columns: ColumnDef<OrderWithProductAndStudent>[] = [
   },
   {
     header: 'Дата',
-    accessorFn: (item) => toZonedTime(item.createdAt, 'Europe/Moscow').toLocaleString('ru-RU'),
+    accessorFn: (item) => toMoscow(item.createdAt).toLocaleString('ru-RU'),
   },
   {
     id: 'actions',

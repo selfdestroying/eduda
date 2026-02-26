@@ -41,7 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/src/components/ui/table'
-import { toZonedTime } from 'date-fns-tz'
+import { toMoscow } from '@/src/lib/timezone'
 import { useMemo, useState } from 'react'
 
 import {
@@ -134,7 +134,7 @@ export default function UnprocessedPaymentTable({
         header: 'Дата',
         accessorKey: 'createdAt',
         cell: ({ row }) =>
-          toZonedTime(row.original.createdAt, 'Europe/Moscow').toLocaleString('ru-RU'),
+          toMoscow(row.original.createdAt).toLocaleString('ru-RU'),
       },
       {
         id: 'actions',

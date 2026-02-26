@@ -1,8 +1,7 @@
 'use server'
 
 import prisma from '@/src/lib/prisma'
-import { startOfDay } from 'date-fns'
-import { fromZonedTime } from 'date-fns-tz'
+import { normalizeDateOnly, moscowNow } from '@/src/lib/timezone'
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '../../prisma/generated/client'
 
@@ -62,19 +61,21 @@ export const updateGroup = async (payload: Prisma.GroupUpdateArgs) => {
   await prisma.group.update(payload)
   const dayOfWeek = payload.data.dayOfWeek
   const time = payload.data.time
+  const todayDate = normalizeDateOnly(moscowNow())
+
   if (time != null) {
     await prisma.lesson.updateMany({
-      where: { groupId: payload.where.id, date: { gte: startOfDay(new Date()) } },
+      where: { groupId: payload.where.id, date: { gte: todayDate } },
       data: { time },
     })
   }
   if (dayOfWeek != null) {
     const lessons = await prisma.lesson.findMany({
-      where: { groupId: payload.where.id, date: { gte: startOfDay(new Date()) } },
+      where: { groupId: payload.where.id, date: { gte: todayDate } },
     })
 
-    const nearestWeekDay = startOfDay(new Date())
-    const currentDay = nearestWeekDay.getDay()
+    const now = moscowNow()
+    const currentDay = now.getDay()
 
     let diff = ((dayOfWeek as number) - currentDay + 7) % 7
 
@@ -82,13 +83,15 @@ export const updateGroup = async (payload: Prisma.GroupUpdateArgs) => {
       diff = 7
     }
 
-    nearestWeekDay.setDate(nearestWeekDay.getDate() + diff)
+    // Generate UTC midnight dates for each future lesson
+    const baseDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + diff))
+
     for (const lesson of lessons) {
       await prisma.lesson.update({
         where: { id: lesson.id },
-        data: { date: fromZonedTime(nearestWeekDay, 'Europe/Moscow') },
+        data: { date: new Date(baseDate.getTime()) },
       })
-      nearestWeekDay.setDate(nearestWeekDay.getDate() + 7)
+      baseDate.setUTCDate(baseDate.getUTCDate() + 7)
     }
   }
   revalidatePath(`/dashboard/groups/${payload.where.id}`)
@@ -110,13 +113,12 @@ export const createStudentGroup = async (
 
     if (!isApplyToLessons) return
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const todayDate = normalizeDateOnly(moscowNow())
 
     const futureLessons = await tx.lesson.findMany({
       where: {
         groupId: payload.data.groupId,
-        date: { gte: today },
+        date: { gte: todayDate },
       },
       select: { id: true, organizationId: true },
     })
@@ -169,7 +171,7 @@ export const updateStudentGroup = async (
       })
     }
 
-    const today = startOfDay(new Date())
+    const today = normalizeDateOnly(moscowNow())
     // Создаём посещаемость в новой группе
     const newFutureLessons = await tx.lesson.findMany({
       where: {
@@ -216,13 +218,12 @@ export const deleteStudentGroup = async (payload: Prisma.StudentGroupDeleteArgs)
       // No additional action needed — the unallocated balance auto-increases
     }
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const todayDate = normalizeDateOnly(moscowNow())
 
     const futureLessons = await tx.lesson.findMany({
       where: {
         groupId: studentGroup.groupId,
-        date: { gte: today },
+        date: { gte: todayDate },
       },
       select: { id: true, organizationId: true },
     })
@@ -257,7 +258,7 @@ export const updateTeacherGroup = async (
         where: {
           teacherId: teacherGroup.teacherId,
           lesson: {
-            date: { gt: new Date() },
+            date: { gt: normalizeDateOnly(moscowNow()) },
             groupId: teacherGroup.groupId,
           },
         },
@@ -285,7 +286,7 @@ export const createTeacherGroup = async (
           include: {
             lessons: {
               where: {
-                date: { gt: new Date() },
+                date: { gt: normalizeDateOnly(moscowNow()) },
                 teachers: { none: { teacherId: payload.data.teacherId } },
               },
             },
@@ -326,7 +327,7 @@ export const deleteTeacherGroup = async (
         where: {
           teacherId: teacherGroup.teacherId,
           lesson: {
-            date: { gt: new Date() },
+            date: { gt: normalizeDateOnly(moscowNow()) },
             groupId: teacherGroup.groupId,
           },
         },
