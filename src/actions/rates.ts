@@ -53,6 +53,15 @@ export const updateRate = async (payload: Prisma.RateUpdateArgs, isApplyToLesson
 }
 
 export const deleteRate = async (payload: Prisma.RateDeleteArgs) => {
+  const rate = await prisma.rate.findUnique({
+    where: payload.where,
+    include: { _count: { select: { teacherGroups: true, groupTypes: true } } },
+  })
+
+  if (rate && rate._count.groupTypes > 0) {
+    throw new Error('Невозможно удалить ставку, которая привязана к типу группы')
+  }
+
   await prisma.rate.delete(payload)
   revalidatePath('/dashboard')
 }

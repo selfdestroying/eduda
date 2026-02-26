@@ -32,6 +32,7 @@ export default async function Page() {
     include: {
       students: true,
       schedules: true,
+      groupType: { include: { rate: true } },
       teachers: {
         include: {
           teacher: true,

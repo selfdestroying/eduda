@@ -34,7 +34,15 @@ import z from 'zod/v4'
 interface AddTeacherToLessonButtonProps {
   lesson: Prisma.LessonGetPayload<{
     include: {
-      group: true
+      group: {
+        include: {
+          groupType: {
+            include: {
+              rate: true
+            }
+          }
+        }
+      }
     }
   }>
 }
@@ -65,13 +73,8 @@ export default function AddTeacherToLessonButton({ lesson }: AddTeacherToLessonB
     resolver: zodResolver(LessonTeacherSchema),
     defaultValues: {
       teacher: undefined,
-      bid:
-        lesson.group.type === 'INDIVIDUAL'
-          ? 750
-          : lesson.group.type === 'GROUP' || lesson.group.type === 'SPLIT'
-            ? 1100
-            : undefined,
-      bonusPerStudent: 0,
+      bid: lesson.group.groupType?.rate?.bid ?? undefined,
+      bonusPerStudent: lesson.group.groupType?.rate?.bonusPerStudent ?? undefined,
     },
   })
 

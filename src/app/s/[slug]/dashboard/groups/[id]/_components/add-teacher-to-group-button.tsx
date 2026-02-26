@@ -1,5 +1,5 @@
 'use client'
-import { Group } from '@/prisma/generated/client'
+import { Prisma } from '@/prisma/generated/client'
 import { createTeacherGroup } from '@/src/actions/groups'
 import { Button } from '@/src/components/ui/button'
 import { Checkbox } from '@/src/components/ui/checkbox'
@@ -33,7 +33,15 @@ import { toast } from 'sonner'
 import z from 'zod/v4'
 
 interface AddTeacherToGroupButtonProps {
-  group: Group
+  group: Prisma.GroupGetPayload<{
+    include: {
+      groupType: {
+        include: {
+          rate: true
+        }
+      }
+    }
+  }>
 }
 
 const GroupTeacherSchema = z.object({
@@ -61,12 +69,21 @@ export default function AddTeacherToGroupButton({ group }: AddTeacherToGroupButt
   const organizationId = session?.organizationId
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const defaultRate = group.groupType
+    ? {
+        value: group.groupType.rate.id.toString(),
+        label:
+          group.groupType.rate.bonusPerStudent > 0
+            ? `${group.groupType.rate.name} (${group.groupType.rate.bid} ₽ + ${group.groupType.rate.bonusPerStudent} ₽/уч.)`
+            : `${group.groupType.rate.name} (${group.groupType.rate.bid} ₽)`,
+      }
+    : undefined
 
   const form = useForm<GroupTeacherSchemaType>({
     resolver: zodResolver(GroupTeacherSchema),
     defaultValues: {
       teacher: undefined,
-      rate: undefined,
+      rate: defaultRate,
       isApplyToLesson: false,
     },
   })
@@ -192,14 +209,19 @@ function GroupTeacherForm({ form, onSubmit, organizationId }: GroupTeacherFormPr
                 <FieldLabel htmlFor="form-rhf-select-rate">Ставка</FieldLabel>
                 {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </FieldContent>
-              <Combobox items={rates} onValueChange={field.onChange}>
+              <Combobox
+                items={rates}
+                value={field.value}
+                onValueChange={field.onChange}
+                isItemEqualToValue={(a, b) => a?.value === b?.value}
+              >
                 <ComboboxInput
-                  id="form-rhf-select-teacher"
+                  id="form-rhf-select-rate"
                   aria-invalid={fieldState.invalid}
-                  placeholder="Выберите преподавателя"
+                  placeholder="Выберите ставку"
                 />
                 <ComboboxContent>
-                  <ComboboxEmpty>Не найдены преподаватели</ComboboxEmpty>
+                  <ComboboxEmpty>Не найдены ставки</ComboboxEmpty>
                   <ComboboxList>
                     {(rate: (typeof rates)[number]) => (
                       <ComboboxItem key={rate.value} value={rate}>

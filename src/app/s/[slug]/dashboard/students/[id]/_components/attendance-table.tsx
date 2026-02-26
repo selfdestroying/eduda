@@ -4,7 +4,6 @@ import { AttendanceStatus } from '@/prisma/generated/enums'
 import DragScrollArea from '@/src/components/drag-scroll-area'
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/src/components/ui/table'
-import { Toggle } from '@/src/components/ui/toggle'
 import { cn, getFullName } from '@/src/lib/utils'
 import {
   ColumnDef,
@@ -14,14 +13,13 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { toZonedTime } from 'date-fns-tz'
-import { ArrowDown, ArrowUp, Users } from 'lucide-react'
+import { ArrowDown, ArrowUp } from 'lucide-react'
 import Link from 'next/link'
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo } from 'react'
 
 // -------------------- Types --------------------
 type AttendanceWithRelations = Prisma.AttendanceGetPayload<{
   include: {
-    asMakeupFor: { include: { missedAttendance: { include: { lesson: true } } } }
     missedMakeup: { include: { makeUpAttendance: { include: { lesson: true } } } }
   }
 }>
@@ -59,8 +57,6 @@ type LessonWithAttendance = Prisma.LessonGetPayload<{
   include: {
     attendance: {
       include: {
-        student: true
-        asMakeupFor: { include: { missedAttendance: { include: { lesson: true } } } }
         missedMakeup: { include: { makeUpAttendance: { include: { lesson: true } } } }
       }
     }
@@ -197,36 +193,18 @@ const getColumns = (
 ]
 
 // -------------------- Main Component --------------------
-export function GroupAttendanceTable({
+export function StudentAttendanceTable({
   lessons,
-  currentStudents,
+  students,
 }: {
   lessons: LessonWithAttendance[]
-  currentStudents: Student[]
+  students: Student[]
 }) {
-  const [isPending, startTransition] = useTransition()
-  const [showAll, setShowAll] = useState(false)
-
-  const allStudents = useMemo(() => {
-    const regularIds = new Set<number>()
-    const map = new Map<number, Student>()
-    for (const lesson of lessons) {
-      for (const att of lesson.attendance) {
-        if (!att.asMakeupFor) regularIds.add(att.studentId)
-        if (!map.has(att.studentId)) map.set(att.studentId, att.student)
-      }
-    }
-    return [...map.values()].filter((s) => regularIds.has(s.id))
-  }, [lessons])
-
   const lookup = useMemo(() => buildAttendanceLookup(lessons), [lessons])
-
-  const hasFormerStudents = allStudents.length > currentStudents.length
-  const data = showAll ? allStudents : currentStudents
   const columns = useMemo(() => getColumns(lessons, lookup), [lessons, lookup])
 
   const table = useReactTable({
-    data,
+    data: students,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -235,18 +213,6 @@ export function GroupAttendanceTable({
 
   return (
     <div className="space-y-2">
-      {hasFormerStudents && (
-        <Toggle
-          pressed={showAll}
-          onPressedChange={(v) => startTransition(() => setShowAll(v))}
-          variant="outline"
-          disabled={isPending}
-          aria-label="Показать всех учеников"
-        >
-          <Users />
-          {isPending ? 'Загрузка...' : showAll ? 'Все ученики' : 'Текущие ученики'}
-        </Toggle>
-      )}
       <DragScrollArea
         initialScroll={
           (lessons.reduce((prev, curr) => prev + (curr.date < new Date() ? 1 : 0), 0) - 1) * 100

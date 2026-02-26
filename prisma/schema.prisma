@@ -98,6 +98,7 @@ model Organization {
   members                        Member[]
   invitations                    Invitation[]
   rates                          Rate[]
+  groupTypes                     GroupType[]
   courses                        Course[]
   locations                      Location[]
   students                       Student[]
@@ -215,23 +216,24 @@ model Student {
 }
 
 model Group {
-  id          Int        @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   startDate   DateTime
   dayOfWeek   Int
   time        String
   maxStudents Int
   url         String?
-  type        GroupType?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
   organizationId Int
-  courseId       Int
+  courseId        Int
   locationId     Int
+  groupTypeId    Int?
   location       Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
   course         Course       @relation(fields: [courseId], references: [id])
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  groupType      GroupType?   @relation(fields: [groupTypeId], references: [id])
 
   lessons               Lesson[]
   students              StudentGroup[]
@@ -244,6 +246,7 @@ model Group {
   @@index([organizationId])
   @@index([courseId])
   @@index([locationId])
+  @@index([groupTypeId])
 }
 
 model GroupSchedule {
@@ -399,8 +402,27 @@ model Rate {
   organizationId Int
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   teacherGroups  TeacherGroup[]
+  groupTypes     GroupType[]
 
   @@index([organizationId])
+}
+
+model GroupType {
+  id        Int      @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  organizationId Int
+  rateId         Int
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rate           Rate         @relation(fields: [rateId], references: [id])
+
+  groups Group[]
+
+  @@index([organizationId])
+  @@index([rateId])
 }
 
 model TeacherGroup {
@@ -620,13 +642,6 @@ model Order {
 }
 
 // 
-
-enum GroupType {
-  GROUP
-  INDIVIDUAL
-  INTENSIVE
-  SPLIT
-}
 
 enum AttendanceStatus {
   UNSPECIFIED

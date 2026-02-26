@@ -1,17 +1,9 @@
-import { GroupType } from '@/prisma/generated/enums'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { DaysOfWeek } from '@/src/lib/utils'
 import { GroupDTO } from '@/src/types/group'
 import { toZonedTime } from 'date-fns-tz'
 import { Book, Calendar, ExternalLink, MapPin, Tag, Users } from 'lucide-react'
 import EditGroupButton from './edit-group-button'
-
-const groupTypeMap: Record<GroupType, string> = {
-  GROUP: 'Группа',
-  INDIVIDUAL: 'Индив.',
-  INTENSIVE: 'Интенсив',
-  SPLIT: 'Сплит',
-}
 
 export default async function InfoSection({ group }: { group: GroupDTO }) {
   return (
@@ -75,7 +67,7 @@ export default async function InfoSection({ group }: { group: GroupDTO }) {
                 Тип
               </span>
             </div>
-            <div className="truncate">{group.type ? groupTypeMap[group.type] : '-'}</div>
+            <div className="truncate">{group.groupType?.name ?? '-'}</div>
           </div>
 
           <div className="flex flex-col">

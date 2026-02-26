@@ -25,70 +25,75 @@ type StudentWithAttendances = Prisma.StudentGroupGetPayload<{
   }
 }>
 
-export default function GroupStudentsTable({ data }: { data: StudentWithAttendances[] }) {
+export default function GroupStudentsTable({
+  data,
+}: {
+  data: Prisma.StudentGroupGetPayload<{ include: { student: true } }>[]
+}) {
   const { data: hasPermission } = useOrganizationPermissionQuery({
     studentGroup: ['update'],
   })
-  const columns: ColumnDef<StudentWithAttendances>[] = useMemo(
-    () => [
-      {
-        id: 'id',
-        header: '№',
-        cell: ({ row }) => row.index + 1,
-        size: 10,
-      },
-      {
-        header: 'Полное имя',
-        accessorFn: (student) => getFullName(student.student.firstName, student.student.lastName),
-        cell: ({ row }) => (
-          <Link
-            href={`/dashboard/students/${row.original.student.id}`}
-            className="text-primary hover:underline"
-          >
-            {getFullName(row.original.student.firstName, row.original.student.lastName)}
-          </Link>
-        ),
-      },
-      {
-        header: 'Ссылка в amo',
-        cell: ({ row }) =>
-          row.original.student.url ? (
-            <a
-              href={row.original.student.url || '#'}
-              target="_blank"
-              rel="noopener noreferrer"
+  const columns: ColumnDef<Prisma.StudentGroupGetPayload<{ include: { student: true } }>>[] =
+    useMemo(
+      () => [
+        {
+          id: 'id',
+          header: '№',
+          cell: ({ row }) => row.index + 1,
+          size: 10,
+        },
+        {
+          header: 'Полное имя',
+          accessorFn: (sg) => getFullName(sg.student.firstName, sg.student.lastName),
+          cell: ({ row }) => (
+            <Link
+              href={`/dashboard/students/${row.original.student.id}`}
               className="text-primary hover:underline"
             >
-              {row.original.student.url ? 'Ссылка' : 'Нет ссылки'}
-            </a>
-          ) : (
-            'Нет ссылки'
+              {getFullName(row.original.student.firstName, row.original.student.lastName)}
+            </Link>
           ),
-      },
-      {
-        header: 'Возраст',
-        cell: ({ row }) => row.original.student.age,
-      },
-      {
-        header: 'Логин',
-        cell: ({ row }) => row.original.student.login,
-      },
-      {
-        header: 'Пароль',
-        cell: ({ row }) => row.original.student.password,
-      },
-      {
-        header: 'Коины',
-        cell: ({ row }) => row.original.student.coins,
-      },
-      {
-        id: 'actions',
-        cell: ({ row }) =>
-          hasPermission?.success ? <GroupStudentActions sg={row.original} /> : null,
-      },
-    ],
-    [hasPermission?.success]
-  )
+        },
+        {
+          header: 'Ссылка в amo',
+          cell: ({ row }) =>
+            row.original.student.url ? (
+              <a
+                href={row.original.student.url || '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                {row.original.student.url ? 'Ссылка' : 'Нет ссылки'}
+              </a>
+            ) : (
+              'Нет ссылки'
+            ),
+        },
+        {
+          header: 'Возраст',
+          cell: ({ row }) => row.original.student.age,
+        },
+        {
+          header: 'Логин',
+          cell: ({ row }) => row.original.student.login,
+        },
+        {
+          header: 'Пароль',
+          cell: ({ row }) => row.original.student.password,
+        },
+        {
+          header: 'Коины',
+          cell: ({ row }) => row.original.student.coins,
+        },
+        {
+          id: 'actions',
+          cell: ({ row }) =>
+            hasPermission?.success ? <GroupStudentActions sg={row.original} /> : null,
+        },
+      ],
+      [hasPermission?.success]
+    )
   const table = useReactTable({
     data,
     columns,

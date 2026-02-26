@@ -25,6 +25,7 @@ import {
 import { Separator } from '@/src/components/ui/separator'
 import { Toggle } from '@/src/components/ui/toggle'
 import { useMappedCourseListQuery } from '@/src/data/course/course-list-query'
+import { useGroupTypeListQuery } from '@/src/data/group-type/group-type-list-query'
 import { useMappedLocationListQuery } from '@/src/data/location/location-list-query'
 import { useMappedMemberListQuery, useMemberListQuery } from '@/src/data/member/member-list-query'
 import { useRateListQuery } from '@/src/data/rate/rate-list-query'
@@ -91,6 +92,9 @@ export default function CreateGroupForm() {
   )
   const { data: members, isLoading: isMembersLoading } = useMemberListQuery(organizationId!)
   const { data: rates, isLoading: isRatesLoading } = useRateListQuery(organizationId!)
+  const { data: groupTypes, isLoading: isGroupTypesLoading } = useGroupTypeListQuery(
+    organizationId!
+  )
   const [isPending, startTransition] = useTransition()
 
   const form = useForm<CreateGroupSchemaType>({
@@ -98,7 +102,7 @@ export default function CreateGroupForm() {
     defaultValues: {
       name: '',
       url: undefined,
-      type: undefined,
+      groupTypeId: undefined,
       startDate: undefined,
       course: undefined,
       location: undefined,
@@ -116,15 +120,24 @@ export default function CreateGroupForm() {
   })
 
   const watchedStartDate = form.watch('startDate')
-  const watchedType = form.watch('type')
+  const watchedGroupTypeId = form.watch('groupTypeId')
   const watchedTeacher = form.watch('teacher')
   const watchedLessonCount = form.watch('lessonCount')
 
   useEffect(() => {
-    if (watchedType === 'INDIVIDUAL') {
-      form.setValue('maxStudents', 1)
-    }
-  }, [watchedType, form])
+    if (!watchedGroupTypeId || !groupTypes) return
+    const selectedType = groupTypes.find((gt) => gt.id === watchedGroupTypeId)
+    if (!selectedType) return
+
+    const rate = selectedType.rate
+    form.setValue('rate', {
+      value: rate.id.toString(),
+      label:
+        rate.bonusPerStudent > 0
+          ? `${rate.name} (${rate.bid} ₽ + ${rate.bonusPerStudent} ₽/уч.)`
+          : `${rate.name} (${rate.bid} ₽)`,
+    })
+  }, [watchedGroupTypeId, groupTypes, form])
 
   const scheduleDays = fields.map((f) => f.dayOfWeek)
   const lastLessonDate = computeLastLessonDate(watchedStartDate, scheduleDays, watchedLessonCount)
@@ -175,7 +188,7 @@ export default function CreateGroupForm() {
       const ok = createGroup(
         {
           data: {
-            type: values.type,
+            groupTypeId: values.groupTypeId,
             url,
             time: primaryDay.time,
             organizationId: organizationId!,
@@ -216,7 +229,8 @@ export default function CreateGroupForm() {
     isLocationsLoading ||
     isCoursesLoading ||
     isMembersLoading ||
-    isRatesLoading
+    isRatesLoading ||
+    isGroupTypesLoading
   ) {
     return null
   }
@@ -379,34 +393,29 @@ export default function CreateGroupForm() {
         />
         <Controller
           control={form.control}
-          name="type"
+          name="groupTypeId"
           disabled={isPending}
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor="type-field">Тип</FieldLabel>
+              <FieldLabel htmlFor="groupType-field">Тип группы</FieldLabel>
               <Select
-                {...field}
-                value={field.value || ''}
-                onValueChange={field.onChange}
-                itemToStringLabel={(itemValue) => {
-                  const map: Record<string, string> = {
-                    GROUP: 'Группа',
-                    INDIVIDUAL: 'Индив.',
-                    INTENSIVE: 'Интенсив',
-                    SPLIT: 'Сплит',
-                  }
-                  return map[itemValue] ?? ''
-                }}
+                name={field.name}
+                value={field.value?.toString() || ''}
+                onValueChange={(value) => field.onChange(Number(value))}
+                itemToStringLabel={(itemValue) =>
+                  groupTypes?.find((gt) => gt.id === Number(itemValue))?.name || ''
+                }
               >
-                <SelectTrigger id="type-field" aria-invalid={fieldState.invalid}>
-                  <SelectValue placeholder="Выберите тип" />
+                <SelectTrigger id="groupType-field" aria-invalid={fieldState.invalid}>
+                  <SelectValue placeholder="Выберите тип группы" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectItem value="GROUP">Группа</SelectItem>
-                    <SelectItem value="INDIVIDUAL">Индив.</SelectItem>
-                    <SelectItem value="INTENSIVE">Интенсив</SelectItem>
-                    <SelectItem value="SPLIT">Сплит</SelectItem>
+                    {groupTypes?.map((gt) => (
+                      <SelectItem key={gt.id} value={gt.id.toString()}>
+                        {gt.name}
+                      </SelectItem>
+                    ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
@@ -602,7 +611,7 @@ export default function CreateGroupForm() {
           disabled={isPending}
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor="url-field">Ссылка на BackOffice</FieldLabel>
+              <FieldLabel htmlFor="url-field">Ссылка</FieldLabel>
               <Input
                 id="url-field"
                 {...field}

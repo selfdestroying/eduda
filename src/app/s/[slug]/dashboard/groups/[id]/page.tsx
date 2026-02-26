@@ -1,5 +1,4 @@
 import { getGroup } from '@/src/actions/groups'
-import { getStudents } from '@/src/actions/students'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { auth } from '@/src/lib/auth'
 import { protocol, rootDomain } from '@/src/lib/utils'
@@ -28,11 +27,21 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     where: { id: Number(id), organizationId: session.organizationId! },
     include: {
       lessons: {
+        include: {
+          attendance: {
+            include: {
+              student: true,
+              asMakeupFor: { include: { missedAttendance: { include: { lesson: true } } } },
+              missedMakeup: { include: { makeUpAttendance: { include: { lesson: true } } } },
+            },
+          },
+        },
         orderBy: { date: 'asc' },
       },
       location: true,
       course: true,
       schedules: true,
+      groupType: { include: { rate: true } },
       teachers: {
         include: {
           teacher: true,
@@ -41,17 +50,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       },
       students: {
         include: {
-          student: {
-            include: {
-              attendances: {
-                include: {
-                  lesson: true,
-                  asMakeupFor: { include: { missedAttendance: { include: { lesson: true } } } },
-                  missedMakeup: { include: { makeUpAttendance: { include: { lesson: true } } } },
-                },
-              },
-            },
-          },
+          student: true,
         },
       },
     },
@@ -61,37 +60,27 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     return <div>Группа не найдена</div>
   }
 
-  const students = await getStudents({
-    where: {
-      organizationId: session.organizationId!,
-      groups: {
-        none: { studentId: { in: group.students.map((gs) => gs.studentId) } },
-      },
-    },
-  })
+  const currentStudents = group.students.map((gs) => gs.student)
+  const excludeStudentIds = group.students.map((gs) => gs.studentId)
 
-  const studentsInGroup = group.students.map((gs) => gs.student)
-
-  const { success: canCreateLesson } = await auth.api.hasPermission({
-    headers: requestHeaders,
-    body: {
-      permission: { lesson: ['create'] },
-    },
-  })
-
-  const { success: canCreateStudentGroup } = await auth.api.hasPermission({
-    headers: requestHeaders,
-    body: {
-      permission: { student: ['create'] },
-    },
-  })
-
-  const { success: canCreateTeacherGroup } = await auth.api.hasPermission({
-    headers: requestHeaders,
-    body: {
-      permission: { teacherGroup: ['create'] },
-    },
-  })
+  const [
+    { success: canCreateLesson },
+    { success: canCreateStudentGroup },
+    { success: canCreateTeacherGroup },
+  ] = await Promise.all([
+    auth.api.hasPermission({
+      headers: requestHeaders,
+      body: { permission: { lesson: ['create'] } },
+    }),
+    auth.api.hasPermission({
+      headers: requestHeaders,
+      body: { permission: { student: ['create'] } },
+    }),
+    auth.api.hasPermission({
+      headers: requestHeaders,
+      body: { permission: { teacherGroup: ['create'] } },
+    }),
+  ])
 
   return (
     <div className="space-y-2">
@@ -122,7 +111,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           )}
         </CardHeader>
         <CardContent>
-          <GroupAttendanceTable lessons={group.lessons} data={studentsInGroup} />
+          <GroupAttendanceTable lessons={group.lessons} currentStudents={currentStudents} />
         </CardContent>
       </Card>
       <Card>
@@ -132,7 +121,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             <CardAction>
               <AddStudentToGroupButton
                 group={group}
-                students={students}
+                excludeStudentIds={excludeStudentIds}
                 isFull={group.students.length >= group.maxStudents}
               />
             </CardAction>

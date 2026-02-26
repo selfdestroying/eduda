@@ -13,7 +13,6 @@ interface CourseStats {
 
 function computeCourseStats(student: StudentWithGroupsAndAttendance): CourseStats[] {
   const courseStats = new Map<number, CourseStats>()
-  // Считаем totalLessons из текущих групп
   const countedGroupIds = new Set<number>()
   const currentGroupIds = new Set<number>()
 
@@ -34,13 +33,17 @@ function computeCourseStats(student: StudentWithGroupsAndAttendance): CourseStat
     courseStats.set(courseId, existing)
   }
 
-  // Обрабатываем все посещения (включая старые группы)
-  // Отработки в чужих группах полностью пропускаем — они не влияют на статистику
+  const lessonsPerGroup = new Map<number, number>()
+  for (const att of student.attendances) {
+    if (!att.asMakeupFor) {
+      lessonsPerGroup.set(att.lesson.groupId, (lessonsPerGroup.get(att.lesson.groupId) ?? 0) + 1)
+    }
+  }
+
   for (const attendance of student.attendances) {
     const group = attendance.lesson.group
     const isMakeup = !!attendance.asMakeupFor
 
-    // Отработка в группе, где ученик не состоит — пропускаем полностью
     if (isMakeup && !countedGroupIds.has(group.id) && !currentGroupIds.has(group.id)) {
       continue
     }
@@ -60,13 +63,9 @@ function computeCourseStats(student: StudentWithGroupsAndAttendance): CourseStat
 
     const stats = courseStats.get(courseId)!
 
-    // Если группа не среди текущих и это не отработка — считаем уроки из посещений
     if (!countedGroupIds.has(group.id) && !isMakeup) {
       countedGroupIds.add(group.id)
-      const lessonsInGroup = student.attendances.filter(
-        (a) => a.lesson.groupId === group.id && !a.asMakeupFor
-      ).length
-      stats.totalLessons += lessonsInGroup
+      stats.totalLessons += lessonsPerGroup.get(group.id) ?? 0
     }
 
     if (attendance.status === 'PRESENT') {

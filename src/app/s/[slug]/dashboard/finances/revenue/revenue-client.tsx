@@ -1,6 +1,6 @@
 'use client'
 
-import { GroupType, LessonStatus, Prisma } from '@/prisma/generated/client'
+import { LessonStatus, Prisma } from '@/prisma/generated/client'
 import { getLessons } from '@/src/actions/lessons'
 import TableFilter, { TableFilterItem } from '@/src/components/table-filter'
 import { Badge } from '@/src/components/ui/badge'
@@ -74,7 +74,7 @@ import { DateRange } from 'react-day-picker'
 type LessonWithAttendance = Prisma.LessonGetPayload<{
   include: {
     attendance: { include: { student: { include: { groups: true } } } }
-    group: { include: { course: true; location: true } }
+    group: { include: { course: true; location: true; groupType: true } }
     teachers: { include: { teacher: true } }
   }
 }>
@@ -92,7 +92,7 @@ interface LessonRevenue {
   time: string | null
   groupId: number
   groupName: string
-  groupType: GroupType | null
+  groupTypeName: string | null
   locationName: string | null
   lessonStatus: LessonStatus
   revenue: number
@@ -145,20 +145,6 @@ const datePresets = [
   },
 ]
 
-const groupTypeMap: Record<GroupType, string> = {
-  GROUP: 'Группа',
-  INDIVIDUAL: 'Индив.',
-  INTENSIVE: 'Интенсив',
-  SPLIT: 'Сплит',
-}
-
-const groupTypeIcon: Record<GroupType, React.ReactNode> = {
-  GROUP: <Users className="h-3 w-3" />,
-  INDIVIDUAL: <User className="h-3 w-3" />,
-  INTENSIVE: <TrendingUp className="h-3 w-3" />,
-  SPLIT: <Users className="h-3 w-3" />,
-}
-
 // Функция расчета выручки по ученику в конкретной группе
 function calculateStudentRevenue(
   student: {
@@ -207,7 +193,7 @@ function transformLessonsToRevenueData(lessons: LessonWithAttendance[]): DayReve
           lessonStatus: lesson.status,
           groupId: lesson.group.id,
           groupName: getGroupName(lesson.group),
-          groupType: lesson.group.type,
+          groupTypeName: lesson.group.groupType?.name || null,
           locationName: lesson.group.location?.name || null,
           revenue: Math.floor(
             paidStudents.filter((s) => !s.isAbsent).reduce((sum, s) => sum + s.revenue, 0)
@@ -278,7 +264,7 @@ export default function RevenueClient() {
           attendance: {
             include: { student: { include: { groups: true } } },
           },
-          group: { include: { course: true, location: true } },
+          group: { include: { course: true, location: true, groupType: true } },
           teachers: { include: { teacher: true } },
         },
         orderBy: [{ date: 'asc' }, { time: 'asc' }],
@@ -663,13 +649,13 @@ function LessonCard({ lesson }: LessonCardProps) {
                     Отменен
                   </Badge>
                 )}
-                {lesson.groupType && !isCancelled && (
+                {lesson.groupTypeName && !isCancelled && (
                   <Tooltip>
                     <TooltipTrigger
                       render={
                         <Badge variant="outline" className="gap-1">
-                          {groupTypeIcon[lesson.groupType]}
-                          {groupTypeMap[lesson.groupType]}
+                          <FileText className="h-3 w-3" />
+                          {lesson.groupTypeName}
                         </Badge>
                       }
                     />

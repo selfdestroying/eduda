@@ -9,7 +9,7 @@ import {
 } from '@/src/components/ui/sidebar'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import type { OrganizationRole } from '@/src/lib/auth'
-import { Folder, LayoutDashboard, Users, Wallet } from 'lucide-react'
+import { Building, Folder, LayoutDashboard, Users, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useMemo } from 'react'
@@ -19,12 +19,12 @@ import NavGroupList from './nav-group-list'
 
 const navLists: NavGroup[] = [
   {
-    title: 'Пользователи',
-    icon: Users,
+    title: 'Школа',
+    icon: Building,
     roles: ['owner', 'manager'],
     items: [
       {
-        title: 'Все',
+        title: 'Сотрудники',
         url: '/dashboard/organization/members',
         roles: ['owner', 'manager'],
       },
@@ -68,9 +68,14 @@ const navLists: NavGroup[] = [
     roles: ['owner', 'manager', 'teacher'],
     items: [
       {
-        title: 'Все',
+        title: 'Группы',
         url: '/dashboard/groups',
         roles: ['owner', 'manager', 'teacher'],
+      },
+      {
+        title: 'Типы',
+        url: '/dashboard/groups/types',
+        roles: ['owner', 'manager'],
       },
     ],
   },
