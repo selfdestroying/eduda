@@ -2,9 +2,16 @@
 
 import { PasswordInput } from '@/src/components/password-input'
 import { Button } from '@/src/components/ui/button'
-import { Checkbox } from '@/src/components/ui/checkbox'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
+import {
+  Field,
+  FieldContent,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
+import { Switch } from '@/src/components/ui/switch'
 import { authClient } from '@/src/lib/auth-client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, LogIn } from 'lucide-react'
@@ -119,16 +126,18 @@ export function SignInForm({ onSuccess, showPasswordToggle = false }: SignInForm
             name="rememberMe"
             control={form.control}
             render={({ field }) => (
-              <Field orientation="horizontal">
-                <Checkbox
-                  id="sign-in-remember"
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-                <FieldLabel htmlFor="sign-in-remember" className="font-normal">
-                  Запомнить меня
-                </FieldLabel>
-              </Field>
+              <FieldLabel htmlFor="sign-in-remember">
+                <Field orientation="horizontal">
+                  <FieldContent>
+                    <FieldTitle>Запомнить меня</FieldTitle>
+                  </FieldContent>
+                  <Switch
+                    id="sign-in-remember"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </Field>
+              </FieldLabel>
             )}
           />
         </FieldGroup>
