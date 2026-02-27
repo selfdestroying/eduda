@@ -8,7 +8,7 @@ import { Input } from '@/src/components/ui/input'
 import { useOrganizationPermissionQuery } from '@/src/data/organization/organization-permission-query'
 import useSkipper from '@/src/hooks/use-skipper'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { toZonedTime } from 'date-fns-tz'
+import { formatDateOnly } from '@/src/lib/timezone'
 import { debounce, DebouncedFunction } from 'es-toolkit'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -55,22 +55,14 @@ const getColumns = (
             href={`/dashboard/lessons/${row.original.asMakeupFor.missedAttendance.lessonId}`}
             className="text-primary hover:underline"
           >
-            Отработка за{' '}
-            {toZonedTime(
-              row.original.asMakeupFor.missedAttendance.lesson!.date,
-              'Europe/Moscow'
-            ).toLocaleDateString('ru-RU')}
+            Отработка за {formatDateOnly(row.original.asMakeupFor.missedAttendance.lesson!.date)}
           </Link>
         ) : row.original.missedMakeup ? (
           <Link
             href={`/dashboard/lessons/${row.original.missedMakeup.makeUpAttendance.lessonId}`}
             className="text-primary hover:underline"
           >
-            Отработка{' '}
-            {toZonedTime(
-              row.original.missedMakeup.makeUpAttendance.lesson!.date,
-              'Europe/Moscow'
-            ).toLocaleDateString('ru-RU')}
+            Отработка {formatDateOnly(row.original.missedMakeup.makeUpAttendance.lesson!.date)}
           </Link>
         ) : null,
     },

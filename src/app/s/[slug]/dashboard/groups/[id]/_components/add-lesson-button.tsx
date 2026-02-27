@@ -1,6 +1,7 @@
 'use client'
 import { Prisma } from '@/prisma/generated/client'
 import { createLesson } from '@/src/actions/lessons'
+import { normalizeDateOnly } from '@/src/lib/timezone'
 import { Button } from '@/src/components/ui/button'
 import { Calendar } from '@/src/components/ui/calendar'
 import {
@@ -41,7 +42,7 @@ interface AddLessonButtonProps {
 }
 
 const AddLessonSchema = z.object({
-  date: z.date('Выберите дату урока'),
+  date: z.date('Выберите дату урока').transform(normalizeDateOnly),
   time: z.string('Введите время урока'),
 })
 

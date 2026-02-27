@@ -2,8 +2,8 @@
 
 import { writeLessonsBalanceHistoryTx } from '@/src/lib/lessons-balance'
 import prisma from '@/src/lib/prisma'
+import { formatDateOnly } from '@/src/lib/timezone'
 import { getGroupName, protocol, rootDomain } from '@/src/lib/utils'
-import { toZonedTime } from 'date-fns-tz'
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -176,7 +176,7 @@ export const updateAttendance = async (payload: Prisma.AttendanceUpdateArgs) => 
 
           const lessonName =
             getGroupName(oldAttendance.lesson.group) +
-            ` ${toZonedTime(oldAttendance.lesson.date, 'Europe/Moscow').toLocaleDateString('ru-RU')}`
+            ` ${formatDateOnly(oldAttendance.lesson.date)}`
 
           await writeLessonsBalanceHistoryTx(tx, {
             organizationId: session.organizationId!,
@@ -278,22 +278,20 @@ export const getAbsentStatistics = async (organizationId: number) => {
   >()
 
   absences.forEach((att) => {
-    const date = toZonedTime(new Date(att.lesson.date), 'Europe/Moscow')
+    const date = new Date(att.lesson.date)
     const rate = getPerGroupRate(att.student.groups, att.lesson.groupId)
 
     // Monthly Grouping
     // Key: YYYY-MM
-    const y = date.getFullYear()
-    const m = date.getMonth()
+    const y = date.getUTCFullYear()
+    const m = date.getUTCMonth()
     const monthKey = `${y}-${String(m + 1).padStart(2, '0')}`
 
     // Weekly Grouping
     // Get Monday of the week
-    const d = new Date(date)
-    const day = d.getDay()
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
-    const monday = new Date(d.setDate(diff))
-    monday.setHours(0, 0, 0, 0)
+    const day = date.getUTCDay()
+    const diff = date.getUTCDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
+    const monday = new Date(Date.UTC(y, m, diff))
     const weekKey = monday.toISOString().split('T')[0] // YYYY-MM-DD
 
     // Check saved status

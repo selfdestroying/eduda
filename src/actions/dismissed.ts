@@ -1,6 +1,7 @@
 'use server'
 
 import prisma from '@/src/lib/prisma'
+import { moscowNow } from '@/src/lib/timezone'
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '../../prisma/generated/client'
 
@@ -125,14 +126,14 @@ export async function getDismissedStatistics(organizationId: number) {
   const monthlyStatsMap = new Map<string, { count: number; timestamp: number }>()
   dismissed.forEach((item) => {
     const date = new Date(item.date)
-    const y = date.getFullYear()
-    const m = date.getMonth()
+    const y = date.getUTCFullYear()
+    const m = date.getUTCMonth()
     const key = `${y}-${String(m + 1).padStart(2, '0')}`
     const existing = monthlyStatsMap.get(key)
     if (existing) {
       existing.count++
     } else {
-      monthlyStatsMap.set(key, { count: 1, timestamp: new Date(y, m, 1).getTime() })
+      monthlyStatsMap.set(key, { count: 1, timestamp: Date.UTC(y, m, 1) })
     }
   })
 
@@ -147,7 +148,7 @@ export async function getDismissedStatistics(organizationId: number) {
     })
 
   // KPI: this month vs previous
-  const now = new Date()
+  const now = moscowNow()
   const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`

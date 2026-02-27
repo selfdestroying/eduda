@@ -165,21 +165,21 @@ export default function CreateGroupForm() {
       )
       const scheduleDaysMap = new Map(sortedSchedule.map((s) => [s.dayOfWeek, s.time]))
 
-      // Генерация уроков: итерируем по дням от startDate
+      // Генерация уроков: итерируем по дням от startDate (UTC midnight)
       const lessons: Array<{ date: Date; time: string; organizationId: number }> = []
-      const currentDate = new Date(startDate)
+      const currentDate = new Date(startDate.getTime())
       const maxIterations = (lessonCount ?? 0) * 7 + 7
 
       for (let i = 0; i < maxIterations && lessons.length < (lessonCount ?? 0); i++) {
-        const time = scheduleDaysMap.get(currentDate.getDay())
+        const time = scheduleDaysMap.get(currentDate.getUTCDay())
         if (time) {
           lessons.push({
-            date: new Date(currentDate),
+            date: new Date(currentDate.getTime()),
             time,
             organizationId: organizationId!,
           })
         }
-        currentDate.setDate(currentDate.getDate() + 1)
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1)
       }
 
       const primaryDay = sortedSchedule[0]

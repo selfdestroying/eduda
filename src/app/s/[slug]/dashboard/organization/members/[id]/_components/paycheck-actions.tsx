@@ -1,6 +1,7 @@
 'use client'
 import { PayCheck } from '@/prisma/generated/client'
 import { deletePaycheck, updatePaycheck } from '@/src/actions/paycheck'
+import { normalizeDateOnly } from '@/src/lib/timezone'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -43,7 +44,7 @@ interface AddCheckButtonProps {
 
 const AddCheckSchema = z.object({
   amount: z.number('Укажите корректную сумму').min(0, 'Сумма должна быть неотрицательной'),
-  date: z.date('Укажите корректную дату'),
+  date: z.date('Укажите корректную дату').transform(normalizeDateOnly),
   comment: z.string('Укажите комментарий').max(255),
 })
 

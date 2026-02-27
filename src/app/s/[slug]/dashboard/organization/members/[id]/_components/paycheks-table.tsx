@@ -12,7 +12,7 @@ import {
   SortingState,
   useReactTable,
 } from '@tanstack/react-table'
-import { toZonedTime } from 'date-fns-tz'
+import { formatDateOnly } from '@/src/lib/timezone'
 import { useState } from 'react'
 import PayCheckActions from './paycheck-actions'
 
@@ -21,8 +21,7 @@ export default function PayChecksTable({ data, userName }: { data: PayCheck[]; u
     {
       header: 'Дата',
       accessorKey: 'date',
-      cell: ({ row }) =>
-        toZonedTime(row.original.date, 'Europe/Moscow').toLocaleDateString('ru-RU'),
+      cell: ({ row }) => formatDateOnly(row.original.date),
     },
     {
       header: 'Сумма',

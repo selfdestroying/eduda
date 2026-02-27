@@ -1,5 +1,6 @@
 'use client'
 import { createPaycheck } from '@/src/actions/paycheck'
+import { normalizeDateOnly } from '@/src/lib/timezone'
 import { Button } from '@/src/components/ui/button'
 import { Calendar } from '@/src/components/ui/calendar'
 import {
@@ -30,7 +31,7 @@ interface AddCheckButtonProps {
 
 const AddCheckSchema = z.object({
   amount: z.number('Укажите корректную сумму').min(0, 'Сумма должна быть неотрицательной'),
-  date: z.date('Укажите корректную дату'),
+  date: z.date('Укажите корректную дату').transform(normalizeDateOnly),
   comment: z.string('Укажите комментарий').max(255),
 })
 

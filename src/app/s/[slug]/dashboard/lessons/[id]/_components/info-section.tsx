@@ -3,7 +3,7 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/comp
 import { auth } from '@/src/lib/auth'
 import { getGroupName } from '@/src/lib/utils'
 import { lessonStatusMap, lessonStatusVariants } from '@/src/shared/lesson-status'
-import { toZonedTime } from 'date-fns-tz'
+import { formatDateOnly } from '@/src/lib/timezone'
 import { Book, Clock, MapPin, Users } from 'lucide-react'
 import { headers } from 'next/headers'
 import Link from 'next/link'
@@ -79,9 +79,7 @@ export default async function InfoSection({ lesson }: InfoSectionsProps) {
                 Дата
               </span>
             </div>
-            <div className="truncate">
-              {toZonedTime(lesson.date, 'Europe/Moscow').toLocaleDateString('ru-RU')}
-            </div>
+            <div className="truncate">{formatDateOnly(lesson.date)}</div>
           </div>
 
           <div className="flex flex-col">

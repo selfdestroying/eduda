@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { Prisma } from '../../prisma/generated/client'
+import { moscowNow } from './timezone'
 
 export const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
 export const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || ''
@@ -34,7 +35,7 @@ export function getGroupName(
 }
 
 export const getAgeFromBirthDate = (birthDate: Date) => {
-  const today = new Date()
+  const today = moscowNow()
   let age = today.getFullYear() - birthDate.getFullYear()
   const monthDiff = today.getMonth() - birthDate.getMonth()
 

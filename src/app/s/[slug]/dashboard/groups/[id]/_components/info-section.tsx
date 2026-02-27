@@ -1,7 +1,7 @@
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { DaysOfWeek } from '@/src/lib/utils'
 import { GroupDTO } from '@/src/types/group'
-import { toZonedTime } from 'date-fns-tz'
+import { formatDateOnly } from '@/src/lib/timezone'
 import { Book, Calendar, ExternalLink, MapPin, Tag, Users } from 'lucide-react'
 import EditGroupButton from './edit-group-button'
 
@@ -89,9 +89,7 @@ export default async function InfoSection({ group }: { group: GroupDTO }) {
                 Период
               </span>
             </div>
-            <div className="truncate">
-              {toZonedTime(group.startDate, 'Europe/Moscow').toLocaleDateString('ru-RU')}
-            </div>
+            <div className="truncate">{formatDateOnly(group.startDate)}</div>
           </div>
           <div className="flex flex-col">
             <div className="text-muted-foreground/60 flex items-center gap-2 text-xs font-medium">

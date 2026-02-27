@@ -33,7 +33,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { toZonedTime } from 'date-fns-tz'
+import { toMoscow } from '@/src/lib/timezone'
 import { MoreVertical, RussianRuble } from 'lucide-react'
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
@@ -195,11 +195,7 @@ const columns: ColumnDef<HistoryRow>[] = [
   {
     header: 'Дата',
     accessorFn: (row) => row.createdAt,
-    cell: ({ row }) => (
-      <span>
-        {toZonedTime(new Date(row.original.createdAt), 'Europe/Moscow').toLocaleString('ru-RU')}
-      </span>
-    ),
+    cell: ({ row }) => <span>{toMoscow(row.original.createdAt).toLocaleString('ru-RU')}</span>,
   },
   {
     header: 'Группа',

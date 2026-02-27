@@ -1,5 +1,6 @@
 import { z } from 'zod/v4'
 import { getAgeFromBirthDate } from '../lib/utils'
+import { normalizeDateOnly } from '../lib/timezone'
 
 const MIN_STUDENT_AGE = 6
 const MAX_STUDENT_AGE = 17
@@ -14,7 +15,7 @@ export const CreateStudentSchema = z
     password: z
       .string({ error: 'Укажите пароль' })
       .min(2, 'Пароль должен содержать минимум 2 символа'),
-    birthDate: z.date({ error: 'Укажите дату рождения' }),
+    birthDate: z.date({ error: 'Укажите дату рождения' }).transform(normalizeDateOnly),
 
     // Optional fields (nullable in Prisma)
     parentsName: z.string().optional(),
@@ -67,7 +68,7 @@ export const EditStudentSchema = z.object({
   password: z
     .string({ error: 'Укажите пароль' })
     .min(2, 'Пароль должен содержать минимум 2 символа'),
-  birthDate: z.date({ error: 'Укажите дату рождения' }),
+  birthDate: z.date({ error: 'Укажите дату рождения' }).transform(normalizeDateOnly),
 
   // Optional fields (nullable in Prisma)
   parentsName: z.string().min(2, 'Минимум 2 символа').optional(),

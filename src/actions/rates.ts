@@ -1,6 +1,7 @@
 'use server'
 
 import prisma from '@/src/lib/prisma'
+import { normalizeDateOnly, moscowNow } from '@/src/lib/timezone'
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '../../prisma/generated/client'
 
@@ -36,7 +37,7 @@ export const updateRate = async (payload: Prisma.RateUpdateArgs, isApplyToLesson
           where: {
             teacherId: tg.teacherId,
             lesson: {
-              date: { gt: new Date() },
+              date: { gt: normalizeDateOnly(moscowNow()) },
               groupId: tg.groupId,
             },
           },

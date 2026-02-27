@@ -167,7 +167,7 @@ model PayCheck {
   id        Int      @id @default(autoincrement())
   amount    Int
   comment   String
-  date      DateTime
+  date      DateTime @db.Date
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -188,7 +188,7 @@ model Student {
   login          String
   password       String
   age            Int
-  birthDate      DateTime
+  birthDate      DateTime @db.Date
   parentsName    String?
   parentsPhone   String?
   url            String?
@@ -217,7 +217,7 @@ model Student {
 
 model Group {
   id          Int      @id @default(autoincrement())
-  startDate   DateTime
+  startDate   DateTime @db.Date
   dayOfWeek   Int
   time        String
   maxStudents Int
@@ -299,7 +299,7 @@ model Course {
 
 model Lesson {
   id        Int          @id @default(autoincrement())
-  date      DateTime
+  date      DateTime     @db.Date
   time      String
   status    LessonStatus @default(ACTIVE)
   createdAt DateTime     @default(now())
@@ -373,7 +373,7 @@ model StudentGroup {
 model Dismissed {
   id        Int      @id @default(autoincrement())
   comment   String
-  date      DateTime
+  date      DateTime @db.Date
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
