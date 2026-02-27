@@ -38,7 +38,7 @@ import {
   subMonths,
   subWeeks,
 } from 'date-fns'
-import { moscowNow } from '@/src/lib/timezone'
+import { dateOnlyToLocal, moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
 import { ru } from 'date-fns/locale'
 import {
   Ban,
@@ -162,7 +162,7 @@ function transformLessonsToRevenueData(lessons: LessonWithAttendance[]): DayReve
   const groupedByDate: Record<string, LessonWithAttendance[]> = {}
 
   for (const lesson of lessons) {
-    const dateKey = format(new Date(lesson.date), 'yyyy-MM-dd')
+    const dateKey = new Date(lesson.date).toISOString().split('T')[0]
     if (!groupedByDate[dateKey]) groupedByDate[dateKey] = []
     groupedByDate[dateKey].push(lesson)
   }
@@ -212,7 +212,7 @@ function transformLessonsToRevenueData(lessons: LessonWithAttendance[]): DayReve
       const paidStudents = lessonRevenues.reduce((sum, l) => sum + l.paidCount, 0)
 
       return {
-        date: new Date(dateKey),
+        date: dateOnlyToLocal(dateKey),
         dateKey,
         revenue: dayRevenue,
         lessons: lessonRevenues,
@@ -236,8 +236,8 @@ export default function RevenueClient() {
 
   const fetchData = useCallback(async () => {
     if (dateRange?.from && dateRange?.to) {
-      const from = dateRange.from
-      const to = dateRange.to
+      const from = normalizeDateOnly(dateRange.from)
+      const to = normalizeDateOnly(dateRange.to)
 
       const groupFilter: { courseId?: object; locationId?: object } = {}
       if (selectedCourses.length > 0) {

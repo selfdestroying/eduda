@@ -54,6 +54,7 @@ export type LessonWithAttendanceAndGroup = Prisma.LessonGetPayload<{
 export const getLessons = async <T extends Prisma.LessonFindManyArgs>(
   payload?: Prisma.SelectSubset<T, Prisma.LessonFindManyArgs>
 ) => {
+  console.log('getLessons payload', payload)
   return prisma.lesson.findMany(payload)
 }
 

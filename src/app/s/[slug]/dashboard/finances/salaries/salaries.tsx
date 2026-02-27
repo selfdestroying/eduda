@@ -22,7 +22,7 @@ import { useMappedLocationListQuery } from '@/src/data/location/location-list-qu
 import { useMappedMemberListQuery } from '@/src/data/member/member-list-query'
 import { useOrganizationPermissionQuery } from '@/src/data/organization/organization-permission-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
-import { moscowNow } from '@/src/lib/timezone'
+import { dateOnlyToLocal, moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
 import { cn, getGroupName } from '@/src/lib/utils'
 import { lessonStatusMap } from '@/src/shared/lesson-status'
 import { cva } from 'class-variance-authority'
@@ -139,8 +139,8 @@ export default function Salaries() {
   const fetchData = useCallback(async () => {
     if (dateRange?.from && dateRange?.to) {
       const { startDate, endDate } = {
-        startDate: dateRange.from,
-        endDate: dateRange.to,
+        startDate: normalizeDateOnly(dateRange.from),
+        endDate: normalizeDateOnly(dateRange.to),
       }
 
       // Фильтры по группе
@@ -551,7 +551,7 @@ function TeacherCard({ data, paychecks }: TeacherCardProps) {
   const lessonsByDate = useMemo(() => {
     const grouped: Record<string, LessonWithPrice[]> = {}
     for (const lesson of data.lessons) {
-      const dateKey = format(new Date(lesson.date), 'yyyy-MM-dd')
+      const dateKey = new Date(lesson.date).toISOString().split('T')[0]
       if (!grouped[dateKey]) grouped[dateKey] = []
       grouped[dateKey].push(lesson)
     }
@@ -639,7 +639,7 @@ function TeacherCard({ data, paychecks }: TeacherCardProps) {
                   <div key={dateKey}>
                     <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium">
                       <CalendarIcon className="h-3 w-3" />
-                      {format(new Date(dateKey + 'T00:00:00Z'), 'd MMMM, EEEE', {
+                      {format(dateOnlyToLocal(dateKey), 'd MMMM, EEEE', {
                         locale: ru,
                       })}
                     </div>
@@ -772,7 +772,7 @@ function PaycheckItem({ paycheck }: PaycheckItemProps) {
           </div>
           <div className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
             <CalendarIcon className="h-3 w-3" />
-            {format(new Date(paycheck.date), 'd MMMM yyyy', { locale: ru })}
+            {format(dateOnlyToLocal(paycheck.date), 'd MMMM yyyy', { locale: ru })}
           </div>
         </div>
         <span className="text-success text-sm font-semibold whitespace-nowrap">

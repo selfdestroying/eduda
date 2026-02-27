@@ -100,6 +100,23 @@ export function normalizeDateOnly(browserDate: Date): Date {
 }
 
 /**
+ * Преобразовать @db.Date (UTC midnight) в локальный Date для использования
+ * с date-fns format() и locale. Создаёт local noon того же дня, чтобы
+ * format() показывал правильную дату в любом часовом поясе браузера.
+ *
+ * Использовать когда нужен date-fns format() с locale (например 'd MMMM, EEEE').
+ * Для простого отображения без locale предпочтительнее formatDateOnly().
+ *
+ * @example
+ * // lesson.date = 2026-02-15T00:00:00Z (@db.Date)
+ * format(dateOnlyToLocal(lesson.date), 'd MMMM, EEEE', { locale: ru }) // "15 февраля, воскресенье"
+ */
+export function dateOnlyToLocal(date: Date | string): Date {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0)
+}
+
+/**
  * Форматировать date-only значение из БД (@db.Date) для отображения.
  * Использует timeZone: 'UTC' чтобы гарантировать правильный день
  * независимо от таймзоны браузера.
