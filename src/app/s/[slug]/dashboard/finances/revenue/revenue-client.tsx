@@ -28,6 +28,7 @@ import { useMappedCourseListQuery } from '@/src/data/course/course-list-query'
 import { useMappedLocationListQuery } from '@/src/data/location/location-list-query'
 import { useMappedMemberListQuery } from '@/src/data/member/member-list-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
+import { dateOnlyToLocal, moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
 import { cn, getGroupName } from '@/src/lib/utils'
 import {
   endOfMonth,
@@ -38,7 +39,6 @@ import {
   subMonths,
   subWeeks,
 } from 'date-fns'
-import { dateOnlyToLocal, moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
 import { ru } from 'date-fns/locale'
 import {
   Ban,
