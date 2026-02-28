@@ -1,37 +1,13 @@
-import { z } from 'zod/v4'
-import { normalizeDateOnly } from '../lib/timezone'
+import * as z from 'zod'
+import { combobox, DateOnlySchema } from './_primitives'
 
 export const CreateGroupSchema = z.object({
   name: z.string(),
-  teacher: z.object(
-    {
-      label: z.string(),
-      value: z.string(),
-    },
-    'Выберите преподавателя'
-  ),
-  rate: z.object(
-    {
-      label: z.string(),
-      value: z.string(),
-    },
-    'Выберите ставку'
-  ),
-  course: z.object(
-    {
-      label: z.string(),
-      value: z.string(),
-    },
-    'Выберите курс'
-  ),
-  location: z.object(
-    {
-      label: z.string(),
-      value: z.string(),
-    },
-    'Выберите локацию'
-  ),
-  startDate: z.date('Выберите дату старта').transform(normalizeDateOnly),
+  teacher: combobox('Выберите преподавателя'),
+  rate: combobox('Выберите ставку'),
+  course: combobox('Выберите курс'),
+  location: combobox('Выберите локацию'),
+  startDate: DateOnlySchema,
   groupTypeId: z.number({ error: 'Выберите тип группы' }).int().positive(),
   schedule: z
     .array(
@@ -51,7 +27,7 @@ export const CreateGroupSchema = z.object({
   url: z.url('Неверный URL').optional(),
 })
 
-export const editGroupSchema = z.object({
+export const EditGroupSchema = z.object({
   courseId: z.number().int().positive().optional(),
   locationId: z.number().int().positive().optional(),
   groupTypeId: z.number().int().positive().optional(),
@@ -60,27 +36,5 @@ export const editGroupSchema = z.object({
   dayOfWeek: z.number().int().optional(),
 })
 
-export const StudentGroupSchema = z.object({
-  studentId: z.number({
-    error: 'Please select a student.',
-  }),
-})
-
-export const GroupsStudentSchema = z.object({
-  groupId: z.number({
-    error: 'Please select a student.',
-  }),
-})
-
-export const DismissSchema = z.object({
-  groupId: z.number(),
-  studentId: z.number(),
-  comment: z.string(),
-  date: z.date().transform(normalizeDateOnly),
-})
-
 export type CreateGroupSchemaType = z.infer<typeof CreateGroupSchema>
-export type EditGroupSchemaType = z.infer<typeof editGroupSchema>
-export type StudentGroupSchemaType = z.infer<typeof StudentGroupSchema>
-export type GroupStudentSchemaType = z.infer<typeof GroupsStudentSchema>
-export type DismissSchemaType = z.infer<typeof DismissSchema>
+export type EditGroupSchemaType = z.infer<typeof EditGroupSchema>

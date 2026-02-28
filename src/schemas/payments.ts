@@ -1,22 +1,11 @@
-import { z } from 'zod/v4'
+import * as z from 'zod'
+import { comboboxNumber } from './_primitives'
 
 export const AddPaymentSchema = z.object({
-  student: z.object(
-    {
-      label: z.string(),
-      value: z.number(),
-    },
-    'Выберите студента'
-  ),
-  group: z.object(
-    {
-      label: z.string(),
-      value: z.number(),
-    },
-    'Выберите группу'
-  ),
-  lessonCount: z.number('Укажите количество занятий').positive(),
-  price: z.number('Укажите сумму').positive(),
+  student: comboboxNumber('Выберите студента'),
+  group: comboboxNumber('Выберите группу'),
+  lessonCount: z.number('Укажите количество занятий').int().positive(),
+  price: z.number('Укажите сумму').int().positive(),
   leadName: z.string('Укажите имя лида'),
   productName: z.string('Укажите название товара'),
 })
