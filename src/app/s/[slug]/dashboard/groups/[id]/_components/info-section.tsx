@@ -1,7 +1,19 @@
+import { Prisma } from '@/prisma/generated/client'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { DaysOfWeek } from '@/src/lib/utils'
-import { GroupDTO } from '@/src/types/group'
 import { formatDateOnly } from '@/src/lib/timezone'
+import { DaysOfWeek } from '@/src/lib/utils'
+
+type GroupDTO = Prisma.GroupGetPayload<{
+  include: {
+    location: true
+    course: true
+    students: true
+    schedules: true
+    groupType: { include: { rate: true } }
+    teachers: { include: { teacher: true } }
+  }
+}>
+
 import { Book, Calendar, ExternalLink, MapPin, Tag, Users } from 'lucide-react'
 import EditGroupButton from './edit-group-button'
 

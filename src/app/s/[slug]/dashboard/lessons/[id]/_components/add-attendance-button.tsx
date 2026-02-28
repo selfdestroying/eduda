@@ -31,12 +31,12 @@ import {
 } from '@/src/components/ui/select'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { useSessionQuery } from '@/src/data/user/session-query'
+import { CreateAttendanceSchema, CreateAttendanceSchemaType } from '@/src/schemas/attendance'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Plus } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import z from 'zod/v4'
 
 interface AddAttendanceButtonProps {
   lessonId: number
@@ -49,19 +49,6 @@ const studentStatusMap = {
   TRIAL: 'Пробный',
 }
 
-const Schema = z.object({
-  target: z.object(
-    {
-      label: z.string(),
-      value: z.number(),
-    },
-    'Выберите значение'
-  ),
-  studentStatus: z.enum(['ACTIVE', 'TRIAL'], 'Выберите статус ученика'),
-})
-
-type SchemaType = z.infer<typeof Schema>
-
 export default function AddAttendanceButton({
   lessonId,
   students,
@@ -71,15 +58,15 @@ export default function AddAttendanceButton({
   const organizationId = session?.organizationId ?? undefined
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const form = useForm<SchemaType>({
-    resolver: zodResolver(Schema),
+  const form = useForm<CreateAttendanceSchemaType>({
+    resolver: zodResolver(CreateAttendanceSchema),
     defaultValues: {
       target: undefined,
       studentStatus: undefined,
     },
   })
 
-  const handleSubmit = (data: SchemaType) => {
+  const handleSubmit = (data: CreateAttendanceSchemaType) => {
     startTransition(() => {
       const { studentStatus, target } = data
       const ok = createAttendance({
@@ -151,11 +138,11 @@ export default function AddAttendanceButton({
 }
 
 interface AddAttendanceFormProps {
-  form: ReturnType<typeof useForm<SchemaType>>
+  form: ReturnType<typeof useForm<CreateAttendanceSchemaType>>
   items: { label: string; value: number }[]
   label: string
   emptyMessage: string
-  onSubmit: (data: SchemaType) => void
+  onSubmit: (data: CreateAttendanceSchemaType) => void
 }
 
 function AddAttendanceForm({ form, items, label, emptyMessage, onSubmit }: AddAttendanceFormProps) {

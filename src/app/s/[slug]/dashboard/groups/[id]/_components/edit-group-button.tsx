@@ -1,4 +1,5 @@
 'use client'
+import { Prisma } from '@/prisma/generated/client'
 import { updateGroup } from '@/src/actions/groups'
 import { Button } from '@/src/components/ui/button'
 import {
@@ -27,14 +28,25 @@ import { useLocationListQuery } from '@/src/data/location/location-list-query'
 import { useOrganizationPermissionQuery } from '@/src/data/organization/organization-permission-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import { DaysOfWeek } from '@/src/lib/utils'
-import { editGroupSchema, EditGroupSchemaType } from '@/src/schemas/group'
-import { GroupDTO } from '@/src/types/group'
+import { EditGroupSchema, EditGroupSchemaType } from '@/src/schemas/group'
 import { zodResolver } from '@hookform/resolvers/zod'
+
+type GroupDTO = Prisma.GroupGetPayload<{
+  include: {
+    location: true
+    course: true
+    students: true
+    schedules: true
+    groupType: { include: { rate: true } }
+    teachers: { include: { teacher: true } }
+  }
+}>
+
+import { timeSlots } from '@/src/shared/time-slots'
 import { AlertTriangle, Pen } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { timeSlots } from '@/src/shared/time-slots'
 
 interface EditGroupButtonProps {
   group: GroupDTO
@@ -47,7 +59,7 @@ export default function EditGroupButton({ group }: EditGroupButtonProps) {
   const [isPending, startTransition] = useTransition()
   const [dialogOpen, setDialogOpen] = useState(false)
   const form = useForm<EditGroupSchemaType>({
-    resolver: zodResolver(editGroupSchema),
+    resolver: zodResolver(EditGroupSchema),
     defaultValues: {
       courseId: group.courseId,
       locationId: group.locationId!,

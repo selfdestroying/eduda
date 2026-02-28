@@ -13,20 +13,13 @@ import {
 } from '@/src/components/ui/dialog'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
+import { AdminEditUserSchema, AdminEditUserSchemaType } from '@/src/schemas/user'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Pencil } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import * as z from 'zod'
 import type { AdminUser } from './types'
-
-const editUserSchema = z.object({
-  name: z.string().min(1, 'Имя обязательно'),
-  email: z.string().email('Некорректный email'),
-})
-
-type EditUserFormValues = z.infer<typeof editUserSchema>
 
 interface EditUserDialogProps {
   user: AdminUser
@@ -43,15 +36,15 @@ export default function EditUserDialog({ user, onSuccess, disabled }: EditUserDi
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<EditUserFormValues>({
-    resolver: zodResolver(editUserSchema),
+  } = useForm<AdminEditUserSchemaType>({
+    resolver: zodResolver(AdminEditUserSchema),
     defaultValues: {
       name: user.name,
       email: user.email,
     },
   })
 
-  const onSubmit = (values: EditUserFormValues) => {
+  const onSubmit = (values: AdminEditUserSchemaType) => {
     startTransition(async () => {
       try {
         await updateUser({

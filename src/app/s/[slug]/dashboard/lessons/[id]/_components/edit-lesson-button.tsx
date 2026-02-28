@@ -2,7 +2,6 @@
 
 import { Lesson } from '@/prisma/generated/client'
 import { updateLesson } from '@/src/actions/lessons'
-import { normalizeDateOnly } from '@/src/lib/timezone'
 import { Button } from '@/src/components/ui/button'
 import { Calendar, CalendarDayButton } from '@/src/components/ui/calendar'
 import {
@@ -24,14 +23,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/src/components/ui/select'
+import { EditLessonSchema, EditLessonSchemaType } from '@/src/schemas/lesson'
+import { timeSlots } from '@/src/shared/time-slots'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'
 import { Pen } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { z } from 'zod/v4'
-import { timeSlots } from '@/src/shared/time-slots'
 
 interface EditLessonButtonProps {
   lesson: Lesson
@@ -41,14 +40,6 @@ const statusItems = [
   { label: 'Активен', value: 'ACTIVE' },
   { label: 'Отменен', value: 'CANCELLED' },
 ]
-
-const EditLessonSchema = z.object({
-  date: z.date('Выберите дату урока').transform(normalizeDateOnly),
-  time: z.string('Выберите время урока'),
-  status: z.enum(['ACTIVE', 'CANCELLED'], 'Выберите статус урока'),
-})
-
-type EditLessonSchemaType = z.infer<typeof EditLessonSchema>
 
 export default function EditLessonButton({ lesson }: EditLessonButtonProps) {
   const [isPending, startTransition] = useTransition()

@@ -1,7 +1,6 @@
 'use client'
 import { Prisma } from '@/prisma/generated/client'
 import { createLesson } from '@/src/actions/lessons'
-import { normalizeDateOnly } from '@/src/lib/timezone'
 import { Button } from '@/src/components/ui/button'
 import { Calendar } from '@/src/components/ui/calendar'
 import {
@@ -26,6 +25,7 @@ import {
 } from '@/src/components/ui/select'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { useSessionQuery } from '@/src/data/user/session-query'
+import { CreateLessonSchema, CreateLessonSchemaType } from '@/src/schemas/lesson'
 import { timeSlots } from '@/src/shared/time-slots'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'
@@ -33,7 +33,6 @@ import { CalendarIcon, Plus } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { z } from 'zod/v4'
 
 interface AddLessonButtonProps {
   group: Prisma.GroupGetPayload<{
@@ -41,27 +40,20 @@ interface AddLessonButtonProps {
   }>
 }
 
-const AddLessonSchema = z.object({
-  date: z.date('Выберите дату урока').transform(normalizeDateOnly),
-  time: z.string('Введите время урока'),
-})
-
-type AddLessonSchemaType = z.infer<typeof AddLessonSchema>
-
 export default function AddLessonButton({ group }: AddLessonButtonProps) {
   const { data: session, isLoading: isSessionLoading } = useSessionQuery()
   const organizationId = session?.organizationId ?? undefined
   const [isPending, startTransition] = useTransition()
   const [dialogOpen, setDialogOpen] = useState(false)
   const form = useForm({
-    resolver: zodResolver(AddLessonSchema),
+    resolver: zodResolver(CreateLessonSchema),
     defaultValues: {
       date: undefined,
       time: undefined,
     },
   })
 
-  const handleSubmit = (values: AddLessonSchemaType) => {
+  const handleSubmit = (values: CreateLessonSchemaType) => {
     startTransition(() => {
       const { ...payload } = values
       const attendances = group.students.map((student) => ({

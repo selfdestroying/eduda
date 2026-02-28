@@ -36,9 +36,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus } from 'lucide-react'
 import { useEffect, useState, useTransition } from 'react'
 
+import { AddTeacherToGroupSchema, AddTeacherToGroupSchemaType } from '@/src/schemas/teacher-group'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import z from 'zod/v4'
 
 interface AddTeacherToGroupButtonProps {
   group: Prisma.GroupGetPayload<{
@@ -51,26 +51,6 @@ interface AddTeacherToGroupButtonProps {
     }
   }>
 }
-
-const GroupTeacherSchema = z.object({
-  teacher: z.object(
-    {
-      value: z.string(),
-      label: z.string(),
-    },
-    'Преподаватель не выбран'
-  ),
-  rate: z.object(
-    {
-      value: z.string(),
-      label: z.string(),
-    },
-    'Ставка не выбрана'
-  ),
-  isApplyToLesson: z.boolean(),
-})
-
-type GroupTeacherSchemaType = z.infer<typeof GroupTeacherSchema>
 
 export default function AddTeacherToGroupButton({ group }: AddTeacherToGroupButtonProps) {
   const { data: session, isLoading: isSessionLoading } = useSessionQuery()
@@ -87,8 +67,8 @@ export default function AddTeacherToGroupButton({ group }: AddTeacherToGroupButt
       }
     : undefined
 
-  const form = useForm<GroupTeacherSchemaType>({
-    resolver: zodResolver(GroupTeacherSchema),
+  const form = useForm<AddTeacherToGroupSchemaType>({
+    resolver: zodResolver(AddTeacherToGroupSchema),
     defaultValues: {
       teacher: undefined,
       rate: defaultRate,
@@ -96,7 +76,7 @@ export default function AddTeacherToGroupButton({ group }: AddTeacherToGroupButt
     },
   })
 
-  const handleSubmit = (data: GroupTeacherSchemaType) => {
+  const handleSubmit = (data: AddTeacherToGroupSchemaType) => {
     startTransition(() => {
       const { isApplyToLesson, teacher, rate, ...payload } = data
       const ok = createTeacherGroup(
@@ -154,8 +134,8 @@ export default function AddTeacherToGroupButton({ group }: AddTeacherToGroupButt
 }
 
 interface GroupTeacherFormProps {
-  form: ReturnType<typeof useForm<GroupTeacherSchemaType>>
-  onSubmit: (data: GroupTeacherSchemaType) => void
+  form: ReturnType<typeof useForm<AddTeacherToGroupSchemaType>>
+  onSubmit: (data: AddTeacherToGroupSchemaType) => void
   organizationId: number
 }
 

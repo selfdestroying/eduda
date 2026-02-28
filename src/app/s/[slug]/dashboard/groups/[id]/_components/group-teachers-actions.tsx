@@ -47,12 +47,12 @@ import { Skeleton } from '@/src/components/ui/skeleton'
 import { Switch } from '@/src/components/ui/switch'
 import { useRateListQuery } from '@/src/data/rate/rate-list-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
+import { EditTeacherGroupSchema, EditTeacherGroupSchemaType } from '@/src/schemas/teacher-group'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, MoreVertical, Pen, Trash } from 'lucide-react'
 import { useEffect, useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import z from 'zod/v4'
 
 interface UsersActionsProps {
   tg: Prisma.TeacherGroupGetPayload<{
@@ -62,13 +62,6 @@ interface UsersActionsProps {
     }
   }>
 }
-
-const editGroupTeacherSchema = z.object({
-  rateId: z.number('Выберите ставку').int().positive('Выберите ставку'),
-  isApplyToLessons: z.boolean(),
-})
-
-type EditGroupTeacherSchemaType = z.infer<typeof editGroupTeacherSchema>
 
 export default function GroupTeacherActions({ tg }: UsersActionsProps) {
   const [open, setOpen] = useState(false)
@@ -83,15 +76,15 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
   const organizationId = session?.organizationId
   const { data: rates, isLoading: isRatesLoading } = useRateListQuery(organizationId!)
 
-  const form = useForm<EditGroupTeacherSchemaType>({
-    resolver: zodResolver(editGroupTeacherSchema),
+  const form = useForm<EditTeacherGroupSchemaType>({
+    resolver: zodResolver(EditTeacherGroupSchema),
     defaultValues: {
       rateId: tg.rateId,
       isApplyToLessons: true,
     },
   })
 
-  const handleEdit = (data: EditGroupTeacherSchemaType) => {
+  const handleEdit = (data: EditTeacherGroupSchemaType) => {
     startTransition(() => {
       const { isApplyToLessons, ...payload } = data
       const ok = updateTeacherGroup(
