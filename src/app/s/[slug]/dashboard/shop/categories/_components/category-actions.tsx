@@ -31,25 +31,16 @@ import {
 } from '@/src/components/ui/dropdown-menu'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
+import { CategorySchema, CategorySchemaType } from '@/src/schemas/category'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, Loader2, MoreVertical, Pen, Trash } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { z } from 'zod/v4'
 
 interface CategoryActionsProps {
   category: Category
 }
-
-const EditCategorySchema = z.object({
-  name: z
-    .string('Введите название категории')
-    .min(2, 'Название должно содержать не менее 2 символов')
-    .max(50, 'Название не должно превышать 50 символов'),
-})
-
-type EditCategoryFormSchemaType = z.infer<typeof EditCategorySchema>
 
 export default function CategoryActions({ category }: CategoryActionsProps) {
   const [open, setOpen] = useState(false)
@@ -57,8 +48,8 @@ export default function CategoryActions({ category }: CategoryActionsProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const form = useForm({
-    resolver: zodResolver(EditCategorySchema),
+  const form = useForm<CategorySchemaType>({
+    resolver: zodResolver(CategorySchema),
     defaultValues: {
       name: category.name,
     },
@@ -75,7 +66,7 @@ export default function CategoryActions({ category }: CategoryActionsProps) {
     })
   }
 
-  const onSubmit = (values: EditCategoryFormSchemaType) => {
+  const onSubmit = (values: CategorySchemaType) => {
     startTransition(() => {
       const ok = updateCategory({
         where: { id: category.id },

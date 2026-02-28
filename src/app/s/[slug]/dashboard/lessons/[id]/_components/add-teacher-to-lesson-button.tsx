@@ -27,9 +27,12 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus } from 'lucide-react'
 import { useEffect, useState, useTransition } from 'react'
 
+import {
+  AddTeacherToLessonSchema,
+  AddTeacherToLessonSchemaType,
+} from '@/src/schemas/teacher-lesson'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import z from 'zod/v4'
 
 interface AddTeacherToLessonButtonProps {
   lesson: Prisma.LessonGetPayload<{
@@ -47,30 +50,14 @@ interface AddTeacherToLessonButtonProps {
   }>
 }
 
-const LessonTeacherSchema = z.object({
-  teacher: z.object(
-    {
-      value: z.string(),
-      label: z.string(),
-    },
-    'Преподаватель не выбран'
-  ),
-  bid: z.number('Не указана ставка').int('Ставка должна быть числом'),
-  bonusPerStudent: z
-    .number('Не указан бонус за ученика')
-    .int('Бонус за ученика должен быть числом'),
-})
-
-type LessonTeacherSchemaType = z.infer<typeof LessonTeacherSchema>
-
 export default function AddTeacherToLessonButton({ lesson }: AddTeacherToLessonButtonProps) {
   const { data: session, isLoading: isSessionLoading } = useSessionQuery()
   const organizationId = session?.organizationId ?? undefined
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const form = useForm<LessonTeacherSchemaType>({
-    resolver: zodResolver(LessonTeacherSchema),
+  const form = useForm<AddTeacherToLessonSchemaType>({
+    resolver: zodResolver(AddTeacherToLessonSchema),
     defaultValues: {
       teacher: undefined,
       bid: lesson.group.groupType?.rate?.bid ?? undefined,
@@ -78,7 +65,7 @@ export default function AddTeacherToLessonButton({ lesson }: AddTeacherToLessonB
     },
   })
 
-  const handleSubmit = (data: LessonTeacherSchemaType) => {
+  const handleSubmit = (data: AddTeacherToLessonSchemaType) => {
     startTransition(() => {
       const { teacher, bid, bonusPerStudent, ...payload } = data
       const ok = createTeacherLesson({
@@ -134,8 +121,8 @@ export default function AddTeacherToLessonButton({ lesson }: AddTeacherToLessonB
 }
 
 interface LessonTeacherFormProps {
-  form: ReturnType<typeof useForm<LessonTeacherSchemaType>>
-  onSubmit: (data: LessonTeacherSchemaType) => void
+  form: ReturnType<typeof useForm<AddTeacherToLessonSchemaType>>
+  onSubmit: (data: AddTeacherToLessonSchemaType) => void
   organizationId: number
 }
 

@@ -1,5 +1,5 @@
 'use client'
-import { Group } from '@/prisma/generated/client'
+import { Group, Prisma, Student } from '@/prisma/generated/client'
 import { createStudentGroup } from '@/src/actions/groups'
 import { getStudents } from '@/src/actions/students'
 import { Button } from '@/src/components/ui/button'
@@ -34,37 +34,34 @@ import { Switch } from '@/src/components/ui/switch'
 import { useOrganizationPermissionQuery } from '@/src/data/organization/organization-permission-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import { cn, getFullName, getGroupName } from '@/src/lib/utils'
-import { GroupDTO } from '@/src/types/group'
-import { StudentDTO } from '@/src/types/student'
 import { zodResolver } from '@hookform/resolvers/zod'
+
+type GroupDTO = Prisma.GroupGetPayload<{
+  include: {
+    location: true
+    course: true
+    students: true
+    schedules: true
+    groupType: { include: { rate: true } }
+    teachers: { include: { teacher: true } }
+  }
+}>
+
 import { Plus } from 'lucide-react'
 import { useEffect, useMemo, useState, useTransition } from 'react'
 
+import { AddStudentToGroupSchema, AddStudentToGroupSchemaType } from '@/src/schemas/student-group'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import z from 'zod/v4'
 
 interface AddStudentToGroupButtonProps {
-  students?: StudentDTO[]
+  students?: Student[]
   excludeStudentIds?: number[]
   group?: Group
   groups?: GroupDTO[]
-  student?: StudentDTO
+  student?: Student
   isFull?: boolean
 }
-
-const Schema = z.object({
-  target: z.object(
-    {
-      label: z.string(),
-      value: z.number(),
-    },
-    'Выберите значение'
-  ),
-  isApplyToLesson: z.boolean(),
-})
-
-type SchemaType = z.infer<typeof Schema>
 
 export default function AddStudentToGroupButton({
   students: studentsProp,
@@ -79,7 +76,7 @@ export default function AddStudentToGroupButton({
   const { data: hasPermission } = useOrganizationPermissionQuery({ studentGroup: ['create'] })
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [lazyStudents, setLazyStudents] = useState<StudentDTO[] | null>(null)
+  const [lazyStudents, setLazyStudents] = useState<Student[] | null>(null)
 
   const isAddToGroup = !!group && (!!studentsProp || !!excludeStudentIds)
   const isAddToStudent = !!student && !!groups
@@ -94,7 +91,7 @@ export default function AddStudentToGroupButton({
           NOT: { id: { in: excludeStudentIds } },
         },
       }).then((data) => {
-        setLazyStudents(data as StudentDTO[])
+        setLazyStudents(data as Student[])
       })
     })
   }, [dialogOpen, isAddToGroup, studentsProp, organizationId, excludeStudentIds])
@@ -124,15 +121,15 @@ export default function AddStudentToGroupButton({
     return []
   }, [isAddToGroup, isAddToStudent, students, groups])
 
-  const form = useForm<SchemaType>({
-    resolver: zodResolver(Schema),
+  const form = useForm<AddStudentToGroupSchemaType>({
+    resolver: zodResolver(AddStudentToGroupSchema),
     defaultValues: {
       target: undefined,
       isApplyToLesson: true,
     },
   })
 
-  const handleSubmit = (data: SchemaType) => {
+  const handleSubmit = (data: AddStudentToGroupSchemaType) => {
     startTransition(() => {
       const { isApplyToLesson, target } = data
 
@@ -219,7 +216,7 @@ export default function AddStudentToGroupButton({
 }
 
 interface AddEntityFormProps {
-  form: ReturnType<typeof useForm<SchemaType>>
+  form: ReturnType<typeof useForm<AddStudentToGroupSchemaType>>
   items: {
     label: string
     value: number
@@ -229,7 +226,7 @@ interface AddEntityFormProps {
   }[]
   label: string
   emptyMessage: string
-  onSubmit: (data: SchemaType) => void
+  onSubmit: (data: AddStudentToGroupSchemaType) => void
 }
 
 function AddEntityForm({ form, items, label, emptyMessage, onSubmit }: AddEntityFormProps) {

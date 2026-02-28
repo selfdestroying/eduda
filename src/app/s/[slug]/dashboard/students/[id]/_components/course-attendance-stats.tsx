@@ -1,7 +1,7 @@
 import { Badge } from '@/src/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip'
-import { StudentWithGroupsAndAttendance } from '@/src/types/student'
 import { BarChart3, CheckCircle2, Info, RefreshCw, XCircle } from 'lucide-react'
+import { StudentWithGroupsAndAttendance } from './types'
 
 interface CourseStats {
   courseName: string

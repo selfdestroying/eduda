@@ -40,47 +40,18 @@ import {
   SelectValue,
 } from '@/src/components/ui/select'
 import { Textarea } from '@/src/components/ui/textarea'
+import { EditProductSchema, EditProductSchemaType } from '@/src/schemas/product'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, Loader2, MoreVertical, Pen, Trash } from 'lucide-react'
 import Image from 'next/image'
 import { useMemo, useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { z } from 'zod/v4'
 
 interface ProductActionsProps {
   product: Prisma.ProductGetPayload<{ include: { category: true } }>
   categories: Category[]
 }
-
-const EditProductSchema = z.object({
-  name: z
-    .string('Введите название продукта')
-    .min(2, 'Название должно содержать не менее 2 символов')
-    .max(50, 'Название не должно превышать 50 символов'),
-  category: z.object(
-    {
-      label: z.string(),
-      value: z.string(),
-    },
-    'Выберите категорию'
-  ),
-  price: z.number('Введите цену продукта').int().min(0, 'Цена не может быть отрицательной'),
-  description: z
-    .string('Введите описание продукта')
-    .max(500, 'Описание не должно превышать 500 символов'),
-  quantity: z.number('Введите количество продукта').min(1, 'Количество должно быть не менее 1'),
-  image: z
-    .instanceof(File, { error: 'Загрузите изображение продукта' })
-    .refine(
-      (file) => ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'].includes(file.type),
-      'Неверный формат файла. Допустимы: PNG, JPEG, SVG, WEBP'
-    )
-    .refine((file) => file.size <= 10 * 1024 * 1024, 'Размер файла не должен превышать 10 МБ')
-    .optional(),
-})
-
-type EditProductFormSchemaType = z.infer<typeof EditProductSchema>
 
 export default function ProductActions({ product, categories }: ProductActionsProps) {
   const [open, setOpen] = useState(false)
@@ -88,7 +59,7 @@ export default function ProductActions({ product, categories }: ProductActionsPr
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const form = useForm<EditProductFormSchemaType>({
+  const form = useForm<EditProductSchemaType>({
     resolver: zodResolver(EditProductSchema),
     defaultValues: {
       name: product.name,
@@ -114,7 +85,7 @@ export default function ProductActions({ product, categories }: ProductActionsPr
     })
   }
 
-  const onSubmit = (values: EditProductFormSchemaType) => {
+  const onSubmit = (values: EditProductSchemaType) => {
     startTransition(() => {
       const { category, image, ...data } = values
 

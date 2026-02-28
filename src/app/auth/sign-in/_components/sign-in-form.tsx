@@ -13,20 +13,12 @@ import {
 import { Input } from '@/src/components/ui/input'
 import { Switch } from '@/src/components/ui/switch'
 import { authClient } from '@/src/lib/auth-client'
+import { SignInSchema, SignInSchemaType } from '@/src/schemas/auth'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, LogIn } from 'lucide-react'
 import { useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import * as z from 'zod'
-
-const signInSchema = z.object({
-  email: z.email('Введите корректный email'),
-  password: z.string().min(1, 'Введите пароль'),
-  rememberMe: z.boolean(),
-})
-
-type SignInFormValues = z.infer<typeof signInSchema>
 
 interface SignInFormProps {
   onSuccess?: () => void | Promise<void>
@@ -36,8 +28,8 @@ interface SignInFormProps {
 export function SignInForm({ onSuccess, showPasswordToggle = false }: SignInFormProps) {
   const [loading, startTransition] = useTransition()
 
-  const form = useForm<SignInFormValues>({
-    resolver: zodResolver(signInSchema),
+  const form = useForm<SignInSchemaType>({
+    resolver: zodResolver(SignInSchema),
     defaultValues: {
       email: '',
       password: '',
@@ -45,7 +37,7 @@ export function SignInForm({ onSuccess, showPasswordToggle = false }: SignInForm
     },
   })
 
-  const onSubmit = (data: SignInFormValues) => {
+  const onSubmit = (data: SignInSchemaType) => {
     startTransition(async () => {
       await authClient.signIn.email({
         email: data.email,

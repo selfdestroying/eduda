@@ -1,5 +1,6 @@
 'use client'
 
+import { Prisma } from '@/prisma/generated/client'
 import CourseLocationTeacherFilters from '@/src/components/course-location-teacher-filters'
 import DataTable from '@/src/components/data-table'
 import { Field, FieldGroup } from '@/src/components/ui/field'
@@ -8,7 +9,6 @@ import { Skeleton } from '@/src/components/ui/skeleton'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
 import { DaysOfWeek, getGroupName } from '@/src/lib/utils'
-import { GroupDTO } from '@/src/types/group'
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -23,6 +23,17 @@ import {
 import Link from 'next/link'
 import { parseAsInteger, useQueryState } from 'nuqs'
 import { useMemo } from 'react'
+
+type GroupDTO = Prisma.GroupGetPayload<{
+  include: {
+    location: true
+    course: true
+    students: true
+    schedules: true
+    groupType: { include: { rate: true } }
+    teachers: { include: { teacher: true } }
+  }
+}>
 
 const columns: ColumnDef<GroupDTO>[] = [
   {

@@ -20,12 +20,12 @@ import {
 import { useIsMobile } from '@/src/hooks/use-mobile'
 import { getAgeFromBirthDate, getGroupName } from '@/src/lib/utils'
 import { EditStudentSchema, EditStudentSchemaType } from '@/src/schemas/student'
-import { StudentWithGroupsAndAttendance } from '@/src/types/student'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, Pen } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
+import { StudentWithGroupsAndAttendance } from './types'
 
 export default function EditStudentDialog({
   student,

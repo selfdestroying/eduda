@@ -2,8 +2,8 @@ import { Badge } from '@/src/components/ui/badge'
 import { Progress } from '@/src/components/ui/progress'
 import { StatCard } from '@/src/components/ui/stat-card'
 import { getGroupName } from '@/src/lib/utils'
-import { StudentWithGroupsAndAttendance } from '@/src/types/student'
 import { BookOpen, Calculator, ReceiptRussianRuble, TrendingDown, Wallet } from 'lucide-react'
+import { StudentWithGroupsAndAttendance } from './types'
 
 type BalanceVariant = 'success' | 'warning' | 'danger'
 

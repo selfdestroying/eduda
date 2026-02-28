@@ -15,34 +15,25 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/f
 import { Input } from '@/src/components/ui/input'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { useSessionQuery } from '@/src/data/user/session-query'
+import { CategorySchema, CategorySchemaType } from '@/src/schemas/category'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, Plus } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { z } from 'zod/v4'
-
-const AddCategorySchema = z.object({
-  name: z
-    .string('Введите название категории')
-    .min(2, 'Название должно содержать не менее 2 символов')
-    .max(50, 'Название не должно превышать 50 символов'),
-})
-
-type AddCategoryFormSchemaType = z.infer<typeof AddCategorySchema>
 
 export default function AddCategoryButton() {
   const { data: session, isLoading: isSessionLoading } = useSessionQuery()
   const organizationId = session?.organizationId ?? undefined
   const [isPending, startTransition] = useTransition()
   const [dialogOpen, setDialogOpen] = useState(false)
-  const form = useForm<AddCategoryFormSchemaType>({
-    resolver: zodResolver(AddCategorySchema),
+  const form = useForm<CategorySchemaType>({
+    resolver: zodResolver(CategorySchema),
     defaultValues: {
       name: undefined,
     },
   })
-  const onSubmit = (values: AddCategoryFormSchemaType) => {
+  const onSubmit = (values: CategorySchemaType) => {
     startTransition(() => {
       const ok = createCategory({ data: { ...values, organizationId: organizationId! } })
       toast.promise(ok, {

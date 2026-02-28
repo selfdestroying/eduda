@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/src/components/ui/select'
-import { CreateGroupTypeSchema, CreateGroupTypeSchemaType } from '@/src/schemas/group-type'
+import { GroupTypeSchema, GroupTypeSchemaType } from '@/src/schemas/group-type'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus } from 'lucide-react'
 import { useState, useTransition } from 'react'
@@ -42,15 +42,15 @@ export default function CreateGroupTypeDialog({
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const form = useForm<CreateGroupTypeSchemaType>({
-    resolver: zodResolver(CreateGroupTypeSchema),
+  const form = useForm<GroupTypeSchemaType>({
+    resolver: zodResolver(GroupTypeSchema),
     defaultValues: {
       name: '',
       rateId: undefined,
     },
   })
 
-  const onSubmit = (values: CreateGroupTypeSchemaType) => {
+  const onSubmit = (values: GroupTypeSchemaType) => {
     startTransition(() => {
       const ok = createGroupType({
         data: {

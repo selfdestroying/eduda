@@ -29,11 +29,11 @@ import {
 import { useIsMobile } from '@/src/hooks/use-mobile'
 import { OrganizationRole } from '@/src/lib/auth'
 import { authClient } from '@/src/lib/auth-client'
+import { EditUserSchema, EditUserSchemaType } from '@/src/schemas/user'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Pen } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { z } from 'zod/v4'
 
 interface EditUserButtonProps {
   member: Prisma.MemberGetPayload<{ include: { user: true } }>
@@ -43,21 +43,6 @@ interface EditUserButtonProps {
   onOpenChange?: (open: boolean) => void
   showTrigger?: boolean
 }
-
-const EditUserSchema = z.object({
-  firstName: z.string().min(2, 'Укажите имя'),
-  lastName: z.string().optional(),
-  role: z.object(
-    {
-      label: z.string(),
-      value: z.string(),
-    },
-    'Выберите роль'
-  ),
-  banned: z.boolean(),
-})
-
-type EditUserSchemaType = z.infer<typeof EditUserSchema>
 
 const mappedRoles = [
   { label: 'Менеджер', value: 'manager' },

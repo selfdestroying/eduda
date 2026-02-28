@@ -19,7 +19,7 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={inter.variable}>
+    <html lang="ru" suppressHydrationWarning className={inter.variable}>
       <body className={`${inter.variable} font-sans antialiased`}>
         <NuqsAdapter>
           <Providers>{children}</Providers>

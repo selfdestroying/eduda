@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/src/components/ui/select'
-import { EditGroupTypeSchema, EditGroupTypeSchemaType } from '@/src/schemas/group-type'
+import { GroupTypeSchema, GroupTypeSchemaType } from '@/src/schemas/group-type'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, MoreVertical, Pen, Trash } from 'lucide-react'
 import { useEffect, useState, useTransition } from 'react'
@@ -64,15 +64,15 @@ export default function GroupTypeActions({ groupType, rates }: GroupTypeActionsP
   const [isDeleteDisabled, setIsDeleteDisabled] = useState(false)
   const [deleteCountdown, setDeleteCountdown] = useState(0)
 
-  const form = useForm<EditGroupTypeSchemaType>({
-    resolver: zodResolver(EditGroupTypeSchema),
+  const form = useForm<GroupTypeSchemaType>({
+    resolver: zodResolver(GroupTypeSchema),
     defaultValues: {
       name: groupType.name,
       rateId: groupType.rateId,
     },
   })
 
-  const handleEdit = (data: EditGroupTypeSchemaType) => {
+  const handleEdit = (data: GroupTypeSchemaType) => {
     startTransition(() => {
       const ok = updateGroupType({
         where: { id: groupType.id },
