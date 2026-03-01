@@ -1,16 +1,10 @@
+import { prismaAdapter } from '@better-auth/prisma-adapter'
 import { betterAuth, type BetterAuthOptions } from 'better-auth'
-import { localization } from 'better-auth-localization'
-import { prismaAdapter } from 'better-auth/adapters/prisma'
 import { nextCookies } from 'better-auth/next-js'
 import { admin as adminPlugin, customSession, organization } from 'better-auth/plugins'
-import {
-  manager,
-  ac as orgAc,
-  owner as orgOwner,
-  teacher,
-} from '../shared/organization-permissions'
-import { ac, admin, owner, user } from '../shared/permissions'
-import prisma from './prisma'
+import prisma from '../db/prisma'
+import permissions from '../permissions/global'
+import organizationPermissions from '../permissions/organization'
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.split(':')[0]
 
@@ -20,10 +14,6 @@ const options = {
   }),
   user: {
     modelName: 'User',
-    additionalFields: {
-      firstName: { type: 'string', required: true },
-      lastName: { type: 'string', required: true },
-    },
   },
   session: {
     modelName: 'Session',
@@ -86,26 +76,10 @@ const options = {
     return []
   },
   plugins: [
-    localization({
-      defaultLocale: 'ru-RU',
-      fallbackLocale: 'default',
-    }),
-    adminPlugin({
-      ac,
-      roles: {
-        admin,
-        owner,
-        user,
-      },
-    }),
+    adminPlugin(permissions),
     organization({
+      ...organizationPermissions,
       allowUserToCreateOrganization: true,
-      ac: orgAc,
-      roles: {
-        owner: orgOwner,
-        manager,
-        teacher,
-      },
       schema: {
         member: { modelName: 'Member' },
         organization: { modelName: 'Organization' },

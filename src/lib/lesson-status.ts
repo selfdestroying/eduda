@@ -1,4 +1,4 @@
-import { LessonStatus } from '@/prisma/generated/enums'
+import { LessonStatus } from '@/prisma/generated/client'
 import { cva } from 'class-variance-authority'
 
 export const lessonStatusMap: Record<LessonStatus, string> = {

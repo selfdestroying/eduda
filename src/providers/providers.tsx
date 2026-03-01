@@ -1,34 +1,24 @@
 'use client'
 
-import { getQueryClient } from '@/src/data/query-client'
-import { QueryClientProvider } from '@tanstack/react-query'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-
+import { ReactNode } from 'react'
 import { Toaster } from '../components/toaster'
 import { TooltipProvider } from '../components/ui/tooltip'
+import { QueryProvider } from './query-provider'
 import { ThemeProvider } from './theme-provider'
 
 type Props = {
-  children: React.ReactNode
+  children: ReactNode
 }
 
 const Providers = ({ children }: Props) => {
-  const queryClient = getQueryClient()
-
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange>
-      <QueryClientProvider client={queryClient}>
+    <ThemeProvider>
+      <QueryProvider>
         <TooltipProvider>
-          <ReactQueryDevtools
-            client={queryClient}
-            initialIsOpen={false}
-            buttonPosition="bottom-right"
-            position="bottom"
-          />
           {children}
           <Toaster />
         </TooltipProvider>
-      </QueryClientProvider>
+      </QueryProvider>
     </ThemeProvider>
   )
 }

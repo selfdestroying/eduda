@@ -1,7 +1,7 @@
 import { createAccessControl } from 'better-auth/plugins/access'
 import { defaultStatements, ownerAc } from 'better-auth/plugins/organization/access'
 
-export const statement = {
+const statement = {
   ...defaultStatements,
   member: ['read', 'create', 'update', 'delete'],
   group: ['create', 'read', 'update', 'delete'],
@@ -21,9 +21,9 @@ export const statement = {
   lessonStudentHistory: ['read', 'update'],
 } as const
 
-export const ac = createAccessControl(statement)
+const ac = createAccessControl(statement)
 
-export const teacher = ac.newRole({
+const teacher = ac.newRole({
   group: ['read'],
   lesson: ['readSelf'],
   student: ['read'],
@@ -39,7 +39,7 @@ export const teacher = ac.newRole({
   studentLesson: ['read', 'update'],
 })
 
-export const manager = ac.newRole({
+const manager = ac.newRole({
   group: ['create', 'read', 'update', 'delete'],
   lesson: ['create', 'readSelf', 'readAll', 'update', 'delete'],
   student: ['create', 'read', 'update', 'delete'],
@@ -58,7 +58,7 @@ export const manager = ac.newRole({
   lessonStudentHistory: ['read', 'update'],
 })
 
-export const owner = ac.newRole({
+const owner = ac.newRole({
   ...ownerAc.statements,
   ...manager.statements,
   organization: ['update'],
@@ -69,3 +69,5 @@ export type OrganizationAction<T extends OrganizationStatementKeys> = (typeof st
 export type OrganizationPermissionCheck = {
   [R in OrganizationStatementKeys]?: Array<OrganizationAction<R>>
 }
+
+export default { ac, roles: { owner, manager, teacher } }
