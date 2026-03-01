@@ -1,7 +1,19 @@
+import { Prisma } from '@/prisma/generated/client'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { formatDateOnly } from '@/src/lib/timezone'
 import { DaysOfWeek } from '@/src/lib/utils'
-import { GroupDTO } from '@/src/types/group'
-import { toZonedTime } from 'date-fns-tz'
+
+type GroupDTO = Prisma.GroupGetPayload<{
+  include: {
+    location: true
+    course: true
+    students: true
+    schedules: true
+    groupType: { include: { rate: true } }
+    teachers: { include: { teacher: true } }
+  }
+}>
+
 import { Book, Calendar, ExternalLink, MapPin, Tag, Users } from 'lucide-react'
 import EditGroupButton from './edit-group-button'
 
@@ -89,9 +101,7 @@ export default async function InfoSection({ group }: { group: GroupDTO }) {
                 Период
               </span>
             </div>
-            <div className="truncate">
-              {toZonedTime(group.startDate, 'Europe/Moscow').toLocaleDateString('ru-RU')}
-            </div>
+            <div className="truncate">{formatDateOnly(group.startDate)}</div>
           </div>
           <div className="flex flex-col">
             <div className="text-muted-foreground/60 flex items-center gap-2 text-xs font-medium">

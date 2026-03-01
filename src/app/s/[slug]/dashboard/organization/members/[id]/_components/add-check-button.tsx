@@ -14,13 +14,13 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
+import { CreatePaycheckSchema, CreatePaycheckSchemaType } from '@/src/schemas/paycheck'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'
 import { CalendarIcon, Plus } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { z } from 'zod/v4'
 
 interface AddCheckButtonProps {
   organizationId: number
@@ -28,20 +28,12 @@ interface AddCheckButtonProps {
   userName: string
 }
 
-const AddCheckSchema = z.object({
-  amount: z.number('Укажите корректную сумму').min(0, 'Сумма должна быть неотрицательной'),
-  date: z.date('Укажите корректную дату'),
-  comment: z.string('Укажите комментарий').max(255),
-})
-
-type AddCheckSchemaType = z.infer<typeof AddCheckSchema>
-
 export default function AddCheckButton({ organizationId, userId, userName }: AddCheckButtonProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const form = useForm<AddCheckSchemaType>({
-    resolver: zodResolver(AddCheckSchema),
+  const form = useForm<CreatePaycheckSchemaType>({
+    resolver: zodResolver(CreatePaycheckSchema),
     defaultValues: {
       amount: undefined,
       date: undefined,
@@ -49,7 +41,7 @@ export default function AddCheckButton({ organizationId, userId, userName }: Add
     },
   })
 
-  const onSubmit = (values: AddCheckSchemaType) => {
+  const onSubmit = (values: CreatePaycheckSchemaType) => {
     startTransition(() => {
       const ok = createPaycheck({
         data: {

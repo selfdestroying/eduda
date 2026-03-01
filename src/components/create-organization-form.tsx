@@ -9,8 +9,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
 import { useEffect } from 'react'
 import { Controller, useForm } from 'react-hook-form'
-import * as z from 'zod'
 import { useMappedUserListQuery } from '../data/user/user-list-query'
+import { CreateOrganizationSchema, CreateOrganizationSchemaType } from '../schemas/organization'
 import {
   Select,
   SelectContent,
@@ -19,27 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select'
-
-const createOrganizationSchema = z.object({
-  owner: z.object(
-    {
-      label: z.string(),
-      value: z.string(),
-    },
-    'Укажите владельца'
-  ),
-  name: z
-    .string()
-    .min(2, 'Name must be at least 2 characters')
-    .max(50, 'Name must be at most 50 characters'),
-  slug: z
-    .string()
-    .min(2, 'Slug must be at least 2 characters')
-    .max(50, 'Slug must be at most 50 characters')
-    .regex(/^[a-z0-9-]+$/, 'Slug can only contain lowercase letters, numbers, and hyphens'),
-})
-
-type CreateOrganizationFormValues = z.infer<typeof createOrganizationSchema>
 
 interface CreateOrganizationFormProps {
   onSuccess?: () => void
@@ -56,8 +35,8 @@ export function CreateOrganizationForm({ onSuccess, onError }: CreateOrganizatio
     watch,
     setValue,
     formState: { errors, dirtyFields },
-  } = useForm<CreateOrganizationFormValues>({
-    resolver: zodResolver(createOrganizationSchema),
+  } = useForm<CreateOrganizationSchemaType>({
+    resolver: zodResolver(CreateOrganizationSchema),
     defaultValues: {
       name: '',
       slug: '',
@@ -78,7 +57,7 @@ export function CreateOrganizationForm({ onSuccess, onError }: CreateOrganizatio
     }
   }, [nameValue, dirtyFields.slug, setValue])
 
-  const onSubmit = async (values: CreateOrganizationFormValues) => {
+  const onSubmit = async (values: CreateOrganizationSchemaType) => {
     try {
       createMutation.mutate(
         {

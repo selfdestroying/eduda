@@ -1,10 +1,10 @@
 import { Prisma } from '@/prisma/generated/client'
 import { getGroupName } from '@/src/lib/utils'
-import type { StudentWithGroupsAndAttendance } from '@/src/types/student'
 import { Users } from 'lucide-react'
 import Link from 'next/link'
 import AddStudentToGroupButton from '../../../groups/[id]/_components/add-student-to-group-button'
 import { StudentAttendanceTable } from './attendance-table'
+import type { StudentWithGroupsAndAttendance } from './types'
 
 interface StudentGroupsSectionProps {
   student: StudentWithGroupsAndAttendance

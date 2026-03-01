@@ -21,22 +21,12 @@ import {
   SelectValue,
 } from '@/src/components/ui/select'
 import { authClient } from '@/src/lib/auth-client'
+import { AdminCreateUserSchema, AdminCreateUserSchemaType } from '@/src/schemas/user'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Dices, Loader2, UserPlus } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import * as z from 'zod'
-
-const createUserSchema = z.object({
-  firstName: z.string().min(1, 'Имя обязательно'),
-  lastName: z.string(),
-  email: z.string().email('Некорректный email'),
-  password: z.string().min(8, 'Минимум 8 символов'),
-  role: z.enum(['user', 'admin', 'owner']),
-})
-
-type CreateUserFormValues = z.infer<typeof createUserSchema>
 
 interface CreateUserDialogProps {
   onSuccess: () => void
@@ -52,8 +42,8 @@ export default function CreateUserDialog({ onSuccess }: CreateUserDialogProps) {
     reset,
     setValue,
     formState: { errors },
-  } = useForm<CreateUserFormValues>({
-    resolver: zodResolver(createUserSchema),
+  } = useForm<AdminCreateUserSchemaType>({
+    resolver: zodResolver(AdminCreateUserSchema),
     defaultValues: {
       firstName: '',
       lastName: '',
@@ -72,7 +62,7 @@ export default function CreateUserDialog({ onSuccess }: CreateUserDialogProps) {
     setValue('password', password)
   }
 
-  const onSubmit = (values: CreateUserFormValues) => {
+  const onSubmit = (values: AdminCreateUserSchemaType) => {
     const name = `${values.firstName} ${values.lastName}`.trim()
     startTransition(async () => {
       try {

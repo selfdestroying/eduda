@@ -17,6 +17,7 @@ import { useDayStatusesQuery, useLessonListQuery } from '@/src/data/lesson/lesso
 import { useOrganizationPermissionQuery } from '@/src/data/organization/organization-permission-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
+import { moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
 import { cn } from '@/src/lib/utils'
 import {
   ColumnDef,
@@ -163,7 +164,7 @@ export default function Dashboard() {
   const [selectedDay, setSelectedDay] = useQueryState(
     'date',
     parseAsLocalDate
-      .withDefault(startOfDay(new Date()))
+      .withDefault(normalizeDateOnly(moscowNow()))
       .withOptions({ shallow: true, history: 'replace' })
   )
 
@@ -233,7 +234,7 @@ interface LessonCalendarProps {
 }
 
 function LessonCalendar({ organizationId, selectedDay, onSelectDay }: LessonCalendarProps) {
-  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date())
+  const [selectedMonth, setSelectedMonth] = useState<Date>(moscowNow())
   const dayKey = useMemo(() => startOfDay(selectedMonth), [selectedMonth])
   const { data: daysStatuses, isLoading: isDaysStatusesLoading } = useDayStatusesQuery(
     organizationId,
@@ -273,7 +274,7 @@ interface CalendarDayButtonProps extends React.ComponentProps<typeof CalendarDay
 }
 
 function LessonDayButton({ day, children, daysStatuses, ...props }: CalendarDayButtonProps) {
-  const dayIndex = daysStatuses[day.date.toISOString().split('T')[0]]
+  const dayIndex = daysStatuses[normalizeDateOnly(day.date).toISOString().split('T')[0]]
   if (!dayIndex)
     return (
       <CalendarDayButton {...props} day={day}>

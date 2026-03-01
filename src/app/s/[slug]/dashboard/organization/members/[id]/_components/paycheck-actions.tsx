@@ -28,26 +28,18 @@ import {
 } from '@/src/components/ui/dropdown-menu'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
+import { CreatePaycheckSchema, CreatePaycheckSchemaType } from '@/src/schemas/paycheck'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'
 import { Loader2, MoreVertical, Pen, Trash } from 'lucide-react'
 import { useEffect, useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { z } from 'zod/v4'
 
 interface AddCheckButtonProps {
   paycheck: PayCheck
   userName: string
 }
-
-const AddCheckSchema = z.object({
-  amount: z.number('Укажите корректную сумму').min(0, 'Сумма должна быть неотрицательной'),
-  date: z.date('Укажите корректную дату'),
-  comment: z.string('Укажите комментарий').max(255),
-})
-
-type AddCheckSchemaType = z.infer<typeof AddCheckSchema>
 
 export default function PayCheckActions({ paycheck, userName }: AddCheckButtonProps) {
   const [open, setOpen] = useState<boolean>(false)
@@ -58,8 +50,8 @@ export default function PayCheckActions({ paycheck, userName }: AddCheckButtonPr
 
   const [isPending, startTransition] = useTransition()
 
-  const form = useForm<AddCheckSchemaType>({
-    resolver: zodResolver(AddCheckSchema),
+  const form = useForm<CreatePaycheckSchemaType>({
+    resolver: zodResolver(CreatePaycheckSchema),
     defaultValues: {
       amount: paycheck.amount,
       date: paycheck.date,
@@ -67,7 +59,7 @@ export default function PayCheckActions({ paycheck, userName }: AddCheckButtonPr
     },
   })
 
-  const onSubmit = (values: AddCheckSchemaType) => {
+  const onSubmit = (values: CreatePaycheckSchemaType) => {
     startTransition(() => {
       const ok = updatePaycheck({
         where: { id: paycheck.id },

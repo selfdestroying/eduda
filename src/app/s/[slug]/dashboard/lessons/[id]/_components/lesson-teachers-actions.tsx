@@ -28,12 +28,12 @@ import {
 } from '@/src/components/ui/dropdown-menu'
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
+import { EditTeacherLessonSchema, EditTeacherLessonSchemaType } from '@/src/schemas/teacher-lesson'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, MoreVertical, Pen, Trash } from 'lucide-react'
 import { useEffect, useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import z from 'zod/v4'
 
 interface UsersActionsProps {
   tl: Prisma.TeacherLessonGetPayload<{
@@ -43,19 +43,6 @@ interface UsersActionsProps {
   }>
 }
 
-const editGroupTeacherSchema = z.object({
-  bid: z
-    .number('Не указана ставка')
-    .int('Ставка должна быть числом')
-    .gte(0, 'Ставка должна быть >= 0'),
-  bonusPerStudent: z
-    .number('Не указан бонус')
-    .int('Бонус должен быть целым числом')
-    .gte(0, 'Бонус должен быть >= 0'),
-})
-
-type EditGroupTeacherSchemaType = z.infer<typeof editGroupTeacherSchema>
-
 export default function LessonTeacherActions({ tl }: UsersActionsProps) {
   const [open, setOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -64,15 +51,15 @@ export default function LessonTeacherActions({ tl }: UsersActionsProps) {
   const [isDeleteDisabled, setIsDeleteDisabled] = useState(false)
   const [deleteCountdown, setDeleteCountdown] = useState(0)
 
-  const form = useForm<EditGroupTeacherSchemaType>({
-    resolver: zodResolver(editGroupTeacherSchema),
+  const form = useForm<EditTeacherLessonSchemaType>({
+    resolver: zodResolver(EditTeacherLessonSchema),
     defaultValues: {
       bid: tl.bid,
       bonusPerStudent: tl.bonusPerStudent,
     },
   })
 
-  const handleEdit = (data: EditGroupTeacherSchemaType) => {
+  const handleEdit = (data: EditTeacherLessonSchemaType) => {
     startTransition(() => {
       const { ...payload } = data
       const ok = updateTeacherLesson({

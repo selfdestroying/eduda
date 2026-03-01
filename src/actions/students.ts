@@ -6,6 +6,7 @@ import {
   writeFinancialHistoryTx,
 } from '@/src/lib/lessons-balance'
 import prisma from '@/src/lib/prisma'
+import { moscowNow, toMoscow } from '@/src/lib/timezone'
 
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
@@ -560,7 +561,7 @@ export async function getActiveStudentStatistics(organizationId: number) {
   // 1. Monthly Statistics with timestamps for proper sorting
   const monthlyStatsMap = new Map<string, { count: number; timestamp: number }>()
   uniqueStudentsMap.forEach((student) => {
-    const date = new Date(student.createdAt)
+    const date = toMoscow(student.createdAt)
     const y = date.getFullYear()
     const m = date.getMonth()
     const key = `${y}-${String(m + 1).padStart(2, '0')}`
@@ -583,7 +584,7 @@ export async function getActiveStudentStatistics(organizationId: number) {
     })
 
   // KPI: new this month vs previous month
-  const now = new Date()
+  const now = moscowNow()
   const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`

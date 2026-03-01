@@ -28,6 +28,7 @@ import { useMappedCourseListQuery } from '@/src/data/course/course-list-query'
 import { useMappedLocationListQuery } from '@/src/data/location/location-list-query'
 import { useMappedMemberListQuery } from '@/src/data/member/member-list-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
+import { dateOnlyToLocal, moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
 import { cn, getGroupName } from '@/src/lib/utils'
 import {
   endOfMonth,
@@ -38,7 +39,6 @@ import {
   subMonths,
   subWeeks,
 } from 'date-fns'
-import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz'
 import { ru } from 'date-fns/locale'
 import {
   Ban,
@@ -118,29 +118,29 @@ const datePresets = [
   {
     label: 'Текущая неделя',
     getValue: () => ({
-      from: startOfWeek(toZonedTime(new Date(), 'Europe/Moscow'), { weekStartsOn: 1 }),
-      to: endOfWeek(toZonedTime(new Date(), 'Europe/Moscow'), { weekStartsOn: 1 }),
+      from: startOfWeek(moscowNow(), { weekStartsOn: 1 }),
+      to: endOfWeek(moscowNow(), { weekStartsOn: 1 }),
     }),
   },
   {
     label: 'Прошлая неделя',
     getValue: () => ({
-      from: startOfWeek(subWeeks(toZonedTime(new Date(), 'Europe/Moscow'), 1), { weekStartsOn: 1 }),
-      to: endOfWeek(subWeeks(toZonedTime(new Date(), 'Europe/Moscow'), 1), { weekStartsOn: 1 }),
+      from: startOfWeek(subWeeks(moscowNow(), 1), { weekStartsOn: 1 }),
+      to: endOfWeek(subWeeks(moscowNow(), 1), { weekStartsOn: 1 }),
     }),
   },
   {
     label: 'Текущий месяц',
     getValue: () => ({
-      from: startOfMonth(toZonedTime(new Date(), 'Europe/Moscow')),
-      to: endOfMonth(toZonedTime(new Date(), 'Europe/Moscow')),
+      from: startOfMonth(moscowNow()),
+      to: endOfMonth(moscowNow()),
     }),
   },
   {
     label: 'Прошлый месяц',
     getValue: () => ({
-      from: startOfMonth(subMonths(toZonedTime(new Date(), 'Europe/Moscow'), 1)),
-      to: endOfMonth(subMonths(toZonedTime(new Date(), 'Europe/Moscow'), 1)),
+      from: startOfMonth(subMonths(moscowNow(), 1)),
+      to: endOfMonth(subMonths(moscowNow(), 1)),
     }),
   },
 ]
@@ -162,7 +162,7 @@ function transformLessonsToRevenueData(lessons: LessonWithAttendance[]): DayReve
   const groupedByDate: Record<string, LessonWithAttendance[]> = {}
 
   for (const lesson of lessons) {
-    const dateKey = formatInTimeZone(lesson.date, 'Europe/Moscow', 'yyyy-MM-dd')
+    const dateKey = new Date(lesson.date).toISOString().split('T')[0]
     if (!groupedByDate[dateKey]) groupedByDate[dateKey] = []
     groupedByDate[dateKey].push(lesson)
   }
@@ -212,7 +212,7 @@ function transformLessonsToRevenueData(lessons: LessonWithAttendance[]): DayReve
       const paidStudents = lessonRevenues.reduce((sum, l) => sum + l.paidCount, 0)
 
       return {
-        date: new Date(dateKey),
+        date: dateOnlyToLocal(dateKey),
         dateKey,
         revenue: dayRevenue,
         lessons: lessonRevenues,
@@ -236,8 +236,8 @@ export default function RevenueClient() {
 
   const fetchData = useCallback(async () => {
     if (dateRange?.from && dateRange?.to) {
-      const from = fromZonedTime(dateRange.from, 'Europe/Moscow')
-      const to = fromZonedTime(dateRange.to, 'Europe/Moscow')
+      const from = normalizeDateOnly(dateRange.from)
+      const to = normalizeDateOnly(dateRange.to)
 
       const groupFilter: { courseId?: object; locationId?: object } = {}
       if (selectedCourses.length > 0) {
@@ -568,7 +568,7 @@ function DayCard({ data }: DayCardProps) {
               <div className="flex items-center gap-3">
                 <div>
                   <CardTitle className="text-base">
-                    {formatInTimeZone(data.date, 'Europe/Moscow', 'd MMMM, EEEE', { locale: ru })}
+                    {format(data.date, 'd MMMM, EEEE', { locale: ru })}
                   </CardTitle>
                   <p className="text-muted-foreground text-xs">
                     {data.lessons.length} урок(ов) • {data.totalStudents} ученик(ов)

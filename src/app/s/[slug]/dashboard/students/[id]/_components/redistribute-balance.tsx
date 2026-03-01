@@ -6,10 +6,10 @@ import { Field, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
 import { Label } from '@/src/components/ui/label'
 import { getGroupName } from '@/src/lib/utils'
-import { StudentWithGroupsAndAttendance } from '@/src/types/student'
 import { ArrowRightLeft, Loader } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
+import { StudentWithGroupsAndAttendance } from './types'
 
 interface RedistributeBalanceProps {
   student: StudentWithGroupsAndAttendance

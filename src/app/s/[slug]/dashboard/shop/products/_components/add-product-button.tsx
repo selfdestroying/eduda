@@ -25,48 +25,20 @@ import {
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { Textarea } from '@/src/components/ui/textarea'
 import { useSessionQuery } from '@/src/data/user/session-query'
+import { CreateProductSchema, CreateProductSchemaType } from '@/src/schemas/product'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, Plus } from 'lucide-react'
 import { useMemo, useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { z } from 'zod/v4'
-
-const AddProductSchema = z.object({
-  name: z
-    .string('Введите название продукта')
-    .min(2, 'Название должно содержать не менее 2 символов')
-    .max(50, 'Название не должно превышать 50 символов'),
-  category: z.object(
-    {
-      label: z.string(),
-      value: z.string(),
-    },
-    'Выберите категорию'
-  ),
-  price: z.number('Введите цену продукта').int().min(0, 'Цена не может быть отрицательной'),
-  description: z
-    .string('Введите описание продукта')
-    .max(500, 'Описание не должно превышать 500 символов'),
-  quantity: z.number('Введите количество продукта').min(1, 'Количество должно быть не менее 1'),
-  image: z
-    .instanceof(File, { error: 'Загрузите изображение продукта' })
-    .refine(
-      (file) => ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'].includes(file.type),
-      'Неверный формат файла. Допустимы: PNG, JPEG, SVG, WEBP'
-    )
-    .refine((file) => file.size <= 10 * 1024 * 1024, 'Размер файла не должен превышать 10 МБ'),
-})
-
-type AddProductFormSchemaType = z.infer<typeof AddProductSchema>
 
 export default function AddProductButton({ categories }: { categories: Category[] }) {
   const { data: session, isLoading: isSessionLoading } = useSessionQuery()
   const organizationId = session?.organizationId ?? undefined
   const [isPending, startTransition] = useTransition()
   const [dialogOpen, setDialogOpen] = useState(false)
-  const form = useForm<AddProductFormSchemaType>({
-    resolver: zodResolver(AddProductSchema),
+  const form = useForm<CreateProductSchemaType>({
+    resolver: zodResolver(CreateProductSchema),
     defaultValues: {
       name: undefined,
       category: undefined,
@@ -76,7 +48,7 @@ export default function AddProductButton({ categories }: { categories: Category[
       image: undefined,
     },
   })
-  const onSubmit = (values: AddProductFormSchemaType) => {
+  const onSubmit = (values: CreateProductSchemaType) => {
     startTransition(() => {
       const { category, image, ...payload } = values
       const ok = createProduct(

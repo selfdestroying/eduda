@@ -22,6 +22,7 @@ import { useMappedLocationListQuery } from '@/src/data/location/location-list-qu
 import { useMappedMemberListQuery } from '@/src/data/member/member-list-query'
 import { useOrganizationPermissionQuery } from '@/src/data/organization/organization-permission-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
+import { dateOnlyToLocal, moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
 import { cn, getGroupName } from '@/src/lib/utils'
 import { lessonStatusMap } from '@/src/shared/lesson-status'
 import { cva } from 'class-variance-authority'
@@ -34,7 +35,6 @@ import {
   subMonths,
   subWeeks,
 } from 'date-fns'
-import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz'
 import { ru } from 'date-fns/locale'
 import {
   Banknote,
@@ -95,29 +95,29 @@ const datePresets = [
   {
     label: 'Текущая неделя',
     getValue: () => ({
-      from: startOfWeek(toZonedTime(new Date(), 'Europe/Moscow'), { weekStartsOn: 1 }),
-      to: endOfWeek(toZonedTime(new Date(), 'Europe/Moscow'), { weekStartsOn: 1 }),
+      from: startOfWeek(moscowNow(), { weekStartsOn: 1 }),
+      to: endOfWeek(moscowNow(), { weekStartsOn: 1 }),
     }),
   },
   {
     label: 'Прошлая неделя',
     getValue: () => ({
-      from: startOfWeek(subWeeks(toZonedTime(new Date(), 'Europe/Moscow'), 1), { weekStartsOn: 1 }),
-      to: endOfWeek(subWeeks(toZonedTime(new Date(), 'Europe/Moscow'), 1), { weekStartsOn: 1 }),
+      from: startOfWeek(subWeeks(moscowNow(), 1), { weekStartsOn: 1 }),
+      to: endOfWeek(subWeeks(moscowNow(), 1), { weekStartsOn: 1 }),
     }),
   },
   {
     label: 'Текущий месяц',
     getValue: () => ({
-      from: startOfMonth(toZonedTime(new Date(), 'Europe/Moscow')),
-      to: endOfMonth(toZonedTime(new Date(), 'Europe/Moscow')),
+      from: startOfMonth(moscowNow()),
+      to: endOfMonth(moscowNow()),
     }),
   },
   {
     label: 'Прошлый месяц',
     getValue: () => ({
-      from: startOfMonth(subMonths(toZonedTime(new Date(), 'Europe/Moscow'), 1)),
-      to: endOfMonth(subMonths(toZonedTime(new Date(), 'Europe/Moscow'), 1)),
+      from: startOfMonth(subMonths(moscowNow(), 1)),
+      to: endOfMonth(subMonths(moscowNow(), 1)),
     }),
   },
 ]
@@ -139,8 +139,8 @@ export default function Salaries() {
   const fetchData = useCallback(async () => {
     if (dateRange?.from && dateRange?.to) {
       const { startDate, endDate } = {
-        startDate: fromZonedTime(dateRange.from, 'Europe/Moscow'),
-        endDate: fromZonedTime(dateRange.to, 'Europe/Moscow'),
+        startDate: normalizeDateOnly(dateRange.from),
+        endDate: normalizeDateOnly(dateRange.to),
       }
 
       // Фильтры по группе
@@ -194,8 +194,8 @@ export default function Salaries() {
 
       // Сортировка по дате и времени
       lessonsData.sort((a, b) => {
-        const dateA = toZonedTime(a.date, 'Europe/Moscow')
-        const dateB = toZonedTime(b.date, 'Europe/Moscow')
+        const dateA = new Date(a.date)
+        const dateB = new Date(b.date)
         if (dateA.getTime() !== dateB.getTime()) return dateA.getTime() - dateB.getTime()
         if (a.time && b.time) {
           const [aH, aM] = a.time.split(':').map(Number)
@@ -551,7 +551,7 @@ function TeacherCard({ data, paychecks }: TeacherCardProps) {
   const lessonsByDate = useMemo(() => {
     const grouped: Record<string, LessonWithPrice[]> = {}
     for (const lesson of data.lessons) {
-      const dateKey = formatInTimeZone(lesson.date, 'Europe/Moscow', 'yyyy-MM-dd')
+      const dateKey = new Date(lesson.date).toISOString().split('T')[0]
       if (!grouped[dateKey]) grouped[dateKey] = []
       grouped[dateKey].push(lesson)
     }
@@ -639,7 +639,7 @@ function TeacherCard({ data, paychecks }: TeacherCardProps) {
                   <div key={dateKey}>
                     <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium">
                       <CalendarIcon className="h-3 w-3" />
-                      {formatInTimeZone(new Date(dateKey), 'Europe/Moscow', 'd MMMM, EEEE', {
+                      {format(dateOnlyToLocal(dateKey), 'd MMMM, EEEE', {
                         locale: ru,
                       })}
                     </div>
@@ -772,7 +772,7 @@ function PaycheckItem({ paycheck }: PaycheckItemProps) {
           </div>
           <div className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
             <CalendarIcon className="h-3 w-3" />
-            {format(toZonedTime(paycheck.date, 'Europe/Moscow'), 'd MMMM yyyy', { locale: ru })}
+            {format(dateOnlyToLocal(paycheck.date), 'd MMMM yyyy', { locale: ru })}
           </div>
         </div>
         <span className="text-success text-sm font-semibold whitespace-nowrap">

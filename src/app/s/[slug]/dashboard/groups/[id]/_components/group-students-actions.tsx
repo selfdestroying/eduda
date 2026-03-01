@@ -45,6 +45,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/pop
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import { cn, getGroupName } from '@/src/lib/utils'
+import { DismissStudentSchema, DismissStudentSchemaType } from '@/src/schemas/dismissed'
+import { TransferStudentSchema, TransferStudentSchemaType } from '@/src/schemas/transfer'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'
 import {
@@ -59,29 +61,10 @@ import {
 import { useEffect, useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import z from 'zod/v4'
 
 interface UsersActionsProps {
   sg: Prisma.StudentGroupGetPayload<{ include: { student: true } }>
 }
-
-const dismissStudentSchema = z.object({
-  date: z.date('Укажите дату'),
-  comment: z.string('Укажите комментарий'),
-})
-
-const transferStudentSchema = z.object({
-  group: z.object(
-    {
-      label: z.string(),
-      value: z.number(),
-    },
-    'Выберите группу'
-  ),
-})
-
-type DismissStudentSchemaType = z.infer<typeof dismissStudentSchema>
-type TransferStudentSchemaType = z.infer<typeof transferStudentSchema>
 
 export default function GroupStudentActions({ sg }: UsersActionsProps) {
   const { data: session, isLoading: isSessionLoading } = useSessionQuery()
@@ -145,14 +128,14 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
   }, [sg.groupId, isSessionLoading, session?.organizationId])
 
   const dismissForm = useForm<DismissStudentSchemaType>({
-    resolver: zodResolver(dismissStudentSchema),
+    resolver: zodResolver(DismissStudentSchema),
     defaultValues: {
       date: undefined,
       comment: undefined,
     },
   })
   const transferForm = useForm<TransferStudentSchemaType>({
-    resolver: zodResolver(transferStudentSchema),
+    resolver: zodResolver(TransferStudentSchema),
     defaultValues: {
       group: undefined,
     },

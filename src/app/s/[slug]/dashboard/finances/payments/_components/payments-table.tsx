@@ -34,7 +34,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { toZonedTime } from 'date-fns-tz'
+import { toMoscow } from '@/src/lib/timezone'
 import {
   ArrowDown,
   ArrowUp,
@@ -81,8 +81,7 @@ const columns: ColumnDef<PaymentsWithStudentAndGroup>[] = [
   {
     header: 'Дата оплаты',
     accessorKey: 'createdAt',
-    cell: ({ row }) =>
-      toZonedTime(row.original.createdAt, 'Europe/Moscow').toLocaleDateString('ru-RU'),
+    cell: ({ row }) => toMoscow(row.original.createdAt).toLocaleDateString('ru-RU'),
   },
   {
     id: 'actions',

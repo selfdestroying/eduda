@@ -1,18 +1,18 @@
 import { getLessons } from '@/src/actions/lessons'
+import { normalizeDateOnly } from '@/src/lib/timezone'
 import { getGroupName } from '@/src/lib/utils'
 import { useQuery } from '@tanstack/react-query'
-import { endOfMonth, startOfDay, startOfMonth } from 'date-fns'
-import { fromZonedTime, toZonedTime } from 'date-fns-tz'
+import { endOfMonth, startOfMonth } from 'date-fns'
 import { lessonKeys } from './keys'
 
 async function getLessonList(organizationId: number, date?: Date) {
   if (!date) {
     throw new Error('Укажите дату')
   }
-  const zoned = fromZonedTime(date, 'Europe/Moscow')
+  const normalizedDate = normalizeDateOnly(date)
   const data = await getLessons({
     where: {
-      date: zoned,
+      date: normalizedDate,
       organizationId,
     },
     include: {
@@ -29,14 +29,14 @@ async function getLessonList(organizationId: number, date?: Date) {
 async function getDayStatuses(organizationId: number, date: Date) {
   const from = startOfMonth(date)
   const to = endOfMonth(date)
-  const zonedFrom = fromZonedTime(from, 'Europe/Moscow')
-  const zonedTo = fromZonedTime(to, 'Europe/Moscow')
+  const normalizedFrom = normalizeDateOnly(from)
+  const normalizedTo = normalizeDateOnly(to)
 
   const data = await getLessons({
     where: {
       date: {
-        gte: zonedFrom,
-        lte: zonedTo,
+        gte: normalizedFrom,
+        lte: normalizedTo,
       },
       organizationId,
     },
@@ -54,7 +54,7 @@ async function getDayStatuses(organizationId: number, date: Date) {
 export type LessonListData = Awaited<ReturnType<typeof getLessonList>>
 
 export const useLessonListQuery = (organizationId: number, date: Date) => {
-  const dateKey = startOfDay(date).toISOString().split('T')[0]
+  const dateKey = normalizeDateOnly(date).toISOString().split('T')[0]
   return useQuery({
     queryKey: lessonKeys.byDate(organizationId, dateKey),
     queryFn: () => getLessonList(organizationId, date),
@@ -63,7 +63,7 @@ export const useLessonListQuery = (organizationId: number, date: Date) => {
 }
 
 export const useMappedLessonListQuery = (organizationId: number, date?: Date) => {
-  const dateKey = date ? startOfDay(date).toISOString().split('T')[0] : ''
+  const dateKey = date ? normalizeDateOnly(date).toISOString().split('T')[0] : ''
   return useQuery({
     queryKey: lessonKeys.byDate(organizationId, dateKey),
     queryFn: () => getLessonList(organizationId, date),
@@ -80,7 +80,7 @@ export const useMappedLessonListQuery = (organizationId: number, date?: Date) =>
 }
 
 export const useDayStatusesQuery = (organizationId: number, date: Date) => {
-  const dateKey = startOfDay(date).toISOString().split('T')[0]
+  const dateKey = normalizeDateOnly(date).toISOString().split('T')[0]
   return useQuery({
     queryKey: lessonKeys.byMonth(organizationId, dateKey),
     queryFn: () => getDayStatuses(organizationId, date),
@@ -88,7 +88,7 @@ export const useDayStatusesQuery = (organizationId: number, date: Date) => {
     select: (lessons) => {
       const statuses: Record<string, boolean[]> = {}
       lessons.forEach((lesson) => {
-        const day = toZonedTime(new Date(lesson.date), 'Europe/Moscow').toISOString().split('T')[0]
+        const day = new Date(lesson.date).toISOString().split('T')[0]
         if (!statuses[day]) {
           statuses[day] = []
         }

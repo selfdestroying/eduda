@@ -1,6 +1,5 @@
 import { Separator } from '@/src/components/ui/separator'
 import { StatCard } from '@/src/components/ui/stat-card'
-import { StudentWithGroupsAndAttendance } from '@/src/types/student'
 import {
   Cake,
   Coins,
@@ -14,6 +13,7 @@ import {
   UserRound,
 } from 'lucide-react'
 import AddCoinsForm from './add-coins-form'
+import { StudentWithGroupsAndAttendance } from './types'
 
 interface StudentCardProps {
   student: StudentWithGroupsAndAttendance
