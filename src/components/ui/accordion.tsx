@@ -32,7 +32,7 @@ function AccordionTrigger({ className, children, ...props }: AccordionPrimitive.
         data-slot="accordion-trigger"
         className={cn(
           '**:data-[slot=accordion-trigger-icon]:text-muted-foreground group/accordion-trigger relative flex flex-1 items-start justify-between gap-6 border border-transparent p-2 text-left text-xs/relaxed font-medium transition-all outline-none hover:underline disabled:pointer-events-none disabled:opacity-50 **:data-[slot=accordion-trigger-icon]:ml-auto **:data-[slot=accordion-trigger-icon]:size-4',
-          className
+          className,
         )}
         {...props}
       >
@@ -60,7 +60,7 @@ function AccordionContent({ className, children, ...props }: AccordionPrimitive.
       <div
         className={cn(
           '[&_a]:hover:text-foreground h-(--accordion-panel-height) pt-0 pb-4 data-ending-style:h-0 data-starting-style:h-0 [&_a]:underline [&_a]:underline-offset-3 [&_p:not(:last-child)]:mb-4',
-          className
+          className,
         )}
       >
         {children}

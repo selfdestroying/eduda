@@ -22,7 +22,7 @@ export function SwitchThemeButton() {
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
-    () => false
+    () => false,
   )
 
   return (

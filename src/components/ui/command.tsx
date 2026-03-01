@@ -20,7 +20,7 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
       data-slot="command"
       className={cn(
         'bg-popover text-popover-foreground flex size-full flex-col overflow-hidden rounded-xl p-1',
-        className
+        className,
       )}
       {...props}
     />
@@ -68,7 +68,7 @@ function CommandInput({
           data-slot="command-input"
           className={cn(
             'w-full text-xs/relaxed outline-hidden disabled:cursor-not-allowed disabled:opacity-50',
-            className
+            className,
           )}
           {...props}
         />
@@ -86,7 +86,7 @@ function CommandList({ className, ...props }: React.ComponentProps<typeof Comman
       data-slot="command-list"
       className={cn(
         'no-scrollbar max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none',
-        className
+        className,
       )}
       {...props}
     />
@@ -115,7 +115,7 @@ function CommandGroup({
       data-slot="command-group"
       className={cn(
         'text-foreground [&_[cmdk-group-heading]]:text-muted-foreground overflow-hidden p-1 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium',
-        className
+        className,
       )}
       {...props}
     />
@@ -145,7 +145,7 @@ function CommandItem({
       data-slot="command-item"
       className={cn(
         "data-selected:bg-muted data-selected:text-foreground data-selected:*:[svg]:text-foreground group/command-item relative flex min-h-7 cursor-default items-center gap-2 rounded-md px-2.5 py-1.5 text-xs/relaxed outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 [[data-slot=dialog-content]_&]:rounded-md",
-        className
+        className,
       )}
       {...props}
     >
@@ -161,7 +161,7 @@ function CommandShortcut({ className, ...props }: React.ComponentProps<'span'>) 
       data-slot="command-shortcut"
       className={cn(
         'text-muted-foreground group-data-selected/command-item:text-foreground ml-auto text-[0.625rem] tracking-widest',
-        className
+        className,
       )}
       {...props}
     />
