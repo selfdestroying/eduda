@@ -1,3 +1,4 @@
+import tanstackQuery from '@tanstack/eslint-plugin-query'
 import nextVitals from 'eslint-config-next/core-web-vitals'
 import nextTs from 'eslint-config-next/typescript'
 import eslintConfigPrettier from 'eslint-config-prettier'
@@ -6,15 +7,17 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  ...tanstackQuery.configs['flat/recommended'],
   eslintConfigPrettier,
-  // Override default ignores of eslint-config-next.
 
   globalIgnores([
-    // Default ignores of eslint-config-next:
     '.next/**',
     'out/**',
     'build/**',
+    'dist/**',
+    'node_modules/**',
     'next-env.d.ts',
+    '*.d.ts',
     '**/*.config.js',
     '**/*.config.cjs',
     '**/*.config.mjs',
@@ -25,14 +28,8 @@ const eslintConfig = defineConfig([
     'postcss.config.mjs',
     'next.config.ts',
     'components.json',
-    'node_modules',
-    '.next',
-    'out',
-    'build',
-    'dist',
-    'next-env.d.ts',
-    '*.d.ts',
-    'prisma/migrations',
+    'prisma/migrations/**',
+    'prisma/generated/**',
     '.DS_Store',
     '*.log',
   ]),

@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '10mb',
     },
   },
+  reactCompiler: true,
   images: {
     remotePatterns: [
       {
@@ -17,7 +18,12 @@ const nextConfig: NextConfig = {
         hostname: 'images.alg.tw1.ru',
       },
     ],
-  } /* config options here */,
+  },
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
 }
 
 export default nextConfig

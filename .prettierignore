@@ -10,8 +10,9 @@ build
 *.d.ts
 next-env.d.ts
 
-# Database migrations
+# Database
 prisma/migrations
+prisma/generated
 
 # IDE
 .vscode
