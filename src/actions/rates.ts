@@ -1,18 +1,18 @@
 'use server'
 
-import prisma from '@/src/lib/prisma'
-import { normalizeDateOnly, moscowNow } from '@/src/lib/timezone'
+import prisma from '@/src/lib/db/prisma'
+import { moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '../../prisma/generated/client'
 
 export const getRates = async <T extends Prisma.RateFindManyArgs>(
-  payload?: Prisma.SelectSubset<T, Prisma.RateFindManyArgs>
+  payload?: Prisma.SelectSubset<T, Prisma.RateFindManyArgs>,
 ) => {
   return await prisma.rate.findMany<T>(payload)
 }
 
 export const getRate = async <T extends Prisma.RateFindFirstArgs>(
-  payload: Prisma.SelectSubset<T, Prisma.RateFindFirstArgs>
+  payload: Prisma.SelectSubset<T, Prisma.RateFindFirstArgs>,
 ) => {
   return await prisma.rate.findFirst(payload)
 }

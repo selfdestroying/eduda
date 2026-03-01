@@ -40,7 +40,7 @@ export default function GroupTeachersTable({ data }: { data: TeacherGroupWithRat
         cell: ({ row }) => (canEdit?.success ? <GroupTeacherActions tg={row.original} /> : null),
       },
     ],
-    [canEdit]
+    [canEdit],
   )
 
   const table = useReactTable({

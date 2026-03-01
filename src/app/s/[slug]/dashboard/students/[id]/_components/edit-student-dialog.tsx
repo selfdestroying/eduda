@@ -88,14 +88,14 @@ export default function EditStudentDialog({
               coins: basicFields.coins,
             },
           },
-          {}
+          {},
         )
 
         // 2. Update per-group financial fields
         for (let i = 0; i < values.groupBalances.length; i++) {
           const gb = values.groupBalances[i]
           const original = initialGroupBalances[i]
-          if (!original) continue
+          if (!gb || !original) continue
 
           const changes: Record<string, number> = {}
           if (gb.lessonsBalance !== original.lessonsBalance && gb.lessonsBalance !== undefined) {

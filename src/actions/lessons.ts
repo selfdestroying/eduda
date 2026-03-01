@@ -1,6 +1,6 @@
 'use server'
 
-import prisma from '@/src/lib/prisma'
+import prisma from '@/src/lib/db/prisma'
 
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '../../prisma/generated/client'
@@ -52,13 +52,13 @@ export type LessonWithAttendanceAndGroup = Prisma.LessonGetPayload<{
 }>
 
 export const getLessons = async <T extends Prisma.LessonFindManyArgs>(
-  payload?: Prisma.SelectSubset<T, Prisma.LessonFindManyArgs>
+  payload?: Prisma.SelectSubset<T, Prisma.LessonFindManyArgs>,
 ) => {
   return prisma.lesson.findMany(payload)
 }
 
 export const getLesson = async <T extends Prisma.LessonFindFirstArgs>(
-  payload: Prisma.SelectSubset<T, Prisma.LessonFindFirstArgs>
+  payload: Prisma.SelectSubset<T, Prisma.LessonFindFirstArgs>,
 ) => {
   return await prisma.lesson.findFirst(payload)
 }

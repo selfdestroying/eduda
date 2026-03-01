@@ -1,4 +1,4 @@
-import prisma from '@/src/lib/prisma'
+import prisma from '@/src/lib/db/prisma'
 import { hashPassword } from 'better-auth/crypto'
 
 const createAccounts = async () => {

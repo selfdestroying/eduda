@@ -146,7 +146,7 @@ export default function AddStudentToGroupButton({
             status: 'ACTIVE',
           },
         },
-        isApplyToLesson
+        isApplyToLesson,
       )
       const successMessage = isAddToGroup
         ? 'Студент успешно добавлен в группу!'
@@ -217,11 +217,7 @@ export default function AddStudentToGroupButton({
 }
 
 interface AddEntityFormProps {
-<<<<<<< HEAD
-  form: ReturnType<typeof useForm<SchemaType>>
-=======
   form: ReturnType<typeof useForm<AddStudentToGroupSchemaType>>
->>>>>>> origin/main
   items: {
     label: string
     value: number
@@ -268,7 +264,7 @@ function AddEntityForm({ form, items, label, emptyMessage, onSubmit }: AddEntity
                                 <span
                                   className={cn(
                                     'tabular-nums',
-                                    item.disabled && 'text-destructive'
+                                    item.disabled && 'text-destructive',
                                   )}
                                 >
                                   {item.students}/{item.maxStudents}

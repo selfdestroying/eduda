@@ -72,7 +72,7 @@ export default function MakeUpDialog({ open, onOpenChange, attendance }: MakeUpD
       if (!value) resetForm()
       onOpenChange(value)
     },
-    [onOpenChange, resetForm]
+    [onOpenChange, resetForm],
   )
 
   const handleCreate = async () => {
@@ -110,7 +110,7 @@ export default function MakeUpDialog({ open, onOpenChange, attendance }: MakeUpD
               originalGroupId,
             },
           },
-        }
+        },
       )
     }
   }

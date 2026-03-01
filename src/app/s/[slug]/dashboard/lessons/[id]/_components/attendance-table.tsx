@@ -24,7 +24,7 @@ export const StudentStatusMap: { [key in StudentStatus]: string } = {
 const getColumns = (
   handleUpdate: DebouncedFunction<
     (studentId: number, lessonId: number, comment?: string, status?: AttendanceStatus) => void
-  >
+  >,
 ): ColumnDef<AttendanceWithStudents>[] => {
   return [
     {
@@ -104,7 +104,7 @@ export default function AttendanceTable({ data }: { data: AttendanceWithStudents
           error: (e) => e.message,
         })
       }, 500),
-    [skipAutoResetPageIndex]
+    [skipAutoResetPageIndex],
   )
   const columns = getColumns(handleUpdate)
 

@@ -1,17 +1,17 @@
 'use server'
 
-import prisma from '@/src/lib/prisma'
+import prisma from '@/src/lib/db/prisma'
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '../../prisma/generated/client'
 
 export const getGroupTypes = async <T extends Prisma.GroupTypeFindManyArgs>(
-  payload?: Prisma.SelectSubset<T, Prisma.GroupTypeFindManyArgs>
+  payload?: Prisma.SelectSubset<T, Prisma.GroupTypeFindManyArgs>,
 ) => {
   return await prisma.groupType.findMany<T>(payload)
 }
 
 export const getGroupType = async <T extends Prisma.GroupTypeFindFirstArgs>(
-  payload: Prisma.SelectSubset<T, Prisma.GroupTypeFindFirstArgs>
+  payload: Prisma.SelectSubset<T, Prisma.GroupTypeFindFirstArgs>,
 ) => {
   return await prisma.groupType.findFirst(payload)
 }

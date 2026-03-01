@@ -54,7 +54,7 @@ async function getDayStatuses(organizationId: number, date: Date) {
 export type LessonListData = Awaited<ReturnType<typeof getLessonList>>
 
 export const useLessonListQuery = (organizationId: number, date: Date) => {
-  const dateKey = normalizeDateOnly(date).toISOString().split('T')[0]
+  const dateKey = normalizeDateOnly(date).toISOString().split('T')[0]!
   return useQuery({
     queryKey: lessonKeys.byDate(organizationId, dateKey),
     queryFn: () => getLessonList(organizationId, date),
@@ -63,7 +63,7 @@ export const useLessonListQuery = (organizationId: number, date: Date) => {
 }
 
 export const useMappedLessonListQuery = (organizationId: number, date?: Date) => {
-  const dateKey = date ? normalizeDateOnly(date).toISOString().split('T')[0] : ''
+  const dateKey = date ? normalizeDateOnly(date).toISOString().split('T')[0]! : ''
   return useQuery({
     queryKey: lessonKeys.byDate(organizationId, dateKey),
     queryFn: () => getLessonList(organizationId, date),
@@ -80,7 +80,7 @@ export const useMappedLessonListQuery = (organizationId: number, date?: Date) =>
 }
 
 export const useDayStatusesQuery = (organizationId: number, date: Date) => {
-  const dateKey = normalizeDateOnly(date).toISOString().split('T')[0]
+  const dateKey = normalizeDateOnly(date).toISOString().split('T')[0]!
   return useQuery({
     queryKey: lessonKeys.byMonth(organizationId, dateKey),
     queryFn: () => getDayStatuses(organizationId, date),
@@ -88,11 +88,11 @@ export const useDayStatusesQuery = (organizationId: number, date: Date) => {
     select: (lessons) => {
       const statuses: Record<string, boolean[]> = {}
       lessons.forEach((lesson) => {
-        const day = new Date(lesson.date).toISOString().split('T')[0]
+        const day = new Date(lesson.date).toISOString().split('T')[0]!
         if (!statuses[day]) {
           statuses[day] = []
         }
-        statuses[day].push(lesson.attendance.some((a) => a.status === 'UNSPECIFIED'))
+        statuses[day]!.push(lesson.attendance.some((a) => a.status === 'UNSPECIFIED'))
       })
       return statuses
     },

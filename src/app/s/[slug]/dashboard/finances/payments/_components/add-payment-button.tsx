@@ -58,7 +58,7 @@ export default function AddPaymentButton({
         label: getFullName(student.firstName, student.lastName),
         value: student.id,
       })),
-    [students]
+    [students],
   )
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -123,14 +123,14 @@ export default function AddPaymentButton({
           bidForLesson: payload.price / payload.lessonCount,
           leadName: payload.leadName,
           productName: payload.productName,
-        }
+        },
       ).then(
         () =>
           unprocessedPayment &&
           updateUnprocessedPayment({
             where: { id: unprocessedPayment?.id || 0, organizationId },
             data: { resolved: true },
-          })
+          }),
       )
       toast.promise(ok, {
         loading: 'Создание оплаты...',

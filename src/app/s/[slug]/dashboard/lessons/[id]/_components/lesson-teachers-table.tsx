@@ -41,7 +41,7 @@ export default function LessonTeachersTable({
           cell: ({ row }) => (canEdit?.success ? <LessonTeacherActions tl={row.original} /> : null),
         },
       ],
-      [canEdit]
+      [canEdit],
     )
 
   const table = useReactTable({

@@ -14,7 +14,7 @@ import {
   DialogTrigger,
 } from '@/src/components/ui/dialog'
 import { Input } from '@/src/components/ui/input'
-import { authClient } from '@/src/lib/auth-client'
+import { authClient } from '@/src/lib/auth/client'
 import {
   type ColumnDef,
   getCoreRowModel,
@@ -46,7 +46,7 @@ export default function UsersTable({ data, onRefresh }: UsersTableProps) {
       (u) =>
         u.name.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
-        u.role?.toLowerCase().includes(q)
+        u.role?.toLowerCase().includes(q),
     )
   }, [data.users, search])
 

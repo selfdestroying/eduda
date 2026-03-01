@@ -150,7 +150,7 @@ function calculateStudentRevenue(
   student: {
     groups: { groupId: number; totalLessons: number; totalPayments: number }[]
   },
-  groupId: number
+  groupId: number,
 ): number {
   const group = student.groups.find((g) => g.groupId === groupId)
   if (!group || group.totalLessons === 0) return 0
@@ -162,9 +162,9 @@ function transformLessonsToRevenueData(lessons: LessonWithAttendance[]): DayReve
   const groupedByDate: Record<string, LessonWithAttendance[]> = {}
 
   for (const lesson of lessons) {
-    const dateKey = new Date(lesson.date).toISOString().split('T')[0]
+    const dateKey = new Date(lesson.date).toISOString().split('T')[0]!
     if (!groupedByDate[dateKey]) groupedByDate[dateKey] = []
-    groupedByDate[dateKey].push(lesson)
+    groupedByDate[dateKey]!.push(lesson)
   }
 
   return Object.entries(groupedByDate)
@@ -196,7 +196,7 @@ function transformLessonsToRevenueData(lessons: LessonWithAttendance[]): DayReve
           groupTypeName: lesson.group.groupType?.name || null,
           locationName: lesson.group.location?.name || null,
           revenue: Math.floor(
-            paidStudents.filter((s) => !s.isAbsent).reduce((sum, s) => sum + s.revenue, 0)
+            paidStudents.filter((s) => !s.isAbsent).reduce((sum, s) => sum + s.revenue, 0),
           ),
           students,
           studentCount: students.length,
@@ -588,7 +588,7 @@ function DayCard({ data }: DayCardProps) {
                 <ChevronDown
                   className={cn(
                     'text-muted-foreground h-5 w-5 transition-transform',
-                    isOpen && 'rotate-180'
+                    isOpen && 'rotate-180',
                   )}
                 />
               </div>
@@ -623,7 +623,7 @@ function LessonCard({ lesson }: LessonCardProps) {
       <div
         className={cn(
           'hover:bg-muted/30 rounded-lg border transition-colors',
-          isCancelled && 'border-destructive/30 bg-destructive/5'
+          isCancelled && 'border-destructive/30 bg-destructive/5',
         )}
       >
         <CollapsibleTrigger className="w-full p-3 text-left">
@@ -639,7 +639,7 @@ function LessonCard({ lesson }: LessonCardProps) {
                   href={`/dashboard/groups/${lesson.groupId}`}
                   className={cn(
                     'truncate font-medium hover:underline',
-                    isCancelled ? 'text-destructive line-through' : 'text-primary'
+                    isCancelled ? 'text-destructive line-through' : 'text-primary',
                   )}
                 >
                   {lesson.groupName}
@@ -709,7 +709,7 @@ function LessonCard({ lesson }: LessonCardProps) {
               <ChevronDown
                 className={cn(
                   'text-muted-foreground h-4 w-4 transition-transform',
-                  isOpen && 'rotate-180'
+                  isOpen && 'rotate-180',
                 )}
               />
             </div>
@@ -732,7 +732,7 @@ function LessonCard({ lesson }: LessonCardProps) {
                     key={student.id}
                     className={cn(
                       student.isAbsent && 'bg-warning/5',
-                      student.isTrial && !student.isAbsent && 'bg-info/5'
+                      student.isTrial && !student.isAbsent && 'bg-info/5',
                     )}
                   >
                     <TableCell className="py-2">
@@ -747,7 +747,7 @@ function LessonCard({ lesson }: LessonCardProps) {
                         <span
                           className={cn(
                             student.isTrial && 'text-info font-medium',
-                            student.isAbsent && !student.isTrial && 'text-warning'
+                            student.isAbsent && !student.isTrial && 'text-warning',
                           )}
                         >
                           {student.name}

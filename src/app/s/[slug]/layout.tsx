@@ -1,6 +1,6 @@
 import { AppSidebar } from '@/src/components/sidebar/app-sidebar'
 import { Skeleton } from '@/src/components/ui/skeleton'
-import { auth } from '@/src/lib/auth'
+import { auth } from '@/src/lib/auth/server'
 import type { Metadata } from 'next'
 import { cookies, headers } from 'next/headers'
 import { Suspense } from 'react'

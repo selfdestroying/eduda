@@ -130,7 +130,7 @@ export default function NavGroupList({ label, groups, isLoading }: NavGroupListP
                 </SidebarMenuSub>
               </CollapsibleContent>
             </Collapsible>
-          )
+          ),
         )}
       </SidebarMenu>
     </SidebarGroup>

@@ -12,7 +12,7 @@ import {
 } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
 import { Switch } from '@/src/components/ui/switch'
-import { authClient } from '@/src/lib/auth-client'
+import { authClient } from '@/src/lib/auth/client'
 import { SignInSchema, SignInSchemaType } from '@/src/schemas/auth'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, LogIn } from 'lucide-react'

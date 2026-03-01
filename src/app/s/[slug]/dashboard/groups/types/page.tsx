@@ -6,8 +6,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/src/components/ui/card'
-import { auth } from '@/src/lib/auth'
-import prisma from '@/src/lib/prisma'
+import { auth } from '@/src/lib/auth/server'
+import prisma from '@/src/lib/db/prisma'
 import { protocol, rootDomain } from '@/src/lib/utils'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -28,7 +28,7 @@ export default async function Page() {
   const { success: canManage } = await auth.api.hasPermission({
     headers: requestHeaders,
     body: {
-      permission: { groupType: ['read'] },
+      permissions: { groupType: ['read'] },
     },
   })
 

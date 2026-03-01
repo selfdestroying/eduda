@@ -73,7 +73,7 @@ export function ChangePasswordForm({ onSuccess, onError }: ChangePasswordFormPro
         onError: (error) => {
           onError?.(error.message)
         },
-      }
+      },
     )
   }
 

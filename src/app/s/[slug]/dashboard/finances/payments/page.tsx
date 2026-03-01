@@ -1,7 +1,7 @@
 import { getPayments, getUnprocessedPayments } from '@/src/actions/payments'
 import { getStudents } from '@/src/actions/students'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { auth } from '@/src/lib/auth'
+import { auth } from '@/src/lib/auth/server'
 import { protocol, rootDomain } from '@/src/lib/utils'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'

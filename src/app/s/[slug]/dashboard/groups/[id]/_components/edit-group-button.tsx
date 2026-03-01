@@ -42,7 +42,6 @@ type GroupDTO = Prisma.GroupGetPayload<{
   }
 }>
 
-import { timeSlots } from '@/src/shared/time-slots'
 import { AlertTriangle, Pen } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
@@ -205,24 +204,14 @@ function EditGroupForm({ form, onSubmit, organizationId }: EditGroupFormProps) {
                 <FieldLabel htmlFor="form-rhf-select-time">Время</FieldLabel>
                 {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </FieldContent>
-              <Select
+              <Input
+                id="form-rhf-select-time"
+                type="time"
                 name={field.name}
-                value={field.value != undefined ? field.value.toString() : ''}
-                onValueChange={field.onChange}
-              >
-                <SelectTrigger id="form-rhf-select-time" aria-invalid={fieldState.invalid}>
-                  <SelectValue placeholder="Выберите время" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {timeSlots.map((timeSlot) => (
-                      <SelectItem key={timeSlot.value} value={timeSlot.value}>
-                        {timeSlot.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+                value={field.value || ''}
+                onChange={(e) => field.onChange(e.target.value)}
+                aria-invalid={fieldState.invalid}
+              />
             </Field>
           )}
         />
@@ -285,7 +274,7 @@ function EditGroupForm({ form, onSubmit, organizationId }: EditGroupFormProps) {
                 name={field.name}
                 value={field.value?.toString() || ''}
                 onValueChange={(value) => field.onChange(Number(value))}
-                itemToStringLabel={(itemValue) => DaysOfWeek.full[Number(itemValue)]}
+                itemToStringLabel={(itemValue) => DaysOfWeek.full[Number(itemValue)] ?? ''}
               >
                 <SelectTrigger id="form-rhf-select-dayOfWeek" aria-invalid={fieldState.invalid}>
                   <SelectValue placeholder="Выберите день недели" />

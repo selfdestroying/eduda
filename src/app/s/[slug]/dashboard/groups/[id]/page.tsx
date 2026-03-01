@@ -1,6 +1,6 @@
 import { getGroup } from '@/src/actions/groups'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { auth } from '@/src/lib/auth'
+import { auth } from '@/src/lib/auth/server'
 import { protocol, rootDomain } from '@/src/lib/utils'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -70,15 +70,15 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   ] = await Promise.all([
     auth.api.hasPermission({
       headers: requestHeaders,
-      body: { permission: { lesson: ['create'] } },
+      body: { permissions: { lesson: ['create'] } },
     }),
     auth.api.hasPermission({
       headers: requestHeaders,
-      body: { permission: { student: ['create'] } },
+      body: { permissions: { student: ['create'] } },
     }),
     auth.api.hasPermission({
       headers: requestHeaders,
-      body: { permission: { teacherGroup: ['create'] } },
+      body: { permissions: { teacherGroup: ['create'] } },
     }),
   ])
 

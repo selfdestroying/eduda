@@ -8,8 +8,8 @@ import {
   CardTitle,
 } from '@/src/components/ui/card'
 import { ItemGroup } from '@/src/components/ui/item'
-import { auth, OrganizationRole } from '@/src/lib/auth'
-import prisma from '@/src/lib/prisma'
+import { auth, OrganizationRole } from '@/src/lib/auth/server'
+import prisma from '@/src/lib/db/prisma'
 import { protocol, rootDomain } from '@/src/lib/utils'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -37,7 +37,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const { success: canRead } = await auth.api.hasPermission({
     headers: requestHeaders,
     body: {
-      permission: { member: ['read'] },
+      permissions: { member: ['read'] },
     },
   })
 

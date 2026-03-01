@@ -24,7 +24,7 @@ export default function OrganizationsTable({ data }: OrganizationsTableProps) {
     if (!search.trim()) return data.organizations
     const q = search.toLowerCase()
     return data.organizations.filter(
-      (o) => o.name.toLowerCase().includes(q) || o.slug.toLowerCase().includes(q)
+      (o) => o.name.toLowerCase().includes(q) || o.slug.toLowerCase().includes(q),
     )
   }, [data.organizations, search])
 

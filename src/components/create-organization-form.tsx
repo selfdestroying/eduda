@@ -72,7 +72,7 @@ export function CreateOrganizationForm({ onSuccess, onError }: CreateOrganizatio
           onError: (error) => {
             onError?.(error.message)
           },
-        }
+        },
       )
     } catch (error) {
       onError?.(error instanceof Error ? error.message : 'Failed to process image')

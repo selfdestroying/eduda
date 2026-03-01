@@ -1,7 +1,7 @@
 'use client'
 
 import { useSessionQuery } from '@/src/data/user/session-query'
-import type { OrganizationRole } from '@/src/lib/auth'
+import type { OrganizationRole } from '@/src/lib/auth/server'
 import { ShoppingCart } from 'lucide-react'
 import { useMemo } from 'react'
 import { filterNavByRole } from './lib/filter-nav-by-role'

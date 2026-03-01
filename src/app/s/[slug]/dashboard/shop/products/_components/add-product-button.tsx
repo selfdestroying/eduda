@@ -59,7 +59,7 @@ export default function AddProductButton({ categories }: { categories: Category[
             organizationId,
           },
         },
-        image
+        image,
       )
       toast.promise(ok, {
         loading: 'Создание продукта...',
@@ -79,7 +79,7 @@ export default function AddProductButton({ categories }: { categories: Category[
         label: category.name,
         value: category.id.toString(),
       })),
-    [categories]
+    [categories],
   )
 
   if (isSessionLoading) {

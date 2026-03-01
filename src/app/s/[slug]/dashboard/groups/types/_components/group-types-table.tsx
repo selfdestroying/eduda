@@ -53,7 +53,7 @@ export default function GroupTypesTable({ data, rates }: GroupTypesTableProps) {
           canEdit?.success ? <GroupTypeActions groupType={row.original} rates={rates} /> : null,
       },
     ],
-    [canEdit, rates]
+    [canEdit, rates],
   )
 
   const table = useReactTable({

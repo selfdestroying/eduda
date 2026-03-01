@@ -32,7 +32,6 @@ import { useRateListQuery } from '@/src/data/rate/rate-list-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import { DaysOfWeek } from '@/src/lib/utils'
 import { CreateGroupSchema, CreateGroupSchemaType } from '@/src/schemas/group'
-import { timeSlots } from '@/src/shared/time-slots'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
@@ -56,7 +55,7 @@ const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
 function computeLastLessonDate(
   startDate: Date | undefined,
   scheduleDays: number[],
-  lessonCount: number | undefined
+  lessonCount: number | undefined,
 ): Date | null {
   if (!startDate || !scheduleDays.length || !lessonCount || lessonCount <= 0) return null
 
@@ -82,18 +81,18 @@ export default function CreateGroupForm() {
   const { data: session } = useSessionQuery()
   const organizationId = session?.organizationId ?? undefined
   const { data: mappedCourses, isLoading: isCoursesLoading } = useMappedCourseListQuery(
-    organizationId!
+    organizationId!,
   )
   const { data: mappedLocations, isLoading: isLocationsLoading } = useMappedLocationListQuery(
-    organizationId!
+    organizationId!,
   )
   const { data: mappedMembers, isLoading: isMappedMembersLoading } = useMappedMemberListQuery(
-    organizationId!
+    organizationId!,
   )
   const { data: members, isLoading: isMembersLoading } = useMemberListQuery(organizationId!)
   const { data: rates, isLoading: isRatesLoading } = useRateListQuery(organizationId!)
   const { data: groupTypes, isLoading: isGroupTypesLoading } = useGroupTypeListQuery(
-    organizationId!
+    organizationId!,
   )
   const [isPending, startTransition] = useTransition()
 
@@ -161,7 +160,7 @@ export default function CreateGroupForm() {
       const member = members?.find((m) => m.userId === Number(teacher.value))
 
       const sortedSchedule = [...schedule].sort(
-        (a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek)
+        (a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek),
       )
       const scheduleDaysMap = new Map(sortedSchedule.map((s) => [s.dayOfWeek, s.time]))
 
@@ -183,6 +182,7 @@ export default function CreateGroupForm() {
       }
 
       const primaryDay = sortedSchedule[0]
+      if (!primaryDay) return
 
       const ok = createGroup(
         {
@@ -208,7 +208,7 @@ export default function CreateGroupForm() {
             dayOfWeek: primaryDay.dayOfWeek,
           },
         },
-        sortedSchedule.map((s) => ({ dayOfWeek: s.dayOfWeek, time: s.time }))
+        sortedSchedule.map((s) => ({ dayOfWeek: s.dayOfWeek, time: s.time })),
       )
 
       toast.promise(ok, {
@@ -495,25 +495,14 @@ export default function CreateGroupForm() {
                     disabled={isPending}
                     render={({ field: timeField, fieldState }) => (
                       <div className="flex flex-col gap-1">
-                        <Select
-                          {...timeField}
-                          items={timeSlots}
+                        <Input
+                          type="time"
+                          className="w-32"
                           value={timeField.value || ''}
-                          onValueChange={timeField.onChange}
-                        >
-                          <SelectTrigger className="w-32" aria-invalid={fieldState.invalid}>
-                            <SelectValue placeholder="Время" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              {timeSlots.map((slot) => (
-                                <SelectItem key={slot.value} value={slot.value}>
-                                  {slot.label}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
+                          onChange={(e) => timeField.onChange(e.target.value)}
+                          aria-invalid={fieldState.invalid}
+                          disabled={isPending}
+                        />
                         {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                       </div>
                     )}

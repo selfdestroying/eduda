@@ -75,7 +75,7 @@ export default function CreateUserDialog() {
           setDialogOpen(false)
           form.reset()
         },
-      }
+      },
     )
   }
 

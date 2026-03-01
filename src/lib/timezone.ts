@@ -76,7 +76,7 @@ export function fromMoscow(moscowDate: Date | string): Date {
 export function formatMoscow(
   date: Date | string,
   format: string,
-  options?: Parameters<typeof formatInTimeZone>[3]
+  options?: Parameters<typeof formatInTimeZone>[3],
 ): string {
   return formatInTimeZone(date, BUSINESS_TZ, format, options)
 }
@@ -95,7 +95,7 @@ export function formatMoscow(
  */
 export function normalizeDateOnly(browserDate: Date): Date {
   return new Date(
-    Date.UTC(browserDate.getFullYear(), browserDate.getMonth(), browserDate.getDate())
+    Date.UTC(browserDate.getFullYear(), browserDate.getMonth(), browserDate.getDate()),
   )
 }
 
@@ -127,7 +127,7 @@ export function dateOnlyToLocal(date: Date | string): Date {
  */
 export function formatDateOnly(
   date: Date | string,
-  options?: Omit<Intl.DateTimeFormatOptions, 'timeZone'>
+  options?: Omit<Intl.DateTimeFormatOptions, 'timeZone'>,
 ): string {
   const d = typeof date === 'string' ? new Date(date) : date
   return d.toLocaleDateString('ru-RU', { timeZone: 'UTC', ...options })

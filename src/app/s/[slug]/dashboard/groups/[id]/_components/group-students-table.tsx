@@ -92,7 +92,7 @@ export default function GroupStudentsTable({
             hasPermission?.success ? <GroupStudentActions sg={row.original} /> : null,
         },
       ],
-      [hasPermission?.success]
+      [hasPermission?.success],
     )
   const table = useReactTable({
     data,

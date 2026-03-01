@@ -1,6 +1,6 @@
 'use server'
 
-import prisma from '@/src/lib/prisma'
+import prisma from '@/src/lib/db/prisma'
 import { moscowNow } from '@/src/lib/timezone'
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '../../prisma/generated/client'
@@ -190,7 +190,7 @@ export async function getDismissedStatistics(organizationId: number) {
       acc[name] = (acc[name] || 0) + 1
       return acc
     },
-    {} as Record<string, number>
+    {} as Record<string, number>,
   )
 
   // Location stats
@@ -200,7 +200,7 @@ export async function getDismissedStatistics(organizationId: number) {
       acc[name] = (acc[name] || 0) + 1
       return acc
     },
-    {} as Record<string, number>
+    {} as Record<string, number>,
   )
 
   // Top dismissal reasons (by course pattern)

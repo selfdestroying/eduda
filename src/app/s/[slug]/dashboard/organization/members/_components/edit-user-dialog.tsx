@@ -27,8 +27,8 @@ import {
   SheetTrigger,
 } from '@/src/components/ui/sheet'
 import { useIsMobile } from '@/src/hooks/use-mobile'
-import { OrganizationRole } from '@/src/lib/auth'
-import { authClient } from '@/src/lib/auth-client'
+import { authClient } from '@/src/lib/auth/client'
+import { OrganizationRole } from '@/src/lib/auth/server'
 import { EditUserSchema, EditUserSchemaType } from '@/src/schemas/user'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Pen } from 'lucide-react'
@@ -90,7 +90,7 @@ export default function EditUserButton({
         authClient.organization.updateMemberRole({
           memberId: member.id.toString(),
           role: role.value,
-        })
+        }),
       )
       toast.promise(ok, {
         loading: 'Обновление пользователя...',

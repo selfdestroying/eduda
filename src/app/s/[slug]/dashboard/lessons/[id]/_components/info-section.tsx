@@ -1,9 +1,9 @@
 import { Prisma } from '@/prisma/generated/client'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { auth } from '@/src/lib/auth'
-import { getGroupName } from '@/src/lib/utils'
-import { lessonStatusMap, lessonStatusVariants } from '@/src/shared/lesson-status'
+import { auth } from '@/src/lib/auth/server'
+import { lessonStatusMap, lessonStatusVariants } from '@/src/lib/lesson-status'
 import { formatDateOnly } from '@/src/lib/timezone'
+import { getGroupName } from '@/src/lib/utils'
 import { Book, Clock, MapPin, Users } from 'lucide-react'
 import { headers } from 'next/headers'
 import Link from 'next/link'
@@ -29,7 +29,7 @@ export default async function InfoSection({ lesson }: InfoSectionsProps) {
   const { success: canEditLesson } = await auth.api.hasPermission({
     headers: requestHeaders,
     body: {
-      permission: { lesson: ['update'] },
+      permissions: { lesson: ['update'] },
     },
   })
 

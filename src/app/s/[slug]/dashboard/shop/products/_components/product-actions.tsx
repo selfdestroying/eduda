@@ -97,7 +97,7 @@ export default function ProductActions({ product, categories }: ProductActionsPr
             categoryId: Number(category.value),
           },
         },
-        image
+        image,
       )
       toast.promise(ok, {
         loading: 'Обновление продукта...',
@@ -116,7 +116,7 @@ export default function ProductActions({ product, categories }: ProductActionsPr
         label: category.name,
         value: category.id.toString(),
       })),
-    [categories]
+    [categories],
   )
   return (
     <>

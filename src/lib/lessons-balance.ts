@@ -17,7 +17,7 @@ export type StudentFinancialAudit = {
 type IntFieldChange = { kind: 'delta'; delta: number } | { kind: 'set'; value: number }
 
 export function parseIntFieldChange(
-  value: Prisma.StudentUpdateInput['lessonsBalance']
+  value: Prisma.StudentUpdateInput['lessonsBalance'],
 ): IntFieldChange | null {
   if (value === undefined) return null
 
@@ -55,7 +55,7 @@ export async function writeFinancialHistoryTx(
     balanceAfter: number
     comment?: string
     meta?: Prisma.JsonValue
-  }
+  },
 ) {
   if (args.delta === 0) return
 
@@ -92,7 +92,7 @@ export async function writeLessonsBalanceHistoryTx(
     balanceAfter: number
     comment?: string
     meta?: Prisma.JsonValue
-  }
+  },
 ) {
   return writeFinancialHistoryTx(tx, {
     ...args,

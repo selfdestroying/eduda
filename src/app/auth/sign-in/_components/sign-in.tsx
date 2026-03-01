@@ -2,8 +2,8 @@
 
 import { Logo } from '@/src/components/logo'
 import { SwitchThemeButton } from '@/src/components/switch-theme-button'
-import { authClient } from '@/src/lib/auth-client'
-import { getRedirectUrl } from '@/src/lib/redirect-after-auth'
+import { authClient } from '@/src/lib/auth/client'
+import { protocol, rootDomain } from '@/src/lib/utils'
 import { SignInForm } from './sign-in-form'
 
 export default function SignIn() {
@@ -15,11 +15,12 @@ export default function SignIn() {
       return
     }
 
-    // Получаем URL для редиректа на основе членства в организациях
-    const redirectUrl = getRedirectUrl(session.organization ?? null)
+    if (!session.organization || !session.organization.slug) {
+      window.location.href = `${protocol}://${rootDomain}`
+      return
+    }
 
-    // Редиректим пользователя
-    window.location.href = redirectUrl
+    window.location.href = `${protocol}://${session.organization.slug}.${rootDomain}/dashboard`
   }
 
   return (

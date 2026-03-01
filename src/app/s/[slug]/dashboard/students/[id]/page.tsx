@@ -6,7 +6,7 @@ import {
 } from '@/src/actions/students'
 import { Avatar, AvatarFallback } from '@/src/components/ui/avatar'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { auth } from '@/src/lib/auth'
+import { auth } from '@/src/lib/auth/server'
 import { getFullName, protocol, rootDomain } from '@/src/lib/utils'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -103,15 +103,15 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     getStudentGroupHistory(studentId, session.organizationId!),
     auth.api.hasPermission({
       headers: requestHeaders,
-      body: { permission: { student: ['update'] } },
+      body: { permissions: { student: ['update'] } },
     }),
     auth.api.hasPermission({
       headers: requestHeaders,
-      body: { permission: { lessonStudentHistory: ['update'] } },
+      body: { permissions: { lessonStudentHistory: ['update'] } },
     }),
     auth.api.hasPermission({
       headers: requestHeaders,
-      body: { permission: { studentGroup: ['create'] } },
+      body: { permissions: { studentGroup: ['create'] } },
     }),
   ])
 

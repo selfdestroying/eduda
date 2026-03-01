@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/src/components/ui/select'
-import { authClient } from '@/src/lib/auth-client'
+import { authClient } from '@/src/lib/auth/client'
 import {
   type ColumnDef,
   getCoreRowModel,
@@ -80,7 +80,7 @@ export default function MembersTable({ data, onRefresh }: MembersTableProps) {
         organizationSlug: org.slug,
         createdAt: new Date(member.createdAt),
         banned: data.users.find((u) => u.id === member.userId)?.banned ?? null,
-      }))
+      })),
     )
   }, [data])
 
@@ -92,7 +92,7 @@ export default function MembersTable({ data, onRefresh }: MembersTableProps) {
         (m) =>
           m.userName.toLowerCase().includes(q) ||
           m.userEmail.toLowerCase().includes(q) ||
-          m.organizationName.toLowerCase().includes(q)
+          m.organizationName.toLowerCase().includes(q),
       )
     }
     if (orgFilter && orgFilter !== 'all') {

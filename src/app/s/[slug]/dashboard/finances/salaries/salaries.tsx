@@ -22,9 +22,9 @@ import { useMappedLocationListQuery } from '@/src/data/location/location-list-qu
 import { useMappedMemberListQuery } from '@/src/data/member/member-list-query'
 import { useOrganizationPermissionQuery } from '@/src/data/organization/organization-permission-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
+import { lessonStatusMap } from '@/src/lib/lesson-status'
 import { dateOnlyToLocal, moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
 import { cn, getGroupName } from '@/src/lib/utils'
-import { lessonStatusMap } from '@/src/shared/lesson-status'
 import { cva } from 'class-variance-authority'
 import {
   endOfMonth,
@@ -198,8 +198,12 @@ export default function Salaries() {
         const dateB = new Date(b.date)
         if (dateA.getTime() !== dateB.getTime()) return dateA.getTime() - dateB.getTime()
         if (a.time && b.time) {
-          const [aH, aM] = a.time.split(':').map(Number)
-          const [bH, bM] = b.time.split(':').map(Number)
+          const aParts = a.time.split(':').map(Number)
+          const bParts = b.time.split(':').map(Number)
+          const aH = aParts[0] ?? 0
+          const aM = aParts[1] ?? 0
+          const bH = bParts[0] ?? 0
+          const bM = bParts[1] ?? 0
           return aH * 60 + aM - (bH * 60 + bM)
         }
         return 0
@@ -211,11 +215,12 @@ export default function Salaries() {
         const presentCount = lesson._count?.attendance
         for (const tl of lesson.teachers) {
           const teacher = tl.teacher
-          if (!lessonsByTeacher[teacher.id]) {
+          const existing = lessonsByTeacher[teacher.id]
+          if (!existing) {
             lessonsByTeacher[teacher.id] = { teacher, lessons: [] }
           }
           const bonusTotal = tl.bonusPerStudent * presentCount
-          lessonsByTeacher[teacher.id].lessons.push({
+          lessonsByTeacher[teacher.id]!.lessons.push({
             ...lesson,
             price: tl.bid + bonusTotal,
             bonusPerStudent: tl.bonusPerStudent,
@@ -539,7 +544,7 @@ function TeacherCard({ data, paychecks }: TeacherCardProps) {
 
   const totalFromLessons = data.lessons.reduce(
     (sum, l) => (l.status !== 'CANCELLED' ? sum + l.price : sum),
-    0
+    0,
   )
   const totalFromPaychecks = paychecks.reduce((sum, p) => sum + p.amount, 0)
   const total = totalFromLessons + totalFromPaychecks
@@ -551,9 +556,9 @@ function TeacherCard({ data, paychecks }: TeacherCardProps) {
   const lessonsByDate = useMemo(() => {
     const grouped: Record<string, LessonWithPrice[]> = {}
     for (const lesson of data.lessons) {
-      const dateKey = new Date(lesson.date).toISOString().split('T')[0]
+      const dateKey = new Date(lesson.date).toISOString().split('T')[0]!
       if (!grouped[dateKey]) grouped[dateKey] = []
-      grouped[dateKey].push(lesson)
+      grouped[dateKey]!.push(lesson)
     }
     return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))
   }, [data.lessons])
@@ -578,7 +583,7 @@ function TeacherCard({ data, paychecks }: TeacherCardProps) {
               <ChevronDown
                 className={cn(
                   'text-muted-foreground h-5 w-5 transition-transform',
-                  isOpen && 'rotate-180'
+                  isOpen && 'rotate-180',
                 )}
               />
             </div>
@@ -689,7 +694,7 @@ function LessonItem({ lesson }: LessonItemProps) {
     <div
       className={cn(
         'rounded-lg border p-3 transition-colors',
-        isCancelled && 'bg-muted/50 opacity-75'
+        isCancelled && 'bg-muted/50 opacity-75',
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -699,7 +704,7 @@ function LessonItem({ lesson }: LessonItemProps) {
               href={`/dashboard/lessons/${lesson.id}`}
               className={cn(
                 'text-primary truncate font-medium hover:underline',
-                isCancelled && 'line-through'
+                isCancelled && 'line-through',
               )}
             >
               {getGroupName(lesson.group)}

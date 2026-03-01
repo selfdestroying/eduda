@@ -14,7 +14,7 @@ export const CreateGroupSchema = z.object({
       z.object({
         dayOfWeek: z.number().int().min(0).max(6),
         time: z.string().min(1, 'Выберите время'),
-      })
+      }),
     )
     .min(1, 'Выберите хотя бы один день занятий'),
   lessonCount: z

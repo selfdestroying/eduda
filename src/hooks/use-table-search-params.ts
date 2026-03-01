@@ -93,11 +93,11 @@ export function useTableSearchParams(options: UseTableSearchParamsOptions = {}) 
             page: parseAsInteger.withDefault(0),
             pageSize: parseAsInteger.withDefault(defaultPageSize),
           },
-    [defaultPageSize]
+    [defaultPageSize],
   )
   const [paginationValues, setPaginationValues] = useQueryStates(
     paginationParsers,
-    QUERY_STATES_OPTIONS
+    QUERY_STATES_OPTIONS,
   )
 
   // Sorting
@@ -141,7 +141,7 @@ export function useTableSearchParams(options: UseTableSearchParamsOptions = {}) 
 
       setFilterValues(update)
     },
-    [filterKeys, setFilterValues]
+    [filterKeys, setFilterValues],
   )
 
   // Global filter (search)
@@ -154,7 +154,7 @@ export function useTableSearchParams(options: UseTableSearchParamsOptions = {}) 
         setPaginationValues({ page: null })
       }
     },
-    [search, setSearchValues, pagination, setPaginationValues]
+    [search, setSearchValues, pagination, setPaginationValues],
   )
 
   // Pagination state for react-table
@@ -163,7 +163,7 @@ export function useTableSearchParams(options: UseTableSearchParamsOptions = {}) 
       pageIndex: pagination ? (paginationValues.page ?? 0) : 0,
       pageSize: pagination ? (paginationValues.pageSize ?? defaultPageSize) : defaultPageSize,
     }),
-    [pagination, paginationValues, defaultPageSize]
+    [pagination, paginationValues, defaultPageSize],
   )
   useEffect(() => {
     paginationStateRef.current = paginationState
@@ -180,7 +180,7 @@ export function useTableSearchParams(options: UseTableSearchParamsOptions = {}) 
         pageSize: newPagination.pageSize === defaultPageSize ? null : newPagination.pageSize,
       })
     },
-    [pagination, setPaginationValues, defaultPageSize]
+    [pagination, setPaginationValues, defaultPageSize],
   )
 
   // Sorting state for react-table
@@ -200,13 +200,14 @@ export function useTableSearchParams(options: UseTableSearchParamsOptions = {}) 
       if (newSorting.length === 0) {
         setSortingValues({ sort: null, order: null })
       } else {
+        const firstSort = newSorting[0]!
         setSortingValues({
-          sort: newSorting[0].id,
-          order: newSorting[0].desc ? 'desc' : 'asc',
+          sort: firstSort.id,
+          order: firstSort.desc ? 'desc' : 'asc',
         })
       }
     },
-    [sorting, setSortingValues]
+    [sorting, setSortingValues],
   )
 
   return {

@@ -22,7 +22,7 @@ export default function NavTheme() {
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
-    () => false
+    () => false,
   )
 
   return (

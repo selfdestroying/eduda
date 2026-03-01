@@ -15,7 +15,7 @@ import { ChevronsUpDown, LogOut, User } from 'lucide-react'
 import Link from 'next/link'
 
 import { useSessionQuery } from '@/src/data/user/session-query'
-import type { OrganizationRole } from '@/src/lib/auth'
+import type { OrganizationRole } from '@/src/lib/auth/server'
 import { useRouter } from 'next/navigation'
 import { Skeleton } from '../ui/skeleton'
 

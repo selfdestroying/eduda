@@ -13,7 +13,7 @@ import {
 } from '@/src/components/ui/dialog'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import { useSessionRevokeMutation } from '@/src/data/user/session-revoke-mutation'
-import type { Session } from '@/src/lib/auth'
+import type { Session } from '@/src/lib/auth/server'
 import { Laptop, Loader2, Smartphone } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -84,7 +84,7 @@ const UserCard = (props: { session: Session | null; activeSessions: Session['ses
                                 router.push('/')
                               }
                             },
-                          }
+                          },
                         )
                       }}
                     >

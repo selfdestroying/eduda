@@ -52,7 +52,7 @@ const columns: ColumnDef<GroupDTO>[] = [
       const schedules = row.original.schedules
       if (schedules && schedules.length > 0) {
         const sorted = [...schedules].sort(
-          (a, b) => ((a.dayOfWeek + 6) % 7) - ((b.dayOfWeek + 6) % 7)
+          (a, b) => ((a.dayOfWeek + 6) % 7) - ((b.dayOfWeek + 6) % 7),
         )
         return (
           <div className="flex flex-col gap-0.5">
@@ -171,11 +171,11 @@ export default function GroupsTable({ data }: { data: GroupDTO[] }) {
   // Student count range filter - managed separately via URL params
   const [scMin, setScMin] = useQueryState(
     'scMin',
-    parseAsInteger.withOptions({ shallow: true, throttleMs: 300 })
+    parseAsInteger.withOptions({ shallow: true, throttleMs: 300 }),
   )
   const [scMax, setScMax] = useQueryState(
     'scMax',
-    parseAsInteger.withOptions({ shallow: true, throttleMs: 300 })
+    parseAsInteger.withOptions({ shallow: true, throttleMs: 300 }),
   )
 
   // Combine base column filters with studentCount range filter

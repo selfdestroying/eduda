@@ -1,6 +1,6 @@
 'use client'
 
-import { authClient } from '@/src/lib/auth-client'
+import { authClient } from '@/src/lib/auth/client'
 import { useQuery } from '@tanstack/react-query'
 import { userKeys } from './keys'
 

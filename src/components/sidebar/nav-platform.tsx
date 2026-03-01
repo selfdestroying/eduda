@@ -8,7 +8,7 @@ import {
   SidebarMenuItem,
 } from '@/src/components/ui/sidebar'
 import { useSessionQuery } from '@/src/data/user/session-query'
-import type { OrganizationRole } from '@/src/lib/auth'
+import type { OrganizationRole } from '@/src/lib/auth/server'
 import { Building, Folder, LayoutDashboard, Users, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'

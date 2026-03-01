@@ -97,7 +97,7 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
           },
           data: payload,
         },
-        isApplyToLessons
+        isApplyToLessons,
       )
       toast.promise(ok, {
         loading: 'Загрузка...',
@@ -123,7 +123,7 @@ export default function GroupTeacherActions({ tg }: UsersActionsProps) {
             },
           },
         },
-        isDeleteFromLessons
+        isDeleteFromLessons,
       )
       toast.promise(ok, {
         loading: 'Загрузка...',

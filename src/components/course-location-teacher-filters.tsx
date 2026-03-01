@@ -13,7 +13,7 @@ interface CourseLocationTeacherFiltersProps {
   organizationId: number
   columnFilters: ColumnFiltersState
   setFilters: (
-    updater: ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState)
+    updater: ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState),
   ) => void
   /** ID заблокированного преподавателя (для ограниченных прав) */
   lockedTeacherId?: string | number
@@ -49,7 +49,7 @@ export default function CourseLocationTeacherFilters({
         return [...otherFilters, { id: 'course', value: courseIds }]
       })
     },
-    [setFilters]
+    [setFilters],
   )
 
   const handleLocationFilterChange = useCallback(
@@ -60,7 +60,7 @@ export default function CourseLocationTeacherFilters({
         return [...otherFilters, { id: 'location', value: locationIds }]
       })
     },
-    [setFilters]
+    [setFilters],
   )
 
   const handleTeacherFilterChange = useCallback(
@@ -72,7 +72,7 @@ export default function CourseLocationTeacherFilters({
         return [...otherFilters, { id: 'teacher', value: userIds }]
       })
     },
-    [setFilters, disableTeacherFilter]
+    [setFilters, disableTeacherFilter],
   )
 
   const lockedTeacherValue =

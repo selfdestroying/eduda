@@ -161,7 +161,7 @@ export default function DismissedStudentsTable({ data }: { data: DismissedWithSt
       const searchValue = String(filterValue).toLowerCase()
       const fullName = getFullName(
         row.original.student.firstName,
-        row.original.student.lastName
+        row.original.student.lastName,
       ).toLowerCase()
       return fullName.includes(searchValue)
     },

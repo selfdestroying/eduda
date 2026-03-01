@@ -1,7 +1,7 @@
 import { getStudents } from '@/src/actions/students'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { auth } from '@/src/lib/auth'
-import prisma from '@/src/lib/prisma'
+import { auth } from '@/src/lib/auth/server'
+import prisma from '@/src/lib/db/prisma'
 import { protocol, rootDomain } from '@/src/lib/utils'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -83,14 +83,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const { success: canCreateTeacherLesson } = await auth.api.hasPermission({
     headers: requestHeaders,
     body: {
-      permission: { teacherLesson: ['create'] },
+      permissions: { teacherLesson: ['create'] },
     },
   })
 
   const { success: canCreateStudentLesson } = await auth.api.hasPermission({
     headers: requestHeaders,
     body: {
-      permission: { studentLesson: ['create'] },
+      permissions: { studentLesson: ['create'] },
     },
   })
 

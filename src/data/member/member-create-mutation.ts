@@ -1,6 +1,6 @@
 import { addMember } from '@/src/actions/organizations'
 import { UserCreateParams } from '@/src/actions/users'
-import { authClient } from '@/src/lib/auth-client'
+import { authClient } from '@/src/lib/auth/client'
 import { useMutation } from '@tanstack/react-query'
 import { userKeys } from '../user/keys'
 

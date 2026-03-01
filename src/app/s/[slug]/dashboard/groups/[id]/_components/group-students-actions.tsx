@@ -121,7 +121,7 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
             value: group.id,
             disabled: group.students.length >= group.maxStudents,
           }
-        })
+        }),
       )
     }
     fetchGroups()
@@ -158,7 +158,7 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
             groupId: sg.groupId,
             organizationId: sg.organizationId,
           },
-        })
+        }),
       )
       toast.promise(ok, {
         loading: 'Загрузка...',
@@ -208,7 +208,7 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
             groupId: values.group.value,
           },
         },
-        true
+        true,
       )
       toast.promise(ok, {
         loading: 'Загрузка...',
@@ -436,7 +436,7 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
                                     <span
                                       className={cn(
                                         'tabular-nums',
-                                        item.disabled && 'text-destructive'
+                                        item.disabled && 'text-destructive',
                                       )}
                                     >
                                       {item.students}/{item.maxStudents}

@@ -22,11 +22,11 @@ export function getFullName(firstName: string, lastName: string | null): string 
 export function getGroupName(
   group: Prisma.GroupGetPayload<{ include: { location: true; course: true } }> & {
     schedules?: Array<{ dayOfWeek: number; time: string }>
-  }
+  },
 ) {
   if (group.schedules && group.schedules.length > 0) {
     const sorted = [...group.schedules].sort(
-      (a, b) => ((a.dayOfWeek + 6) % 7) - ((b.dayOfWeek + 6) % 7)
+      (a, b) => ((a.dayOfWeek + 6) % 7) - ((b.dayOfWeek + 6) % 7),
     )
     const parts = sorted.map((s) => `${DaysOfWeek.short[s.dayOfWeek]} ${s.time}`)
     return `${group.course.name} ${parts.join(', ')}`

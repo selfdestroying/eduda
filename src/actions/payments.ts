@@ -1,12 +1,12 @@
 'use server'
+import prisma from '@/src/lib/db/prisma'
 import { writeFinancialHistoryTx } from '@/src/lib/lessons-balance'
-import prisma from '@/src/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { Prisma, StudentLessonsBalanceChangeReason } from '../../prisma/generated/client'
 import { StudentFinancialField } from '../../prisma/generated/enums'
-import { auth } from '../lib/auth'
+import { auth } from '../lib/auth/server'
 import { protocol, rootDomain } from '../lib/utils'
 
 export type PaymentsWithStudentAndGroup = Prisma.PaymentGetPayload<{
@@ -17,7 +17,7 @@ export type PaymentsWithStudentAndGroup = Prisma.PaymentGetPayload<{
 }>
 
 export const getPayments = async <T extends Prisma.PaymentFindManyArgs>(
-  payload?: Prisma.SelectSubset<T, Prisma.PaymentFindManyArgs>
+  payload?: Prisma.SelectSubset<T, Prisma.PaymentFindManyArgs>,
 ) => {
   return await prisma.payment.findMany<T>(payload)
 }
@@ -149,7 +149,7 @@ export const deletePaymentProduct = async (payload: Prisma.PaymentProductDeleteA
 }
 
 export const getUnprocessedPayments = async <T extends Prisma.UnprocessedPaymentFindManyArgs>(
-  payload?: Prisma.SelectSubset<T, Prisma.UnprocessedPaymentFindManyArgs>
+  payload?: Prisma.SelectSubset<T, Prisma.UnprocessedPaymentFindManyArgs>,
 ) => {
   return await prisma.unprocessedPayment.findMany(payload)
 }

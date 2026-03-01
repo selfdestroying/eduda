@@ -89,7 +89,7 @@ export default function AddTeacherToGroupButton({ group }: AddTeacherToGroupButt
             ...payload,
           },
         },
-        isApplyToLesson
+        isApplyToLesson,
       )
       toast.promise(ok, {
         loading: 'Добавление преподавателя...',

@@ -1,11 +1,11 @@
 'use server'
+import prisma from '@/src/lib/db/prisma'
 import {
   type StudentFinancialAudit,
   FINANCIAL_FIELD_KEY,
   parseIntFieldChange,
   writeFinancialHistoryTx,
 } from '@/src/lib/lessons-balance'
-import prisma from '@/src/lib/prisma'
 import { moscowNow, toMoscow } from '@/src/lib/timezone'
 
 import { revalidatePath } from 'next/cache'
@@ -16,19 +16,19 @@ import {
   StudentFinancialField,
   StudentLessonsBalanceChangeReason,
 } from '../../prisma/generated/enums'
-import { auth } from '../lib/auth'
+import { auth } from '../lib/auth/server'
 import { protocol, rootDomain } from '../lib/utils'
 
 export type StudentWithGroups = Student & { groups: Group[] }
 
 export const getStudents = async <T extends Prisma.StudentFindManyArgs>(
-  payload?: Prisma.SelectSubset<T, Prisma.StudentFindManyArgs>
+  payload?: Prisma.SelectSubset<T, Prisma.StudentFindManyArgs>,
 ) => {
   return await prisma.student.findMany<T>(payload)
 }
 
 export const getStudent = async <T extends Prisma.StudentFindFirstArgs>(
-  payload: Prisma.SelectSubset<T, Prisma.StudentFindFirstArgs>
+  payload: Prisma.SelectSubset<T, Prisma.StudentFindFirstArgs>,
 ) => {
   return await prisma.student.findFirst<T>(payload)
 }
@@ -40,7 +40,7 @@ export const createStudent = async (payload: Prisma.StudentCreateArgs) => {
 
 export async function updateStudent(
   payload: Prisma.StudentUpdateArgs,
-  audit?: StudentFinancialAudit
+  audit?: StudentFinancialAudit,
 ) {
   const data = payload.data as Prisma.StudentUpdateInput | undefined
 
@@ -136,7 +136,7 @@ export async function updateStudent(
 export async function getStudentLessonsBalanceHistory(
   studentId: number,
   take = 50,
-  groupId?: number
+  groupId?: number,
 ) {
   return await prisma.studentLessonsBalanceHistory.findMany({
     where: { studentId, ...(groupId != null ? { groupId } : {}) },
@@ -169,7 +169,7 @@ export async function updateStudentGroupBalance(
     bidForLesson: number
     leadName: string
     productName: string
-  }
+  },
 ) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -274,7 +274,7 @@ export async function redistributeBalance(
     lessons?: number
     totalLessons?: number
     totalPayments?: number
-  }[]
+  }[],
 ) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -296,17 +296,17 @@ export async function redistributeBalance(
 
     if (sumLessons > student.lessonsBalance) {
       throw new Error(
-        `Невозможно распределить ${sumLessons} ур. Нераспределённый остаток: ${student.lessonsBalance}`
+        `Невозможно распределить ${sumLessons} ур. Нераспределённый остаток: ${student.lessonsBalance}`,
       )
     }
     if (sumTotalLessons > student.totalLessons) {
       throw new Error(
-        `Невозможно распределить ${sumTotalLessons} всего уроков. Нераспределённый остаток: ${student.totalLessons}`
+        `Невозможно распределить ${sumTotalLessons} всего уроков. Нераспределённый остаток: ${student.totalLessons}`,
       )
     }
     if (sumTotalPayments > student.totalPayments) {
       throw new Error(
-        `Невозможно распределить ${sumTotalPayments} ₽. Нераспределённый остаток: ${student.totalPayments}`
+        `Невозможно распределить ${sumTotalPayments} ₽. Нераспределённый остаток: ${student.totalPayments}`,
       )
     }
 
@@ -408,7 +408,7 @@ export type StudentGroupHistoryEntry = {
 
 export async function getStudentGroupHistory(
   studentId: number,
-  organizationId: number
+  organizationId: number,
 ): Promise<StudentGroupHistoryEntry[]> {
   const DaysShort: Record<number, string> = {
     1: 'Пн',
@@ -476,7 +476,7 @@ export async function getStudentGroupHistory(
     const schedules = g.schedules
     if (schedules && schedules.length > 0) {
       const sorted = [...schedules].sort(
-        (a, b) => ((a.dayOfWeek + 6) % 7) - ((b.dayOfWeek + 6) % 7)
+        (a, b) => ((a.dayOfWeek + 6) % 7) - ((b.dayOfWeek + 6) % 7),
       )
       const parts = sorted.map((s) => `${DaysShort[s.dayOfWeek]} ${s.time}`)
       return `${g.course.name} ${parts.join(', ')}`
@@ -515,7 +515,7 @@ export async function getStudentGroupHistory(
 }
 
 export async function updateStudentBalanceHistory(
-  payload: Prisma.StudentLessonsBalanceHistoryUpdateArgs
+  payload: Prisma.StudentLessonsBalanceHistoryUpdateArgs,
 ) {
   const history = await prisma.studentLessonsBalanceHistory.update(payload)
   revalidatePath(`/dashboard/students/${history.studentId}`)

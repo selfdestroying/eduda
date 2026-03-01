@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/src/components/ui/select'
-import { authClient } from '@/src/lib/auth-client'
+import { authClient } from '@/src/lib/auth/client'
 import { AdminCreateUserSchema, AdminCreateUserSchemaType } from '@/src/schemas/user'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Dices, Loader2, UserPlus } from 'lucide-react'

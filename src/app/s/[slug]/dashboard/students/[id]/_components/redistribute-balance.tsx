@@ -54,7 +54,10 @@ export default function RedistributeBalance({ student }: RedistributeBalanceProp
   const updateField = (groupId: number, field: keyof GroupAllocation, value: number) => {
     setAllocations((prev) => ({
       ...prev,
-      [groupId]: { ...prev[groupId], [field]: Math.max(0, value) },
+      [groupId]: {
+        ...(prev[groupId] ?? { lessons: 0, totalLessons: 0, totalPayments: 0 }),
+        [field]: Math.max(0, value),
+      },
     }))
   }
 

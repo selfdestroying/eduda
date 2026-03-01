@@ -142,7 +142,7 @@ export default function UnprocessedPaymentTable({
         ),
       },
     ],
-    [students]
+    [students],
   )
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([
     { id: 'resolved', value: ['unresolved'] },
@@ -151,7 +151,7 @@ export default function UnprocessedPaymentTable({
     pageIndex: 0,
     pageSize: 10,
   })
-  const [filterValues, setFilterValues] = useState<TableFilterItem[]>([filterOptions[0]])
+  const [filterValues, setFilterValues] = useState<TableFilterItem[]>([filterOptions[0]!])
   const [sorting, setSorting] = useState<SortingState>([])
 
   const table = useReactTable({
@@ -204,7 +204,7 @@ export default function UnprocessedPaymentTable({
                     <div
                       className={cn(
                         header.column.getCanSort() &&
-                          'flex w-fit cursor-pointer items-center gap-2 select-none'
+                          'flex w-fit cursor-pointer items-center gap-2 select-none',
                       )}
                       onClick={header.column.getToggleSortingHandler()}
                       onKeyDown={(e) => {

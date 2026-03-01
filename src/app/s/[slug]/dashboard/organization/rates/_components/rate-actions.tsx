@@ -80,7 +80,7 @@ export default function RateActions({ rate }: RateActionsProps) {
           where: { id: rate.id },
           data: payload,
         },
-        isApplyToLessons
+        isApplyToLessons,
       )
       toast.promise(ok, {
         loading: 'Обновление ставки...',

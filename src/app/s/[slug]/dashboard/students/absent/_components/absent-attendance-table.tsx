@@ -152,7 +152,7 @@ export default function StudentsTable({ data }: { data: AttendanceWithStudents[]
   // Date range filter - managed separately via URL params
   const [dateFrom, setDateFrom] = useQueryState(
     'dateFrom',
-    parseAsIsoDate.withOptions({ shallow: true })
+    parseAsIsoDate.withOptions({ shallow: true }),
   )
   const [dateTo, setDateTo] = useQueryState('dateTo', parseAsIsoDate.withOptions({ shallow: true }))
 
@@ -194,7 +194,7 @@ export default function StudentsTable({ data }: { data: AttendanceWithStudents[]
       const searchValue = String(filterValue).toLowerCase()
       const fullName = getFullName(
         row.original.student.firstName,
-        row.original.student.lastName
+        row.original.student.lastName,
       ).toLowerCase()
       return fullName.includes(searchValue)
     },

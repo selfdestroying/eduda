@@ -1,25 +1,25 @@
 'use server'
 
-import prisma from '@/src/lib/prisma'
-import { normalizeDateOnly, moscowNow } from '@/src/lib/timezone'
+import prisma from '@/src/lib/db/prisma'
+import { moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '../../prisma/generated/client'
 
 export const getGroups = async <T extends Prisma.GroupFindManyArgs>(
-  payload?: Prisma.SelectSubset<T, Prisma.GroupFindManyArgs>
+  payload?: Prisma.SelectSubset<T, Prisma.GroupFindManyArgs>,
 ) => {
   return await prisma.group.findMany<T>(payload)
 }
 
 export const getGroup = async <T extends Prisma.GroupFindFirstArgs>(
-  payload?: Prisma.SelectSubset<T, Prisma.GroupFindFirstArgs>
+  payload?: Prisma.SelectSubset<T, Prisma.GroupFindFirstArgs>,
 ) => {
   return await prisma.group.findFirst(payload)
 }
 
 export const createGroup = async (
   payload: Prisma.GroupCreateArgs,
-  schedule?: Array<{ dayOfWeek: number; time: string }>
+  schedule?: Array<{ dayOfWeek: number; time: string }>,
 ) => {
   await prisma.$transaction(async (tx) => {
     const group = await tx.group.create({
@@ -32,6 +32,7 @@ export const createGroup = async (
       },
     })
     const firstTeacher = group.teachers[0]
+    if (!firstTeacher) throw new Error('Group must have at least one teacher')
     const lessons = group.lessons.map((l) => ({
       organizationId: group.organizationId,
       lessonId: l.id,
@@ -106,7 +107,7 @@ export const deleteGroup = async (payload: Prisma.GroupDeleteArgs) => {
 
 export const createStudentGroup = async (
   payload: Prisma.StudentGroupCreateArgs,
-  isApplyToLessons: boolean
+  isApplyToLessons: boolean,
 ) => {
   await prisma.$transaction(async (tx) => {
     await tx.studentGroup.create(payload)
@@ -144,7 +145,7 @@ export const createStudentGroup = async (
 
 export const updateStudentGroup = async (
   payload: Prisma.StudentGroupUpdateArgs,
-  isApplyToLessons: boolean
+  isApplyToLessons: boolean,
 ) => {
   await prisma.$transaction(async (tx) => {
     const oldStudentGroup = await tx.studentGroup.findUniqueOrThrow({
@@ -245,7 +246,7 @@ export const deleteStudentGroup = async (payload: Prisma.StudentGroupDeleteArgs)
 
 export const updateTeacherGroup = async (
   payload: Prisma.TeacherGroupUpdateArgs,
-  isApplyToLessons: boolean
+  isApplyToLessons: boolean,
 ) => {
   await prisma.$transaction(async (tx) => {
     const teacherGroup = await tx.teacherGroup.update({
@@ -275,7 +276,7 @@ export const updateTeacherGroup = async (
 
 export const createTeacherGroup = async (
   payload: Prisma.TeacherGroupCreateArgs,
-  isApplyToLessons: boolean
+  isApplyToLessons: boolean,
 ) => {
   await prisma.$transaction(async (tx) => {
     const teacherGroup = await tx.teacherGroup.create({
@@ -313,7 +314,7 @@ export const createTeacherGroup = async (
 
 export const deleteTeacherGroup = async (
   payload: Prisma.TeacherGroupDeleteArgs,
-  isApplyToLessons: boolean
+  isApplyToLessons: boolean,
 ) => {
   await prisma.$transaction(async (tx) => {
     const teacherGroup = await tx.teacherGroup.delete({

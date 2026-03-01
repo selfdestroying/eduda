@@ -73,7 +73,7 @@ export default function ProductsTable({
         cell: ({ row }) => <ProductActions product={row.original} categories={categories} />,
       },
     ],
-    [categories]
+    [categories],
   )
   const {
     columnFilters,
@@ -133,7 +133,7 @@ export default function ProductsTable({
 
   const mappedCategories = useMemo(
     () => categories.map((category) => ({ label: category.name, value: category.id.toString() })),
-    [categories]
+    [categories],
   )
 
   const selectedCategories = useMemo(() => {

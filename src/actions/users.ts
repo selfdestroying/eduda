@@ -1,10 +1,10 @@
 'use server'
-import prisma from '@/src/lib/prisma'
+import prisma from '@/src/lib/db/prisma'
 
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { Prisma } from '../../prisma/generated/client'
-import { auth } from '../lib/auth'
+import { auth } from '../lib/auth/server'
 
 export interface UserCreateParams {
   email: string
@@ -18,13 +18,13 @@ export interface UserCreateParams {
 }
 
 export const getUsers = async <T extends Prisma.UserFindManyArgs>(
-  payload?: Prisma.SelectSubset<T, Prisma.UserFindManyArgs>
+  payload?: Prisma.SelectSubset<T, Prisma.UserFindManyArgs>,
 ) => {
   return await prisma.user.findMany<T>(payload)
 }
 
 export const getUser = async <T extends Prisma.UserFindFirstArgs>(
-  payload: Prisma.SelectSubset<T, Prisma.UserFindFirstArgs>
+  payload: Prisma.SelectSubset<T, Prisma.UserFindFirstArgs>,
 ) => {
   return await prisma.user.findFirst(payload)
 }

@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/src/components/ui/card'
-import { auth } from '@/src/lib/auth'
+import { auth } from '@/src/lib/auth/server'
 import { protocol, rootDomain } from '@/src/lib/utils'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'

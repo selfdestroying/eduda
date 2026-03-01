@@ -55,7 +55,7 @@ export default function RatesTable({ data }: RatesTableProps) {
         cell: ({ row }) => (canEdit?.success ? <RateActions rate={row.original} /> : null),
       },
     ],
-    [canEdit]
+    [canEdit],
   )
 
   const table = useReactTable({

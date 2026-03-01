@@ -10,7 +10,7 @@ import {
   DialogTrigger,
 } from '@/src/components/ui/dialog'
 import { Input } from '@/src/components/ui/input'
-import { authClient } from '@/src/lib/auth-client'
+import { authClient } from '@/src/lib/auth/client'
 import { Check, Dices, KeyRound, Loader } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'

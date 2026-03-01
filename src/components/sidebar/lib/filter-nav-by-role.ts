@@ -1,4 +1,4 @@
-import type { OrganizationRole } from '@/src/lib/auth'
+import type { OrganizationRole } from '@/src/lib/auth/server'
 import type { NavGroup } from './types'
 
 export function filterNavByRole(nav: NavGroup[], role: OrganizationRole): NavGroup[] {

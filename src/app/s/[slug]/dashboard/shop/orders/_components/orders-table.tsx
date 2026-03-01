@@ -3,6 +3,7 @@ import { OrderStatus } from '@/prisma/generated/enums'
 import { OrderWithProductAndStudent } from '@/src/actions/orders'
 import DataTable from '@/src/components/data-table'
 import TableFilter, { TableFilterItem } from '@/src/components/table-filter'
+import { toMoscow } from '@/src/lib/timezone'
 import { getFullName } from '@/src/lib/utils'
 import {
   ColumnDef,
@@ -17,7 +18,6 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { cva } from 'class-variance-authority'
-import { toMoscow } from '@/src/lib/timezone'
 import Link from 'next/link'
 import { useState } from 'react'
 import OrderActions from './order-actions'
@@ -92,7 +92,7 @@ export default function OrdersTable({ data }: { data: OrderWithProductAndStudent
     pageIndex: 0,
     pageSize: 10,
   })
-  const [filterValues, setFilterValues] = useState<TableFilterItem[]>([filterOptions[1]])
+  const [filterValues, setFilterValues] = useState<TableFilterItem[]>([filterOptions[1]!])
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([
     { id: 'status', value: ['PENDING'] },

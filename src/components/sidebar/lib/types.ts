@@ -1,4 +1,4 @@
-import type { OrganizationRole } from '@/src/lib/auth'
+import type { OrganizationRole } from '@/src/lib/auth/server'
 import type { LucideIcon } from 'lucide-react'
 
 export type NavItem = {

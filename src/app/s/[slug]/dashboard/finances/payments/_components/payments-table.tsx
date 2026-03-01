@@ -108,7 +108,7 @@ export default function PaymentsTable({ data }: { data: PaymentsWithStudentAndGr
       const searchValue = String(filterValue).toLowerCase()
       const fullName = getFullName(
         row.original.student.firstName,
-        row.original.student.lastName
+        row.original.student.lastName,
       ).toLowerCase()
       return fullName.includes(searchValue)
     },
@@ -138,7 +138,7 @@ export default function PaymentsTable({ data }: { data: PaymentsWithStudentAndGr
                     <div
                       className={cn(
                         header.column.getCanSort() &&
-                          'flex w-fit cursor-pointer items-center gap-2 select-none'
+                          'flex w-fit cursor-pointer items-center gap-2 select-none',
                       )}
                       onClick={header.column.getToggleSortingHandler()}
                       onKeyDown={(e) => {

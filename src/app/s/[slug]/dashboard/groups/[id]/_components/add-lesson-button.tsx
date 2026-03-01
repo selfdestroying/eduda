@@ -14,19 +14,11 @@ import {
   DialogTrigger,
 } from '@/src/components/ui/dialog'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
+import { Input } from '@/src/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/src/components/ui/select'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { useSessionQuery } from '@/src/data/user/session-query'
 import { CreateLessonSchema, CreateLessonSchemaType } from '@/src/schemas/lesson'
-import { timeSlots } from '@/src/shared/time-slots'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'
 import { CalendarIcon, Plus } from 'lucide-react'
@@ -158,25 +150,13 @@ export default function AddLessonButton({ group }: AddLessonButtonProps) {
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel htmlFor="lesson-time-field">Время урока</FieldLabel>
-                  <Select
-                    {...field}
-                    items={timeSlots}
+                  <Input
+                    id="lesson-time-field"
+                    type="time"
                     value={field.value || ''}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger id="lesson-time-field" aria-invalid={fieldState.invalid}>
-                      <SelectValue placeholder="Выберите время" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {timeSlots.map((slot) => (
-                          <SelectItem key={slot.value} value={slot.value}>
-                            {slot.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
+                    onChange={(e) => field.onChange(e.target.value)}
+                    aria-invalid={fieldState.invalid}
+                  />
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>
               )}

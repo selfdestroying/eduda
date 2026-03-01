@@ -1,6 +1,6 @@
 'use server'
 
-import prisma from '@/src/lib/prisma'
+import prisma from '@/src/lib/db/prisma'
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '../../prisma/generated/client'
 import { OrderStatus } from '../../prisma/generated/enums'
@@ -10,14 +10,14 @@ export type OrderWithProductAndStudent = Prisma.OrderGetPayload<{
 }>
 
 export const getOrders = async <T extends Prisma.OrderFindManyArgs>(
-  payload?: Prisma.SelectSubset<T, Prisma.OrderFindManyArgs>
+  payload?: Prisma.SelectSubset<T, Prisma.OrderFindManyArgs>,
 ) => {
   return await prisma.order.findMany(payload)
 }
 
 export const changeOrderStatus = async (
   order: OrderWithProductAndStudent,
-  newStatus: OrderStatus
+  newStatus: OrderStatus,
 ) => {
   await prisma.order.update({ where: { id: order.id }, data: { status: newStatus } })
   if ((order.status == 'PENDING' || order.status == 'COMPLETED') && newStatus == 'CANCELLED') {

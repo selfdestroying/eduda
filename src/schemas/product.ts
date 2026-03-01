@@ -5,7 +5,7 @@ const ProductImageSchema = z
   .instanceof(File, { error: 'Загрузите изображение продукта' })
   .refine(
     (file) => ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'].includes(file.type),
-    'Неверный формат файла. Допустимы: PNG, JPEG, SVG, WEBP'
+    'Неверный формат файла. Допустимы: PNG, JPEG, SVG, WEBP',
   )
   .refine((file) => file.size <= 10 * 1024 * 1024, 'Размер файла не должен превышать 10 МБ')
 

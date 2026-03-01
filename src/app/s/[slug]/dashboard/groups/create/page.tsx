@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { auth } from '@/src/lib/auth'
+import { auth } from '@/src/lib/auth/server'
 import { protocol, rootDomain } from '@/src/lib/utils'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -19,7 +19,7 @@ export default async function Page() {
   const { success: canCreate } = await auth.api.hasPermission({
     headers: requestHeaders,
     body: {
-      permission: { group: ['create'] },
+      permissions: { group: ['create'] },
     },
   })
 

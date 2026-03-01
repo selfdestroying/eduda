@@ -1,7 +1,7 @@
 'use server'
 
+import prisma from '@/src/lib/db/prisma'
 import { writeLessonsBalanceHistoryTx } from '@/src/lib/lessons-balance'
-import prisma from '@/src/lib/prisma'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { getGroupName, protocol, rootDomain } from '@/src/lib/utils'
 import { revalidatePath } from 'next/cache'
@@ -9,7 +9,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { Prisma } from '../../prisma/generated/client'
 import { AttendanceStatus, StudentLessonsBalanceChangeReason } from '../../prisma/generated/enums'
-import { auth } from '../lib/auth'
+import { auth } from '../lib/auth/server'
 
 export type AttendanceWithStudents = Prisma.AttendanceGetPayload<{
   include: {
@@ -44,7 +44,7 @@ const updateCoins = async (
   tx: Prisma.TransactionClient,
   newStatus: AttendanceStatus,
   oldStatus: AttendanceStatus,
-  studentId: number
+  studentId: number,
 ) => {
   if (newStatus === AttendanceStatus.PRESENT && oldStatus !== AttendanceStatus.PRESENT) {
     await tx.student.update({
@@ -69,7 +69,7 @@ const getLessonsBalanceDelta = (
   oldStatus: AttendanceStatus,
   newStatus: AttendanceStatus,
   oldIsWarned: boolean | null,
-  newIsWarned: boolean | null
+  newIsWarned: boolean | null,
 ): number => {
   const wasCharged = isLessonCharged(oldStatus, oldIsWarned === true)
 
@@ -126,14 +126,14 @@ export const updateAttendance = async (payload: Prisma.AttendanceUpdateArgs) => 
           tx,
           status as AttendanceStatus,
           oldAttendance.status,
-          oldAttendance.studentId
+          oldAttendance.studentId,
         )
 
         const delta = getLessonsBalanceDelta(
           oldAttendance.status,
           status as AttendanceStatus,
           oldAttendance.isWarned,
-          isWarned as boolean | null
+          isWarned as boolean | null,
         )
 
         if (delta !== 0) {
@@ -249,7 +249,7 @@ export const getAbsentStatistics = async (organizationId: number) => {
 
   function getPerGroupRate(
     studentGroups: { groupId: number; totalPayments: number; totalLessons: number }[],
-    groupId: number
+    groupId: number,
   ): number {
     const sg = studentGroups.find((g) => g.groupId === groupId)
     if (!sg || sg.totalLessons === 0) return 0
@@ -292,7 +292,7 @@ export const getAbsentStatistics = async (organizationId: number) => {
     const day = date.getUTCDay()
     const diff = date.getUTCDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
     const monday = new Date(Date.UTC(y, m, diff))
-    const weekKey = monday.toISOString().split('T')[0] // YYYY-MM-DD
+    const weekKey = monday.toISOString().split('T')[0]! // YYYY-MM-DD
 
     // Check saved status
     let isSaved = false
@@ -379,7 +379,7 @@ export const getAbsentStatistics = async (organizationId: number) => {
         ? Math.round(
             (absences.filter((a) => a.missedMakeup?.makeUpAttendance?.status === 'PRESENT').length /
               absences.length) *
-              1000
+              1000,
           ) / 10
         : 0,
     totalLostMoney: Math.round(monthly.reduce((s, m) => s + m.missedMoney - m.savedMoney, 0)),

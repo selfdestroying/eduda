@@ -163,7 +163,7 @@ function buildAttendanceLookup(lessons: LessonWithAttendance[]): AttendanceLooku
 // -------------------- Columns --------------------
 const getColumns = (
   lessons: LessonWithAttendance[],
-  lookup: AttendanceLookup
+  lookup: AttendanceLookup,
 ): ColumnDef<Student>[] => [
   {
     id: 'id',
@@ -266,14 +266,14 @@ export function GroupAttendanceTable({
                       style={{ width: `${header.getSize()}px` }}
                       className={cn(
                         'bg-sidebar border-border relative h-9 border-y select-none first:rounded-l-lg first:border-l last:rounded-r-lg last:border-r',
-                        stickyColumnClasses[header.id + '_header']
+                        stickyColumnClasses[header.id + '_header'],
                       )}
                     >
                       {header.isPlaceholder ? null : header.column.getCanSort() ? (
                         <div
                           className={cn(
                             header.column.getCanSort() &&
-                              'flex h-full cursor-pointer items-center gap-2 select-none'
+                              'flex h-full cursor-pointer items-center gap-2 select-none',
                           )}
                           onClick={header.column.getToggleSortingHandler()}
                           onKeyDown={(e) => {
@@ -329,7 +329,7 @@ export function GroupAttendanceTable({
                         key={cell.id}
                         className={cn(
                           'h-[inherit] overflow-hidden last:py-0',
-                          stickyColumnClasses[cell.column.id]
+                          stickyColumnClasses[cell.column.id],
                         )}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}

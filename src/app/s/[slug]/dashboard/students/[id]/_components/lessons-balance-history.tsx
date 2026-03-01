@@ -113,7 +113,7 @@ type MakeupGrantedMeta = {
 
 function getMetaDetails(
   reason: StudentLessonsBalanceChangeReason,
-  meta: JsonValue | null
+  meta: JsonValue | null,
 ): React.ReactNode {
   if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return null
 

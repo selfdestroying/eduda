@@ -74,7 +74,7 @@ export default function UnprocessedPaymentsActions({
         label: getFullName(student.firstName, student.lastName),
         value: student.id,
       })),
-    [students]
+    [students],
   )
   const [dialogOpen, setDialogOpen] = useState(false)
   const form = useForm<AddPaymentSchemaType>({
@@ -138,12 +138,12 @@ export default function UnprocessedPaymentsActions({
           bidForLesson: payload.price / payload.lessonCount,
           leadName: payload.leadName,
           productName: payload.productName,
-        }
+        },
       ).then(() =>
         updateUnprocessedPayment({
           where: { id: unprocessedPayment?.id },
           data: { resolved: true },
-        })
+        }),
       )
       toast.promise(ok, {
         loading: 'Создание оплаты...',

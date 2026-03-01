@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/src/components/ui/card'
-import { auth } from '@/src/lib/auth'
+import { auth } from '@/src/lib/auth/server'
 import { protocol, rootDomain } from '@/src/lib/utils'
 import { Plus } from 'lucide-react'
 import { headers } from 'next/headers'
@@ -46,7 +46,7 @@ export default async function Page() {
   const { success: canCreate } = await auth.api.hasPermission({
     headers: requestHeaders,
     body: {
-      permission: { group: ['create'] },
+      permissions: { group: ['create'] },
     },
   })
 

@@ -1,4 +1,4 @@
-import { auth } from '@/src/lib/auth'
+import { auth } from '@/src/lib/auth/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { protocol, rootDomain } from './lib/utils'
 
@@ -14,11 +14,11 @@ const ROOT_URL = `${protocol}://${rootDomain}`
 
 function extractSubdomain(request: NextRequest): string | null {
   const host = request.headers.get('host') ?? ''
-  const hostname = host.split(':')[0]
+  const hostname = host.split(':')[0] ?? ''
 
   // localhost: поддомен только при наличии точки перед localhost
   if (hostname.endsWith('.localhost')) {
-    return hostname.split('.')[0]
+    return hostname.split('.')[0] ?? null
   }
   if (hostname === 'localhost') {
     return null
@@ -75,7 +75,7 @@ function handleReservedSubdomain(
   pathname: string,
   search: string,
   request: NextRequest,
-  session: SessionData
+  session: SessionData,
 ) {
   switch (subdomain) {
     case 'auth': {
@@ -111,7 +111,7 @@ function handleOrgSubdomain(
   pathname: string,
   search: string,
   request: NextRequest,
-  session: SessionData
+  session: SessionData,
 ) {
   if (!session) {
     return NextResponse.redirect(buildAuthRedirectUrl(request))

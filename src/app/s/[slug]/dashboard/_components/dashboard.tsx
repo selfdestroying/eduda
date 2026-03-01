@@ -38,7 +38,8 @@ import { CalendarDay } from 'react-day-picker'
 
 const parseAsLocalDate = createParser({
   parse: (value: string) => {
-    const [year, month, day] = value.split('-').map(Number)
+    const parts = value.split('-').map(Number)
+    const [year = 0, month = 0, day = 0] = parts
     const date = new Date(year, month - 1, day)
     if (isNaN(date.getTime())) return null
     return date
@@ -165,7 +166,7 @@ export default function Dashboard() {
     'date',
     parseAsLocalDate
       .withDefault(normalizeDateOnly(moscowNow()))
-      .withOptions({ shallow: true, history: 'replace' })
+      .withOptions({ shallow: true, history: 'replace' }),
   )
 
   const { columnFilters, setColumnFilters } = useTableSearchParams({
@@ -238,7 +239,7 @@ function LessonCalendar({ organizationId, selectedDay, onSelectDay }: LessonCale
   const dayKey = useMemo(() => startOfDay(selectedMonth), [selectedMonth])
   const { data: daysStatuses, isLoading: isDaysStatusesLoading } = useDayStatusesQuery(
     organizationId,
-    dayKey
+    dayKey,
   )
 
   return (
@@ -274,7 +275,8 @@ interface CalendarDayButtonProps extends React.ComponentProps<typeof CalendarDay
 }
 
 function LessonDayButton({ day, children, daysStatuses, ...props }: CalendarDayButtonProps) {
-  const dayIndex = daysStatuses[normalizeDateOnly(day.date).toISOString().split('T')[0]]
+  const dayKey = normalizeDateOnly(day.date).toISOString().split('T')[0]!
+  const dayIndex = daysStatuses[dayKey]
   if (!dayIndex)
     return (
       <CalendarDayButton {...props} day={day}>
@@ -330,7 +332,7 @@ function DataTable<T>({ data, columns, filters }: DataTableProps<T>) {
                     <div
                       className={cn(
                         header.column.getCanSort() &&
-                          'flex w-fit cursor-pointer items-center gap-2 select-none'
+                          'flex w-fit cursor-pointer items-center gap-2 select-none',
                       )}
                       onClick={header.column.getToggleSortingHandler()}
                       onKeyDown={(e) => {
