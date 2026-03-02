@@ -1,9 +1,9 @@
-import { Prisma } from '@/prisma/generated/client'
+import { LessonStatus, Prisma } from '@/prisma/generated/client'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { auth } from '@/src/lib/auth/server'
-import { lessonStatusMap, lessonStatusVariants } from '@/src/lib/lesson-status'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { getGroupName } from '@/src/lib/utils'
+import { cva } from 'class-variance-authority'
 import { Book, Clock, MapPin, Users } from 'lucide-react'
 import { headers } from 'next/headers'
 import Link from 'next/link'
@@ -23,6 +23,23 @@ interface InfoSectionsProps {
     }
   }>
 }
+
+export const lessonStatusMap: Record<LessonStatus, string> = {
+  ACTIVE: 'Активен',
+  CANCELLED: 'Отменен',
+}
+
+export const lessonStatusVariants = cva('', {
+  variants: {
+    status: {
+      ACTIVE: 'text-success',
+      CANCELLED: 'text-destructive',
+    },
+  },
+  defaultVariants: {
+    status: 'ACTIVE',
+  },
+})
 
 export default async function InfoSection({ lesson }: InfoSectionsProps) {
   const requestHeaders = await headers()

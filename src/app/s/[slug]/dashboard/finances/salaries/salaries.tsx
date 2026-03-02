@@ -1,6 +1,6 @@
 'use client'
 import { PayCheck, Prisma } from '@/prisma/generated/browser'
-import { User } from '@/prisma/generated/client'
+import { LessonStatus, User } from '@/prisma/generated/client'
 import { getLessons } from '@/src/actions/lessons'
 import { getPaychecks } from '@/src/actions/paycheck'
 import TableFilter, { TableFilterItem } from '@/src/components/table-filter'
@@ -22,7 +22,6 @@ import { useMappedLocationListQuery } from '@/src/data/location/location-list-qu
 import { useMappedMemberListQuery } from '@/src/data/member/member-list-query'
 import { useOrganizationPermissionQuery } from '@/src/data/organization/organization-permission-query'
 import { useSessionQuery } from '@/src/data/user/session-query'
-import { lessonStatusMap } from '@/src/lib/lesson-status'
 import { dateOnlyToLocal, moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
 import { cn, getGroupName } from '@/src/lib/utils'
 import { cva } from 'class-variance-authority'
@@ -675,6 +674,11 @@ function TeacherCard({ data, paychecks }: TeacherCardProps) {
 // Компонент элемента урока
 interface LessonItemProps {
   lesson: LessonWithPrice
+}
+
+export const lessonStatusMap: Record<LessonStatus, string> = {
+  ACTIVE: 'Активен',
+  CANCELLED: 'Отменен',
 }
 
 const lessonStatusVariants = cva('', {
