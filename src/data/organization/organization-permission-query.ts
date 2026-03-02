@@ -15,7 +15,7 @@ export type OrganizationPermissionData = Awaited<ReturnType<typeof getOrganizati
 
 export const useOrganizationPermissionQuery = (permission: OrganizationPermissionCheck) => {
   return useQuery({
-    queryKey: organizationKeys.permission(),
+    queryKey: organizationKeys.permission(permission as Record<string, string[]>),
     queryFn: () => getOrganizationPermission(permission),
     enabled: !!permission,
   })
