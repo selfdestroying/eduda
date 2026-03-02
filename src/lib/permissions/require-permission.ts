@@ -12,8 +12,8 @@ import { type OrganizationAction, type OrganizationStatementKeys } from './organ
  * Бросает ForbiddenError при отсутствии прав.
  *
  * @example
- * requirePermission('manager', 'group', 'create')
- * requirePermission('teacher', 'lesson', 'readAll') // throws ForbiddenError
+ * requirePermission('group', 'create')
+ * requirePermission('lesson', 'readAll') // throws ForbiddenError
  */
 export async function requirePermission<R extends OrganizationStatementKeys>(
   resource: R,
