@@ -57,7 +57,7 @@ export default async function Page() {
           <CardTitle>Типы групп</CardTitle>
           <CardDescription>Управление типами групп и привязка ставок</CardDescription>
           <CardAction>
-            <CreateGroupTypeDialog organizationId={session.organizationId!} rates={rates} />
+            <CreateGroupTypeDialog rates={rates} />
           </CardAction>
         </CardHeader>
         <CardContent className="overflow-hidden">

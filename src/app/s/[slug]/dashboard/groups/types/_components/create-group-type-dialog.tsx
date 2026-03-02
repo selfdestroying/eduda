@@ -1,7 +1,7 @@
 'use client'
 
 import { Rate } from '@/prisma/generated/client'
-import { createGroupType } from '@/src/actions/group-types'
+import { createGroupTypeAction } from '@/src/actions/group-types'
 import { Button } from '@/src/components/ui/button'
 import {
   Dialog,
@@ -26,21 +26,28 @@ import {
 import { GroupTypeSchema, GroupTypeSchemaType } from '@/src/schemas/group-type'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus } from 'lucide-react'
-import { useState, useTransition } from 'react'
+import { useAction } from 'next-safe-action/hooks'
+import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
 interface CreateGroupTypeDialogProps {
-  organizationId: number
   rates: Rate[]
 }
 
-export default function CreateGroupTypeDialog({
-  organizationId,
-  rates,
-}: CreateGroupTypeDialogProps) {
+export default function CreateGroupTypeDialog({ rates }: CreateGroupTypeDialogProps) {
   const [open, setOpen] = useState(false)
-  const [isPending, startTransition] = useTransition()
+
+  const { execute, isPending } = useAction(createGroupTypeAction, {
+    onSuccess: () => {
+      toast.success('Тип группы успешно создан!')
+      setOpen(false)
+      form.reset()
+    },
+    onError: ({ error }) => {
+      toast.error(error.serverError ?? 'Не удалось создать тип группы.')
+    },
+  })
 
   const form = useForm<GroupTypeSchemaType>({
     resolver: zodResolver(GroupTypeSchema),
@@ -51,23 +58,7 @@ export default function CreateGroupTypeDialog({
   })
 
   const onSubmit = (values: GroupTypeSchemaType) => {
-    startTransition(() => {
-      const ok = createGroupType({
-        data: {
-          ...values,
-          organizationId,
-        },
-      })
-      toast.promise(ok, {
-        loading: 'Создание типа группы...',
-        success: 'Тип группы успешно создан!',
-        error: 'Не удалось создать тип группы.',
-        finally: () => {
-          setOpen(false)
-          form.reset()
-        },
-      })
-    })
+    execute(values)
   }
 
   return (

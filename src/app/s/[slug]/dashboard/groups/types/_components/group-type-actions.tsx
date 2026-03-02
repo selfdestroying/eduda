@@ -1,7 +1,7 @@
 'use client'
 
 import { Prisma, Rate } from '@/prisma/generated/client'
-import { deleteGroupType, updateGroupType } from '@/src/actions/group-types'
+import { deleteGroupTypeAction, updateGroupTypeAction } from '@/src/actions/group-types'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -40,7 +40,8 @@ import {
 import { GroupTypeSchema, GroupTypeSchemaType } from '@/src/schemas/group-type'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, MoreVertical, Pen, Trash } from 'lucide-react'
-import { useEffect, useState, useTransition } from 'react'
+import { useAction } from 'next-safe-action/hooks'
+import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
@@ -60,9 +61,32 @@ export default function GroupTypeActions({ groupType, rates }: GroupTypeActionsP
   const [open, setOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [isPending, startTransition] = useTransition()
   const [isDeleteDisabled, setIsDeleteDisabled] = useState(false)
   const [deleteCountdown, setDeleteCountdown] = useState(0)
+
+  const { execute: executeUpdate, isPending: isUpdatePending } = useAction(updateGroupTypeAction, {
+    onSuccess: () => {
+      toast.success('Тип группы успешно обновлен')
+      setEditDialogOpen(false)
+      setOpen(false)
+    },
+    onError: ({ error }) => {
+      toast.error(error.serverError ?? 'Ошибка при обновлении типа группы')
+    },
+  })
+
+  const { execute: executeDelete, isPending: isDeletePending } = useAction(deleteGroupTypeAction, {
+    onSuccess: () => {
+      toast.success('Тип группы удален')
+      setDeleteDialogOpen(false)
+      setOpen(false)
+    },
+    onError: ({ error }) => {
+      toast.error(error.serverError ?? 'Ошибка при удалении типа группы')
+    },
+  })
+
+  const isPending = isUpdatePending || isDeletePending
 
   const form = useForm<GroupTypeSchemaType>({
     resolver: zodResolver(GroupTypeSchema),
@@ -73,39 +97,11 @@ export default function GroupTypeActions({ groupType, rates }: GroupTypeActionsP
   })
 
   const handleEdit = (data: GroupTypeSchemaType) => {
-    startTransition(() => {
-      const ok = updateGroupType({
-        where: { id: groupType.id },
-        data,
-      })
-      toast.promise(ok, {
-        loading: 'Обновление типа группы...',
-        success: 'Тип группы успешно обновлен',
-        error: 'Ошибка при обновлении типа группы',
-        finally: () => {
-          setEditDialogOpen(false)
-          setOpen(false)
-        },
-      })
-    })
+    executeUpdate({ id: groupType.id, ...data })
   }
 
   const handleDelete = () => {
-    startTransition(() => {
-      const ok = deleteGroupType({ where: { id: groupType.id } })
-      toast.promise(ok, {
-        loading: 'Удаление типа группы...',
-        success: 'Тип группы удален',
-        error:
-          groupType._count.groups > 0
-            ? 'Невозможно удалить тип группы, который используется в группах'
-            : 'Ошибка при удалении типа группы',
-        finally: () => {
-          setDeleteDialogOpen(false)
-          setOpen(false)
-        },
-      })
-    })
+    executeDelete({ id: groupType.id })
   }
 
   useEffect(() => {
