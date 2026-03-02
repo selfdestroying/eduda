@@ -19,9 +19,19 @@ interface GroupTypesTableProps {
   rates: Rate[]
 }
 
-export default function GroupTypesTable({ data, rates }: GroupTypesTableProps) {
+function GroupTypeActionsCell({
+  groupType,
+  rates,
+}: {
+  groupType: GroupTypeWithRelations
+  rates: Rate[]
+}) {
   const { data: canEdit } = useOrganizationPermissionQuery({ groupType: ['update'] })
+  if (!canEdit?.success) return null
+  return <GroupTypeActions groupType={groupType} rates={rates} />
+}
 
+export default function GroupTypesTable({ data, rates }: GroupTypesTableProps) {
   const columns: ColumnDef<GroupTypeWithRelations>[] = useMemo(
     () => [
       {
@@ -49,11 +59,10 @@ export default function GroupTypesTable({ data, rates }: GroupTypesTableProps) {
       },
       {
         id: 'actions',
-        cell: ({ row }) =>
-          canEdit?.success ? <GroupTypeActions groupType={row.original} rates={rates} /> : null,
+        cell: ({ row }) => <GroupTypeActionsCell groupType={row.original} rates={rates} />,
       },
     ],
-    [canEdit, rates],
+    [rates],
   )
 
   const table = useReactTable({

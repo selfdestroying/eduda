@@ -110,7 +110,7 @@ const AttendanceActions = ({ attendance }: { attendance: AttendanceWithStudents 
   return (
     <>
       <DropdownMenu open={open} onOpenChange={setOpen}>
-        <DropdownMenuTrigger render={<Button variant="ghost" />}>
+        <DropdownMenuTrigger render={<Button variant="ghost" size={'icon'} />}>
           <MoreVertical />
         </DropdownMenuTrigger>
 

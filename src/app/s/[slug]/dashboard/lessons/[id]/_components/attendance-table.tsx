@@ -7,8 +7,8 @@ import DataTable from '@/src/components/data-table'
 import { Input } from '@/src/components/ui/input'
 import { useOrganizationPermissionQuery } from '@/src/data/organization/organization-permission-query'
 import useSkipper from '@/src/hooks/use-skipper'
-import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { formatDateOnly } from '@/src/lib/timezone'
+import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { debounce, DebouncedFunction } from 'es-toolkit'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -19,6 +19,16 @@ export const StudentStatusMap: { [key in StudentStatus]: string } = {
   ACTIVE: 'Ученик',
   DISMISSED: 'Отчислен',
   TRIAL: 'Пробный',
+}
+
+function AttendanceActionsCell({ attendance }: { attendance: AttendanceWithStudents }) {
+  const { data: hasPermission } = useOrganizationPermissionQuery({ studentLesson: ['update'] })
+  if (!hasPermission?.success) return null
+  return (
+    <div className="flex justify-end">
+      <AttendanceActions attendance={attendance} />
+    </div>
+  )
 }
 
 const getColumns = (
@@ -108,20 +118,11 @@ export default function AttendanceTable({ data }: { data: AttendanceWithStudents
   )
   const columns = getColumns(handleUpdate)
 
-  const { data: hasPermission } = useOrganizationPermissionQuery({ studentLesson: ['update'] })
-
-  if (hasPermission?.success) {
-    columns.push({
-      id: 'actions',
-
-      cell: ({ row }) => (
-        <div className="flex justify-end">
-          <AttendanceActions attendance={row.original} />
-        </div>
-      ),
-      size: 50,
-    })
-  }
+  columns.push({
+    id: 'actions',
+    cell: ({ row }) => <AttendanceActionsCell attendance={row.original} />,
+    size: 50,
+  })
 
   const table = useReactTable({
     data,
