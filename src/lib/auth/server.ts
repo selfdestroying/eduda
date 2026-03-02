@@ -3,7 +3,7 @@ import { betterAuth, type BetterAuthOptions } from 'better-auth'
 import { nextCookies } from 'better-auth/next-js'
 import { admin as adminPlugin, customSession, organization } from 'better-auth/plugins'
 import prisma from '../db/prisma'
-import permissions from '../permissions/global'
+import global from '../permissions/global'
 import organizationPermissions from '../permissions/organization'
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.split(':')[0]
@@ -76,7 +76,7 @@ const options = {
     return []
   },
   plugins: [
-    adminPlugin(permissions),
+    adminPlugin({ ...global }),
     organization({
       ...organizationPermissions,
       allowUserToCreateOrganization: true,
