@@ -54,6 +54,12 @@ export const navEntries: NavEntry[] = [
         featureKey: 'students.active',
       },
       {
+        title: 'Завершившие',
+        url: '/students/completed',
+        roles: STAFF_ROLES,
+        featureKey: 'students.completed',
+      },
+      {
         title: 'Пропустившие',
         url: '/students/absent',
         roles: STAFF_ROLES,
