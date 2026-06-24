@@ -14,6 +14,13 @@ const eslintConfig = defineConfig([
       'react-hooks/incompatible-library': 'off',
     },
   },
+  {
+    rules: {
+      'react-hooks/refs': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      '@next/next/no-img-element': 'off',
+    },
+  },
   globalIgnores([
     '.next/**',
     'out/**',
@@ -36,6 +43,7 @@ const eslintConfig = defineConfig([
     'prisma/generated/**',
     '.DS_Store',
     '*.log',
+    '.source',
   ]),
 ])
 

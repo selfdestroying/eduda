@@ -24,6 +24,7 @@ model User {
     accounts              Account[]
     members               Member[]
     invitations           Invitation[]
+    assistantThreads      AssistantThread[]
 
     @@unique([email])
     @@map("User")
@@ -121,6 +122,7 @@ model Organization {
     expenses                       Expense[]
     managerSalaries                ManagerSalary[]
     organizationroles              OrganizationRole[]
+    assistantThreads               AssistantThread[]
 
     @@unique([slug])
     @@map("Organization")

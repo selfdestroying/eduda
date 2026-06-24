@@ -1,8 +1,17 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+@import 'fumadocs-ui/css/shadcn.css';
+@import 'fumadocs-ui/css/preset.css';
 
 @custom-variant dark (&:is(.dark *));
+
+/* Align fumadocs semantic/callout colors with the project palette */
+@theme inline {
+  --color-fd-info: var(--info);
+  --color-fd-warning: var(--warning);
+  --color-fd-success: var(--success);
+}
 
 @theme inline {
   --color-background: var(--background);

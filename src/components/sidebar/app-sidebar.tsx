@@ -16,6 +16,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 import NavBrand from './nav-brand'
 import NavCollapseButton from './nav-collapse-button'
+import NavDocs from './nav-docs'
 import NavMain from './nav-main'
 import NavUser from './nav-user'
 
@@ -58,6 +59,7 @@ export function AppSidebar({
         </SidebarContent>
 
         <SidebarFooter>
+          <NavDocs />
           <NavUser />
         </SidebarFooter>
       </Sidebar>

@@ -1,3 +1,4 @@
+import { AssistantWidget } from '@/src/components/assistant-ui/assistant-widget'
 import { AppSidebar } from '@/src/components/sidebar/app-sidebar'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { auth } from '@/src/lib/auth/server'
@@ -40,6 +41,8 @@ export default async function Layout({
       <Suspense fallback={<Skeleton className="h-full w-full" />}>
         <AppSidebar defaultOpen={defaultOpen}>{children}</AppSidebar>
       </Suspense>
+
+      <AssistantWidget />
     </>
   )
 }
