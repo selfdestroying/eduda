@@ -56,6 +56,9 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!subdomain) {
+    if (pathname !== '/') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
     return NextResponse.next()
   }
 
