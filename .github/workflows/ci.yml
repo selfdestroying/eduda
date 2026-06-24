@@ -52,6 +52,7 @@ jobs:
 
       - run: npm ci
       - run: npx prisma generate
+      - run: npx next typegen
       - run: npx tsc --noEmit
 
   build:
