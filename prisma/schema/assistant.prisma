@@ -1,0 +1,34 @@
+// AI assistant chat persistence
+
+model AssistantThread {
+    id             Int                @id @default(autoincrement())
+    remoteId       String             @unique @default(cuid())
+    organizationId Int
+    organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    userId         Int
+    user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+    title          String?
+    archived       Boolean            @default(false)
+    lastMessageAt  DateTime?
+    createdAt      DateTime           @default(now())
+    updatedAt      DateTime           @updatedAt
+    messages       AssistantMessage[]
+
+    @@index([organizationId, userId])
+    @@map("AssistantThread")
+}
+
+model AssistantMessage {
+    id        Int             @id @default(autoincrement())
+    messageId String
+    threadId  Int
+    thread    AssistantThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+    parentId  String?
+    format    String
+    content   Json
+    createdAt DateTime        @default(now())
+
+    @@unique([threadId, messageId])
+    @@index([threadId])
+    @@map("AssistantMessage")
+}
