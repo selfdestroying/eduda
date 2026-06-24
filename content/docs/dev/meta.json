@@ -1,0 +1,11 @@
+{
+  "title": "Для разработчиков",
+  "root": true,
+  "icon": "Binary",
+  "pages": [
+    "...",
+    "---LLM---",
+    "[FileText][llms.txt](/llms.txt)",
+    "[FileText][llms-full.txt](/llms-full.txt)"
+  ]
+}

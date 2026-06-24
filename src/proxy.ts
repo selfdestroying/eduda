@@ -5,7 +5,7 @@ import { protocol, rootDomain } from './lib/utils'
 
 type SessionData = Awaited<ReturnType<typeof auth.api.getSession>>
 
-const RESERVED_SUBDOMAINS = new Set(['auth', 'admin', 'shop'])
+const RESERVED_SUBDOMAINS = new Set(['auth', 'admin', 'shop', 'docs'])
 
 /** Hostname корневого домена без порта */
 const rootHostname = rootDomain.split(':')[0]
@@ -56,9 +56,6 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!subdomain) {
-    if (pathname !== '/') {
-      return NextResponse.redirect(new URL('/', request.url))
-    }
     return NextResponse.next()
   }
 
@@ -103,6 +100,9 @@ function handleReservedSubdomain(
 
     case 'shop':
       return NextResponse.rewrite(new URL(`/shop${pathname}${search}`, request.url))
+
+    case 'docs':
+      return NextResponse.rewrite(new URL(`/docs${pathname}${search}`, request.url))
 
     default:
       return NextResponse.next()
