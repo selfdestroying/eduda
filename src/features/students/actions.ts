@@ -284,8 +284,23 @@ export const deleteStudent = authAction
   .metadata({ actionName: 'deleteStudent' })
   .inputSchema(DeleteStudentSchema)
   .action(async ({ ctx, parsedInput }) => {
-    await prisma.student.delete({
-      where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
+    const organizationId = ctx.session.organizationId!
+
+    await prisma.$transaction(async (tx) => {
+      // Убеждаемся, что ученик принадлежит организации, прежде чем удалять связанные записи
+      const student = await tx.student.findFirst({
+        where: { id: parsedInput.id, organizationId },
+        select: { id: true },
+      })
+      if (!student) throw new Error('Ученик не найден')
+
+      // Удаляем связи без каскада (Payment и StudentAccount имеют onDelete: Restrict).
+      // Остальные связи (кошельки, группы, посещения, заказы, история, корзина, родители)
+      // удаляются каскадно при удалении ученика.
+      await tx.payment.deleteMany({ where: { studentId: student.id, organizationId } })
+      await tx.studentAccount.deleteMany({ where: { studentId: student.id } })
+
+      await tx.student.delete({ where: { id: student.id } })
     })
   })
 

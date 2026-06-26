@@ -120,8 +120,8 @@ export const useStudentDeleteMutation = () => {
       queryClient.invalidateQueries({ queryKey: studentKeys.all })
       toast.success('Ученик успешно удалён')
     },
-    onError: () => {
-      toast.error('Ошибка при удалении ученика.')
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Ошибка при удалении ученика.')
     },
   })
 }

@@ -3,6 +3,7 @@
 import DataTable from '@/src/components/data-table'
 import { Input } from '@/src/components/ui/input'
 import { Skeleton } from '@/src/components/ui/skeleton'
+import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
 import { getFullName } from '@/src/lib/utils'
 import {
@@ -16,8 +17,10 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import Link from 'next/link'
+import { useMemo } from 'react'
 import { useStudentListQuery } from '../queries'
 import { StudentWithGroups } from '../types'
+import DeleteStudentDialog from './detail/delete-student-dialog'
 
 function getAggregateBalance(student: StudentWithGroups) {
   return student.wallets.reduce((sum, w) => sum + w.lessonsBalance, 0) + student.lessonsBalance
@@ -27,62 +30,80 @@ function formatActualizedDate(date: Date) {
   return date.toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' })
 }
 
-const columns: ColumnDef<StudentWithGroups>[] = [
-  {
-    header: 'Имя',
-    accessorFn: (value) => value.id,
-    cell: ({ row }) => (
-      <Link href={`/students/${row.original.id}`} className="text-primary hover:underline">
-        {getFullName(row.original.firstName, row.original.lastName)}
-      </Link>
-    ),
-  },
-  {
-    header: 'Возраст',
-    accessorKey: 'age',
-  },
-  {
-    header: 'Всего оплат',
-    accessorFn: (row) =>
-      row.wallets.reduce((sum, w) => sum + w.totalPayments, 0) + row.totalPayments,
-  },
-  {
-    header: 'Всего уроков',
-    accessorFn: (row) => row.wallets.reduce((sum, w) => sum + w.totalLessons, 0) + row.totalLessons,
-  },
-  {
-    header: 'Баланс уроков',
-    accessorFn: (row) => getAggregateBalance(row),
-    cell: ({ row }) => {
-      const balance = getAggregateBalance(row.original)
-      return <span className={balance < 2 ? 'text-destructive' : undefined}>{balance}</span>
-    },
-  },
-  {
-    header: 'Родитель',
-    accessorFn: (row) =>
-      row.parents
-        .map((sp) => [sp.parent.firstName, sp.parent.lastName].filter(Boolean).join(' '))
-        .join(', ') || '-',
-  },
-  {
-    header: 'Актуальность',
-    accessorFn: (row) => (row.dataActualizedAt ? formatActualizedDate(row.dataActualizedAt) : '-'),
-    cell: ({ row }) =>
-      row.original.dataActual ? (
-        <span>
-          {row.original.dataActualizedAt
-            ? formatActualizedDate(row.original.dataActualizedAt)
-            : 'Да'}
-        </span>
-      ) : (
-        <span className="text-muted-foreground">Не подтверждены</span>
-      ),
-  },
-]
-
 export default function StudentsTable() {
   const { data: students = [], isLoading, isError } = useStudentListQuery()
+  const { data: canDelete } = useOrganizationPermissionQuery({ student: ['delete'] })
+
+  const columns: ColumnDef<StudentWithGroups>[] = useMemo(() => {
+    const base: ColumnDef<StudentWithGroups>[] = [
+      {
+        header: 'Имя',
+        accessorFn: (value) => value.id,
+        cell: ({ row }) => (
+          <Link href={`/students/${row.original.id}`} className="text-primary hover:underline">
+            {getFullName(row.original.firstName, row.original.lastName)}
+          </Link>
+        ),
+      },
+      {
+        header: 'Возраст',
+        accessorKey: 'age',
+      },
+      {
+        header: 'Всего оплат',
+        accessorFn: (row) =>
+          row.wallets.reduce((sum, w) => sum + w.totalPayments, 0) + row.totalPayments,
+      },
+      {
+        header: 'Всего уроков',
+        accessorFn: (row) =>
+          row.wallets.reduce((sum, w) => sum + w.totalLessons, 0) + row.totalLessons,
+      },
+      {
+        header: 'Баланс уроков',
+        accessorFn: (row) => getAggregateBalance(row),
+        cell: ({ row }) => {
+          const balance = getAggregateBalance(row.original)
+          return <span className={balance < 2 ? 'text-destructive' : undefined}>{balance}</span>
+        },
+      },
+      {
+        header: 'Родитель',
+        accessorFn: (row) =>
+          row.parents
+            .map((sp) => [sp.parent.firstName, sp.parent.lastName].filter(Boolean).join(' '))
+            .join(', ') || '-',
+      },
+      {
+        header: 'Актуальность',
+        accessorFn: (row) =>
+          row.dataActualizedAt ? formatActualizedDate(row.dataActualizedAt) : '-',
+        cell: ({ row }) =>
+          row.original.dataActual ? (
+            <span>
+              {row.original.dataActualizedAt
+                ? formatActualizedDate(row.original.dataActualizedAt)
+                : 'Да'}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">Не подтверждены</span>
+          ),
+      },
+    ]
+
+    if (canDelete?.success) {
+      base.push({
+        id: 'actions',
+        cell: ({ row }) => (
+          <div className="flex justify-end">
+            <DeleteStudentDialog student={row.original} />
+          </div>
+        ),
+      })
+    }
+
+    return base
+  }, [canDelete?.success])
 
   const { globalFilter, setGlobalFilter, pagination, setPagination, sorting, setSorting } =
     useTableSearchParams({
