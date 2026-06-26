@@ -1,6 +1,7 @@
 'use client'
 
 import { CustomCombobox } from '@/src/components/custom-combobox'
+import { Hint } from '@/src/components/hint'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -38,9 +39,11 @@ import {
 } from '@/src/features/parents/schemas'
 import { ParentWithStudents } from '@/src/features/parents/types'
 import { studentKeys } from '@/src/features/students/queries'
+import { rootDomain, protocol } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import {
+  ExternalLink,
   Loader,
   Mail,
   Pen,
@@ -48,7 +51,6 @@ import {
   Plus,
   TriangleAlert,
   Unlink,
-  UserRound,
   Users,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -62,6 +64,7 @@ interface ParentData {
   lastName: string | null
   phone: string | null
   email: string | null
+  accessToken: string
 }
 
 interface ParentsSectionProps {
@@ -132,26 +135,28 @@ function ParentCard({
   onEdit: () => void
   onUnlink: () => void
 }) {
+  const parentEditUrl = rootDomain
+    ? `${protocol}://${rootDomain}/cabinet/${parent.accessToken}`
+    : `/cabinet/${parent.accessToken}`
   return (
     <div className="bg-muted/50 flex flex-col gap-2 rounded-lg p-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <UserRound className="text-muted-foreground size-4" />
           <span className="text-sm font-medium">{getParentFullName(parent)}</span>
         </div>
         {canEdit && (
           <div className="flex gap-1">
-            <Button variant="ghost" size="icon-xs" onClick={onEdit}>
-              <Pen className="size-3" />
+            <Button variant="ghost" size={'icon'} onClick={onEdit}>
+              <Pen />
             </Button>
-            <Button variant="ghost" size="icon-xs" onClick={onUnlink}>
-              <Unlink className="size-3" />
+            <Button variant="ghost" size={'icon'} onClick={onUnlink}>
+              <Unlink />
             </Button>
           </div>
         )}
       </div>
-      {parent.phone && (
-        <div className="flex flex-col gap-1.5 pl-6">
+      {parent.phone ? (
+        <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
             <Phone className="text-muted-foreground size-3" />
             <a href={`tel:${parent.phone}`} className="text-primary text-sm hover:underline">
@@ -163,15 +168,45 @@ function ParentCard({
             <TelegramBadge phone={parent.phone} />
           </div>
         </div>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <Phone className="text-muted-foreground size-3" />
+            <span className="text-muted-foreground text-sm">Номер не указан</span>
+          </div>
+        </div>
       )}
-      {parent.email && (
-        <div className="flex items-center gap-2 pl-6">
+      {parent.email ? (
+        <div className="flex items-center gap-2">
           <Mail className="text-muted-foreground size-3" />
           <a href={`mailto:${parent.email}`} className="text-primary text-sm hover:underline">
             {parent.email}
           </a>
         </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Mail className="text-muted-foreground size-3" />
+          <span className="text-muted-foreground text-sm">Email не указан</span>
+        </div>
       )}
+
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <ExternalLink className="text-muted-foreground size-3 shrink-0" />
+          <a
+            href={parentEditUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary text-sm hover:underline"
+          >
+            Ссылка на личный кабинет
+          </a>
+          <Hint
+            text="Персональная ссылка на личный кабинет, которую вы можете отправить родителю. По ней он
+          может просматривать данные ученика, его финансы и посещаемость."
+          />
+        </div>
+      </div>
     </div>
   )
 }

@@ -10,10 +10,11 @@ import {
   writeFinancialHistoryTx,
 } from '@/src/lib/lessons-balance'
 import { authAction } from '@/src/lib/safe-action'
+import { moscowNow } from '@/src/lib/timezone'
 import * as z from 'zod'
 import {
+  ArchiveWalletSchema,
   CreateWalletSchema,
-  DeleteWalletSchema,
   LinkGroupToWalletSchema,
   MergeWalletsSchema,
   RenameWalletSchema,
@@ -111,9 +112,13 @@ export const updateWalletBalance = authAction
           totalLessons: true,
           organizationId: true,
           studentId: true,
+          status: true,
         },
       })
       if (!wallet) throw new Error('Кошелёк не найден')
+      if (wallet.status === 'ARCHIVED') {
+        throw new Error('Архивный кошелёк нельзя редактировать')
+      }
 
       const updated = await tx.wallet.update({
         where: { id: walletId },
@@ -163,6 +168,7 @@ export const mergeWallets = authAction
             lessonsBalance: true,
             totalLessons: true,
             totalPayments: true,
+            status: true,
           },
         }),
         tx.wallet.findUnique({
@@ -174,6 +180,7 @@ export const mergeWallets = authAction
             lessonsBalance: true,
             totalLessons: true,
             totalPayments: true,
+            status: true,
           },
         }),
       ])
@@ -182,6 +189,9 @@ export const mergeWallets = authAction
       if (!target) throw new Error('Кошелёк-приёмник не найден')
       if (source.studentId !== target.studentId) {
         throw new Error('Кошельки должны принадлежать одному ученику')
+      }
+      if (source.status === 'ARCHIVED' || target.status === 'ARCHIVED') {
+        throw new Error('Архивный кошелёк нельзя объединять')
       }
 
       // Sum balances into target
@@ -266,6 +276,7 @@ export const transferWalletBalance = authAction
             lessonsBalance: true,
             totalLessons: true,
             totalPayments: true,
+            status: true,
           },
         }),
         tx.wallet.findUnique({
@@ -276,6 +287,7 @@ export const transferWalletBalance = authAction
             lessonsBalance: true,
             totalLessons: true,
             totalPayments: true,
+            status: true,
           },
         }),
       ])
@@ -284,6 +296,9 @@ export const transferWalletBalance = authAction
       if (!target) throw new Error('Кошелёк-приёмник не найден')
       if (source.studentId !== target.studentId) {
         throw new Error('Кошельки должны принадлежать одному ученику')
+      }
+      if (source.status === 'ARCHIVED' || target.status === 'ARCHIVED') {
+        throw new Error('Архивный кошелёк нельзя использовать для перевода')
       }
 
       if (lessonsBalance > source.lessonsBalance) {
@@ -377,9 +392,12 @@ export const renameWallet = authAction
   .action(async ({ ctx, parsedInput }) => {
     const wallet = await prisma.wallet.findUnique({
       where: { id: parsedInput.walletId, organizationId: ctx.session.organizationId! },
-      select: { id: true },
+      select: { id: true, status: true },
     })
     if (!wallet) throw new Error('Кошелёк не найден')
+    if (wallet.status === 'ARCHIVED') {
+      throw new Error('Архивный кошелёк нельзя переименовать')
+    }
 
     return await prisma.wallet.update({
       where: { id: parsedInput.walletId },
@@ -398,11 +416,14 @@ export const linkGroupToWallet = authAction
     // Validate wallet belongs to same student
     const wallet = await prisma.wallet.findUnique({
       where: { id: walletId },
-      select: { studentId: true, organizationId: true },
+      select: { studentId: true, organizationId: true, status: true },
     })
     if (!wallet) throw new Error('Кошелёк не найден')
     if (wallet.studentId !== studentId) {
       throw new Error('Кошелёк не принадлежит этому ученику')
+    }
+    if (wallet.status === 'ARCHIVED') {
+      throw new Error('К архивному кошельку нельзя привязать группу')
     }
 
     await prisma.studentGroup.update({
@@ -413,26 +434,24 @@ export const linkGroupToWallet = authAction
     })
   })
 
-// ─── DELETE ──────────────────────────────────────────────────────────────────
+// ─── ARCHIVE ─────────────────────────────────────────────────────────────────
 
-export const deleteWallet = authAction
-  .metadata({ actionName: 'deleteWallet' })
-  .inputSchema(DeleteWalletSchema)
+export const archiveWallet = authAction
+  .metadata({ actionName: 'archiveWallet' })
+  .inputSchema(ArchiveWalletSchema)
   .action(async ({ ctx, parsedInput }) => {
     const wallet = await prisma.wallet.findUnique({
       where: { id: parsedInput.walletId, organizationId: ctx.session.organizationId! },
-      include: {
-        studentGroups: {
-          where: { status: { in: ['ACTIVE', 'TRIAL'] } },
-          select: { groupId: true },
-        },
-      },
+      select: { id: true, status: true },
     })
 
     if (!wallet) throw new Error('Кошелёк не найден')
-    if (wallet.studentGroups.length > 0) {
-      throw new Error('Нельзя удалить кошелёк с активными группами')
+    if (wallet.status === 'ARCHIVED') {
+      throw new Error('Кошелёк уже в архиве')
     }
 
-    await prisma.wallet.delete({ where: { id: parsedInput.walletId } })
+    await prisma.wallet.update({
+      where: { id: parsedInput.walletId },
+      data: { status: 'ARCHIVED', archivedAt: moscowNow() },
+    })
   })

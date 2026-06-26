@@ -2,7 +2,6 @@
 
 import { StatCard } from '@/src/components/stat-card'
 import { Separator } from '@/src/components/ui/separator'
-import { protocol, rootDomain } from '@/src/lib/utils'
 import {
   Cake,
   CheckCircle2,
@@ -45,10 +44,6 @@ export default function StudentCard({ student }: StudentCardProps) {
       })
     : null
 
-  const parentEditUrl = rootDomain
-    ? `${protocol}://${rootDomain}/edit/${student.editToken}`
-    : `/edit/${student.editToken}`
-
   return (
     <>
       {/* Общие сведения */}
@@ -73,46 +68,32 @@ export default function StudentCard({ student }: StudentCardProps) {
         />
       </div>
 
-      <Separator />
+      {student.url && (
+        <>
+          <Separator />
 
-      {/* Ссылки и интеграции */}
-      <SectionHeader title="Ссылки и интеграции" icon={LinkIcon} />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          label="Ссылка для родителей"
-          value={
-            <a
-              href={parentEditUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary inline-flex items-center gap-1 hover:underline"
-            >
-              Открыть форму
-              <ExternalLink className="size-3" />
-            </a>
-          }
-          description="Отправьте эту ссылку родителю"
-          icon={LinkIcon}
-        />
-        {student.url && (
-          <StatCard
-            label="Ссылка в CRM"
-            value={
-              <a
-                href={student.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary inline-flex items-center gap-1 hover:underline"
-              >
-                Открыть
-                <ExternalLink className="size-3" />
-              </a>
-            }
-            icon={ExternalLink}
-          />
-        )}
-      </div>
-      <Separator />
+          {/* Ссылки и интеграции */}
+          <SectionHeader title="Ссылки и интеграции" icon={LinkIcon} />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard
+              label="Ссылка в CRM"
+              value={
+                <a
+                  href={student.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary inline-flex items-center gap-1 hover:underline"
+                >
+                  Открыть
+                  <ExternalLink className="size-3" />
+                </a>
+              }
+              icon={ExternalLink}
+            />
+          </div>
+          <Separator />
+        </>
+      )}
     </>
   )
 }

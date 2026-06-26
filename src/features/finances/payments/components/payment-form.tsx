@@ -45,13 +45,15 @@ export default function PaymentForm<T extends FieldValues>({
     if (!selectedStudent) return []
     const student = students.find((s) => s.id === selectedStudent)
     if (!student) return []
-    return student.wallets.map((w) => {
-      const groupNames = w.studentGroups.map((sg) => getGroupName(sg.group)).join(', ')
-      const label = w.name
-        ? `${w.name} (${groupNames || 'без групп'})`
-        : groupNames || `Кошелёк #${w.id}`
-      return { label, value: w.id }
-    })
+    return student.wallets
+      .filter((w) => w.status === 'ACTIVE')
+      .map((w) => {
+        const groupNames = w.studentGroups.map((sg) => getGroupName(sg.group)).join(', ')
+        const label = w.name
+          ? `${w.name} (${groupNames || 'без групп'})`
+          : groupNames || `Кошелёк #${w.id}`
+        return { label, value: w.id }
+      })
   }, [selectedStudent, students])
 
   interface PaymentMethodOption {

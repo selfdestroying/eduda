@@ -71,9 +71,11 @@ export default function AddStudentToGroupButton({
 
   const selectedTarget = form.watch('target')
   const selectedStudentId = selectedTarget?.value
-  const { data: wallets } = useStudentWalletsQuery(selectedStudentId ?? -1, {
+  const { data: walletsData } = useStudentWalletsQuery(selectedStudentId ?? -1, {
     enabled: !!selectedStudentId,
   })
+  // Archived wallets cannot receive new group links
+  const wallets = useMemo(() => walletsData?.filter((w) => w.status === 'ACTIVE'), [walletsData])
 
   useEffect(() => {
     if (wallets?.length === 1) {

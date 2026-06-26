@@ -8,6 +8,7 @@ import { useOrganizationPermissionQuery } from '@/src/features/organization/quer
 import WalletsSection from '@/src/features/wallets/components/wallets-section'
 import { getFullName } from '@/src/lib/utils'
 import { useStudentDetailQuery } from '../../queries'
+import DeleteStudentDialog from './delete-student-dialog'
 import EditStudentDialog from './edit-student-dialog'
 import GroupHistory from './group-history'
 import LessonsBalanceHistory from './lessons-balance-history'
@@ -23,6 +24,7 @@ export default function StudentDetailPage({ studentId }: { studentId: number }) 
   const { data: student, isLoading, isError } = useStudentDetailQuery(studentId)
 
   const { data: canEdit } = useOrganizationPermissionQuery({ student: ['update'] })
+  const { data: canDelete } = useOrganizationPermissionQuery({ student: ['delete'] })
   const { data: canEditLessonsHistory } = useOrganizationPermissionQuery({
     lessonStudentHistory: ['update'],
   })
@@ -67,9 +69,12 @@ export default function StudentDetailPage({ studentId }: { studentId: number }) 
               {getFullName(student.firstName, student.lastName)}
             </div>
           </CardTitle>
-          {canEdit?.success && (
-            <CardAction>
-              <EditStudentDialog student={student} />
+          {(canEdit?.success || canDelete?.success) && (
+            <CardAction className="flex items-center gap-2">
+              {canEdit?.success && <EditStudentDialog student={student} />}
+              {canDelete?.success && (
+                <DeleteStudentDialog student={student} redirectTo="/students" />
+              )}
             </CardAction>
           )}
         </CardHeader>

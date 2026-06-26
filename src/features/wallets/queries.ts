@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
+  archiveWallet,
   createWallet,
-  deleteWallet,
   getStudentWallets,
   linkGroupToWallet,
   mergeWallets,
@@ -10,8 +10,8 @@ import {
   updateWalletBalance,
 } from './actions'
 import type {
+  ArchiveWalletSchemaType,
   CreateWalletSchemaType,
-  DeleteWalletSchemaType,
   LinkGroupToWalletSchemaType,
   MergeWalletsSchemaType,
   TransferWalletBalanceSchemaType,
@@ -115,18 +115,18 @@ export const useLinkGroupToWalletMutation = (studentId: number) => {
   })
 }
 
-export const useDeleteWalletMutation = (studentId: number) => {
+export const useArchiveWalletMutation = (studentId: number) => {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (values: DeleteWalletSchemaType) => {
-      const { data, serverError } = await deleteWallet(values)
+    mutationFn: async (values: ArchiveWalletSchemaType) => {
+      const { data, serverError } = await archiveWallet(values)
       if (serverError) throw serverError
       return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: walletKeys.byStudent(studentId) })
-      toast.success('Кошелёк удалён')
+      toast.success('Кошелёк архивирован')
     },
-    onError: () => toast.error('Не удалось удалить кошелёк'),
+    onError: () => toast.error('Не удалось архивировать кошелёк'),
   })
 }
