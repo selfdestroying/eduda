@@ -51,7 +51,9 @@ export async function proxy(request: NextRequest) {
   const subdomain = extractSubdomain(request)
   const { pathname, search } = request.nextUrl
 
-  if (pathname.startsWith('/edit/')) {
+  // Личный кабинет родителя по ключу-ссылке + старый адрес /edit (redirect)
+  // — публичные, без поддомена/сессии, обходят проверки proxy.
+  if (pathname.startsWith('/cabinet/') || pathname.startsWith('/edit/')) {
     return NextResponse.next()
   }
 
