@@ -16,6 +16,11 @@ enum GroupStatus {
     COMPLETED
 }
 
+enum WalletStatus {
+    ACTIVE
+    ARCHIVED
+}
+
 
 enum LessonStatus {
     ACTIVE
