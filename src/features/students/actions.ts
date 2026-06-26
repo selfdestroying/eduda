@@ -498,10 +498,14 @@ export const redistributeBalance = authAction
             totalLessons: true,
             totalPayments: true,
             studentId: true,
+            status: true,
           },
         })
         if (!wallet) throw new Error(`Кошелёк ${alloc.walletId} не найден`)
         if (wallet.studentId !== studentId) throw new Error('Кошелёк не принадлежит этому ученику')
+        if (wallet.status === 'ARCHIVED') {
+          throw new Error('Нельзя распределить баланс на архивный кошелёк')
+        }
 
         const updateData: Prisma.WalletUpdateInput = {}
         const decrementStudent: Prisma.StudentUpdateInput = {}

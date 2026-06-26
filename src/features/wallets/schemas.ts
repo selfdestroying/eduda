@@ -35,7 +35,7 @@ export const RenameWalletSchema = z.object({
   name: z.string().optional(),
 })
 
-export const DeleteWalletSchema = z.object({
+export const ArchiveWalletSchema = z.object({
   walletId: z.number().int().positive(),
 })
 
@@ -45,4 +45,4 @@ export type MergeWalletsSchemaType = z.infer<typeof MergeWalletsSchema>
 export type TransferWalletBalanceSchemaType = z.infer<typeof TransferWalletBalanceSchema>
 export type LinkGroupToWalletSchemaType = z.infer<typeof LinkGroupToWalletSchema>
 export type RenameWalletSchemaType = z.infer<typeof RenameWalletSchema>
-export type DeleteWalletSchemaType = z.infer<typeof DeleteWalletSchema>
+export type ArchiveWalletSchemaType = z.infer<typeof ArchiveWalletSchema>

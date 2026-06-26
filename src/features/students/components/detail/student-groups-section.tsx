@@ -143,7 +143,7 @@ export default function StudentGroupsSection({
           <AddGroupToStudentButton
             groups={availableGroups}
             student={student}
-            wallets={student.wallets}
+            wallets={student.wallets.filter((w) => w.status === 'ACTIVE')}
           />
         )}
       </div>

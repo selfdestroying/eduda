@@ -1,7 +1,21 @@
+import type { StudentStatus } from '@/prisma/generated/enums'
 import { getGroupName } from '@/src/lib/utils'
-import type { WalletWithGroups } from './types'
 
 export type BalanceVariant = 'success' | 'warning' | 'danger'
+
+/**
+ * Минимальная форма кошелька, достаточная для построения подписи.
+ * Подходит и для админки (`WalletWithGroups`), и для урезанной выборки
+ * родительского кабинета.
+ */
+export type WalletLabelInput = {
+  id: number
+  name: string | null
+  studentGroups: Array<{
+    status: StudentStatus
+    group: { course: { name: string }; schedules: Array<{ dayOfWeek: number; time: string }> }
+  }>
+}
 
 export function getBalanceVariant(balance: number): BalanceVariant {
   if (balance < 2) return 'danger'
@@ -31,7 +45,7 @@ export function getBadgeVariant(variant: BalanceVariant) {
   }
 }
 
-export function getWalletLabel(w: WalletWithGroups) {
+export function getWalletLabel(w: WalletLabelInput) {
   const activeGroups = w.studentGroups.filter(
     (sg) => sg.status === 'ACTIVE' || sg.status === 'TRIAL' || sg.status === 'COMPLETED',
   )

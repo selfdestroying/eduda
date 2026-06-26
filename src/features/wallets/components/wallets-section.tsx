@@ -23,7 +23,6 @@ import {
 import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
 import { Label } from '@/src/components/ui/label'
-import { Progress } from '@/src/components/ui/progress'
 import {
   Sheet,
   SheetClose,
@@ -38,19 +37,24 @@ import {
   computeGroupStats,
   type StudentGroupWithStats,
 } from '@/src/features/students/components/detail/student-groups-section'
+import { studentKeys } from '@/src/features/students/queries'
 import type { StudentDetail } from '@/src/features/students/types'
 import {
+  archiveWallet,
   createWallet,
-  deleteWallet,
   linkGroupToWallet,
   mergeWallets,
   renameWallet,
   transferWalletBalance,
   updateWalletBalance,
 } from '@/src/features/wallets/actions'
-import { getBadgeVariant, getBalanceVariant, getWalletLabel } from '@/src/features/wallets/utils'
+import { walletKeys } from '@/src/features/wallets/queries'
+import { WalletCard } from '@/src/features/wallets/components/wallet-card'
+import { getWalletLabel } from '@/src/features/wallets/utils'
 import { cn, getGroupName } from '@/src/lib/utils'
+import { useQueryClient } from '@tanstack/react-query'
 import {
+  Archive,
   ArrowDown,
   ArrowLeftRight,
   CheckCircle2,
@@ -61,7 +65,6 @@ import {
   Pen,
   Plus,
   RefreshCw,
-  Trash2,
   TrendingDown,
   TriangleAlert,
   Wallet,
@@ -79,6 +82,12 @@ interface WalletsSectionProps {
 export default function WalletsSection({ student }: WalletsSectionProps) {
   const [isPending, startTransition] = useTransition()
   const [activeSheet, setActiveSheet] = useState<SheetType>(null)
+  const queryClient = useQueryClient()
+
+  const invalidateStudent = () => {
+    queryClient.invalidateQueries({ queryKey: studentKeys.detail(student.id) })
+    queryClient.invalidateQueries({ queryKey: walletKeys.byStudent(student.id) })
+  }
 
   // Create wallet state
   const [newWalletName, setNewWalletName] = useState('')
@@ -105,9 +114,9 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
   const [editTotalPayments, setEditTotalPayments] = useState(0)
   const [editTotalLessons, setEditTotalLessons] = useState(0)
 
-  // Delete confirmation state
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [deleteWalletId, setDeleteWalletId] = useState<number | null>(null)
+  // Archive confirmation state
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
+  const [archiveWalletId, setArchiveWalletId] = useState<number | null>(null)
 
   // Reassign state
   const [reassignGroupId, setReassignGroupId] = useState<number | null>(null)
@@ -119,6 +128,9 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
       (sg.status === 'ACTIVE' || sg.status === 'TRIAL' || sg.status === 'COMPLETED') &&
       !student.wallets.some((w) => w.studentGroups.some((wsg) => wsg.groupId === sg.groupId)),
   )
+
+  // Archived wallets are read-only and excluded from all selectors/operations
+  const activeWallets = student.wallets.filter((w) => w.status === 'ACTIVE')
 
   const walletLabelById = (id: string) =>
     getWalletLabel(student.wallets.find((w) => w.id.toString() === id)!)
@@ -145,6 +157,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
           studentId: student.id,
           name: newWalletName || undefined,
         })
+        invalidateStudent()
         toast.success('Кошелёк создан')
         setActiveSheet(null)
         setNewWalletName('')
@@ -162,6 +175,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
           sourceWalletId: Number(mergeSource),
           targetWalletId: Number(mergeTarget),
         })
+        invalidateStudent()
         toast.success('Кошельки объединены')
         setActiveSheet(null)
         setMergeSource('')
@@ -183,6 +197,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
           totalLessons: transferTotalLessons,
           totalPayments: transferTotalPayments,
         })
+        invalidateStudent()
         toast.success('Баланс переведён')
         setActiveSheet(null)
         setTransferSource('')
@@ -205,6 +220,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
           groupId: Number(linkGroupId),
           walletId: Number(linkWalletId),
         })
+        invalidateStudent()
         toast.success('Группа привязана к кошельку')
         setActiveSheet(null)
         setLinkWalletId('')
@@ -278,6 +294,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
           )
         }
         await Promise.all(promises)
+        invalidateStudent()
         toast.success('Кошелёк обновлён')
         setActiveSheet(null)
       } catch (e) {
@@ -286,9 +303,9 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
     })
   }
 
-  const confirmDelete = (walletId: number) => {
-    setDeleteWalletId(walletId)
-    setDeleteDialogOpen(true)
+  const confirmArchive = (walletId: number) => {
+    setArchiveWalletId(walletId)
+    setArchiveDialogOpen(true)
   }
 
   const openReassignSheet = (groupId: number, currentWalletId: number) => {
@@ -307,6 +324,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
           groupId: reassignGroupId,
           walletId: Number(reassignToWalletId),
         })
+        invalidateStudent()
         toast.success('Группа перепривязана к другому кошельку')
         setActiveSheet(null)
         setReassignGroupId(null)
@@ -318,16 +336,17 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
     })
   }
 
-  const handleDelete = () => {
-    if (deleteWalletId === null) return
+  const handleArchive = () => {
+    if (archiveWalletId === null) return
     startTransition(async () => {
       try {
-        await deleteWallet({ walletId: deleteWalletId })
-        toast.success('Кошелёк удалён')
-        setDeleteDialogOpen(false)
-        setDeleteWalletId(null)
+        await archiveWallet({ walletId: archiveWalletId })
+        invalidateStudent()
+        toast.success('Кошелёк архивирован')
+        setArchiveDialogOpen(false)
+        setArchiveWalletId(null)
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Не удалось удалить кошелёк')
+        toast.error(e instanceof Error ? e.message : 'Не удалось архивировать кошелёк')
       }
     })
   }
@@ -345,7 +364,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
           <Button size={'icon'} variant="outline" onClick={() => setActiveSheet('create')}>
             <Plus />
           </Button>
-          {student.wallets.length >= 2 && (
+          {activeWallets.length >= 2 && (
             <>
               <Button size={'icon'} variant="outline" onClick={() => setActiveSheet('merge')}>
                 <Merge />
@@ -385,21 +404,17 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {student.wallets.map((w) => {
-            const variant = getBalanceVariant(w.lessonsBalance)
-            const progressValue =
-              w.totalLessons > 0
-                ? (w.lessonsBalance / w.totalLessons) * 100
-                : w.lessonsBalance > 0
-                  ? 100
-                  : 0
+            // Archived wallets are read-only: minimal card, no actions
+            if (w.status === 'ARCHIVED') {
+              return <WalletCard key={w.id} wallet={w} />
+            }
 
             return (
-              <div key={w.id} className="bg-muted/50 space-y-2.5 rounded-lg p-3">
-                {/* Header: name + badge + actions */}
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-xs leading-tight font-medium">{getWalletLabel(w)}</span>
-                  <div className="flex items-center gap-1">
-                    <Badge variant={getBadgeVariant(variant)}>{w.lessonsBalance} ур.</Badge>
+              <WalletCard
+                key={w.id}
+                wallet={w}
+                actions={
+                  <>
                     <Button
                       size="icon"
                       variant="ghost"
@@ -421,36 +436,19 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                         <Link2 className="size-3" />
                       </Button>
                     )}
-                    {w.studentGroups.length === 0 && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="size-6"
-                        onClick={() => confirmDelete(w.id)}
-                        disabled={isPending}
-                      >
-                        <Trash2 className="text-destructive size-3" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Progress bar */}
-                <Progress value={progressValue} variant={variant} />
-
-                {/* Metrics row */}
-                <div className="flex items-center justify-between text-[0.6875rem]">
-                  <span className="text-muted-foreground">
-                    Оплаты:{' '}
-                    <span className="text-foreground font-medium">
-                      {w.totalPayments.toLocaleString('ru-RU')} ₽
-                    </span>
-                  </span>
-                  <span className="text-muted-foreground">
-                    Уроки: <span className="text-foreground font-medium">{w.totalLessons}</span>
-                  </span>
-                </div>
-
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-6"
+                      onClick={() => confirmArchive(w.id)}
+                      disabled={isPending}
+                      title="Архивировать кошелёк"
+                    >
+                      <Archive className="size-3" />
+                    </Button>
+                  </>
+                }
+              >
                 {/* Linked groups */}
                 {w.studentGroups.length > 0 && (
                   <div className="text-muted-foreground space-y-0.5 text-[0.625rem]">
@@ -486,7 +484,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                               </Badge>
                             )}
                           </div>
-                          {!isInactive && student.wallets.length >= 2 && (
+                          {!isInactive && activeWallets.length >= 2 && (
                             <Button
                               size="icon"
                               variant="ghost"
@@ -503,31 +501,45 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                     })}
                   </div>
                 )}
-              </div>
+              </WalletCard>
             )
           })}
         </div>
       )}
 
-      {/* Delete confirmation dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      {/* Archive confirmation dialog */}
+      <AlertDialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogMedia>
               <TriangleAlert />
             </AlertDialogMedia>
-            <AlertDialogTitle>Удалить кошелёк?</AlertDialogTitle>
+            <AlertDialogTitle>Архивировать кошелёк?</AlertDialogTitle>
             <AlertDialogDescription>
-              Кошелёк будет удалён без возможности восстановления.
+              Архивный кошелёк доступен только для просмотра: его нельзя будет редактировать,
+              переименовывать, привязывать к группам или использовать в переводах. Вернуть из архива
+              нельзя.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {(() => {
+            const target = student.wallets.find((w) => w.id === archiveWalletId)
+            const hasActiveGroups = target?.studentGroups.some(
+              (sg) => sg.status === 'ACTIVE' || sg.status === 'TRIAL',
+            )
+            return hasActiveGroups ? (
+              <p className="text-destructive px-4 text-sm">
+                К кошельку привязаны активные группы — оплаты по ним больше нельзя будет зачислять
+                на этот кошелёк.
+              </p>
+            ) : null
+          })()}
           <AlertDialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setArchiveDialogOpen(false)}>
               Отмена
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
+            <Button onClick={handleArchive} disabled={isPending}>
               {isPending && <Loader className="animate-spin" />}
-              Удалить
+              Архивировать
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -577,7 +589,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                 <Field>
                   <FieldLabel>Исходный кошелёк (будет удалён)</FieldLabel>
                   <CustomCombobox
-                    items={student.wallets.map((w) => ({
+                    items={activeWallets.map((w) => ({
                       label: getWalletLabel(w),
                       value: w.id.toString(),
                     }))}
@@ -593,7 +605,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                 <Field>
                   <FieldLabel>Целевой кошелёк</FieldLabel>
                   <CustomCombobox
-                    items={student.wallets
+                    items={activeWallets
                       .filter((w) => w.id.toString() !== mergeSource)
                       .map((w) => ({ label: getWalletLabel(w), value: w.id.toString() }))}
                     value={
@@ -660,7 +672,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                     <Input disabled value={walletLabelById(linkWalletId)} />
                   ) : (
                     <CustomCombobox
-                      items={student.wallets.map((w) => ({
+                      items={activeWallets.map((w) => ({
                         label: getWalletLabel(w),
                         value: w.id.toString(),
                       }))}
@@ -791,7 +803,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                   <Field>
                     <FieldLabel>Новый кошелёк</FieldLabel>
                     <CustomCombobox
-                      items={student.wallets
+                      items={activeWallets
                         .filter((w) => w.id !== reassignFromWalletId)
                         .map((w) => ({ label: getWalletLabel(w), value: w.id.toString() }))}
                       value={
@@ -973,10 +985,12 @@ function TransferSheet({
           <Field>
             <FieldLabel>Из кошелька</FieldLabel>
             <CustomCombobox
-              items={student.wallets.map((w) => ({
-                label: getWalletLabel(w),
-                value: w.id.toString(),
-              }))}
+              items={student.wallets
+                .filter((w) => w.status === 'ACTIVE')
+                .map((w) => ({
+                  label: getWalletLabel(w),
+                  value: w.id.toString(),
+                }))}
               value={
                 transferSource
                   ? {
@@ -1022,7 +1036,7 @@ function TransferSheet({
             <FieldLabel>В кошелёк</FieldLabel>
             <CustomCombobox
               items={student.wallets
-                .filter((w) => w.id.toString() !== transferSource)
+                .filter((w) => w.status === 'ACTIVE' && w.id.toString() !== transferSource)
                 .map((w) => ({ label: getWalletLabel(w), value: w.id.toString() }))}
               value={
                 transferTarget
@@ -1181,6 +1195,10 @@ type WalletAllocation = {
 
 function RedistributeInline({ student }: { student: StudentDetail }) {
   const [isPending, startTransition] = useTransition()
+  const queryClient = useQueryClient()
+
+  // Archived wallets are read-only and cannot receive redistributed balance
+  const activeWallets = student.wallets.filter((w) => w.status === 'ACTIVE')
 
   const unallocatedLessons = student.lessonsBalance
   const unallocatedTotalLessons = student.totalLessons
@@ -1191,7 +1209,7 @@ function RedistributeInline({ student }: { student: StudentDetail }) {
 
   const [allocations, setAllocations] = useState<Record<number, WalletAllocation>>(() => {
     const initial: Record<number, WalletAllocation> = {}
-    for (const w of student.wallets) {
+    for (const w of activeWallets) {
       initial[w.id] = { lessons: 0, totalLessons: 0, totalPayments: 0 }
     }
     return initial
@@ -1245,6 +1263,8 @@ function RedistributeInline({ student }: { student: StudentDetail }) {
           studentId: student.id,
           allocations: entries,
         })
+        queryClient.invalidateQueries({ queryKey: studentKeys.detail(student.id) })
+        queryClient.invalidateQueries({ queryKey: walletKeys.byStudent(student.id) })
         toast.success('Баланс успешно перераспределён!')
         setAllocations((prev) => {
           const reset: Record<number, WalletAllocation> = {}
@@ -1259,7 +1279,7 @@ function RedistributeInline({ student }: { student: StudentDetail }) {
     })
   }
 
-  if (!hasAnythingToRedistribute || student.wallets.length === 0) {
+  if (!hasAnythingToRedistribute || activeWallets.length === 0) {
     return null
   }
 
@@ -1296,7 +1316,7 @@ function RedistributeInline({ student }: { student: StudentDetail }) {
 
           {/* Per-wallet inputs */}
           <div className="space-y-3">
-            {student.wallets.map((w) => {
+            {activeWallets.map((w) => {
               const alloc = allocations[w.id]
               return (
                 <div key={w.id} className="space-y-1.5">
