@@ -1,0 +1,92 @@
+name: Docs staleness check
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: docs-staleness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs-check:
+    name: Docs reminder
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect feature changes without doc updates
+        id: detect
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD)
+
+          # Code paths whose changes usually require a user-doc update
+          FEATURE_CHANGED=$(echo "$CHANGED" | grep -E \
+            '^(src/features/|src/lib/features/registry\.ts|src/lib/features/route-feature-map\.ts|src/lib/permissions/)' || true)
+          DOCS_CHANGED=$(echo "$CHANGED" | grep -E '^content/docs/' || true)
+
+          if [ -n "$FEATURE_CHANGED" ] && [ -z "$DOCS_CHANGED" ]; then
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "files<<EOF"
+              echo "$FEATURE_CHANGED"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment on PR
+        if: steps.detect.outputs.stale == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- docs-staleness-bot -->';
+            const files = `${{ steps.detect.outputs.files }}`.trim();
+            const body = [
+              marker,
+              '### 📝 Docs reminder',
+              '',
+              'This PR changes feature / permission / flag code but does not touch `content/docs/`.',
+              'If this affects user-facing behavior, please update the documentation.',
+              '',
+              '<details><summary>Changed files that triggered this</summary>',
+              '',
+              '```',
+              files,
+              '```',
+              '</details>',
+              '',
+              '_Non-blocking reminder. Ignore if no docs change is needed._',
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
