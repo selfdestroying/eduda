@@ -2,6 +2,7 @@ model Group {
     id             Int       @id @default(autoincrement())
     startDate      DateTime  @db.Date
     maxStudents    Int
+    duration       Int       @default(60)
     url            String?
     status     GroupStatus   @default(ACTIVE)
     statusChangedAt     DateTime? @db.Date
