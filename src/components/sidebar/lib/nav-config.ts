@@ -1,6 +1,7 @@
 import type { OrganizationRole } from '@/src/lib/auth/server'
 import {
   BarChart3,
+  CalendarDays,
   Folder,
   LayoutDashboard,
   ShoppingCart,
@@ -31,6 +32,15 @@ export const navEntries: NavEntry[] = [
     title: 'Панель управления',
     url: '/',
     icon: LayoutDashboard,
+    roles: ALL_ROLES,
+  },
+
+  // ─── Календарь ────────────────────────────────────────────────────────
+  {
+    kind: 'leaf',
+    title: 'Календарь',
+    url: '/calendar',
+    icon: CalendarDays,
     roles: ALL_ROLES,
   },
 
