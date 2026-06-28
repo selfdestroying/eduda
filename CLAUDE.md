@@ -24,6 +24,12 @@ npx prisma migrate dev # create + apply a migration (schema lives in prisma/sche
 
 There is **no test suite**. Verification = `npm run check` + running the app. `prisma.config.ts` references a `prisma/seed.ts` that does not exist.
 
+## Git / commits
+
+- Run `npm run check` before committing.
+- **Do NOT add `Co-Authored-By` trailers** (or any AI/tool attribution) to commit messages.
+- Follow Conventional Commits (`feat(...)`, `fix(...)`, `style(...)`, `ci:`, …) — match the existing history.
+
 ## Path aliases
 
 `@/*` maps to the **repo root** (not `src/`). So imports are `@/src/lib/...`, `@/prisma/generated/client`, etc. The Prisma client is imported from `@/prisma/generated/client`.
