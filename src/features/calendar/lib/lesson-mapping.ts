@@ -1,5 +1,5 @@
-import type { CalendarCategory, CalendarEvent, CalendarLessonDTO } from '../types'
-import { colorForCourse } from './constants'
+import type { CalendarCategory, CalendarEvent, CalendarLessonDTO, FilterDimension } from '../types'
+import { colorForCourse, colorForId } from './constants'
 
 /** `"14:30"` → минуты от полуночи. */
 function parseTime(time: string): number {
@@ -21,18 +21,36 @@ export function mapLessonsToEvents(lessons: CalendarLessonDTO[]): CalendarEvent[
       end: Math.min(1440, start + l.duration),
       courseId: l.courseId,
       color: colorForCourse(l.courseId),
+      locationId: l.locationId,
+      teachers: l.teachers,
       cancelled: l.cancelled,
     }
   })
 }
 
-/** Уникальные курсы из загруженных событий — «календари» для боковой панели. */
-export function deriveCategories(events: CalendarEvent[]): CalendarCategory[] {
+/** Извлекает категории `(id, name, color)`, к которым относится событие в данном измерении. */
+function categoryKeys(e: CalendarEvent, dim: FilterDimension): CalendarCategory[] {
+  if (dim === 'course') return [{ id: e.courseId, name: e.title, color: e.color, count: 0 }]
+  if (dim === 'location')
+    return [{ id: e.locationId, name: e.location, color: colorForId(e.locationId), count: 0 }]
+  return e.teachers.map((t) => ({ id: t.id, name: t.name, color: colorForId(t.id), count: 0 }))
+}
+
+/**
+ * Уникальные категории из загруженных событий для указанного измерения — «календари»
+ * боковой панели. `count` — число уроков, относящихся к категории.
+ */
+export function deriveCategories(
+  events: CalendarEvent[],
+  dim: FilterDimension,
+): CalendarCategory[] {
   const map = new Map<number, CalendarCategory>()
   for (const e of events) {
-    const existing = map.get(e.courseId)
-    if (existing) existing.count++
-    else map.set(e.courseId, { id: e.courseId, name: e.title, color: e.color, count: 1 })
+    for (const key of categoryKeys(e, dim)) {
+      const existing = map.get(key.id)
+      if (existing) existing.count++
+      else map.set(key.id, { ...key, count: 1 })
+    }
   }
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'))
 }

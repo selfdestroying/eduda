@@ -15,9 +15,11 @@ export const COURSE_PALETTE = [
   '#4f46e5', // indigo-600
 ]
 
-/** Стабильный цвет курса по его id. */
-export const colorForCourse = (courseId: number) =>
-  COURSE_PALETTE[Math.abs(courseId) % COURSE_PALETTE.length]!
+/** Стабильный цвет по числовому id (детерминирован, для свотчей фильтров). */
+export const colorForId = (id: number) => COURSE_PALETTE[Math.abs(id) % COURSE_PALETTE.length]!
+
+/** Стабильный цвет курса по его id (цвет события на календаре). */
+export const colorForCourse = colorForId
 
 /** Цвет линии «сейчас» и акцента «сегодня» на мобильных (red-500). */
 export const NOW_COLOR = '#ef4444'

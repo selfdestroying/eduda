@@ -4,6 +4,15 @@ export type CalendarView = 'day' | 'week' | 'month' | 'year' | 'list'
 /** День недели, с которого начинается неделя. */
 export type WeekStart = 'Sunday' | 'Monday'
 
+/** Измерение фильтрации боковой панели. */
+export type FilterDimension = 'course' | 'location' | 'teacher'
+
+/** Преподаватель урока (id + имя). */
+export interface CalendarTeacher {
+  id: number
+  name: string
+}
+
 /** Облегчённый DTO урока, возвращаемый server action для календаря. */
 export interface CalendarLessonDTO {
   id: number
@@ -18,6 +27,9 @@ export interface CalendarLessonDTO {
   /** Локация (для подзаголовка). */
   location: string
   courseId: number
+  locationId: number
+  /** Преподаватели группы урока (может быть пусто). */
+  teachers: CalendarTeacher[]
   cancelled: boolean
 }
 
@@ -37,10 +49,14 @@ export interface CalendarEvent {
   /** Курс — используется как «календарь» (категория) для фильтра и цвета. */
   courseId: number
   color: string
+  /** Локация урока — измерение фильтра. */
+  locationId: number
+  /** Преподаватели урока — измерение фильтра (много значений). */
+  teachers: CalendarTeacher[]
   cancelled: boolean
 }
 
-/** Курс как «календарь» в боковой панели (фильтр по цвету). */
+/** Категория-«календарь» в боковой панели (фильтр по цвету). */
 export interface CalendarCategory {
   id: number
   name: string

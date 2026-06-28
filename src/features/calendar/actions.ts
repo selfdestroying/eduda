@@ -34,7 +34,13 @@ export const getCalendarLessons = authAction
         date: { gte: from, lte: to },
       },
       include: {
-        group: { include: { course: true, location: true } },
+        group: {
+          include: {
+            course: true,
+            location: true,
+            teachers: { include: { teacher: { select: { id: true, name: true } } } },
+          },
+        },
       },
       orderBy: { time: 'asc' },
     })
@@ -47,6 +53,8 @@ export const getCalendarLessons = authAction
       title: l.group.course.name,
       location: l.group.location.name,
       courseId: l.group.courseId,
+      locationId: l.group.locationId,
+      teachers: l.group.teachers.map((t) => ({ id: t.teacher.id, name: t.teacher.name })),
       cancelled: l.status === 'CANCELLED',
     }))
   })
