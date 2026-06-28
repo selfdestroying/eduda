@@ -17,7 +17,6 @@ function Chip({ ev, onClick }: { ev: CalendarEvent; onClick: () => void }) {
       style={{ background: hexA(ev.color, 0.1) }}
       title={ev.title}
     >
-      <span className="size-[5px] flex-none rounded-full" style={{ background: ev.color }} />
       <span className="text-muted-foreground flex-none text-[10.5px] tabular-nums">
         {fmtTime(ev.start)}
       </span>
@@ -67,7 +66,7 @@ export function MonthView({ ctrl }: { ctrl: CalendarController }) {
               <div className="mb-0.5 flex justify-end">
                 <span
                   className={cn(
-                    'flex h-[22px] min-w-[22px] items-center justify-center rounded-full px-[5px] text-[12.5px] tabular-nums',
+                    'flex h-5.5 min-w-5.5 items-center justify-center rounded-full px-1.25 text-[12.5px] tabular-nums',
                     isToday
                       ? 'bg-primary text-primary-foreground font-semibold'
                       : inMonth

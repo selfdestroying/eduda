@@ -77,7 +77,7 @@ function MobileTimeline({ ctrl }: { ctrl: CalendarController }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <div
         ref={(el) => {
-          if (el && ctrl.consumeScroll()) el.scrollTop = 7 * HM
+          if (el && ctrl.consumeScroll()) el.scrollTop = 9 * HM
         }}
         className="min-h-0 flex-1 overflow-auto"
       >

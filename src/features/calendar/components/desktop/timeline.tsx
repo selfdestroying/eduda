@@ -114,7 +114,7 @@ export function Timeline({ ctrl, days }: { ctrl: CalendarController; days: Date[
       {/* Прокручиваемое тело */}
       <div
         ref={(el) => {
-          if (el && ctrl.consumeScroll()) el.scrollTop = 7 * HOUR_H
+          if (el && ctrl.consumeScroll()) el.scrollTop = 9 * HOUR_H
         }}
         className="no-scrollbar min-h-0 flex-1 overflow-auto"
       >

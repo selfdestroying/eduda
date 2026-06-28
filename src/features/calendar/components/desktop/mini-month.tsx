@@ -24,7 +24,7 @@ export function MiniMonth({ ctrl }: { ctrl: CalendarController }) {
         <div className="flex gap-0.5">
           <Button
             variant="ghost"
-            size="icon-xs"
+            size="icon"
             onClick={() => ctrl.shiftMiniMonth(-1)}
             aria-label="Предыдущий месяц"
           >
@@ -32,7 +32,7 @@ export function MiniMonth({ ctrl }: { ctrl: CalendarController }) {
           </Button>
           <Button
             variant="ghost"
-            size="icon-xs"
+            size="icon"
             onClick={() => ctrl.shiftMiniMonth(1)}
             aria-label="Следующий месяц"
           >

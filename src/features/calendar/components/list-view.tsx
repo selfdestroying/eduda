@@ -34,13 +34,13 @@ export function ListView({ ctrl }: { ctrl: CalendarController }) {
 
   return (
     <div className="thin-scrollbar min-h-0 flex-1 overflow-auto">
-      <div className="mx-auto max-w-[760px] py-1">
+      <div className="mx-auto max-w-190 py-1">
         {sections.map((section) => {
           const isToday = section.ds === today
           const d = section.date
           return (
             <section key={section.ds}>
-              <div className="bg-card/95 sticky top-0 z-1 flex items-center gap-2 px-[18px] pt-4 pb-1.5 backdrop-blur">
+              <div className="bg-card/95 sticky top-0 z-1 flex items-center gap-2 px-4.5 pt-4 pb-1.5 backdrop-blur">
                 <span
                   className={cn(
                     'text-[11px] font-semibold tracking-wide uppercase',
@@ -71,7 +71,7 @@ export function ListView({ ctrl }: { ctrl: CalendarController }) {
               {section.events.map((ev) => (
                 <AgendaRow key={ev.id} ev={ev} onClick={() => ctrl.openLesson(ev.lessonId)} />
               ))}
-              <div className="bg-border mx-[18px] mt-2.5 h-px" />
+              <div className="bg-border mx-4.5 mt-2.5 h-px" />
             </section>
           )
         })}
