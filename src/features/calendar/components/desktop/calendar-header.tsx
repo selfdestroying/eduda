@@ -4,6 +4,7 @@ import { Button } from '@/src/components/ui/button'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { CalendarController } from '../../hooks/use-calendar'
 import { getDesktopPeriod } from '../../lib/period'
+import { ClassicViewButton } from '../classic-view-button'
 import { FiltersDrawer } from '../filters-drawer'
 import { ViewTabs } from '../view-tabs'
 
@@ -23,6 +24,7 @@ export function CalendarHeader({ ctrl }: { ctrl: CalendarController }) {
       </div>
 
       <div className="flex flex-none items-center gap-2.5">
+        <ClassicViewButton />
         <div className="flex items-center gap-1.5">
           <Button variant="outline" size={'icon'} onClick={() => ctrl.nav(-1)} aria-label="Назад">
             <ChevronLeft />
