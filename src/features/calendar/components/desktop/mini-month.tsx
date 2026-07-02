@@ -4,7 +4,7 @@ import { Button } from '@/src/components/ui/button'
 import { cn } from '@/src/lib/utils'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { CalendarController } from '../../hooks/use-calendar'
-import { DOW_NARROW, MONTHS } from '../../lib/constants'
+import { DAY_STATUS_COLORS, DOW_NARROW, MONTHS } from '../../lib/constants'
 import { dowOrder, monthGrid, todayYmd, ymd } from '../../lib/date-utils'
 
 export function MiniMonth({ ctrl }: { ctrl: CalendarController }) {
@@ -56,6 +56,7 @@ export function MiniMonth({ ctrl }: { ctrl: CalendarController }) {
           const isToday = ds === today
           const selected = ds === ctrl.currentDate
           const hasEvents = ctrl.eventsOn(ds).length > 0
+          const status = ctrl.dayStatus(ds)
           return (
             <button
               key={i}
@@ -75,8 +76,9 @@ export function MiniMonth({ ctrl }: { ctrl: CalendarController }) {
                 <span
                   className={cn(
                     'absolute bottom-1 left-1/2 size-[3px] -translate-x-1/2 rounded-full',
-                    selected ? 'bg-foreground' : 'bg-muted-foreground',
+                    !status && (selected ? 'bg-foreground' : 'bg-muted-foreground'),
                   )}
+                  style={status ? { background: DAY_STATUS_COLORS[status] } : undefined}
                 />
               )}
             </button>

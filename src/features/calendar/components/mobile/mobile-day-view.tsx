@@ -2,7 +2,7 @@
 
 import { cn } from '@/src/lib/utils'
 import type { CalendarController } from '../../hooks/use-calendar'
-import { DOW_NARROW, HOUR_H_MOBILE as HM, NOW_COLOR } from '../../lib/constants'
+import { DAY_STATUS_COLORS, DOW_NARROW, HOUR_H_MOBILE as HM, NOW_COLOR } from '../../lib/constants'
 import {
   addDays,
   fmtHour,
@@ -30,6 +30,7 @@ function WeekStrip({ ctrl }: { ctrl: CalendarController }) {
         const selected = ds === cur
         const isToday = ds === today
         const hasEvents = ctrl.eventsOn(ds).length > 0
+        const status = ctrl.dayStatus(ds)
         return (
           <button
             key={ds}
@@ -57,7 +58,11 @@ function WeekStrip({ ctrl }: { ctrl: CalendarController }) {
             <span
               className="size-[5px] rounded-full"
               style={{
-                background: hasEvents && !selected ? 'var(--muted-foreground)' : 'transparent',
+                background: hasEvents
+                  ? status
+                    ? DAY_STATUS_COLORS[status]
+                    : 'var(--muted-foreground)'
+                  : 'transparent',
               }}
             />
           </button>
@@ -106,7 +111,7 @@ function MobileTimeline({ ctrl }: { ctrl: CalendarController }) {
               return (
                 <div
                   key={ev.id}
-                  onClick={() => ctrl.openLesson(ev.lessonId)}
+                  onClick={() => ctrl.selectEvent(ev)}
                   className={cn(
                     'absolute overflow-hidden rounded-[7px] px-2.5 py-[5px]',
                     ev.cancelled && 'opacity-50',

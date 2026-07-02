@@ -2,8 +2,21 @@
 
 import { cn } from '@/src/lib/utils'
 import type { CalendarController } from '../../hooks/use-calendar'
-import { DOW_SHORT, HOUR_H_DESKTOP as HOUR_H, NOW_COLOR } from '../../lib/constants'
-import { fmtHour, fmtTime, hexA, nowMinutes, todayYmd, ymd } from '../../lib/date-utils'
+import {
+  DAY_STATUS_COLORS,
+  DOW_SHORT,
+  HOUR_H_DESKTOP as HOUR_H,
+  NOW_COLOR,
+} from '../../lib/constants'
+import {
+  eventMarkStatus,
+  fmtHour,
+  fmtTime,
+  hexA,
+  nowMinutes,
+  todayYmd,
+  ymd,
+} from '../../lib/date-utils'
 import { layout } from '../../lib/layout'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -26,12 +39,13 @@ function DayColumn({ ctrl, day }: { ctrl: CalendarController; day: Date }) {
         const top = (ev.start / 60) * HOUR_H
         const height = Math.max(20, ((ev.end - ev.start) / 60) * HOUR_H - 2)
         const w = 100 / slot.lanes
+        const unmarked = eventMarkStatus(ev) === 'unmarked'
         return (
           <div
             key={ev.id}
-            onClick={() => ctrl.openLesson(ev.lessonId)}
+            onClick={() => ctrl.selectEvent(ev)}
             className={cn(
-              'absolute z-1 cursor-pointer overflow-hidden rounded-md px-[7px] py-[3px]',
+              'absolute z-1 cursor-pointer overflow-hidden rounded-md px-1.75 py-0.75',
               ev.cancelled && 'opacity-50',
             )}
             style={{
@@ -39,16 +53,24 @@ function DayColumn({ ctrl, day }: { ctrl: CalendarController; day: Date }) {
               height,
               left: `calc(${slot.lane * w}% + 2px)`,
               width: `calc(${w}% - 4px)`,
-              background: hexA(ev.color, 0.1),
+              background: hexA(ev.color, 0.2),
             }}
           >
-            <div
-              className={cn(
-                'overflow-hidden text-[11.5px] leading-[1.25] font-semibold text-ellipsis whitespace-nowrap',
-                ev.cancelled && 'line-through',
+            <div className="flex items-center gap-1">
+              {unmarked && (
+                <span
+                  className="size-[5px] flex-none rounded-full"
+                  style={{ background: DAY_STATUS_COLORS.unmarked }}
+                />
               )}
-            >
-              {ev.title}
+              <span
+                className={cn(
+                  'truncate text-[11.5px] leading-[1.25] font-semibold',
+                  ev.cancelled && 'line-through',
+                )}
+              >
+                {ev.title}
+              </span>
             </div>
             {height > 34 && (
               <div className="text-muted-foreground mt-px text-[10.5px] tabular-nums">

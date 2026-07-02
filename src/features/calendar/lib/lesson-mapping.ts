@@ -1,5 +1,5 @@
 import type { CalendarCategory, CalendarEvent, CalendarLessonDTO, FilterDimension } from '../types'
-import { colorForCourse, colorForId } from './constants'
+import { colorForGroupType, colorForId } from './constants'
 
 /** `"14:30"` → минуты от полуночи. */
 function parseTime(time: string): number {
@@ -7,7 +7,7 @@ function parseTime(time: string): number {
   return (h || 0) * 60 + (m || 0)
 }
 
-/** DTO уроков → события календаря (минуты, цвет по курсу). */
+/** DTO уроков → события календаря (минуты, цвет по типу группы). */
 export function mapLessonsToEvents(lessons: CalendarLessonDTO[]): CalendarEvent[] {
   return lessons.map((l) => {
     const start = parseTime(l.time)
@@ -20,17 +20,24 @@ export function mapLessonsToEvents(lessons: CalendarLessonDTO[]): CalendarEvent[
       start,
       end: Math.min(1440, start + l.duration),
       courseId: l.courseId,
-      color: colorForCourse(l.courseId),
+      groupId: l.groupId,
+      color: colorForGroupType(l.groupTypeId ?? 0),
       locationId: l.locationId,
+      groupTypeId: l.groupTypeId ?? 0,
+      groupType: l.groupType ?? 'Без типа',
       teachers: l.teachers,
       cancelled: l.cancelled,
+      allMarked: l.allMarked,
     }
   })
 }
 
 /** Извлекает категории `(id, name, color)`, к которым относится событие в данном измерении. */
 function categoryKeys(e: CalendarEvent, dim: FilterDimension): CalendarCategory[] {
-  if (dim === 'course') return [{ id: e.courseId, name: e.title, color: e.color, count: 0 }]
+  if (dim === 'groupType')
+    return [{ id: e.groupTypeId, name: e.groupType, color: e.color, count: 0 }]
+  if (dim === 'course')
+    return [{ id: e.courseId, name: e.title, color: colorForId(e.courseId), count: 0 }]
   if (dim === 'location')
     return [{ id: e.locationId, name: e.location, color: colorForId(e.locationId), count: 0 }]
   return e.teachers.map((t) => ({ id: t.id, name: t.name, color: colorForId(t.id), count: 0 }))

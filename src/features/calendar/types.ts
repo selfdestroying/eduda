@@ -5,7 +5,7 @@ export type CalendarView = 'day' | 'week' | 'month' | 'year' | 'list'
 export type WeekStart = 'Sunday' | 'Monday'
 
 /** Измерение фильтрации боковой панели. */
-export type FilterDimension = 'course' | 'location' | 'teacher'
+export type FilterDimension = 'course' | 'location' | 'teacher' | 'groupType'
 
 /** Преподаватель урока (id + имя). */
 export interface CalendarTeacher {
@@ -27,10 +27,16 @@ export interface CalendarLessonDTO {
   /** Локация (для подзаголовка). */
   location: string
   courseId: number
+  groupId: number
   locationId: number
+  /** Тип группы (может отсутствовать). */
+  groupTypeId: number | null
+  groupType: string | null
   /** Преподаватели группы урока (может быть пусто). */
   teachers: CalendarTeacher[]
   cancelled: boolean
+  /** Посещаемость проставлена у всех учеников урока. */
+  allMarked: boolean
 }
 
 /**
@@ -46,15 +52,26 @@ export interface CalendarEvent {
   location: string
   start: number
   end: number
-  /** Курс — используется как «календарь» (категория) для фильтра и цвета. */
+  /** Курс — измерение фильтра. */
   courseId: number
+  /** Группа урока — для перехода на страницу группы. */
+  groupId: number
+  /** Цвет события — определяется типом группы. */
   color: string
   /** Локация урока — измерение фильтра. */
   locationId: number
+  /** Тип группы — измерение фильтра и источник цвета (0 = «Без типа»). */
+  groupTypeId: number
+  groupType: string
   /** Преподаватели урока — измерение фильтра (много значений). */
   teachers: CalendarTeacher[]
   cancelled: boolean
+  /** Посещаемость проставлена у всех учеников урока. */
+  allMarked: boolean
 }
+
+/** Статус отметки посещаемости за день (для точек под датами). */
+export type DayStatus = 'marked' | 'unmarked'
 
 /** Категория-«календарь» в боковой панели (фильтр по цвету). */
 export interface CalendarCategory {

@@ -1,12 +1,27 @@
 'use client'
 
+import { useState } from 'react'
+
+import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
 import { cn } from '@/src/lib/utils'
 import type { CalendarController } from '../../hooks/use-calendar'
 import type { CalendarEvent } from '../../types'
-import { DOW_SHORT } from '../../lib/constants'
-import { dowOrder, fmtTime, hexA, monthGrid, sortEvents, todayYmd, ymd } from '../../lib/date-utils'
+import { DAY_STATUS_COLORS, DOW_FULL, DOW_SHORT, MONTHS_GENITIVE } from '../../lib/constants'
+import {
+  dowOrder,
+  eventMarkStatus,
+  fmtTime,
+  hexA,
+  monthGrid,
+  sortEvents,
+  todayYmd,
+  ymd,
+} from '../../lib/date-utils'
+import { ChevronDown } from 'lucide-react'
 
 function Chip({ ev, onClick }: { ev: CalendarEvent; onClick: () => void }) {
+  // Только красная точка: зелёная у каждого отмеченного урока — визуальный шум.
+  const unmarked = eventMarkStatus(ev) === 'unmarked'
   return (
     <div
       onClick={onClick}
@@ -17,6 +32,12 @@ function Chip({ ev, onClick }: { ev: CalendarEvent; onClick: () => void }) {
       style={{ background: hexA(ev.color, 0.1) }}
       title={ev.title}
     >
+      {unmarked && (
+        <span
+          className="size-[5px] flex-none rounded-full"
+          style={{ background: DAY_STATUS_COLORS.unmarked }}
+        />
+      )}
       <span className="text-muted-foreground flex-none text-[10.5px] tabular-nums">
         {fmtTime(ev.start)}
       </span>
@@ -24,6 +45,46 @@ function Chip({ ev, onClick }: { ev: CalendarEvent; onClick: () => void }) {
         {ev.title}
       </span>
     </div>
+  )
+}
+
+/** «+N» с поповером, показывающим все уроки дня. */
+function DayOverflow({
+  day,
+  evs,
+  extra,
+  onSelect,
+}: {
+  day: Date
+  evs: CalendarEvent[]
+  extra: number
+  onSelect: (ev: CalendarEvent) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger className="text-muted-foreground hover:bg-muted hover:text-foreground mt-px flex cursor-pointer items-center gap-0.5 rounded-[5px] px-1.5 py-0.5 text-left text-[10.5px] font-medium">
+        +{extra}
+        <ChevronDown className="size-3.5" />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 gap-0 p-2">
+        <div className="text-muted-foreground mb-1.5 px-1.5 text-[11px] font-semibold tracking-wide uppercase">
+          {DOW_FULL[day.getDay()]}, {day.getDate()} {MONTHS_GENITIVE[day.getMonth()]}
+        </div>
+        <div className="max-h-64 overflow-y-auto">
+          {evs.map((ev) => (
+            <Chip
+              key={ev.id}
+              ev={ev}
+              onClick={() => {
+                setOpen(false)
+                onSelect(ev)
+              }}
+            />
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -77,14 +138,19 @@ export function MonthView({ ctrl }: { ctrl: CalendarController }) {
                   {day.getDate()}
                 </span>
               </div>
-              <div className={cn('flex-1 overflow-hidden', !inMonth && 'opacity-50')}>
+              <div
+                className={cn('thin-scrollbar flex-1 overflow-y-auto', !inMonth && 'opacity-50')}
+              >
                 {shown.map((ev) => (
-                  <Chip key={ev.id} ev={ev} onClick={() => ctrl.openLesson(ev.lessonId)} />
+                  <Chip key={ev.id} ev={ev} onClick={() => ctrl.selectEvent(ev)} />
                 ))}
                 {extra > 0 && (
-                  <div className="text-muted-foreground mt-px pl-1.5 text-[10.5px] font-medium">
-                    +{extra}
-                  </div>
+                  <DayOverflow
+                    day={day}
+                    evs={evs}
+                    extra={extra}
+                    onSelect={(ev) => ctrl.selectEvent(ev)}
+                  />
                 )}
               </div>
             </div>

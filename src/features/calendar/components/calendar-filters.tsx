@@ -10,7 +10,7 @@ const rowBase =
 const countBadge =
   'text-muted-foreground bg-muted rounded-[5px] px-1.5 py-px text-[11px] font-medium tabular-nums'
 
-/** Одна секция фильтра (Курсы / Локации / Преподаватели) с чекбоксами. */
+/** Одна секция фильтра (Типы групп / Курсы / Локации / Преподаватели) с чекбоксами. */
 function FilterSection({
   title,
   dimension,
@@ -50,10 +50,10 @@ function FilterSection({
           const tone = active ? 'text-foreground' : 'text-muted-foreground/70'
 
           // Единый паттерн: Checkbox внутри <label> — клик по всей строке переключает
-          // его через скрытый <input>, имя берётся из текста метки. У курсов отмеченный
-          // чекбокс окрашен в цвет курса (= цвет события на календаре) как легенда.
+          // его через скрытый <input>, имя берётся из текста метки. У типов групп
+          // отмеченный чекбокс окрашен в цвет типа (= цвет события на календаре) как легенда.
           const checkboxStyle =
-            dimension === 'course' && active
+            dimension === 'groupType' && active
               ? { backgroundColor: cat.color, borderColor: cat.color }
               : undefined
           return (
@@ -70,7 +70,7 @@ function FilterSection({
 }
 
 /**
- * Три секции фильтров календаря (курсы / локации / преподаватели).
+ * Секции фильтров календаря (типы групп / курсы / локации / преподаватели).
  * Переиспользуется в десктоп-боковой панели и в мобильном drawer.
  */
 export function CalendarFilters({
@@ -82,6 +82,12 @@ export function CalendarFilters({
 }) {
   return (
     <div className={cn('flex flex-col gap-5', className)}>
+      <FilterSection
+        title="Тип группы"
+        dimension="groupType"
+        categories={ctrl.groupTypeCategories}
+        ctrl={ctrl}
+      />
       <FilterSection
         title="Курсы"
         dimension="course"

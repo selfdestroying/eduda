@@ -4,6 +4,7 @@ import { useIsMobile } from '@/src/hooks/use-mobile'
 import { cn } from '@/src/lib/utils'
 import { useCalendar, type UseCalendarOptions } from '../hooks/use-calendar'
 import { DesktopCalendar } from './desktop/desktop-calendar'
+import { LessonDetailDrawer } from './lesson-detail-drawer'
 import { MobileCalendar } from './mobile/mobile-calendar'
 
 export function Calendar({ className, ...options }: UseCalendarOptions & { className?: string }) {
@@ -18,6 +19,7 @@ export function Calendar({ className, ...options }: UseCalendarOptions & { class
       )}
     >
       {isMobile ? <MobileCalendar ctrl={ctrl} /> : <DesktopCalendar ctrl={ctrl} />}
+      <LessonDetailDrawer ctrl={ctrl} />
     </div>
   )
 }

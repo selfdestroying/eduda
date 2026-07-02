@@ -2,7 +2,7 @@
 
 import { cn } from '@/src/lib/utils'
 import type { CalendarController } from '../../hooks/use-calendar'
-import { DOW_FULL, MON_SHORT, NOW_COLOR } from '../../lib/constants'
+import { DAY_STATUS_COLORS, DOW_FULL, MON_SHORT, NOW_COLOR } from '../../lib/constants'
 import { addDays, sortEvents, startOfWeek, todayYmd, ymd } from '../../lib/date-utils'
 import { AgendaRow } from './agenda-row'
 
@@ -17,9 +17,16 @@ export function MobileWeekView({ ctrl }: { ctrl: CalendarController }) {
         const ds = ymd(d)
         const evs = ctrl.eventsOn(ds).sort(sortEvents)
         const isToday = ds === today
+        const status = ctrl.dayStatus(ds)
         return (
           <div key={ds}>
             <div className="flex items-center gap-2 px-[18px] pt-4 pb-1.5">
+              {status && (
+                <span
+                  className="size-[5px] flex-none rounded-full"
+                  style={{ background: DAY_STATUS_COLORS[status] }}
+                />
+              )}
               <span
                 className={cn(
                   'text-[11px] font-semibold tracking-wide uppercase',
@@ -38,7 +45,7 @@ export function MobileWeekView({ ctrl }: { ctrl: CalendarController }) {
               {isToday && (
                 <span
                   className="rounded-[5px] px-1.5 py-px text-[10px] font-semibold"
-                  style={{ color: NOW_COLOR, background: 'rgba(239,68,68,0.1)' }}
+                  style={{ color: NOW_COLOR, background: 'oklch(0.541 0.281 293.009 / 10%)' }}
                 >
                   Сегодня
                 </span>
@@ -46,7 +53,7 @@ export function MobileWeekView({ ctrl }: { ctrl: CalendarController }) {
             </div>
             {evs.length > 0 ? (
               evs.map((ev) => (
-                <AgendaRow key={ev.id} ev={ev} onClick={() => ctrl.openLesson(ev.lessonId)} />
+                <AgendaRow key={ev.id} ev={ev} onClick={() => ctrl.selectEvent(ev)} />
               ))
             ) : (
               <div className="text-muted-foreground/70 px-[18px] pt-0.5 pb-1.5 text-[13px]">

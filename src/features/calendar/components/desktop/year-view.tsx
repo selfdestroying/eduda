@@ -2,7 +2,7 @@
 
 import { cn } from '@/src/lib/utils'
 import type { CalendarController } from '../../hooks/use-calendar'
-import { DOW_NARROW, MONTHS } from '../../lib/constants'
+import { DAY_STATUS_COLORS, DOW_NARROW, MONTHS } from '../../lib/constants'
 import { dowOrder, monthGrid, todayYmd, ymd } from '../../lib/date-utils'
 
 function MiniMonthBlock({
@@ -43,6 +43,7 @@ function MiniMonthBlock({
           const ds = ymd(day)
           const isToday = ds === today
           const firstEvent = inMonth ? ctrl.eventsOn(ds)[0] : undefined
+          const status = inMonth ? ctrl.dayStatus(ds) : null
           return (
             <div
               key={i}
@@ -68,7 +69,9 @@ function MiniMonthBlock({
               {firstEvent && !isToday && (
                 <span
                   className="absolute bottom-px size-[3px] rounded-full"
-                  style={{ background: firstEvent.color }}
+                  style={{
+                    background: status ? DAY_STATUS_COLORS[status] : 'var(--muted-foreground)',
+                  }}
                 />
               )}
             </div>

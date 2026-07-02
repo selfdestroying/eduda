@@ -1,11 +1,18 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useCalendarLessonsQuery } from '../queries'
-import { addDays, addMonths, parseYmd, todayYmd, visibleRange, ymd } from '../lib/date-utils'
+import {
+  addDays,
+  addMonths,
+  eventPassed,
+  parseYmd,
+  todayYmd,
+  visibleRange,
+  ymd,
+} from '../lib/date-utils'
 import { deriveCategories, mapLessonsToEvents } from '../lib/lesson-mapping'
-import type { CalendarView, FilterDimension, WeekStart } from '../types'
+import type { CalendarEvent, CalendarView, DayStatus, FilterDimension, WeekStart } from '../types'
 
 export interface UseCalendarOptions {
   defaultView?: CalendarView
@@ -16,18 +23,21 @@ export function useCalendar({
   defaultView = 'month',
   weekStart = 'Monday',
 }: UseCalendarOptions = {}) {
-  const router = useRouter()
   const [view, setViewState] = useState<CalendarView>(defaultView)
   const [currentDate, setCurrentDate] = useState<string>(todayYmd())
   /**
-   * Скрытые категории по измерениям (курс / локация / преподаватель) — фильтр
-   * боковой панели. По умолчанию видимы все.
+   * Скрытые категории по измерениям (тип группы / курс / локация / преподаватель) —
+   * фильтр боковой панели. По умолчанию видимы все.
    */
   const [hidden, setHidden] = useState<Record<FilterDimension, Set<number>>>(() => ({
     course: new Set(),
     location: new Set(),
     teacher: new Set(),
+    groupType: new Set(),
   }))
+
+  /** Событие, выбранное для просмотра подробностей (показ в drawer'е). */
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
 
   /** Одноразовый флаг автопрокрутки таймлайна к 7:00. */
   const needsScroll = useRef(true)
@@ -51,6 +61,7 @@ export function useCalendar({
   const courseCategories = useMemo(() => deriveCategories(events, 'course'), [events])
   const locationCategories = useMemo(() => deriveCategories(events, 'location'), [events])
   const teacherCategories = useMemo(() => deriveCategories(events, 'teacher'), [events])
+  const groupTypeCategories = useMemo(() => deriveCategories(events, 'groupType'), [events])
 
   const visibleEvents = useMemo(
     () =>
@@ -58,6 +69,7 @@ export function useCalendar({
         (e) =>
           !hidden.course.has(e.courseId) &&
           !hidden.location.has(e.locationId) &&
+          !hidden.groupType.has(e.groupTypeId) &&
           // Преподаватель — много значений: урок виден, если без преподавателя
           // либо хотя бы один из его преподавателей не скрыт.
           (e.teachers.length === 0 || e.teachers.some((t) => !hidden.teacher.has(t.id))),
@@ -67,6 +79,21 @@ export function useCalendar({
   const eventsOn = useCallback(
     (ds: string) => visibleEvents.filter((e) => e.date === ds),
     [visibleEvents],
+  )
+
+  /**
+   * Статус отметки посещаемости за день: зелёная/красная точка под датой.
+   * Считается только по прошедшим урокам (для «сегодня» — по уже закончившимся),
+   * отменённые не учитываются; `null` — статуса нет (будущий день / нет уроков).
+   */
+  const dayStatus = useCallback(
+    (ds: string): DayStatus | null => {
+      if (ds > todayYmd()) return null
+      const passed = eventsOn(ds).filter((e) => !e.cancelled && eventPassed(e))
+      if (passed.length === 0) return null
+      return passed.every((e) => e.allMarked) ? 'marked' : 'unmarked'
+    },
+    [eventsOn],
   )
 
   // ─── Навигация ─────────────────────────────────────────────────────────────
@@ -115,8 +142,13 @@ export function useCalendar({
   )
 
   const categoriesByDim = useMemo<Record<FilterDimension, typeof courseCategories>>(
-    () => ({ course: courseCategories, location: locationCategories, teacher: teacherCategories }),
-    [courseCategories, locationCategories, teacherCategories],
+    () => ({
+      course: courseCategories,
+      location: locationCategories,
+      teacher: teacherCategories,
+      groupType: groupTypeCategories,
+    }),
+    [courseCategories, locationCategories, teacherCategories, groupTypeCategories],
   )
 
   /** Все категории измерения активны (видимы)? */
@@ -127,7 +159,11 @@ export function useCalendar({
 
   /** Применён ли хоть один фильтр (что-то скрыто) — для индикатора на мобильных. */
   const hasActiveFilters = useMemo(
-    () => hidden.course.size > 0 || hidden.location.size > 0 || hidden.teacher.size > 0,
+    () =>
+      hidden.course.size > 0 ||
+      hidden.location.size > 0 ||
+      hidden.teacher.size > 0 ||
+      hidden.groupType.size > 0,
     [hidden],
   )
 
@@ -145,11 +181,10 @@ export function useCalendar({
     [categoriesByDim],
   )
 
-  /** Открыть страницу урока. */
-  const openLesson = useCallback(
-    (lessonId: number) => router.push(`/lessons/${lessonId}`),
-    [router],
-  )
+  /** Выбрать событие для показа подробностей. */
+  const selectEvent = useCallback((event: CalendarEvent) => setSelectedEvent(event), [])
+  /** Закрыть карточку подробностей. */
+  const closeEvent = useCallback(() => setSelectedEvent(null), [])
 
   return {
     // настройки
@@ -163,8 +198,10 @@ export function useCalendar({
     courseCategories,
     locationCategories,
     teacherCategories,
+    groupTypeCategories,
     visibleEvents,
     eventsOn,
+    dayStatus,
     isLoading,
     isFetching,
     // навигация
@@ -173,14 +210,16 @@ export function useCalendar({
     goToday,
     shiftMiniMonth,
     setCurrentDate,
-    // фильтры (курс / локация / преподаватель)
+    // фильтры (тип группы / курс / локация / преподаватель)
     toggleCategory,
     isCategoryActive,
     allCategoriesActive,
     toggleAllCategories,
     hasActiveFilters,
-    // переход к уроку
-    openLesson,
+    // подробности урока
+    selectedEvent,
+    selectEvent,
+    closeEvent,
     // автопрокрутка таймлайна
     consumeScroll,
   }

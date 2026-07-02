@@ -1,4 +1,4 @@
-import type { CalendarEvent, WeekStart } from '../types'
+import type { CalendarEvent, DayStatus, WeekStart } from '../types'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -71,15 +71,9 @@ export const visibleRange = (
   curr: Date,
   weekStart: WeekStart,
 ): { from: string; to: string } => {
-  if (view === 'day') {
-    const ds = ymd(curr)
-    return { from: ds, to: ds }
-  }
-  if (view === 'week') {
-    const s = startOfWeek(curr, weekStart)
-    return { from: ymd(s), to: ymd(addDays(s, 6)) }
-  }
-  if (view === 'month') {
+  if (view === 'day' || view === 'week' || view === 'month') {
+    // Всегда сетка месяца (42 дня): точкам-статусам в мини-календаре и
+    // недельной полосе нужны события за весь месяц, не только за видимую неделю.
     const gs = startOfWeek(new Date(curr.getFullYear(), curr.getMonth(), 1), weekStart)
     return { from: ymd(gs), to: ymd(addDays(gs, 41)) }
   }
@@ -97,4 +91,19 @@ export const visibleRange = (
 export const nowMinutes = () => {
   const n = new Date()
   return n.getHours() * 60 + n.getMinutes()
+}
+
+/** Урок уже закончился (по дате и времени окончания)? */
+export const eventPassed = (e: CalendarEvent) => {
+  const today = todayYmd()
+  return e.date < today || (e.date === today && e.end <= nowMinutes())
+}
+
+/**
+ * Статус отметки посещаемости урока: зелёный — все отмечены, красный — есть
+ * неотмеченные; `null` — статуса нет (урок отменён или ещё не закончился).
+ */
+export const eventMarkStatus = (e: CalendarEvent): DayStatus | null => {
+  if (e.cancelled || !eventPassed(e)) return null
+  return e.allMarked ? 'marked' : 'unmarked'
 }

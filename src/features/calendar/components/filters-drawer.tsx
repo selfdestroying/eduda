@@ -37,7 +37,7 @@ export function FiltersDrawer({ ctrl }: { ctrl: CalendarController }) {
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>Фильтры</DrawerTitle>
-          <DrawerDescription>Курсы, локации и преподаватели</DrawerDescription>
+          <DrawerDescription>Типы групп, курсы, локации и преподаватели</DrawerDescription>
         </DrawerHeader>
         <CalendarFilters
           ctrl={ctrl}

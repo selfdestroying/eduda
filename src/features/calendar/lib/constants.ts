@@ -1,6 +1,6 @@
 /**
- * Палитра цветов для курсов (палитра Tailwind 600).
- * Цвет курса детерминирован по его id, чтобы быть стабильным между запросами.
+ * Палитра цветов для категорий календаря (палитра Tailwind 600).
+ * Цвет детерминирован по id, чтобы быть стабильным между запросами.
  */
 export const COURSE_PALETTE = [
   '#2563eb', // blue-600
@@ -18,11 +18,20 @@ export const COURSE_PALETTE = [
 /** Стабильный цвет по числовому id (детерминирован, для свотчей фильтров). */
 export const colorForId = (id: number) => COURSE_PALETTE[Math.abs(id) % COURSE_PALETTE.length]!
 
-/** Стабильный цвет курса по его id (цвет события на календаре). */
-export const colorForCourse = colorForId
+/** Стабильный цвет типа группы по его id (цвет события на календаре). */
+export const colorForGroupType = colorForId
 
-/** Цвет линии «сейчас» и акцента «сегодня» на мобильных (red-500). */
-export const NOW_COLOR = '#ef4444'
+/** Цвет линии «сейчас» и акцента «сегодня» на мобильных (primary). */
+export const NOW_COLOR = 'oklch(0.541 0.281 293.009)'
+
+/**
+ * Цвета статуса отметки посещаемости за день (точки под датами):
+ * зелёный — все ученики отмечены, красный — есть неотмеченные.
+ */
+export const DAY_STATUS_COLORS = {
+  marked: '#16a34a', // green-600
+  unmarked: '#dc2626', // red-600
+} as const
 
 export const MONTHS = [
   'Январь',

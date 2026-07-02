@@ -2,7 +2,7 @@
 
 import { cn } from '@/src/lib/utils'
 import type { CalendarController } from '../../hooks/use-calendar'
-import { DOW_FULL, DOW_NARROW, MON_SHORT, NOW_COLOR } from '../../lib/constants'
+import { DAY_STATUS_COLORS, DOW_FULL, DOW_NARROW, MON_SHORT, NOW_COLOR } from '../../lib/constants'
 import { dowOrder, monthGrid, parseYmd, sortEvents, todayYmd, ymd } from '../../lib/date-utils'
 import { AgendaRow } from './agenda-row'
 
@@ -19,10 +19,9 @@ function MonthCell({ ctrl, day, month }: { ctrl: CalendarController; day: Date; 
   const inMonth = day.getMonth() === month
   const isToday = ds === todayYmd()
   const selected = ds === ctrl.currentDate
-  const colors = [...new Map(ctrl.eventsOn(ds).map((e) => [e.courseId, e.color])).values()].slice(
-    0,
-    4,
-  )
+  // Точка статуса посещаемости: зелёная/красная; серая — будущий день или уроки отменены.
+  const status = ctrl.dayStatus(ds)
+  const hasEvents = ctrl.eventsOn(ds).length > 0
 
   return (
     <button
@@ -41,10 +40,15 @@ function MonthCell({ ctrl, day, month }: { ctrl: CalendarController; day: Date; 
       >
         {day.getDate()}
       </span>
-      <div className="flex h-[5px] items-center gap-[3px]">
-        {colors.map((color, i) => (
-          <span key={i} className="size-[5px] rounded-full" style={{ background: color }} />
-        ))}
+      <div className="flex h-[5px] items-center">
+        {hasEvents && (
+          <span
+            className="size-[5px] rounded-full"
+            style={{
+              background: status ? DAY_STATUS_COLORS[status] : 'var(--muted-foreground)',
+            }}
+          />
+        )}
       </div>
     </button>
   )
@@ -55,10 +59,17 @@ function DayAgenda({ ctrl }: { ctrl: CalendarController }) {
   const evs = ctrl.eventsOn(ds).sort(sortEvents)
   const d = parseYmd(ds)
   const isToday = ds === todayYmd()
+  const status = ctrl.dayStatus(ds)
 
   return (
     <div className="thin-scrollbar min-h-0 flex-1 overflow-auto pb-28">
       <div className="bg-card sticky top-0 z-1 flex items-baseline gap-2 px-[18px] pt-3.5 pb-2">
+        {status && (
+          <span
+            className="size-[5px] flex-none self-center rounded-full"
+            style={{ background: DAY_STATUS_COLORS[status] }}
+          />
+        )}
         <span
           className={cn('text-[15px] font-bold tracking-tight', !isToday && 'text-foreground')}
           style={isToday ? { color: NOW_COLOR } : undefined}
@@ -72,9 +83,7 @@ function DayAgenda({ ctrl }: { ctrl: CalendarController }) {
         )}
       </div>
       {evs.length > 0 ? (
-        evs.map((ev) => (
-          <AgendaRow key={ev.id} ev={ev} onClick={() => ctrl.openLesson(ev.lessonId)} />
-        ))
+        evs.map((ev) => <AgendaRow key={ev.id} ev={ev} onClick={() => ctrl.selectEvent(ev)} />)
       ) : (
         <div className="text-muted-foreground/70 px-[18px] py-6 text-center text-[13.5px]">
           Нет уроков
