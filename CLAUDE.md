@@ -60,6 +60,7 @@ src/features/<feature>/
 - Every action takes `.metadata({ actionName })`, optionally `.inputSchema(ZodSchema)`, then `.action(async ({ ctx, parsedInput }) => ...)`.
 - **Tenant isolation is manual.** There is no automatic `organizationId` filter — every query/mutation must scope by `ctx.session.organizationId` (e.g. `where: { id, organizationId: ctx.session.organizationId! }`, or `findFirstOrThrow` to verify ownership before nested writes). Multi-step writes use `prisma.$transaction`. Follow the patterns in `src/features/groups/actions.ts`.
 - Query hooks unwrap the safe-action result: `const { data, serverError } = await someAction(); if (serverError) throw serverError; return data ?? ...`. Query keys are centralized per feature (e.g. `groupKeys`).
+- Not every feature has all files — a small/UI-heavy feature may inline its Zod schema in `actions.ts` and skip `schemas.ts`, or add `hooks/` and `lib/` subdirs (see `src/features/calendar/`). Match the shape the feature already has.
 
 ## Auth & permissions
 
@@ -70,6 +71,19 @@ src/features/<feature>/
 ## Dates & timezone (important convention)
 
 Business timezone is **Europe/Moscow** (`BUSINESS_TZ`). All business dates (lessons, attendance, stats, "today") must go through `src/lib/timezone.ts` — use `moscowNow()`, `normalizeDateOnly()`, `moscowStartOfDay()`, etc., rather than raw `new Date()`, so day boundaries are correct regardless of server TZ (server runs `TZ=UTC`).
+
+## Calendar
+
+`src/features/calendar/` is the lessons calendar (`/calendar` route + optional home view). It deviates from the standard feature layout: `hooks/use-calendar.ts` holds all view/navigation state (returns a `CalendarController` passed down to view components), `lib/` holds pure helpers, and there is no `schemas.ts`.
+
+- **Two date worlds.** Server ↔ client exchange uses `YYYY-MM-DD` strings. `@db.Date` values are stored at **UTC-midnight**, so the action reads them with `getUTC*` (`actions.ts`), not the business-tz helpers. `lib/date-utils.ts` holds the calendar's own client-side date math (grid/week/range) — separate from `src/lib/timezone.ts`, which is still the source of truth for "today"/business-day logic.
+- **Colors** are deterministic by id (`lib/constants.ts` palette). Use `hexA(hex, a)` from `lib/date-utils.ts` to apply alpha; pass `1` when a swatch must stay fully opaque (event bar, filter checkbox legend).
+- **Teacher scoping**: `getCalendarLessons` shows a teacher only their own lessons unless they hold `lesson.readAll` — on top of the usual `organizationId` scope.
+- **Opt-in home view.** A `home_view=calendar` cookie (client-set via `lib/view-preference.ts`) makes `src/app/[slug]/page.tsx` render `<Calendar />` **in place at `/`** (no redirect — a server `redirect()` from the prefetched `/` route breaks RSC navigation). The `ClassicViewButton` clears the cookie and refreshes.
+
+## Popovers/dropdowns inside drawers
+
+`PopoverContent` and `DropdownMenuContent` accept a `container` prop (forwarded to the Base UI `Portal`). Inside a vaul `Drawer`, portal them into the drawer content (pass its ref) — otherwise vaul's overlay swallows outside clicks and the popover can't be interacted with. See the lesson detail drawer + `AttendanceStatusSwitcher` / `AttendanceCommentPopover`.
 
 ## Feature flags
 
