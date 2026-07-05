@@ -1,3 +1,4 @@
+import { Calendar } from '@/src/features/calendar/components/calendar'
 import { HOME_VIEW_CALENDAR, HOME_VIEW_COOKIE } from '@/src/features/calendar/lib/view-preference'
 import { auth } from '@/src/lib/auth/server'
 import { protocol, rootDomain } from '@/src/lib/utils'
@@ -17,10 +18,13 @@ export default async function Page() {
     redirect(`${protocol}://auth.${rootDomain}/sign-in`)
   }
 
-  // Пользователь включил новый вид — главная сразу открывает календарь.
+  // Пользователь включил новый вид — главная сразу показывает календарь.
+  // Рендерим его на месте, а не через redirect('/calendar'): серверный
+  // редирект с часто префетчируемого «/» ломал RSC-навигацию (ошибка
+  // "Failed to load page" при входе и переходах на главную).
   const cookieStore = await cookies()
   if (cookieStore.get(HOME_VIEW_COOKIE)?.value === HOME_VIEW_CALENDAR) {
-    redirect('/calendar')
+    return <Calendar />
   }
 
   return <Dashboard />

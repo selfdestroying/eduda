@@ -2,7 +2,7 @@
 
 import { Button } from '@/src/components/ui/button'
 import { Undo2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { disableCalendarHomeView, isCalendarHomeView } from '../lib/view-preference'
 
@@ -13,6 +13,7 @@ import { disableCalendarHomeView, isCalendarHomeView } from '../lib/view-prefere
  */
 export function ClassicViewButton({ iconOnly = false }: { iconOnly?: boolean }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -23,7 +24,13 @@ export function ClassicViewButton({ iconOnly = false }: { iconOnly?: boolean }) 
 
   const revert = () => {
     disableCalendarHomeView()
-    router.push('/')
+    // На «/» календарь рендерится на месте — нужен refresh, чтобы сервер
+    // перечитал снятую куку и вернул панель. С отдельного /calendar уходим на «/».
+    if (pathname === '/') {
+      router.refresh()
+    } else {
+      router.push('/')
+    }
   }
 
   if (iconOnly) {
