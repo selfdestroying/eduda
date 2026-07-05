@@ -1,5 +1,16 @@
 {
   "title": "Для пользователей",
   "root": true,
-  "icon": "User"
+  "icon": "User",
+  "pages": [
+    "index",
+    "02-roles",
+    "03-concepts",
+    "04-organization-setup",
+    "05-students",
+    "06-groups",
+    "07-lessons",
+    "calendar",
+    "..."
+  ]
 }
