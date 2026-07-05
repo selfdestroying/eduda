@@ -33,7 +33,6 @@ import {
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useSyncExternalStore } from 'react'
 
 export const memberRoleLabels = {
@@ -71,7 +70,6 @@ function useMounted(): boolean {
 }
 
 export default function NavUser() {
-  const router = useRouter()
   const { data: session, isLoading } = useSessionQuery()
   const { mutate, isPending: isSignOutPending } = useSignOutMutation()
   const { theme, setTheme } = useTheme()
@@ -163,7 +161,11 @@ export default function NavUser() {
                 onClick={() =>
                   mutate(undefined, {
                     onSuccess: () => {
-                      router.push('/')
+                      // Полная перезагрузка вместо router.refresh():
+                      // после выхода proxy редиректит на auth-поддомен (другой origin),
+                      // а RSC-запрос refresh() не может последовать за кросс-origin
+                      // редиректом и падает с "Failed to fetch".
+                      window.location.reload()
                     },
                   })
                 }
