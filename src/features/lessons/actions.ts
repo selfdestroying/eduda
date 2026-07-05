@@ -52,7 +52,7 @@ export const getLessonDetail = authAction
             makeupForAttendance: { include: { lesson: true } },
             makeupAttendance: { include: { lesson: true } },
           },
-          orderBy: { isTrial: 'desc' },
+          orderBy: [{ isTrial: 'desc' }, { student: { firstName: 'asc' } }],
         },
       },
     })

@@ -62,6 +62,7 @@ import type {
   DashboardLessonItem,
   DashboardMonthData,
 } from '../types'
+import { CalendarPromoBanner } from './calendar-promo-banner'
 import { LessonCalendar } from './lesson-calendar'
 
 const QUERY_STATE_OPTIONS = { shallow: true, history: 'push' as const }
@@ -196,112 +197,120 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-[22rem_minmax(0,1fr)]">
-      <div className="space-y-2">
-        <Card className={cn(isFetching && data && 'opacity-80')}>
-          <CardHeader>
-            <div>
-              <CardTitle>
-                <div className="flex gap-1">
-                  <span>Календарь месяца</span>
-                  <Tooltip>
-                    <TooltipTrigger
-                      delay={300}
-                      render={
-                        <Button type="button" size="icon-sm" variant="ghost">
-                          <CircleHelp aria-hidden />
-                        </Button>
-                      }
-                    />
-                    <TooltipContent>
-                      <div className="grid sm:grid-cols-3 xl:grid-cols-1">
-                        <LegendItem
-                          colorClassName="bg-success"
-                          text="Все активные посещения отмечены"
-                        />
-                        <LegendItem
-                          colorClassName="bg-destructive"
-                          text="Есть неотмеченные ученики"
-                        />
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </CardTitle>
-            </div>
-            <CardAction>
-              <Button
-                variant="outline"
-                onClick={handleSelectToday}
-                disabled={pageState.month === DEFAULT_MONTH_KEY && isSameDay(pageState.date, today)}
-              >
-                <Calendar />
-                Сегодня
-              </Button>
-            </CardAction>
-          </CardHeader>
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <CalendarPromoBanner />
 
-          <CardContent className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-[22rem_minmax(0,1fr)]">
+        <div className="space-y-2">
+          <Card className={cn(isFetching && data && 'opacity-80')}>
+            <CardHeader>
               <div>
-                <p className="text-foreground text-sm font-medium">{toMonthLabel(visibleMonth)}</p>
+                <CardTitle>
+                  <div className="flex gap-1">
+                    <span>Календарь месяца</span>
+                    <Tooltip>
+                      <TooltipTrigger
+                        delay={300}
+                        render={
+                          <Button type="button" size="icon-sm" variant="ghost">
+                            <CircleHelp aria-hidden />
+                          </Button>
+                        }
+                      />
+                      <TooltipContent>
+                        <div className="grid sm:grid-cols-3 xl:grid-cols-1">
+                          <LegendItem
+                            colorClassName="bg-success"
+                            text="Все активные посещения отмечены"
+                          />
+                          <LegendItem
+                            colorClassName="bg-destructive"
+                            text="Есть неотмеченные ученики"
+                          />
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </CardTitle>
               </div>
-              {isFetching && (
-                <Badge variant="outline" className="animate-pulse">
-                  Обновляем
-                </Badge>
+              <CardAction>
+                <Button
+                  variant="outline"
+                  onClick={handleSelectToday}
+                  disabled={
+                    pageState.month === DEFAULT_MONTH_KEY && isSameDay(pageState.date, today)
+                  }
+                >
+                  <Calendar />
+                  Сегодня
+                </Button>
+              </CardAction>
+            </CardHeader>
+
+            <CardContent className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-foreground text-sm font-medium">
+                    {toMonthLabel(visibleMonth)}
+                  </p>
+                </div>
+                {isFetching && (
+                  <Badge variant="outline" className="animate-pulse">
+                    Обновляем
+                  </Badge>
+                )}
+              </div>
+
+              <LessonCalendar
+                selectedDay={pageState.date}
+                visibleMonth={visibleMonth}
+                daySummaries={daySummaries}
+                onSelectDay={handleSelectDay}
+                onMonthChange={handleMonthChange}
+              />
+            </CardContent>
+          </Card>
+
+          {isPending && !data ? (
+            <MonthOverviewSkeleton />
+          ) : (
+            <MonthOverviewCard data={data} isFetching={isFetching} />
+          )}
+        </div>
+
+        <div className="min-h-0 space-y-2">
+          {isPending && !data ? (
+            <DashboardContentSkeleton />
+          ) : isError ? (
+            <DashboardErrorState error={error} onRetry={() => void refetch()} />
+          ) : data && data.summary.totalLessons === 0 ? (
+            <DashboardEmptyMonth month={visibleMonth} />
+          ) : (
+            <>
+              <SelectedDayHeader
+                selectedDay={pageState.date}
+                dayData={selectedDayData}
+                isToday={isToday}
+              />
+
+              {selectedDayData ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      Расписание дня
+                      <Hint text="Нажмите на строку урока, чтобы увидеть список учеников и их статусы посещаемости." />
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <LessonsTable lessons={selectedDayData.lessons} />
+                  </CardContent>
+                </Card>
+              ) : (
+                <DashboardEmptyDay selectedDay={pageState.date} />
               )}
-            </div>
-
-            <LessonCalendar
-              selectedDay={pageState.date}
-              visibleMonth={visibleMonth}
-              daySummaries={daySummaries}
-              onSelectDay={handleSelectDay}
-              onMonthChange={handleMonthChange}
-            />
-          </CardContent>
-        </Card>
-
-        {isPending && !data ? (
-          <MonthOverviewSkeleton />
-        ) : (
-          <MonthOverviewCard data={data} isFetching={isFetching} />
-        )}
-      </div>
-
-      <div className="min-h-0 space-y-2">
-        {isPending && !data ? (
-          <DashboardContentSkeleton />
-        ) : isError ? (
-          <DashboardErrorState error={error} onRetry={() => void refetch()} />
-        ) : data && data.summary.totalLessons === 0 ? (
-          <DashboardEmptyMonth month={visibleMonth} />
-        ) : (
-          <>
-            <SelectedDayHeader
-              selectedDay={pageState.date}
-              dayData={selectedDayData}
-              isToday={isToday}
-            />
-
-            {selectedDayData ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-sm">
-                    Расписание дня
-                    <Hint text="Нажмите на строку урока, чтобы увидеть список учеников и их статусы посещаемости." />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <LessonsTable lessons={selectedDayData.lessons} />
-                </CardContent>
-              </Card>
-            ) : (
-              <DashboardEmptyDay selectedDay={pageState.date} />
-            )}
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
