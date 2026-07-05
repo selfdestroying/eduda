@@ -19,7 +19,6 @@ import {
   BellRing,
   CalendarDays,
   Check,
-  ChevronRight,
   Clock,
   GraduationCap,
   MapPin,
@@ -33,6 +32,9 @@ import type { CalendarController } from '../hooks/use-calendar'
 import { DOW_FULL, MONTHS_GENITIVE } from '../lib/constants'
 import { fmtTime, hexA, parseYmd } from '../lib/date-utils'
 import type { CalendarEvent } from '../types'
+import { AttendanceStatusSwitcher } from '../../lessons/components/attendance-status-switcher'
+import { AttendanceCommentPopover } from '../../lessons/components/attendance-comment-popover'
+import { Badge } from '@/src/components/ui/badge'
 
 // ─── Форматирование ──────────────────────────────────────────────────────────
 
@@ -68,28 +70,28 @@ const STATUS_UI: Record<
     label: 'Присутствовал',
     icon: Check,
     text: 'text-success',
-    badge: 'text-success bg-success/10 border-success/20',
+    badge: 'text-success bg-success/10 ',
     bar: 'bg-success',
   },
   warned: {
     label: 'Предупредил',
     icon: BellRing,
     text: 'text-warning',
-    badge: 'text-warning bg-warning/10 border-warning/20',
+    badge: 'text-warning bg-warning/10 ',
     bar: 'bg-warning',
   },
   absent: {
     label: 'Отсутствовал',
     icon: X,
     text: 'text-destructive',
-    badge: 'text-destructive bg-destructive/10 border-destructive/20',
+    badge: 'text-destructive bg-destructive/10 ',
     bar: 'bg-destructive',
   },
   unspecified: {
     label: 'Не отмечен',
     icon: Minus,
     text: 'text-muted-foreground',
-    badge: 'text-muted-foreground bg-muted border-border',
+    badge: 'text-muted-foreground bg-muted',
     bar: 'bg-muted-foreground/30',
   },
 }
@@ -139,20 +141,25 @@ function makeupLink(a: AttendanceWithStudents) {
 }
 
 /** Строка ученика — целиком кнопка-ссылка на профиль (как кнопки футера). */
-function StudentRow({ a }: { a: AttendanceWithStudents }) {
-  const status = STATUS_UI[uiStatus(a)]
-  const StatusIcon = status.icon
+function StudentRow({
+  a,
+  popoverContainer,
+}: {
+  a: AttendanceWithStudents
+  popoverContainer: HTMLElement | null
+}) {
   const makeup = makeupLink(a)
+
   return (
-    <Link
-      href={`/students/${a.studentId}`}
-      className="hover:bg-muted flex items-center gap-2.5 rounded-md px-2 py-2 text-[13px] font-medium transition-colors"
-    >
+    <div className="flex items-center gap-2 rounded-md px-2 py-2 transition-colors">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="truncate text-[14px] font-medium">
+          <Link
+            href={`/students/${a.studentId}`}
+            className="hover:text-primary truncate hover:underline"
+          >
             {a.student.firstName} {a.student.lastName}
-          </span>
+          </Link>
           {a.isTrial && (
             <span className="bg-info/10 text-info flex-none rounded px-1.5 py-px text-[10.5px] font-medium">
               Пробный
@@ -166,19 +173,21 @@ function StudentRow({ a }: { a: AttendanceWithStudents }) {
           <div className="text-muted-foreground mt-0.5 truncate text-[12px]">{makeup.label}</div>
         )}
       </div>
-      <StatusIcon
-        className={cn('size-4 flex-none', status.text)}
-        aria-label={status.label}
-        role="img"
-      />
-      <ChevronRight className="text-muted-foreground/40 size-4 flex-none" />
-    </Link>
+      <AttendanceStatusSwitcher attendance={a} popoverContainer={popoverContainer} />
+      <AttendanceCommentPopover attendance={a} popoverContainer={popoverContainer} />
+    </div>
   )
 }
 
 // ─── Содержимое карточки ────────────────────────────────────────────────────────
 
-function LessonDetailBody({ ev }: { ev: CalendarEvent }) {
+function LessonDetailBody({
+  ev,
+  popoverContainer,
+}: {
+  ev: CalendarEvent
+  popoverContainer: HTMLElement | null
+}) {
   const { data: detail, isLoading } = useLessonDetailQuery(ev.lessonId)
 
   const group = detail?.group
@@ -203,7 +212,7 @@ function LessonDetailBody({ ev }: { ev: CalendarEvent }) {
           <div className="flex min-w-0 items-stretch gap-3">
             <span
               className="w-[5px] flex-none rounded-[3px]"
-              style={{ background: ev.color }}
+              style={{ background: hexA(ev.color, 1) }}
               aria-hidden
             />
             <div className="min-w-0">
@@ -295,49 +304,36 @@ function LessonDetailBody({ ev }: { ev: CalendarEvent }) {
         ) : (
           <>
             {/* Сводка (фиксированная) */}
-            <div className="flex-none px-4 pt-3.5 pb-3">
+            <div className="flex-none px-4 pt-2">
               <div className="mb-2.5 flex items-center justify-between gap-2">
                 <div className="flex items-baseline gap-2">
                   <span className="text-[14px] font-semibold">Посещаемость</span>
                   <span className="text-muted-foreground text-[12.5px] tabular-nums">
-                    {counts.present} из {total} пришли
+                    {counts.present} из {total}
                   </span>
                 </div>
                 <div className="flex flex-wrap justify-end gap-1.5">
                   {STATUS_ORDER.filter((s) => counts[s] > 0).map((s) => {
                     const Icon = STATUS_UI[s].icon
                     return (
-                      <span
+                      <Badge
                         key={s}
                         title={STATUS_UI[s].label}
-                        className={cn(
-                          'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
-                          STATUS_UI[s].badge,
-                        )}
+                        className={cn('text-[11px] font-semibold tabular-nums', STATUS_UI[s].badge)}
                       >
                         <Icon className="size-3" />
                         {counts[s]}
-                      </span>
+                      </Badge>
                     )
                   })}
                 </div>
               </div>
-              {/* Сегментированная полоса распределения */}
-              <div className="bg-muted flex h-1.5 overflow-hidden rounded-full">
-                {STATUS_ORDER.filter((s) => s !== 'unspecified').map((s) => (
-                  <span
-                    key={s}
-                    className={STATUS_UI[s].bar}
-                    style={{ width: `${(counts[s] / total) * 100}%` }}
-                  />
-                ))}
-              </div>
             </div>
 
             {/* Ростер (прокручиваемый) */}
-            <div className="thin-scrollbar flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto px-3 pt-1 pb-3">
+            <div className="thin-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-auto px-2 pb-3">
               {attendance.map((a) => (
-                <StudentRow key={a.id} a={a} />
+                <StudentRow key={a.id} a={a} popoverContainer={popoverContainer} />
               ))}
             </div>
           </>
@@ -370,6 +366,8 @@ function LessonDetailBody({ ev }: { ev: CalendarEvent }) {
  */
 export function LessonDetailDrawer({ ctrl }: { ctrl: CalendarController }) {
   const isMobile = useIsMobile()
+  // Контейнер для порталов popover'ов: vaul блокирует клики вне контента drawer'а.
+  const [container, setContainer] = useState<HTMLDivElement | null>(null)
   // Сохраняем последнее событие, чтобы содержимое не исчезало на анимации закрытия.
   const [shown, setShown] = useState<CalendarEvent | null>(null)
   useEffect(() => {
@@ -383,8 +381,11 @@ export function LessonDetailDrawer({ ctrl }: { ctrl: CalendarController }) {
       open={ctrl.selectedEvent !== null}
       onOpenChange={(open) => !open && ctrl.closeEvent()}
     >
-      <DrawerContent className="data-[vaul-drawer-direction=right]:sm:max-w-[484px]">
-        {ev && <LessonDetailBody ev={ev} />}
+      <DrawerContent
+        ref={setContainer}
+        className="focus:outline-none data-[vaul-drawer-direction=right]:sm:max-w-[484px]"
+      >
+        {ev && <LessonDetailBody ev={ev} popoverContainer={container} />}
       </DrawerContent>
     </Drawer>
   )

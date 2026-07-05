@@ -34,6 +34,7 @@ import type {
   UpdateAttendanceTrialStatusSchemaType,
 } from './schemas'
 import type { LessonByDate } from './types'
+import { calendarKeys } from '../calendar/queries'
 
 // ─── Key Factory ─────────────────────────────────────────────────────────────
 
@@ -152,6 +153,7 @@ export const useUpdateAttendanceStatusMutation = (lessonId: number) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: lessonKeys.detail(lessonId) })
       queryClient.invalidateQueries({ queryKey: dashboardKeys.all })
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all })
     },
   })
 }

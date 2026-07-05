@@ -13,9 +13,10 @@ import {
 } from '@/src/components/ui/tooltip'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { cva } from 'class-variance-authority'
-import { AlertCircle, Check, Loader, Minus, X } from 'lucide-react'
+import { BellRing, Check, Loader, Minus, X } from 'lucide-react'
 import { useState } from 'react'
 import { useUpdateAttendanceStatusMutation } from '../queries'
+import { Separator } from '@/src/components/ui/separator'
 
 export type AttendanceForStatusSwitcher = Pick<
   Attendance,
@@ -25,6 +26,8 @@ export type AttendanceForStatusSwitcher = Pick<
 interface AttendanceStatusSwitcherProps {
   attendance: AttendanceForStatusSwitcher
   disabled?: boolean
+  /** Контейнер для портала popover'а — нужен внутри модальных drawer'ов (vaul блокирует клики вне контента). */
+  popoverContainer?: HTMLElement | null
 }
 
 const switcherVariant = cva(['cursor-pointer'], {
@@ -74,7 +77,11 @@ const switcherVariant = cva(['cursor-pointer'], {
   ],
 })
 
-export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceStatusSwitcherProps) {
+export function AttendanceStatusSwitcher({
+  attendance,
+  disabled,
+  popoverContainer,
+}: AttendanceStatusSwitcherProps) {
   const { data: hasPermission } = useOrganizationPermissionQuery({
     studentLesson: ['selectWarned'],
   })
@@ -113,7 +120,7 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
 
   return (
     <TooltipProvider delay={300}>
-      <div className="flex items-center gap-2">
+      <div className="border-muted flex w-fit items-center gap-1.5 rounded-lg border px-1.5 py-1">
         {hasPermission?.success ? (
           <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
             <Tooltip>
@@ -123,7 +130,6 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
                     render={
                       <Toggle
                         size={'sm'}
-                        variant="outline"
                         className={switcherVariant({
                           variant: 'absent',
                           active: status === 'ABSENT',
@@ -143,7 +149,7 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
               </TooltipContent>
             </Tooltip>
 
-            <PopoverContent className="w-fit">
+            <PopoverContent className="w-fit" container={popoverContainer}>
               <div className="flex items-center justify-center gap-2">
                 <Button
                   variant={'destructive'}
@@ -172,7 +178,6 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
               render={
                 <Toggle
                   size={'sm'}
-                  variant="outline"
                   className={switcherVariant({
                     variant: 'absent',
                     active: status === 'ABSENT',
@@ -197,7 +202,6 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
             render={
               <Toggle
                 size={'sm'}
-                variant="outline"
                 className={switcherVariant({ variant: 'unspecified', active: isPending })}
                 pressed={status === 'UNSPECIFIED'}
                 onClick={() => handleStatusChange('UNSPECIFIED', null)}
@@ -219,7 +223,6 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
             render={
               <Toggle
                 size={'sm'}
-                variant="outline"
                 pressed={status === 'PRESENT'}
                 onClick={() => handleStatusChange('PRESENT', null)}
                 disabled={isPending || status === 'PRESENT'}
@@ -234,13 +237,15 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
           </TooltipContent>
         </Tooltip>
 
+        <Separator orientation="vertical" />
+
         {isWarned !== null && isWarned ? (
           <Tooltip>
-            <TooltipTrigger render={<AlertCircle className="text-warning size-4" />} />
+            <TooltipTrigger render={<BellRing className="text-warning size-4" />} />
             <TooltipContent>Предупредили</TooltipContent>
           </Tooltip>
         ) : (
-          <AlertCircle className="text-muted size-4" />
+          <BellRing className="text-muted size-4" />
         )}
       </div>
     </TooltipProvider>
