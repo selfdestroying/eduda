@@ -4,6 +4,7 @@ import { Checkbox } from '@/src/components/ui/checkbox'
 import { cn } from '@/src/lib/utils'
 import type { CalendarController } from '../hooks/use-calendar'
 import type { CalendarCategory, FilterDimension } from '../types'
+import { hexA } from '../lib/date-utils'
 
 const rowBase =
   'hover:bg-muted flex items-center gap-2.5 rounded-md px-2 text-[13px] font-medium transition-colors'
@@ -54,7 +55,7 @@ function FilterSection({
           // отмеченный чекбокс окрашен в цвет типа (= цвет события на календаре) как легенда.
           const checkboxStyle =
             dimension === 'groupType' && active
-              ? { backgroundColor: cat.color, borderColor: cat.color }
+              ? { backgroundColor: hexA(cat.color, 1), borderColor: hexA(cat.color, 1) }
               : undefined
           return (
             <label key={cat.id} className={cn(rowBase, 'cursor-pointer py-1.5', tone)}>
