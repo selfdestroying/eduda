@@ -28,7 +28,7 @@ import {
 } from '@/src/components/ui/dropdown-menu'
 import { Input } from '@/src/components/ui/input'
 import { Label } from '@/src/components/ui/label'
-import { CalendarCog, CalendarPlus, Loader, MoreVertical, Trash2, UserPen } from 'lucide-react'
+import { CalendarCog, CalendarPlus, Loader, MoreVertical, Trash, UserPen } from 'lucide-react'
 import { useState } from 'react'
 import { useDeleteAttendanceMutation, useUpdateAttendanceTrialStatusMutation } from '../queries'
 import type { AttendanceForActions } from '../types'
@@ -120,7 +120,7 @@ const AttendanceActions = ({ attendance }: { attendance: AttendanceForActions })
               setOpen(false)
             }}
           >
-            <Trash2 className="mr-2 h-4 w-4" />
+            <Trash className="mr-2 h-4 w-4" />
             Удалить
           </DropdownMenuItem>
         </DropdownMenuContent>
