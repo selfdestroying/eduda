@@ -5,7 +5,13 @@ import { admin as adminPlugin, customSession, organization } from 'better-auth/p
 import prisma from '../db/prisma'
 import { getEffectiveFeatures } from '../features/effective'
 import globalPermissions from '../permissions/global'
-import organizationPermissions from '../permissions/organization'
+import organizationPermissions, {
+  fullPermission,
+  getStaticRolePermission,
+  systemRoleLabels,
+  type OrganizationPermissionCheck,
+  type OrganizationRole,
+} from '../permissions/organization'
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.split(':')[0]
 
@@ -102,6 +108,45 @@ const options = {
   ],
 } satisfies BetterAuthOptions
 
+/**
+ * Резолвит эффективную карту прав участника для снапшота сессии.
+ * - `owner` → полный доступ (неизменяем).
+ * - иначе → переопределение из `OrganizationRole` (если владелец его завёл),
+ *   иначе — статический дефолт роли из кода.
+ * Снапшот читается синхронно и на клиенте (`useHasPermission`), и на сервере
+ * (`ctx.session.permissions`), без сетевых round-trip'ов.
+ */
+async function resolveMemberPermissions(
+  organizationId: number | null,
+  role: string | null,
+): Promise<{ permissions: OrganizationPermissionCheck; roleLabel: string | null }> {
+  if (!organizationId || !role) {
+    return { permissions: {}, roleLabel: null }
+  }
+
+  if (role === 'owner') {
+    return { permissions: fullPermission, roleLabel: systemRoleLabels.owner }
+  }
+
+  const dbRole = await prisma.organizationRole.findUnique({
+    where: { organizationId_role: { organizationId, role } },
+  })
+
+  const fallbackLabel = systemRoleLabels[role as OrganizationRole] ?? role
+
+  if (dbRole) {
+    let permissions: OrganizationPermissionCheck = {}
+    try {
+      permissions = JSON.parse(dbRole.permission) as OrganizationPermissionCheck
+    } catch {
+      permissions = getStaticRolePermission(role) ?? {}
+    }
+    return { permissions, roleLabel: dbRole.label ?? fallbackLabel }
+  }
+
+  return { permissions: getStaticRolePermission(role) ?? {}, roleLabel: fallbackLabel }
+}
+
 export const auth = betterAuth({
   ...options,
   plugins: [
@@ -114,12 +159,19 @@ export const auth = betterAuth({
 
       const { disabledFeatures } = await getEffectiveFeatures(member?.organizationId ?? null)
 
+      const { permissions, roleLabel } = await resolveMemberPermissions(
+        member?.organizationId ?? null,
+        member?.role ?? null,
+      )
+
       return {
         user,
         session,
         organization: member?.organization ?? null,
         organizationId: member?.organizationId ?? null,
         memberRole: member?.role ?? null,
+        roleLabel,
+        permissions,
         userRole: user.role,
         disabledFeatures,
       }
@@ -129,4 +181,4 @@ export const auth = betterAuth({
 })
 
 export type Session = typeof auth.$Infer.Session
-export type OrganizationRole = 'owner' | 'manager' | 'teacher'
+export type { OrganizationRole } from '../permissions/organization'

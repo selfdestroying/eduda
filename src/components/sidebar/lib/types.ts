@@ -1,11 +1,15 @@
 import type { OrganizationRole } from '@/src/lib/auth/server'
+import type { FeatureKey } from '@/src/lib/features/registry'
+import type { OrganizationPermissionCheck } from '@/src/lib/permissions/organization'
 import type { LucideIcon } from 'lucide-react'
 
 export type NavItem = {
   title: string
   url: string
   roles: OrganizationRole[]
-  featureKey?: string
+  /** Опциональный permission-гейт (в дополнение к `roles`, для динамических ролей). */
+  permission?: OrganizationPermissionCheck
+  featureKey?: FeatureKey
 }
 
 /**
@@ -18,7 +22,8 @@ export type NavSubGroup = {
   /** Optional landing page for the subgroup. */
   url?: string
   roles: OrganizationRole[]
-  featureKey?: string
+  permission?: OrganizationPermissionCheck
+  featureKey?: FeatureKey
   items: NavItem[]
 }
 
@@ -29,10 +34,11 @@ export type NavGroup = {
   title: string
   icon: LucideIcon
   roles: OrganizationRole[]
+  permission?: OrganizationPermissionCheck
   /** Optional landing page for the group; clicking the group title navigates here. */
   url?: string
   items: NavGroupChild[]
-  featureKey?: string
+  featureKey?: FeatureKey
 }
 
 /** Standalone link without sub-items (e.g. dashboard, smart feed). */
@@ -41,7 +47,8 @@ export type NavLeaf = {
   url: string
   icon: LucideIcon
   roles: OrganizationRole[]
-  featureKey?: string
+  permission?: OrganizationPermissionCheck
+  featureKey?: FeatureKey
 }
 
 /** Type guard to distinguish nested subgroups from plain items inside a group. */

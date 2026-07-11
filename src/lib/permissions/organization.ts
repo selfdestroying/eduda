@@ -21,6 +21,8 @@ const statement = {
   wallet: ['create', 'read', 'update', 'delete'],
 
   lessonStudentHistory: ['read', 'update'],
+
+  role: ['read', 'create', 'update', 'delete'],
 } as const
 
 const ac = createAccessControl(statement)
@@ -75,6 +77,70 @@ export type OrganizationStatementKeys = keyof typeof statement
 export type OrganizationAction<T extends OrganizationStatementKeys> = (typeof statement)[T][number]
 export type OrganizationPermissionCheck = {
   [R in OrganizationStatementKeys]?: Array<OrganizationAction<R>>
+}
+
+/** Полный каталог всех ресурсов и действий (для UI и валидации). */
+export const statementCatalog = statement
+
+/** Карта прав «всё разрешено» — используется для роли `owner`. */
+export const fullPermission: OrganizationPermissionCheck = Object.fromEntries(
+  Object.entries(statement).map(([key, actions]) => [key, [...actions]]),
+) as OrganizationPermissionCheck
+
+/**
+ * Статические права системных ролей.
+ * `owner` — источник истины (неизменяем). `manager`/`teacher` — дефолтные
+ * шаблоны, которые владелец может переопределить строкой в `OrganizationRole`.
+ */
+export const staticRolePermissions: Record<OrganizationRole, OrganizationPermissionCheck> = {
+  owner: fullPermission,
+  manager: manager.statements as OrganizationPermissionCheck,
+  teacher: teacher.statements as OrganizationPermissionCheck,
+}
+
+export type OrganizationRole = 'owner' | 'manager' | 'teacher'
+
+/** Системные роли, определённые в коде. `owner` всегда неизменяем. */
+export const SYSTEM_ROLES = ['owner', 'manager', 'teacher'] as const
+/** Роли, которые нельзя редактировать или удалять из UI. */
+export const IMMUTABLE_ROLES = ['owner'] as const
+
+export const systemRoleLabels: Record<OrganizationRole, string> = {
+  owner: 'Владелец',
+  manager: 'Менеджер',
+  teacher: 'Учитель',
+}
+
+/**
+ * Статические права роли по имени (fallback, когда в БД нет переопределения).
+ * Возвращает `null` для неизвестной (кастомной) роли.
+ */
+export function getStaticRolePermission(
+  role: string | null | undefined,
+): OrganizationPermissionCheck | null {
+  if (role && role in staticRolePermissions) {
+    return staticRolePermissions[role as OrganizationRole]
+  }
+  return null
+}
+
+/**
+ * Проверяет, содержит ли карта прав все запрошенные действия.
+ * Пустой запрос (`{}`) считается разрешённым.
+ */
+export function checkPermission(
+  permissions: OrganizationPermissionCheck | null | undefined,
+  required: OrganizationPermissionCheck,
+): boolean {
+  if (!permissions) return false
+  for (const key of Object.keys(required) as OrganizationStatementKeys[]) {
+    const requiredActions = required[key] ?? []
+    const grantedActions = (permissions[key] ?? []) as string[]
+    for (const action of requiredActions) {
+      if (!grantedActions.includes(action)) return false
+    }
+  }
+  return true
 }
 
 const organizationPermissions = { ac, roles: { owner, manager, teacher } }

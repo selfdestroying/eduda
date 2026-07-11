@@ -1,33 +1,59 @@
 import type { OrganizationRole } from '@/src/lib/auth/server'
 import { isFeatureDisabled } from '@/src/lib/features/registry'
+import {
+  checkPermission,
+  type OrganizationPermissionCheck,
+  SYSTEM_ROLES,
+} from '@/src/lib/permissions/organization'
 import type { NavEntry } from './nav-config'
 import type { NavGroupChild } from './types'
 import { isSubGroup } from './types'
 
+const SYSTEM_ROLE_SET = new Set<string>(SYSTEM_ROLES)
+
+/**
+ * Видимость записи навигации:
+ * - системная роль (owner/manager/teacher) — по массиву `roles` + опционально `permission`
+ *   (текущее поведение сохраняется без изменений);
+ * - кастомная роль — только по `permission`; записи без `permission` скрыты
+ *   (пока они не мигрированы на права).
+ */
 function isAllowed(
-  e: { roles: OrganizationRole[]; featureKey?: string },
-  role: OrganizationRole,
+  e: { roles: OrganizationRole[]; permission?: OrganizationPermissionCheck; featureKey?: string },
+  role: string,
+  isSystemRole: boolean,
   disabled: string[],
+  permissions: OrganizationPermissionCheck,
 ): boolean {
-  if (!e.roles.includes(role)) return false
   if (e.featureKey && isFeatureDisabled(disabled, e.featureKey)) return false
-  return true
+
+  if (isSystemRole) {
+    if (!e.roles.includes(role as OrganizationRole)) return false
+    if (e.permission && !checkPermission(permissions, e.permission)) return false
+    return true
+  }
+
+  // Кастомная роль: гейтим строго по правам.
+  if (!e.permission) return false
+  return checkPermission(permissions, e.permission)
 }
 
 /**
- * Filter the unified nav tree by current role and disabled features.
+ * Filter the unified nav tree by current role, permissions and disabled features.
  * Drops entries the user can't access; drops groups/subgroups left empty
  * unless they have their own landing url.
  */
 export function filterNav(
   entries: NavEntry[],
-  role: OrganizationRole,
+  role: string,
   disabledFeatures: string[],
+  permissions: OrganizationPermissionCheck = {},
 ): NavEntry[] {
+  const isSystemRole = SYSTEM_ROLE_SET.has(role)
   const result: NavEntry[] = []
 
   for (const entry of entries) {
-    if (!isAllowed(entry, role, disabledFeatures)) continue
+    if (!isAllowed(entry, role, isSystemRole, disabledFeatures, permissions)) continue
 
     if (entry.kind === 'leaf') {
       result.push(entry)
@@ -36,10 +62,12 @@ export function filterNav(
 
     const children: NavGroupChild[] = []
     for (const child of entry.items) {
-      if (!isAllowed(child, role, disabledFeatures)) continue
+      if (!isAllowed(child, role, isSystemRole, disabledFeatures, permissions)) continue
 
       if (isSubGroup(child)) {
-        const subItems = child.items.filter((i) => isAllowed(i, role, disabledFeatures))
+        const subItems = child.items.filter((i) =>
+          isAllowed(i, role, isSystemRole, disabledFeatures, permissions),
+        )
         if (subItems.length === 0 && !child.url) continue
         children.push({ ...child, items: subItems })
       } else {

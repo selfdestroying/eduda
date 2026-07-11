@@ -4,9 +4,10 @@ import { createSafeActionClient, DEFAULT_SERVER_ERROR_MESSAGE } from 'next-safe-
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
-import { auth } from './auth/server'
+import { auth, type Session } from './auth/server'
 import { ActionError, ForbiddenError, UnauthorizedError } from './error'
 import { type FeatureKey, isFeatureDisabled } from './features/registry'
+import { checkPermission, type OrganizationPermissionCheck } from './permissions/organization'
 import { DEFAULT_TZ } from './timezone'
 import { protocol, rootDomain } from './utils'
 
@@ -66,6 +67,40 @@ export const authAction = baseClient.use(async ({ next }) => {
     },
   })
 })
+
+/**
+ * Проверяет, что у сессии есть все запрошенные права (по снапшоту
+ * `session.permissions`, резолвнутому в `customSession`).
+ */
+export function hasPermission(session: Session, required: OrganizationPermissionCheck): boolean {
+  return checkPermission(session.permissions as OrganizationPermissionCheck, required)
+}
+
+/**
+ * Бросает `ForbiddenError`, если у сессии нет запрошенных прав.
+ * Использовать в начале мутаций вместо ad-hoc `memberRole !== 'owner'`.
+ */
+export function assertPermission(session: Session, required: OrganizationPermissionCheck): void {
+  if (!hasPermission(session, required)) {
+    throw new ForbiddenError('Недостаточно прав для этого действия')
+  }
+}
+
+/**
+ * Обёртка над `authAction`, декларативно требующая права: middleware проверит
+ * их до выполнения экшена.
+ *
+ * @example
+ * export const deleteRole = permissionAction({ role: ['delete'] })
+ *   .metadata({ actionName: 'deleteRole' })
+ *   .action(async ({ ctx, parsedInput }) => { ... })
+ */
+export function permissionAction(required: OrganizationPermissionCheck) {
+  return authAction.use(async ({ next, ctx }) => {
+    assertPermission(ctx.session, required)
+    return next()
+  })
+}
 
 /**
  * Обёртка над `authAction`, требующая, чтобы фича была включена у организации.

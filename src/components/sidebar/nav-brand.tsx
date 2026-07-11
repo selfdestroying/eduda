@@ -16,6 +16,7 @@ import {
   CreditCard,
   type LucideIcon,
   Percent,
+  ShieldCheck,
   Users,
   Wallet,
 } from 'lucide-react'
@@ -52,6 +53,7 @@ const ORG_MENU_ITEMS: OrgMenuItem[] = [
     featureKey: 'organization.courses',
   },
   { title: 'Сотрудники', url: '/organization/members', icon: Users, roles: STAFF_ROLES },
+  { title: 'Роли и доступы', url: '/organization/roles', icon: ShieldCheck, roles: ['owner'] },
   {
     title: 'Ставки',
     url: '/organization/rates',
