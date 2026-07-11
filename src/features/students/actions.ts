@@ -2,6 +2,7 @@
 
 import { Prisma } from '@/prisma/generated/client'
 import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@/prisma/generated/enums'
+
 import prisma from '@/src/lib/db/prisma'
 import {
   type StudentFinancialAudit,
@@ -9,7 +10,7 @@ import {
   parseIntFieldChange,
   writeFinancialHistoryTx,
 } from '@/src/lib/lessons-balance'
-import { authAction } from '@/src/lib/safe-action'
+import { authAction, featureAction } from '@/src/lib/safe-action'
 import { randomInt } from 'crypto'
 import * as z from 'zod'
 import { CreateStudentSchema, DeleteStudentSchema, UpdateStudentCoinsSchema } from './schemas'
@@ -756,7 +757,7 @@ export const getStudentGroupHistory = authAction
 
 // ─── SHOP STATS ──────────────────────────────────────────────────────────────
 
-export const getStudentShopStats = authAction
+export const getStudentShopStats = featureAction('shop')
   .metadata({ actionName: 'getStudentShopStats' })
   .inputSchema(z.object({ studentId: z.number().int().positive() }))
   .action(async ({ ctx, parsedInput }) => {

@@ -1,5 +1,5 @@
 import { auth } from '@/src/lib/auth/server'
-import { isRouteDisabled } from '@/src/lib/features/route-feature-map'
+import { isRouteDisabled } from '@/src/lib/features/registry'
 import { NextRequest, NextResponse } from 'next/server'
 import { protocol, rootDomain } from './lib/utils'
 

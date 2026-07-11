@@ -2,17 +2,17 @@
 
 import prisma from '@/src/lib/db/prisma'
 import { InternalServerError } from '@/src/lib/error'
-import { authAction } from '@/src/lib/safe-action'
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client'
 import { randomUUID } from 'crypto'
 import fs from 'fs/promises'
 import path from 'path'
 import { CreateProductSchema, DeleteProductSchema, UpdateProductSchema } from './schemas'
+import { featureAction } from '@/src/lib/safe-action'
 
 const IMAGE_URL = process.env.IMAGE_URL ?? ''
 const IMAGE_PATH = process.env.IMAGE_PATH ?? ''
 
-export const getProducts = authAction
+export const getProducts = featureAction('shop')
   .metadata({ actionName: 'getProducts' })
   .action(async ({ ctx }) => {
     return await prisma.product.findMany({
@@ -34,7 +34,7 @@ async function deleteImageFile(imageUrl: string) {
   }
 }
 
-export const createProduct = authAction
+export const createProduct = featureAction('shop')
   .metadata({ actionName: 'createProduct' })
   .inputSchema(CreateProductSchema)
   .action(async ({ ctx, parsedInput }) => {
@@ -55,7 +55,7 @@ export const createProduct = authAction
     })
   })
 
-export const updateProduct = authAction
+export const updateProduct = featureAction('shop')
   .metadata({ actionName: 'updateProduct' })
   .inputSchema(UpdateProductSchema)
   .action(async ({ ctx, parsedInput }) => {
@@ -99,7 +99,7 @@ export const updateProduct = authAction
     }
   })
 
-export const deleteProduct = authAction
+export const deleteProduct = featureAction('shop')
   .metadata({ actionName: 'deleteProduct' })
   .inputSchema(DeleteProductSchema)
   .action(async ({ ctx, parsedInput }) => {

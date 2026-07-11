@@ -3,6 +3,7 @@ import { APIError, betterAuth, type BetterAuthOptions } from 'better-auth'
 import { nextCookies } from 'better-auth/next-js'
 import { admin as adminPlugin, customSession, organization } from 'better-auth/plugins'
 import prisma from '../db/prisma'
+import { getEffectiveFeatures } from '../features/effective'
 import globalPermissions from '../permissions/global'
 import organizationPermissions from '../permissions/organization'
 
@@ -111,14 +112,7 @@ export const auth = betterAuth({
         include: { organization: true },
       })
 
-      const disabledFeatures = member?.organizationId
-        ? (
-            await prisma.organizationFeature.findMany({
-              where: { organizationId: member.organizationId, enabled: false },
-              select: { featureKey: true },
-            })
-          ).map((f) => f.featureKey)
-        : []
+      const { disabledFeatures } = await getEffectiveFeatures(member?.organizationId ?? null)
 
       return {
         user,

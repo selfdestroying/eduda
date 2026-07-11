@@ -1,10 +1,11 @@
 'use server'
 
 import prisma from '@/src/lib/db/prisma'
-import { authAction } from '@/src/lib/safe-action'
-import { ChangeOrderStatusSchema } from './schemas'
 
-export const getOrders = authAction
+import { ChangeOrderStatusSchema } from './schemas'
+import { featureAction } from '@/src/lib/safe-action'
+
+export const getOrders = featureAction('shop')
   .metadata({ actionName: 'getOrders' })
   .action(async ({ ctx }) => {
     return await prisma.order.findMany({
@@ -16,7 +17,7 @@ export const getOrders = authAction
     })
   })
 
-export const changeOrderStatus = authAction
+export const changeOrderStatus = featureAction('shop')
   .metadata({ actionName: 'changeOrderStatus' })
   .inputSchema(ChangeOrderStatusSchema)
   .action(async ({ ctx, parsedInput }) => {

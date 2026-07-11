@@ -5,7 +5,8 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { auth } from './auth/server'
-import { ActionError, UnauthorizedError } from './error'
+import { ActionError, ForbiddenError, UnauthorizedError } from './error'
+import { type FeatureKey, isFeatureDisabled } from './features/registry'
 import { DEFAULT_TZ } from './timezone'
 import { protocol, rootDomain } from './utils'
 
@@ -65,3 +66,25 @@ export const authAction = baseClient.use(async ({ next }) => {
     },
   })
 })
+
+/**
+ * Обёртка над `authAction`, требующая, чтобы фича была включена у организации.
+ * Fail-closed: если фича (или её родитель) отключена — middleware бросит
+ * `ForbiddenError` до выполнения экшена. Строй feature-scoped экшены только через
+ * это (например `export const shopAction = featureAction('shop')`), чтобы серверный
+ * гейт нельзя было забыть.
+ *
+ * @example
+ * export const createOrder = featureAction('shop')
+ *   .metadata({ actionName: 'createOrder' })
+ *   .action(async ({ ctx }) => { ... })
+ */
+export function featureAction(feature: FeatureKey) {
+  return authAction.use(async ({ next, ctx }) => {
+    const disabled = (ctx.session.disabledFeatures as string[] | undefined) ?? []
+    if (isFeatureDisabled(disabled, feature)) {
+      throw new ForbiddenError('Функция отключена для организации')
+    }
+    return next()
+  })
+}
