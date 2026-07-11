@@ -5,8 +5,16 @@ import { DAY_STATUS_COLORS } from '../../lib/constants'
 import { eventMarkStatus, fmtTime, hexA } from '../../lib/date-utils'
 import type { CalendarEvent } from '../../types'
 
-export function AgendaRow({ ev, onClick }: { ev: CalendarEvent; onClick: () => void }) {
-  const unmarked = eventMarkStatus(ev) === 'unmarked'
+export function AgendaRow({
+  ev,
+  onClick,
+  tz,
+}: {
+  ev: CalendarEvent
+  onClick: () => void
+  tz: string
+}) {
+  const unmarked = eventMarkStatus(ev, tz) === 'unmarked'
   return (
     <button onClick={onClick} className="flex w-full items-stretch gap-3 px-[18px] py-2 text-left">
       <div className="text-muted-foreground w-[62px] flex-none pt-px text-[12.5px] font-medium tabular-nums">

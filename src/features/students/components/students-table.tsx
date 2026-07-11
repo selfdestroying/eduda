@@ -4,7 +4,9 @@ import DataTable from '@/src/components/data-table'
 import { Input } from '@/src/components/ui/input'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
+import { formatDateTimeInTz } from '@/src/lib/timezone'
 import { getFullName } from '@/src/lib/utils'
 import {
   ColumnDef,
@@ -26,13 +28,14 @@ function getAggregateBalance(student: StudentWithGroups) {
   return student.wallets.reduce((sum, w) => sum + w.lessonsBalance, 0) + student.lessonsBalance
 }
 
-function formatActualizedDate(date: Date) {
-  return date.toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' })
+function formatActualizedDate(date: Date, tz: string) {
+  return formatDateTimeInTz(date, tz, { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 export default function StudentsTable() {
   const { data: students = [], isLoading, isError } = useStudentListQuery()
   const { data: canDelete } = useOrganizationPermissionQuery({ student: ['delete'] })
+  const tz = useOrgTimezone()
 
   const columns: ColumnDef<StudentWithGroups>[] = useMemo(() => {
     const base: ColumnDef<StudentWithGroups>[] = [
@@ -77,12 +80,12 @@ export default function StudentsTable() {
       {
         header: 'Актуальность',
         accessorFn: (row) =>
-          row.dataActualizedAt ? formatActualizedDate(row.dataActualizedAt) : '-',
+          row.dataActualizedAt ? formatActualizedDate(row.dataActualizedAt, tz) : '-',
         cell: ({ row }) =>
           row.original.dataActual ? (
             <span>
               {row.original.dataActualizedAt
-                ? formatActualizedDate(row.original.dataActualizedAt)
+                ? formatActualizedDate(row.original.dataActualizedAt, tz)
                 : 'Да'}
             </span>
           ) : (
@@ -103,7 +106,7 @@ export default function StudentsTable() {
     }
 
     return base
-  }, [canDelete?.success])
+  }, [canDelete?.success, tz])
 
   const { globalFilter, setGlobalFilter, pagination, setPagination, sorting, setSorting } =
     useTableSearchParams({

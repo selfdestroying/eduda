@@ -2,7 +2,7 @@
 
 import prisma from '@/src/lib/db/prisma'
 import { authAction } from '@/src/lib/safe-action'
-import { moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
+import { todayInTz } from '@/src/lib/timezone'
 import * as z from 'zod'
 import {
   AddStudentToGroupSchema,
@@ -177,7 +177,7 @@ export const archiveGroup = authAction
   .action(async ({ ctx, parsedInput }) => {
     const { groupId, statusChangedAt, comment, deleteFutureLessons } = parsedInput
     const statusChangedAtDate = new Date(
-      statusChangedAt ?? normalizeDateOnly(moscowNow()).toISOString().split('T')[0]!,
+      statusChangedAt ?? todayInTz(ctx.tz).toISOString().split('T')[0]!,
     )
     await prisma.$transaction(async (tx) => {
       await tx.group.update({
@@ -205,7 +205,7 @@ export const completeGroup = authAction
   .action(async ({ ctx, parsedInput }) => {
     const { groupId, statusChangedAt, comment, deleteFutureLessons } = parsedInput
     const statusChangedAtDate = new Date(
-      statusChangedAt ?? normalizeDateOnly(moscowNow()).toISOString().split('T')[0]!,
+      statusChangedAt ?? todayInTz(ctx.tz).toISOString().split('T')[0]!,
     )
     await prisma.$transaction(async (tx) => {
       await tx.group.update({
@@ -244,7 +244,7 @@ export const countFutureLessons = authAction
   )
   .action(async ({ ctx, parsedInput }) => {
     const afterDate = new Date(
-      parsedInput.afterDate ?? normalizeDateOnly(moscowNow()).toISOString().split('T')[0]!,
+      parsedInput.afterDate ?? todayInTz(ctx.tz).toISOString().split('T')[0]!,
     )
     return await prisma.lesson.count({
       where: {
@@ -390,7 +390,7 @@ export const updateScheduleOnly = authAction
       const scheduleDaysMap = new Map(schedule.map((s) => [s.dayOfWeek, s.time]))
 
       // Update time on future lessons that match schedule days
-      const today = normalizeDateOnly(moscowNow())
+      const today = todayInTz(ctx.tz)
       const futureLessons = await tx.lesson.findMany({
         where: { groupId, date: { gte: today } },
         select: { id: true, date: true },
@@ -478,7 +478,7 @@ export const addStudentToGroup = authAction
 
       if (!isApplyToLesson) return
 
-      const todayDate = normalizeDateOnly(moscowNow())
+      const todayDate = todayInTz(ctx.tz)
       const futureLessons = await tx.lesson.findMany({
         where: { groupId, date: { gte: todayDate } },
         select: { id: true, organizationId: true },
@@ -539,7 +539,7 @@ export const dismissStudentFromGroup = authAction
         },
       })
 
-      const todayDate = normalizeDateOnly(moscowNow())
+      const todayDate = todayInTz(ctx.tz)
       const futureLessons = await tx.lesson.findMany({
         where: { groupId, date: { gte: todayDate } },
         select: { id: true },
@@ -581,7 +581,7 @@ export const transferStudent = authAction
         where: { studentId_groupId: { studentId, groupId: oldGroupId } },
         data: {
           status: 'TRANSFERRED',
-          statusChangedAt: normalizeDateOnly(moscowNow()),
+          statusChangedAt: todayInTz(ctx.tz),
           statusComment: `Переведён в группу ${newGroupName}`,
         },
       })
@@ -599,7 +599,7 @@ export const transferStudent = authAction
           data: {
             status: 'ACTIVE',
             statusComment: null,
-            statusChangedAt: normalizeDateOnly(moscowNow()),
+            statusChangedAt: todayInTz(ctx.tz),
             walletId: oldSg.walletId,
           },
         })
@@ -619,7 +619,7 @@ export const transferStudent = authAction
         where: { studentId, status: 'UNSPECIFIED', lesson: { groupId: oldGroupId } },
       })
 
-      const today = normalizeDateOnly(moscowNow())
+      const today = todayInTz(ctx.tz)
       const newFutureLessons = await tx.lesson.findMany({
         where: { groupId: newGroupId, date: { gte: today } },
         select: { id: true, organizationId: true },
@@ -658,7 +658,7 @@ export const addTeacherToGroup = authAction
             include: {
               lessons: {
                 where: {
-                  date: { gt: normalizeDateOnly(moscowNow()) },
+                  date: { gt: todayInTz(ctx.tz) },
                   teachers: { none: { teacherId } },
                 },
               },
@@ -707,7 +707,7 @@ export const editTeacherGroup = authAction
           where: {
             teacherId,
             lesson: {
-              date: { gt: normalizeDateOnly(moscowNow()) },
+              date: { gt: todayInTz(ctx.tz) },
               groupId,
             },
           },
@@ -742,7 +742,7 @@ export const removeTeacherFromGroup = authAction
           where: {
             teacherId,
             lesson: {
-              date: { gt: normalizeDateOnly(moscowNow()) },
+              date: { gt: todayInTz(ctx.tz) },
               groupId,
             },
           },

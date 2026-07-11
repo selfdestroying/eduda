@@ -9,7 +9,7 @@ import { AgendaRow } from './agenda-row'
 export function MobileWeekView({ ctrl }: { ctrl: CalendarController }) {
   const s = startOfWeek(ctrl.curr, ctrl.weekStart)
   const days = Array.from({ length: 7 }, (_, i) => addDays(s, i))
-  const today = todayYmd()
+  const today = todayYmd(ctrl.tz)
 
   return (
     <div className="thin-scrollbar min-h-0 flex-1 overflow-auto pb-28">
@@ -53,7 +53,7 @@ export function MobileWeekView({ ctrl }: { ctrl: CalendarController }) {
             </div>
             {evs.length > 0 ? (
               evs.map((ev) => (
-                <AgendaRow key={ev.id} ev={ev} onClick={() => ctrl.selectEvent(ev)} />
+                <AgendaRow key={ev.id} ev={ev} tz={ctrl.tz} onClick={() => ctrl.selectEvent(ev)} />
               ))
             ) : (
               <div className="text-muted-foreground/70 px-[18px] pt-0.5 pb-1.5 text-[13px]">

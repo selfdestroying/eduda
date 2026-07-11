@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useRef, useState } from 'react'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { useCalendarLessonsQuery } from '../queries'
 import {
   addDays,
@@ -23,7 +24,10 @@ export function useCalendar({
   defaultView = 'month',
   weekStart = 'Monday',
 }: UseCalendarOptions = {}) {
+  const tz = useOrgTimezone()
   const [view, setViewState] = useState<CalendarView>(defaultView)
+  // Начальное значение — по браузерному TZ; при позднем приходе tz не пересчитывается,
+  // но `goToday` самовосстанавливается по поясу организации.
   const [currentDate, setCurrentDate] = useState<string>(todayYmd())
   /**
    * Скрытые категории по измерениям (тип группы / курс / локация / преподаватель) —
@@ -88,12 +92,12 @@ export function useCalendar({
    */
   const dayStatus = useCallback(
     (ds: string): DayStatus | null => {
-      if (ds > todayYmd()) return null
-      const passed = eventsOn(ds).filter((e) => !e.cancelled && eventPassed(e))
+      if (ds > todayYmd(tz)) return null
+      const passed = eventsOn(ds).filter((e) => !e.cancelled && eventPassed(e, tz))
       if (passed.length === 0) return null
       return passed.every((e) => e.allMarked) ? 'marked' : 'unmarked'
     },
-    [eventsOn],
+    [eventsOn, tz],
   )
 
   // ─── Навигация ─────────────────────────────────────────────────────────────
@@ -120,8 +124,8 @@ export function useCalendar({
 
   const goToday = useCallback(() => {
     requestScroll()
-    setCurrentDate(todayYmd())
-  }, [requestScroll])
+    setCurrentDate(todayYmd(tz))
+  }, [requestScroll, tz])
 
   const shiftMiniMonth = useCallback((n: number) => {
     setCurrentDate((cd) => ymd(addMonths(parseYmd(cd), n)))
@@ -189,6 +193,7 @@ export function useCalendar({
   return {
     // настройки
     weekStart,
+    tz,
     // состояние
     view,
     currentDate,

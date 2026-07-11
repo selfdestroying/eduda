@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { auth } from './auth/server'
 import { ActionError, UnauthorizedError } from './error'
+import { DEFAULT_TZ } from './timezone'
 import { protocol, rootDomain } from './utils'
 
 /** Схема метаданных для всех server actions */
@@ -58,6 +59,9 @@ export const authAction = baseClient.use(async ({ next }) => {
   return next({
     ctx: {
       session,
+      // Часовой пояс организации; fallback на DEFAULT_TZ, если колонка пуста
+      // или содержит невалидную зону. Пробрасывается во все server actions.
+      tz: session.organization?.timezone ?? DEFAULT_TZ,
     },
   })
 })

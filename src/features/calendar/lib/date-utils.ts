@@ -1,3 +1,4 @@
+import { formatInTz, toTz } from '@/src/lib/timezone'
 import type { CalendarEvent, DayStatus, WeekStart } from '../types'
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -62,8 +63,12 @@ export const hexA = (hex: string, a: number) => {
 /** Сортировка событий по времени начала. */
 export const sortEvents = (a: CalendarEvent, b: CalendarEvent) => a.start - b.start
 
-/** Сегодняшняя дата (локальная) как `YYYY-MM-DD`. */
-export const todayYmd = () => ymd(new Date())
+/**
+ * Сегодняшняя дата как `YYYY-MM-DD`.
+ * С `tz` — в поясе организации; без `tz` — в браузерном (модуль автономен).
+ */
+export const todayYmd = (tz?: string) =>
+  tz ? formatInTz(new Date(), tz, 'yyyy-MM-dd') : ymd(new Date())
 
 /** Диапазон дат, видимый в текущем режиме — для загрузки уроков. */
 export const visibleRange = (
@@ -87,23 +92,26 @@ export const visibleRange = (
   return { from: `${y}-01-01`, to: `${y}-12-31` }
 }
 
-/** Текущее время в минутах от полуночи (локальное). */
-export const nowMinutes = () => {
-  const n = new Date()
+/**
+ * Текущее время в минутах от полуночи.
+ * С `tz` — в поясе организации; без `tz` — в браузерном.
+ */
+export const nowMinutes = (tz?: string) => {
+  const n = tz ? toTz(new Date(), tz) : new Date()
   return n.getHours() * 60 + n.getMinutes()
 }
 
 /** Урок уже закончился (по дате и времени окончания)? */
-export const eventPassed = (e: CalendarEvent) => {
-  const today = todayYmd()
-  return e.date < today || (e.date === today && e.end <= nowMinutes())
+export const eventPassed = (e: CalendarEvent, tz?: string) => {
+  const today = todayYmd(tz)
+  return e.date < today || (e.date === today && e.end <= nowMinutes(tz))
 }
 
 /**
  * Статус отметки посещаемости урока: зелёный — все отмечены, красный — есть
  * неотмеченные; `null` — статуса нет (урок отменён или ещё не закончился).
  */
-export const eventMarkStatus = (e: CalendarEvent): DayStatus | null => {
-  if (e.cancelled || !eventPassed(e)) return null
+export const eventMarkStatus = (e: CalendarEvent, tz?: string): DayStatus | null => {
+  if (e.cancelled || !eventPassed(e, tz)) return null
   return e.allMarked ? 'marked' : 'unmarked'
 }

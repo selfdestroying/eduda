@@ -5,7 +5,7 @@ import { Hint } from '@/src/components/hint'
 import { Input } from '@/src/components/ui/input'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
-import { toMoscow } from '@/src/lib/timezone'
+import { formatDateOnly } from '@/src/lib/timezone'
 import { getFullName } from '@/src/lib/utils'
 import {
   type ColumnDef,
@@ -64,7 +64,7 @@ export default function PaymentsTable() {
       {
         header: 'Дата оплаты',
         accessorKey: 'date',
-        cell: ({ row }) => toMoscow(row.original.date).toLocaleDateString('ru-RU'),
+        cell: ({ row }) => formatDateOnly(row.original.date),
       },
       {
         header: 'Метод оплаты',

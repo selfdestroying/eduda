@@ -224,7 +224,7 @@ function ChildProfileForm({
           <CardTitle>Актуальность данных</CardTitle>
           <CardDescription>
             {student.dataActual && student.dataActualizedAt
-              ? `Данные подтверждены ${formatActualizedAt(student.dataActualizedAt)}.`
+              ? `Данные подтверждены ${formatActualizedAt(student.dataActualizedAt, data.timezone)}.`
               : 'После проверки данных подтвердите, что они актуальны.'}
           </CardDescription>
           <CardAction>
@@ -488,13 +488,13 @@ function TextField({
   )
 }
 
-function formatActualizedAt(value: string) {
+function formatActualizedAt(value: string, tz: string) {
   return new Date(value).toLocaleString('ru-RU', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: 'Europe/Moscow',
+    timeZone: tz,
   })
 }

@@ -26,7 +26,8 @@ import {
 import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
 import { Skeleton } from '@/src/components/ui/skeleton'
-import { toMoscow } from '@/src/lib/timezone'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import { formatDateTimeInTz } from '@/src/lib/timezone'
 import { JsonValue } from '@prisma/client/runtime/client'
 import {
   ColumnDef,
@@ -164,12 +165,12 @@ function getMetaDetails(
   }
 }
 
-function createColumns(studentId: number): ColumnDef<HistoryRow>[] {
+function createColumns(studentId: number, tz: string): ColumnDef<HistoryRow>[] {
   return [
     {
       header: 'Дата',
       accessorFn: (row) => row.createdAt,
-      cell: ({ row }) => <span>{toMoscow(row.original.createdAt).toLocaleString('ru-RU')}</span>,
+      cell: ({ row }) => <span>{formatDateTimeInTz(row.original.createdAt, tz)}</span>,
     },
     {
       header: 'Группа',
@@ -269,7 +270,8 @@ function createColumns(studentId: number): ColumnDef<HistoryRow>[] {
 
 export default function LessonsBalanceHistory({ studentId }: { studentId: number }) {
   const { data: history = [], isLoading } = useStudentBalanceHistoryQuery(studentId)
-  const columns = useMemo(() => createColumns(studentId), [studentId])
+  const tz = useOrgTimezone()
+  const columns = useMemo(() => createColumns(studentId, tz), [studentId, tz])
 
   const table = useReactTable({
     data: history as HistoryRow[],

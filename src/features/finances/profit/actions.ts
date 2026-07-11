@@ -8,7 +8,7 @@ import {
 } from '@/src/features/organization/tax-systems/schemas'
 import prisma from '@/src/lib/db/prisma'
 import { authAction } from '@/src/lib/safe-action'
-import { moscowNow } from '@/src/lib/timezone'
+import { nowInTz } from '@/src/lib/timezone'
 import { endOfMonth, endOfYear, startOfMonth, startOfYear } from 'date-fns'
 import { DEFAULT_CHARGEABLE_STATUSES } from '../chargeable'
 import { computeAttendanceRevenue } from '../chargeable.server'
@@ -327,7 +327,7 @@ export const getProfitMonthlyData = authAction
 
     // ── 7. Build response ───────────────────────────────────────────────────
     // Future months (past the current month in the current year) show zeros.
-    const now = moscowNow()
+    const now = nowInTz(ctx.tz)
     const isCurrentYear = now.getFullYear() === year
     const currentMonthIndex = now.getMonth()
 

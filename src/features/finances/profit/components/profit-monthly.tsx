@@ -21,7 +21,8 @@ import {
 } from '@/src/components/ui/select'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
-import { moscowNow } from '@/src/lib/timezone'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import { nowInTz } from '@/src/lib/timezone'
 import {
   Banknote,
   Building2,
@@ -38,9 +39,6 @@ import { Fragment, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { useProfitMonthlyQuery } from '../queries'
 import type { ProfitMonthEntry } from '../types'
-
-const currentYear = moscowNow().getFullYear()
-const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i)
 
 const MONTH_FULL_RU = [
   'Январь',
@@ -182,6 +180,10 @@ function MonthlyTooltip({
 }
 
 export default function ProfitMonthly() {
+  const tz = useOrgTimezone()
+  const currentYear = nowInTz(tz).getFullYear()
+  const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i)
+
   const [year, setYear] = useQueryState(
     'year',
     parseAsInteger.withDefault(currentYear).withOptions({ shallow: false }),

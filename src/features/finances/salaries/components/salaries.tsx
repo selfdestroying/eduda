@@ -28,7 +28,8 @@ import { useOrganizationPermissionQuery } from '@/src/features/organization/quer
 import { useMappedCourseListQuery } from '@/src/features/courses/queries'
 import { useMappedLocationListQuery } from '@/src/features/locations/queries'
 import { useMappedMemberListQuery } from '@/src/features/organization/members/queries'
-import { dateOnlyToLocal, moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import { dateOnlyToLocal, nowInTz, normalizeDateOnly } from '@/src/lib/timezone'
 import { cn, getGroupName } from '@/src/lib/utils'
 import { cva } from 'class-variance-authority'
 import {
@@ -62,39 +63,43 @@ import { type DateRange } from 'react-day-picker'
 import { useSalaryDataQuery, useSalaryPaychecksQuery } from '../queries'
 import type { LessonWithPrice, SalaryFilters, TeacherSalaryData } from '../types'
 
-// Пресеты для быстрого выбора периода
-const datePresets = [
-  {
-    label: 'Текущая неделя',
-    getValue: () => ({
-      from: startOfWeek(moscowNow(), { weekStartsOn: 1 }),
-      to: endOfWeek(moscowNow(), { weekStartsOn: 1 }),
-    }),
-  },
-  {
-    label: 'Прошлая неделя',
-    getValue: () => ({
-      from: startOfWeek(subWeeks(moscowNow(), 1), { weekStartsOn: 1 }),
-      to: endOfWeek(subWeeks(moscowNow(), 1), { weekStartsOn: 1 }),
-    }),
-  },
-  {
-    label: 'Текущий месяц',
-    getValue: () => ({
-      from: startOfMonth(moscowNow()),
-      to: endOfMonth(moscowNow()),
-    }),
-  },
-  {
-    label: 'Прошлый месяц',
-    getValue: () => ({
-      from: startOfMonth(subMonths(moscowNow(), 1)),
-      to: endOfMonth(subMonths(moscowNow(), 1)),
-    }),
-  },
-]
+// Пресеты для быстрого выбора периода (getValue ленивый — момент берётся при клике)
+function makeDatePresets(tz: string) {
+  return [
+    {
+      label: 'Текущая неделя',
+      getValue: () => ({
+        from: startOfWeek(nowInTz(tz), { weekStartsOn: 1 }),
+        to: endOfWeek(nowInTz(tz), { weekStartsOn: 1 }),
+      }),
+    },
+    {
+      label: 'Прошлая неделя',
+      getValue: () => ({
+        from: startOfWeek(subWeeks(nowInTz(tz), 1), { weekStartsOn: 1 }),
+        to: endOfWeek(subWeeks(nowInTz(tz), 1), { weekStartsOn: 1 }),
+      }),
+    },
+    {
+      label: 'Текущий месяц',
+      getValue: () => ({
+        from: startOfMonth(nowInTz(tz)),
+        to: endOfMonth(nowInTz(tz)),
+      }),
+    },
+    {
+      label: 'Прошлый месяц',
+      getValue: () => ({
+        from: startOfMonth(subMonths(nowInTz(tz), 1)),
+        to: endOfMonth(subMonths(nowInTz(tz), 1)),
+      }),
+    },
+  ]
+}
 
 export default function TeacherSalaries() {
+  const tz = useOrgTimezone()
+  const datePresets = useMemo(() => makeDatePresets(tz), [tz])
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [selectedLocations, setSelectedLocations] = useState<TableFilterItem[]>([])
   const [selectedCourses, setSelectedCourses] = useState<TableFilterItem[]>([])

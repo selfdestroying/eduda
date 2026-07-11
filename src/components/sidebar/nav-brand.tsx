@@ -6,6 +6,7 @@ import { Skeleton } from '@/src/components/ui/skeleton'
 import { useSessionQuery } from '@/src/features/users/me/queries'
 import type { OrganizationRole } from '@/src/lib/auth/server'
 import { isFeatureDisabled } from '@/src/lib/features/registry'
+import { DEFAULT_TZ, formatTimeZoneLabel } from '@/src/lib/timezone'
 import {
   BookOpen,
   Briefcase,
@@ -121,6 +122,7 @@ export default function NavBrand() {
   if (isLoading) return <NavBrandSkeleton />
 
   const orgName = session?.organization?.name ?? ''
+  const tzLabel = formatTimeZoneLabel(session?.organization?.timezone ?? DEFAULT_TZ)
   const role = (session?.memberRole ?? undefined) as OrganizationRole | undefined
   const disabledFeatures = (session?.disabledFeatures as string[] | undefined) ?? []
   const orgItems = role
@@ -147,6 +149,7 @@ export default function NavBrand() {
 
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{orgName}</span>
+              <span className="text-muted-foreground truncate text-xs">{tzLabel}</span>
             </div>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -174,6 +177,7 @@ export default function NavBrand() {
 
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{orgName}</span>
+              <span className="text-muted-foreground truncate text-xs">{tzLabel}</span>
             </div>
             <ChevronsUpDown />
           </DropdownMenuTrigger>

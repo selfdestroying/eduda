@@ -21,6 +21,8 @@ import {
   SheetTrigger,
 } from '@/src/components/ui/sheet'
 import { useIsMobile } from '@/src/hooks/use-mobile'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import { normalizeDateOnly } from '@/src/lib/timezone'
 import { getAgeFromBirthDate } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, Pen } from 'lucide-react'
@@ -53,14 +55,16 @@ export default function EditStudentDialog({ student }: { student: StudentDetail 
     },
   })
 
+  const tz = useOrgTimezone()
   const selectedBirthDate = form.watch('birthDate')
   const calculatedAge =
     selectedBirthDate instanceof Date && !isNaN(selectedBirthDate.getTime())
-      ? getAgeFromBirthDate(selectedBirthDate)
+      ? getAgeFromBirthDate(normalizeDateOnly(selectedBirthDate), tz)
       : null
 
   const onSubmit = (values: EditStudentSchemaType) => {
-    const age = values.birthDate ? getAgeFromBirthDate(values.birthDate) : null
+    // values.birthDate уже прогнан через DateOnlySchema (UTC-полночь) — не нормализуем повторно.
+    const age = values.birthDate ? getAgeFromBirthDate(values.birthDate, tz) : null
     mutation.mutate(
       {
         payload: {

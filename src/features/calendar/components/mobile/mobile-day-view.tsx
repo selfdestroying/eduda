@@ -21,7 +21,7 @@ function WeekStrip({ ctrl }: { ctrl: CalendarController }) {
   const s = startOfWeek(ctrl.curr, ctrl.weekStart)
   const days = Array.from({ length: 7 }, (_, i) => addDays(s, i))
   const cur = ctrl.currentDate
-  const today = todayYmd()
+  const today = todayYmd(ctrl.tz)
 
   return (
     <div className="flex flex-none gap-0.5 border-b px-2 pt-2.5 pb-3">
@@ -76,7 +76,7 @@ function MobileTimeline({ ctrl }: { ctrl: CalendarController }) {
   const ds = ctrl.currentDate
   const evs = ctrl.eventsOn(ds)
   const lay = layout(evs)
-  const isToday = ds === todayYmd()
+  const isToday = ds === todayYmd(ctrl.tz)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -144,7 +144,10 @@ function MobileTimeline({ ctrl }: { ctrl: CalendarController }) {
             {isToday && (
               <div
                 className="pointer-events-none absolute right-0 left-0 z-3 h-0"
-                style={{ top: (nowMinutes() / 60) * HM, borderTop: `2px solid ${NOW_COLOR}` }}
+                style={{
+                  top: (nowMinutes(ctrl.tz) / 60) * HM,
+                  borderTop: `2px solid ${NOW_COLOR}`,
+                }}
               >
                 <div
                   className="absolute -top-1 -left-[5px] size-[9px] rounded-full"

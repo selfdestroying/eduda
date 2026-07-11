@@ -4,84 +4,153 @@ import { ru } from 'date-fns/locale'
 import z from 'zod'
 
 /**
- * Бизнес-часовой пояс приложения.
- * Все бизнес-даты (уроки, KPI, статистика) привязаны к этой таймзоне.
+ * Часовой пояс по умолчанию.
+ * Используется как fallback, когда у организации не задан валидный `timezone`
+ * (был `BUSINESS_TZ`). Бизнес-логика больше НЕ привязана к нему жёстко —
+ * реальный пояс приходит из `Organization.timezone` (сервер: `ctx.tz`,
+ * клиент: `useOrgTimezone()`).
  */
-export const BUSINESS_TZ = 'Europe/Moscow'
+export const DEFAULT_TZ = 'Europe/Moscow'
+
 export const DateOnlySchema = z.date().transform(normalizeDateOnly)
 
+const validTimeZoneCache = new Map<string, boolean>()
+
 /**
- * Текущий момент времени в московской таймзоне.
- * Использовать для UI-пресетов, определения «сегодня» по Москве.
+ * Проверяет, что строка — валидная IANA-таймзона.
+ * Результат кешируется: конструктор `Intl.DateTimeFormat` относительно дорог,
+ * а поясов в системе немного.
  */
-export function moscowNow(): Date {
-  return toZonedTime(new Date(), BUSINESS_TZ)
+export function isValidTimeZone(tz: string): boolean {
+  const cached = validTimeZoneCache.get(tz)
+  if (cached !== undefined) return cached
+  let valid = false
+  try {
+    // Бросит RangeError на неизвестной зоне.
+    new Intl.DateTimeFormat('en-US', { timeZone: tz })
+    valid = true
+  } catch {
+    valid = false
+  }
+  validTimeZoneCache.set(tz, valid)
+  return valid
 }
 
 /**
- * Начало московского дня (00:00 MSK), возвращённое как UTC Date.
- * Использовать для запросов к БД: "уроки начиная с сегодня по Москве".
- *
- * @param date - дата в московском времени (по умолчанию - moscowNow())
- * @returns UTC Date, соответствующий 00:00 MSK указанного дня
- *
- * @example
- * // В 01:00 UTC (04:00 MSK) 15 января:
- * moscowStartOfDay() // → 2026-01-14T21:00:00Z (00:00 MSK 15 января)
+ * Возвращает переданную таймзону, если она валидна, иначе `DEFAULT_TZ`.
+ * Все хелперы ниже прогоняют вход через это — битая строка в БД
+ * (пока пояс правится вручную) не должна ронять форматирование.
  */
-export function moscowStartOfDay(date?: Date): Date {
-  const moscow = date ?? moscowNow()
-  const start = startOfDay(moscow)
-  return fromZonedTime(start, BUSINESS_TZ)
+function safeTz(tz: string): string {
+  return isValidTimeZone(tz) ? tz : DEFAULT_TZ
 }
 
 /**
- * Конец московского дня (23:59:59.999 MSK), возвращённый как UTC Date.
- *
- * @param date - дата в московском времени (по умолчанию - moscowNow())
- * @returns UTC Date, соответствующий 23:59:59.999 MSK указанного дня
+ * Человекочитаемая метка пояса с живым UTC-смещением, напр. «Europe/Moscow, UTC+3».
  */
-export function moscowEndOfDay(date?: Date): Date {
-  const moscow = date ?? moscowNow()
-  const end = endOfDay(moscow)
-  return fromZonedTime(end, BUSINESS_TZ)
+export function formatTimeZoneLabel(tz: string): string {
+  const zone = safeTz(tz)
+  const offset = new Intl.DateTimeFormat('ru-RU', { timeZone: zone, timeZoneName: 'shortOffset' })
+    .formatToParts(new Date())
+    .find((p) => p.type === 'timeZoneName')?.value
+  return offset ? `${zone}, ${offset.replace('GMT', 'UTC')}` : zone
 }
 
 /**
- * Конвертировать UTC дату в московское время.
+ * Текущий момент в указанной таймзоне как «сдвинутый» Date, локальные
+ * поля которого (`getHours()`, `getDate()`, …) читаются как стеночасы зоны.
+ * Использовать для UI-пресетов и определения «сегодня» по поясу организации.
+ */
+export function nowInTz(tz: string): Date {
+  return toZonedTime(new Date(), safeTz(tz))
+}
+
+/**
+ * «Сегодня» в указанной таймзоне как UTC-полночь (совместимо с `@db.Date`).
+ * Самый частый идиом: сравнение и запись date-only полей относительно
+ * текущего дня в поясе организации.
+ */
+export function todayInTz(tz: string): Date {
+  return normalizeDateOnly(nowInTz(tz))
+}
+
+/**
+ * Начало дня (00:00 в указанной таймзоне), возвращённое как UTC Date.
+ * Использовать для запросов к БД: «начиная с сегодняшнего дня по поясу орг».
+ *
+ * @param tz - IANA-таймзона организации
+ * @param date - дата в стеночасах этой зоны (по умолчанию — nowInTz(tz))
+ */
+export function startOfDayInTz(tz: string, date?: Date): Date {
+  const zone = safeTz(tz)
+  const zoned = date ?? toZonedTime(new Date(), zone)
+  return fromZonedTime(startOfDay(zoned), zone)
+}
+
+/**
+ * Конец дня (23:59:59.999 в указанной таймзоне), возвращённый как UTC Date.
+ *
+ * @param tz - IANA-таймзона организации
+ * @param date - дата в стеночасах этой зоны (по умолчанию — nowInTz(tz))
+ */
+export function endOfDayInTz(tz: string, date?: Date): Date {
+  const zone = safeTz(tz)
+  const zoned = date ?? toZonedTime(new Date(), zone)
+  return fromZonedTime(endOfDay(zoned), zone)
+}
+
+/**
+ * Конвертировать UTC-дату в стеночасы указанной таймзоны.
  * Использовать для отображения timestamp-полей (createdAt, updatedAt).
  *
  * @example
- * toMoscow(payment.createdAt).toLocaleString('ru-RU')
+ * toTz(payment.createdAt, tz)
  */
-export function toMoscow(utcDate: Date | string): Date {
-  return toZonedTime(utcDate, BUSINESS_TZ)
+export function toTz(date: Date | string, tz: string): Date {
+  return toZonedTime(date, safeTz(tz))
 }
 
 /**
- * Конвертировать московскую дату в UTC для записи в БД.
- * Использовать для timestamp-полей, когда дата интерпретируется как московская.
+ * Интерпретировать стеночасы указанной таймзоны как UTC-момент для записи в БД.
  *
  * @example
- * fromMoscow(selectedDate) // 15 Jan 00:00 MSK → 14 Jan 21:00 UTC
+ * fromTz(selectedDate, tz) // 15 Jan 00:00 (зона) → соответствующий UTC
  */
-export function fromMoscow(moscowDate: Date | string): Date {
-  return fromZonedTime(moscowDate, BUSINESS_TZ)
+export function fromTz(date: Date | string, tz: string): Date {
+  return fromZonedTime(date, safeTz(tz))
 }
 
 /**
- * Форматировать UTC дату в московском времени.
- * Обёртка над formatInTimeZone с зафиксированной таймзоной.
+ * Форматировать UTC-дату в указанной таймзоне через date-fns.
+ * Обёртка над `formatInTimeZone`.
  *
  * @example
- * formatMoscow(lesson.date, 'd MMMM, EEEE', { locale: ru })
+ * formatInTz(lesson.date, tz, 'd MMMM, EEEE', { locale: ru })
  */
-export function formatMoscow(
+export function formatInTz(
   date: Date | string,
-  format: string,
+  tz: string,
+  fmt: string,
   options?: Parameters<typeof formatInTimeZone>[3],
 ): string {
-  return formatInTimeZone(date, BUSINESS_TZ, format, options)
+  return formatInTimeZone(date, safeTz(tz), fmt, options)
+}
+
+/**
+ * Форматировать UTC-таймстамп (createdAt и т.п.) в локальном виде указанной
+ * таймзоны через `toLocaleString('ru-RU', { timeZone })`.
+ * Заменяет хак `toTz(x, tz).toLocaleString()` (двойной сдвиг).
+ *
+ * @example
+ * formatDateTimeInTz(order.createdAt, tz) // "15.01.2026, 14:30"
+ */
+export function formatDateTimeInTz(
+  date: Date | string,
+  tz: string,
+  options?: Omit<Intl.DateTimeFormatOptions, 'timeZone'>,
+): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return d.toLocaleString('ru-RU', { timeZone: safeTz(tz), ...options })
 }
 
 /**

@@ -8,7 +8,7 @@ import { parseYmd, sortEvents, todayYmd } from '../lib/date-utils'
 import { AgendaRow } from './mobile/agenda-row'
 
 export function ListView({ ctrl }: { ctrl: CalendarController }) {
-  const today = todayYmd()
+  const today = todayYmd(ctrl.tz)
   const { visibleEvents } = ctrl
 
   // Группировка уроков по дням (только дни, где есть уроки).
@@ -97,7 +97,7 @@ export function ListView({ ctrl }: { ctrl: CalendarController }) {
                 )}
               </div>
               {section.events.map((ev) => (
-                <AgendaRow key={ev.id} ev={ev} onClick={() => ctrl.selectEvent(ev)} />
+                <AgendaRow key={ev.id} ev={ev} tz={ctrl.tz} onClick={() => ctrl.selectEvent(ev)} />
               ))}
               <div className="bg-border mx-4.5 mt-2.5 h-px" />
             </section>

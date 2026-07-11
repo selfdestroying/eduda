@@ -32,7 +32,8 @@ import AttendanceActions from '@/src/features/lessons/components/attendance-acti
 import { AttendanceStatusSwitcher } from '@/src/features/lessons/components/attendance-status-switcher'
 import { useUpdateAttendanceCommentMutation } from '@/src/features/lessons/queries'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
-import { formatDateOnly, moscowNow } from '@/src/lib/timezone'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import { formatDateOnly, nowInTz } from '@/src/lib/timezone'
 import { cn, getFullName } from '@/src/lib/utils'
 import { format, isSameDay } from 'date-fns'
 import { ru } from 'date-fns/locale'
@@ -67,8 +68,8 @@ import { LessonCalendar } from './lesson-calendar'
 
 const QUERY_STATE_OPTIONS = { shallow: true, history: 'push' as const }
 
-function getMoscowToday() {
-  const today = moscowNow()
+function getTodayInTz(tz: string) {
+  const today = nowInTz(tz)
   return new Date(today.getFullYear(), today.getMonth(), today.getDate())
 }
 
@@ -119,9 +120,6 @@ function getMarkedRatio(marked: number, total: number) {
   return `${marked} / ${total}`
 }
 
-const today = getMoscowToday()
-const DEFAULT_MONTH_KEY = getMonthKey(today)
-
 const localDateParser = createParser({
   parse: parseLocalDate,
   serialize: serializeLocalDate,
@@ -149,6 +147,10 @@ const dayStatusConfig: Record<
 }
 
 export default function Dashboard() {
+  const tz = useOrgTimezone()
+  const today = useMemo(() => getTodayInTz(tz), [tz])
+  const DEFAULT_MONTH_KEY = getMonthKey(today)
+
   const [pageState, setPageState] = useQueryStates(
     {
       month: monthKeyParser.withDefault(DEFAULT_MONTH_KEY),
@@ -188,7 +190,7 @@ export default function Dashboard() {
   }
 
   const handleSelectToday = () => {
-    const nextToday = getMoscowToday()
+    const nextToday = getTodayInTz(tz)
 
     void setPageState({
       month: getMonthKey(nextToday),
