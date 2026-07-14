@@ -15,7 +15,6 @@ import {
   LayoutGrid,
   Menu,
   Moon,
-  Play,
   Shield,
   Star as StarIcon,
   Sun,
@@ -26,6 +25,7 @@ import { useTheme } from 'next-themes'
 import Link from 'next/link'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { Logo } from '@/src/components/logo'
+import { DemoLaunchButton } from '@/src/features/demo/components/demo-launch-button'
 import { authClient } from '@/src/lib/auth/client'
 import { protocol, rootDomain } from '@/src/lib/utils'
 import { Reveal } from './reveal'
@@ -390,9 +390,8 @@ export function Landing({ signInUrl }: { signInUrl: string }) {
                   Попробовать бесплатно
                   <ArrowRight />
                 </Link>
-                <a
-                  href="#features"
-                  className="hover:bg-muted transition-colors"
+                <DemoLaunchButton
+                  className="hover:bg-muted cursor-pointer transition-colors disabled:opacity-70"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -405,10 +404,7 @@ export function Landing({ signInUrl }: { signInUrl: string }) {
                     padding: '14px 24px',
                     borderRadius: 12,
                   }}
-                >
-                  <Play size={17} />
-                  Смотреть демо
-                </a>
+                />
               </div>
               <div
                 style={{
