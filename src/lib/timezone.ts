@@ -11,12 +11,6 @@ import z from 'zod'
  */
 export const DEFAULT_TZ = 'Europe/Moscow'
 
-/**
- * Legacy-алиас `DEFAULT_TZ`. Оставлен, пока часть кода ещё ссылается на
- * «бизнес-пояс» напрямую; новый код должен брать пояс организации.
- */
-export const BUSINESS_TZ = DEFAULT_TZ
-
 const pad = (n: number) => String(n).padStart(2, '0')
 
 /** Регулярка date-only строки `YYYY-MM-DD`. */
@@ -167,51 +161,6 @@ export function formatDateTimeInTz(
  */
 export function todayYmdInTz(tz: string): string {
   return formatInTimeZone(new Date(), safeTz(tz), 'yyyy-MM-dd')
-}
-
-// ---------------------------------------------------------------------------
-// Legacy-обёртки с зафиксированной Москвой.
-// Оставлены как тонкие адаптеры над `*InTz(DEFAULT_TZ)` для кода, который ещё
-// не протащил пояс организации. Новый код должен брать `tz` и звать `*InTz`.
-// ---------------------------------------------------------------------------
-
-/** @deprecated используйте `nowInTz(tz)`. */
-export function moscowNow(): Date {
-  return nowInTz(DEFAULT_TZ)
-}
-
-/** @deprecated используйте `startOfDayInTz(tz, date)`. */
-export function moscowStartOfDay(date?: Date): Date {
-  return startOfDayInTz(DEFAULT_TZ, date)
-}
-
-/** @deprecated используйте `endOfDayInTz(tz, date)`. */
-export function moscowEndOfDay(date?: Date): Date {
-  return endOfDayInTz(DEFAULT_TZ, date)
-}
-
-/** @deprecated используйте `toTz(date, tz)`. */
-export function toMoscow(utcDate: Date | string): Date {
-  return toTz(utcDate, DEFAULT_TZ)
-}
-
-/** @deprecated используйте `fromTz(date, tz)`. */
-export function fromMoscow(moscowDate: Date | string): Date {
-  return fromTz(moscowDate, DEFAULT_TZ)
-}
-
-/** @deprecated используйте `formatInTz(date, tz, fmt, options)`. */
-export function formatMoscow(
-  date: Date | string,
-  fmt: string,
-  options?: Parameters<typeof formatInTimeZone>[3],
-): string {
-  return formatInTz(date, DEFAULT_TZ, fmt, options)
-}
-
-/** @deprecated используйте `todayYmdInTz(tz)`. */
-export function moscowTodayYmd(): string {
-  return todayYmdInTz(DEFAULT_TZ)
 }
 
 // ---------------------------------------------------------------------------

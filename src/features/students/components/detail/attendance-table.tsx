@@ -11,7 +11,8 @@ import { Toggle } from '@/src/components/ui/toggle'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { useUpdateAttendanceStatusMutation } from '@/src/features/lessons/queries'
 import { studentKeys } from '@/src/features/students/queries'
-import { formatDateOnly, moscowTodayYmd } from '@/src/lib/timezone'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import { formatDateOnly, todayYmdInTz } from '@/src/lib/timezone'
 import { cn, getFullName } from '@/src/lib/utils'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -410,6 +411,7 @@ export function StudentAttendanceTable({
   students: Student[]
 }) {
   const studentId = students[0]?.id ?? 0
+  const tz = useOrgTimezone()
   const lookup = useMemo(() => buildAttendanceLookup(lessons), [lessons])
   const columns = useMemo(
     () => getColumns(lessons, lookup, studentId),
@@ -428,7 +430,7 @@ export function StudentAttendanceTable({
     <div className="space-y-2">
       <DragScrollArea
         initialScroll={
-          (lessons.reduce((prev, curr) => prev + (curr.date <= moscowTodayYmd() ? 1 : 0), 0) - 1) *
+          (lessons.reduce((prev, curr) => prev + (curr.date <= todayYmdInTz(tz) ? 1 : 0), 0) - 1) *
           100
         }
       >

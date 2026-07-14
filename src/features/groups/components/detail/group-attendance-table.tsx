@@ -12,7 +12,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
 import { Toggle } from '@/src/components/ui/toggle'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { useUpdateAttendanceStatusMutation } from '@/src/features/lessons/queries'
-import { formatDateOnly, moscowTodayYmd } from '@/src/lib/timezone'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import { formatDateOnly, todayYmdInTz } from '@/src/lib/timezone'
 import { cn, getFullName } from '@/src/lib/utils'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -400,6 +401,7 @@ export function GroupAttendanceTable({
 }) {
   const [isPending, startTransition] = useTransition()
   const [showAll, setShowAll] = useState(false)
+  const tz = useOrgTimezone()
 
   const allStudents = useMemo(() => {
     const regularIds = new Set<number>()
@@ -451,7 +453,7 @@ export function GroupAttendanceTable({
       )}
       <DragScrollArea
         initialScroll={
-          (lessons.reduce((prev, curr) => prev + (curr.date <= moscowTodayYmd() ? 1 : 0), 0) - 1) *
+          (lessons.reduce((prev, curr) => prev + (curr.date <= todayYmdInTz(tz) ? 1 : 0), 0) - 1) *
           100
         }
       >

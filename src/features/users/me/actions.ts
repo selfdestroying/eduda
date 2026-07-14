@@ -3,7 +3,7 @@
 import { auth } from '@/src/lib/auth/server'
 import prisma from '@/src/lib/db/prisma'
 import { authAction } from '@/src/lib/safe-action'
-import { moscowTodayYmd } from '@/src/lib/timezone'
+import { todayYmdInTz } from '@/src/lib/timezone'
 import { headers } from 'next/headers'
 
 export const getActiveSessions = authAction
@@ -38,7 +38,7 @@ export const getMyIncomeHistory = authAction
         where: {
           teacherId: userId,
           organizationId,
-          lesson: { status: 'ACTIVE', date: { lte: moscowTodayYmd() } },
+          lesson: { status: 'ACTIVE', date: { lte: todayYmdInTz(ctx.tz) } },
         },
         select: {
           bid: true,
