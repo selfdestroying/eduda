@@ -12,6 +12,7 @@ import {
   User,
   UserRound,
 } from 'lucide-react'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { formatDateOnly } from '@/src/lib/timezone'
 import type { StudentDetail } from '../../types'
 
@@ -20,6 +21,7 @@ interface StudentCardProps {
 }
 
 export default function StudentCard({ student }: StudentCardProps) {
+  const tz = useOrgTimezone()
   const birthFormatted = student.birthDate
     ? formatDateOnly(student.birthDate, {
         day: 'numeric',
@@ -41,7 +43,7 @@ export default function StudentCard({ student }: StudentCardProps) {
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-        timeZone: 'Europe/Moscow',
+        timeZone: tz,
       })
     : null
 

@@ -25,7 +25,7 @@ function DayColumn({ ctrl, day }: { ctrl: CalendarController; day: Date }) {
   const ds = ymd(day)
   const evs = ctrl.eventsOn(ds)
   const lay = layout(evs)
-  const isToday = ds === todayYmd()
+  const isToday = ds === todayYmd(ctrl.tz)
 
   return (
     <div
@@ -39,7 +39,7 @@ function DayColumn({ ctrl, day }: { ctrl: CalendarController; day: Date }) {
         const top = (ev.start / 60) * HOUR_H
         const height = Math.max(20, ((ev.end - ev.start) / 60) * HOUR_H - 2)
         const w = 100 / slot.lanes
-        const unmarked = eventMarkStatus(ev) === 'unmarked'
+        const unmarked = eventMarkStatus(ev, ctrl.tz) === 'unmarked'
         return (
           <div
             key={ev.id}
@@ -84,7 +84,7 @@ function DayColumn({ ctrl, day }: { ctrl: CalendarController; day: Date }) {
       {isToday && (
         <div
           className="pointer-events-none absolute right-0 left-0 z-3 h-0"
-          style={{ top: (nowMinutes() / 60) * HOUR_H, borderTop: `2px solid ${NOW_COLOR}` }}
+          style={{ top: (nowMinutes(ctrl.tz) / 60) * HOUR_H, borderTop: `2px solid ${NOW_COLOR}` }}
         >
           <div
             className="absolute -top-1 -left-1 size-2 rounded-full"
@@ -98,7 +98,7 @@ function DayColumn({ ctrl, day }: { ctrl: CalendarController; day: Date }) {
 
 export function Timeline({ ctrl, days }: { ctrl: CalendarController; days: Date[] }) {
   const isWeek = days.length > 1
-  const today = todayYmd()
+  const today = todayYmd(ctrl.tz)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

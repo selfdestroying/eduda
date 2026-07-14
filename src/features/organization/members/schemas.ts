@@ -10,7 +10,8 @@ const MemberBaseSchema = z.object({
 
 export const CreateMemberSchema = MemberBaseSchema.extend({
   password: z.string().min(4, 'Пароль должен содержать минимум 4 символа'),
-  role: z.enum(['manager', 'teacher'], 'Выберите роль'),
+  // Роль — любой идентификатор роли организации (системная или кастомная).
+  role: z.string().min(1, 'Выберите роль'),
   email: z.email('Введите почту'),
 })
 

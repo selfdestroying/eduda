@@ -14,7 +14,8 @@ import { useSidebar } from '@/src/components/ui/sidebar'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { GlobalSearch } from '@/src/features/search/components/global-search'
-import { moscowNow } from '@/src/lib/timezone'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import { nowInTz } from '@/src/lib/timezone'
 import { cn } from '@/src/lib/utils'
 import {
   Ban,
@@ -76,7 +77,8 @@ export function SmartFeed() {
 
 export function SmartFeedBar({ canSeeFeed }: { canSeeFeed: boolean }) {
   const { isMobile, toggleSidebar } = useSidebar()
-  const now = useMemo(() => moscowNow(), [])
+  const tz = useOrgTimezone()
+  const now = useMemo(() => nowInTz(tz), [tz])
   const greeting = getGreeting(now)
 
   return (

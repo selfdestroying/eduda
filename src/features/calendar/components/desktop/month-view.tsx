@@ -19,9 +19,9 @@ import {
 } from '../../lib/date-utils'
 import { ChevronDown } from 'lucide-react'
 
-function Chip({ ev, onClick }: { ev: CalendarEvent; onClick: () => void }) {
+function Chip({ ev, onClick, tz }: { ev: CalendarEvent; onClick: () => void; tz: string }) {
   // Только красная точка: зелёная у каждого отмеченного урока — визуальный шум.
-  const unmarked = eventMarkStatus(ev) === 'unmarked'
+  const unmarked = eventMarkStatus(ev, tz) === 'unmarked'
   return (
     <div
       onClick={onClick}
@@ -54,11 +54,13 @@ function DayOverflow({
   evs,
   extra,
   onSelect,
+  tz,
 }: {
   day: Date
   evs: CalendarEvent[]
   extra: number
   onSelect: (ev: CalendarEvent) => void
+  tz: string
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -76,6 +78,7 @@ function DayOverflow({
             <Chip
               key={ev.id}
               ev={ev}
+              tz={tz}
               onClick={() => {
                 setOpen(false)
                 onSelect(ev)
@@ -93,7 +96,7 @@ export function MonthView({ ctrl }: { ctrl: CalendarController }) {
   const m = c.getMonth()
   const cells = monthGrid(c.getFullYear(), m, ctrl.weekStart)
   const order = dowOrder(ctrl.weekStart)
-  const today = todayYmd()
+  const today = todayYmd(ctrl.tz)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -142,13 +145,14 @@ export function MonthView({ ctrl }: { ctrl: CalendarController }) {
                 className={cn('thin-scrollbar flex-1 overflow-y-auto', !inMonth && 'opacity-50')}
               >
                 {shown.map((ev) => (
-                  <Chip key={ev.id} ev={ev} onClick={() => ctrl.selectEvent(ev)} />
+                  <Chip key={ev.id} ev={ev} tz={ctrl.tz} onClick={() => ctrl.selectEvent(ev)} />
                 ))}
                 {extra > 0 && (
                   <DayOverflow
                     day={day}
                     evs={evs}
                     extra={extra}
+                    tz={ctrl.tz}
                     onSelect={(ev) => ctrl.selectEvent(ev)}
                   />
                 )}

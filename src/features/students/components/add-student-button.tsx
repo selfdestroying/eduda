@@ -26,6 +26,7 @@ import {
 } from '@/src/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { dateToYmd, formatDateOnly, ymdToLocalDate } from '@/src/lib/timezone'
 import { getAgeFromBirthDate } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -65,9 +66,10 @@ export default function AddStudentButton() {
     },
   })
 
+  const tz = useOrgTimezone()
   const selectedBirthDate = form.watch('birthDate')
   const parentMode = form.watch('parentMode')
-  const calculatedAge = selectedBirthDate ? getAgeFromBirthDate(selectedBirthDate) : null
+  const calculatedAge = selectedBirthDate ? getAgeFromBirthDate(selectedBirthDate, tz) : null
 
   const onSubmit = (values: CreateStudentSchemaType) => {
     createMutation.mutate(values, {

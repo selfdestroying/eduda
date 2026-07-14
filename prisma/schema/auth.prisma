@@ -88,6 +88,7 @@ model Organization {
     createdAt                      DateTime                       @default(now())
     updatedAt                      DateTime                       @updatedAt
     metadata                       String?
+    timezone                       String                         @default("Europe/Moscow")
     members                        Member[]
     invitations                    Invitation[]
     rates                          Rate[]
@@ -179,9 +180,12 @@ model OrganizationRole {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   role           String
   permission     String
+  label          String?
+  isSystem       Boolean      @default(false)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime?    @updatedAt
 
+  @@unique([organizationId, role])
   @@index([organizationId])
   @@index([role])
   @@map("OrganizationRole")

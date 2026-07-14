@@ -4,7 +4,6 @@ import { Input } from '@/src/components/ui/input'
 import { Controller, useForm } from 'react-hook-form'
 
 import { CustomCombobox } from '@/src/components/custom-combobox'
-import { memberRoleLabels } from '@/src/components/sidebar/nav-user'
 import { Button } from '@/src/components/ui/button'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import {
@@ -18,7 +17,8 @@ import {
   SheetTrigger,
 } from '@/src/components/ui/sheet'
 import { useIsMobile } from '@/src/hooks/use-mobile'
-import { OrganizationRole } from '@/src/lib/auth/server'
+import { useAssignableRolesQuery } from '@/src/features/organization/roles/queries'
+import { systemRoleLabels } from '@/src/lib/permissions/organization'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Pen } from 'lucide-react'
 import { useState } from 'react'
@@ -35,10 +35,9 @@ interface EditMemberDialogProps {
   showTrigger?: boolean
 }
 
-const mappedRoles = [
-  { label: 'Менеджер', value: 'manager' },
-  { label: 'Учитель', value: 'teacher' },
-]
+function roleLabel(role: string): string {
+  return systemRoleLabels[role as keyof typeof systemRoleLabels] ?? role
+}
 
 export default function EditMemberDialog({
   member,
@@ -51,6 +50,8 @@ export default function EditMemberDialog({
   const [internalOpen, setInternalOpen] = useState(false)
   const isMobile = useIsMobile()
   const { mutate, isPending } = useMemberUpdateMutation()
+  const { data: roles = [] } = useAssignableRolesQuery()
+  const roleItems = roles.map((r) => ({ label: r.label, value: r.role }))
 
   const isControlled = controlledOpen !== undefined
   const isOpen = isControlled ? controlledOpen : internalOpen
@@ -63,9 +64,7 @@ export default function EditMemberDialog({
       userId: member.userId,
       firstName: member.user.name?.split(' ')[0] || '',
       lastName: member.user.name?.split(' ').slice(1).join(' ') || undefined,
-      role: member.role
-        ? { label: memberRoleLabels[member.role as OrganizationRole], value: member.role }
-        : undefined,
+      role: member.role ? { label: roleLabel(member.role), value: member.role } : undefined,
       banned: member.user.banned !== null ? member.user.banned : undefined,
     },
   })
@@ -145,7 +144,7 @@ export default function EditMemberDialog({
                 <Field>
                   <FieldLabel htmlFor="roleId-field">Роль</FieldLabel>
                   <CustomCombobox
-                    items={mappedRoles}
+                    items={roleItems}
                     value={field.value || null}
                     onValueChange={field.onChange}
                     isItemEqualToValue={(a, b) => a.value === b.value}

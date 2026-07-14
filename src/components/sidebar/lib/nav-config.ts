@@ -33,6 +33,7 @@ export const navEntries: NavEntry[] = [
     url: '/',
     icon: LayoutDashboard,
     roles: ALL_ROLES,
+    permission: {},
   },
 
   // ─── Календарь ────────────────────────────────────────────────────────
@@ -42,6 +43,7 @@ export const navEntries: NavEntry[] = [
     url: '/calendar',
     icon: CalendarDays,
     roles: ALL_ROLES,
+    permission: {},
   },
 
   // ─── Ученики ──────────────────────────────────────────────────
@@ -50,35 +52,41 @@ export const navEntries: NavEntry[] = [
     title: 'Ученики',
     icon: Users,
     roles: ALL_ROLES,
+    permission: { student: ['read'] },
     items: [
       {
         title: 'Все ученики',
         url: '/students',
         roles: ALL_ROLES,
-        featureKey: 'students.all',
+        permission: { student: ['read'] },
+        featureKey: 'students',
       },
       {
         title: 'Активные',
         url: '/students/active',
         roles: STAFF_ROLES,
+        permission: { student: ['read'] },
         featureKey: 'students.active',
       },
       {
         title: 'Завершившие',
         url: '/students/completed',
         roles: STAFF_ROLES,
+        permission: { student: ['read'] },
         featureKey: 'students.completed',
       },
       {
         title: 'Пропустившие',
         url: '/students/absent',
         roles: STAFF_ROLES,
+        permission: { student: ['read'] },
         featureKey: 'students.absent',
       },
       {
         title: 'Отчисленные',
         url: '/students/dismissed',
         roles: STAFF_ROLES,
+        permission: { student: ['read'] },
         featureKey: 'students.dismissed',
       },
     ],
@@ -89,6 +97,7 @@ export const navEntries: NavEntry[] = [
     kind: 'group',
     title: 'Группы',
     roles: ALL_ROLES,
+    permission: { group: ['read'] },
     icon: Folder,
     featureKey: 'groups',
     items: [
@@ -96,12 +105,14 @@ export const navEntries: NavEntry[] = [
         title: 'Все группы',
         url: '/groups',
         roles: ALL_ROLES,
-        featureKey: 'groups.all',
+        permission: { group: ['read'] },
+        featureKey: 'groups',
       },
       {
         title: 'Типы',
         url: '/groups/types',
         roles: STAFF_ROLES,
+        permission: { groupType: ['read'] },
         featureKey: 'groups.types',
       },
     ],
@@ -113,18 +124,21 @@ export const navEntries: NavEntry[] = [
     title: 'Финансы',
     icon: Wallet,
     roles: STAFF_ROLES,
+    permission: { payment: ['read'] },
     featureKey: 'finances',
     items: [
       {
         title: 'Оплаты',
         url: '/finances/payments',
         roles: STAFF_ROLES,
+        permission: { payment: ['read'] },
         featureKey: 'finances.payments',
       },
       {
         title: 'Неразобранное',
         url: '/finances/unprocessed',
         roles: STAFF_ROLES,
+        permission: { payment: ['read'] },
         featureKey: 'finances.unprocessedPayments',
       },
     ],
@@ -136,11 +150,13 @@ export const navEntries: NavEntry[] = [
     title: 'Отчёты',
     icon: BarChart3,
     roles: STAFF_ROLES,
+    permission: { salary: ['readAll'] },
     items: [
       {
         title: 'Зарплаты',
         url: '/finances/salaries/teacher',
         roles: STAFF_ROLES,
+        permission: { salary: ['readAll'] },
         featureKey: 'finances.salaries',
       },
       {
@@ -170,24 +186,28 @@ export const navEntries: NavEntry[] = [
     title: 'Магазин',
     icon: ShoppingCart,
     roles: ALL_ROLES,
+    permission: {},
     featureKey: 'shop',
     items: [
       {
         title: 'Товары',
         url: '/shop/products',
         roles: ALL_ROLES,
+        permission: {},
         featureKey: 'shop.products',
       },
       {
         title: 'Категории',
         url: '/shop/categories',
         roles: ALL_ROLES,
+        permission: {},
         featureKey: 'shop.categories',
       },
       {
         title: 'Заказы',
         url: '/shop/orders',
         roles: ALL_ROLES,
+        permission: {},
         featureKey: 'shop.orders',
       },
     ],
@@ -241,6 +261,7 @@ const EXTRA_TITLES: Record<string, string> = {
   '/me/salary': 'Моя зарплата',
   // Organization items live in the brand dropdown, not the sidebar tree.
   '/organization/members': 'Сотрудники',
+  '/organization/roles': 'Роли и доступы',
   '/organization/locations': 'Локации и аренда',
   '/organization/rates': 'Ставки преподавателей',
   '/organization/rates/manager': 'Ставки менеджеров',

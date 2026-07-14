@@ -9,7 +9,8 @@ import {
   type ChargeableStatus,
   CHARGEABLE_STATUS_OPTIONS,
 } from '@/src/features/finances/chargeable'
-import { moscowNow } from '@/src/lib/timezone'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import { nowInTz } from '@/src/lib/timezone'
 import {
   endOfMonth,
   endOfWeek,
@@ -21,46 +22,49 @@ import {
 } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { Calendar as CalendarIcon, ChevronDown, X } from 'lucide-react'
-import { Dispatch, SetStateAction, useState } from 'react'
+import { Dispatch, SetStateAction, useMemo, useState } from 'react'
 import type { DateRange } from 'react-day-picker'
 
-const datePresets = [
-  {
-    label: 'Текущая неделя',
-    getValue: () => ({
-      from: startOfWeek(moscowNow(), { weekStartsOn: 1 }),
-      to: endOfWeek(moscowNow(), { weekStartsOn: 1 }),
-    }),
-  },
-  {
-    label: 'Прошлая неделя',
-    getValue: () => ({
-      from: startOfWeek(subWeeks(moscowNow(), 1), { weekStartsOn: 1 }),
-      to: endOfWeek(subWeeks(moscowNow(), 1), { weekStartsOn: 1 }),
-    }),
-  },
-  {
-    label: 'Текущий месяц',
-    getValue: () => ({
-      from: startOfMonth(moscowNow()),
-      to: endOfMonth(moscowNow()),
-    }),
-  },
-  {
-    label: 'Прошлый месяц',
-    getValue: () => ({
-      from: startOfMonth(subMonths(moscowNow(), 1)),
-      to: endOfMonth(subMonths(moscowNow(), 1)),
-    }),
-  },
-  {
-    label: 'Учебный год',
-    getValue: () => ({
-      from: new Date(2025, 8, 1), // 1 сентября 2025
-      to: new Date(2026, 4, 31), // 31 мая 2026
-    }),
-  },
-]
+// getValue ленивый — момент берётся при клике
+function makeDatePresets(tz: string) {
+  return [
+    {
+      label: 'Текущая неделя',
+      getValue: () => ({
+        from: startOfWeek(nowInTz(tz), { weekStartsOn: 1 }),
+        to: endOfWeek(nowInTz(tz), { weekStartsOn: 1 }),
+      }),
+    },
+    {
+      label: 'Прошлая неделя',
+      getValue: () => ({
+        from: startOfWeek(subWeeks(nowInTz(tz), 1), { weekStartsOn: 1 }),
+        to: endOfWeek(subWeeks(nowInTz(tz), 1), { weekStartsOn: 1 }),
+      }),
+    },
+    {
+      label: 'Текущий месяц',
+      getValue: () => ({
+        from: startOfMonth(nowInTz(tz)),
+        to: endOfMonth(nowInTz(tz)),
+      }),
+    },
+    {
+      label: 'Прошлый месяц',
+      getValue: () => ({
+        from: startOfMonth(subMonths(nowInTz(tz), 1)),
+        to: endOfMonth(subMonths(nowInTz(tz), 1)),
+      }),
+    },
+    {
+      label: 'Учебный год',
+      getValue: () => ({
+        from: new Date(2025, 8, 1), // 1 сентября 2025
+        to: new Date(2026, 4, 31), // 31 мая 2026
+      }),
+    },
+  ]
+}
 
 export interface AdvancesFilterState {
   dateRange: DateRange | undefined
@@ -76,6 +80,8 @@ export default function AdvancesFiltersBar({
   filterState,
   setFilterState,
 }: AdvancesFiltersBarProps) {
+  const tz = useOrgTimezone()
+  const datePresets = useMemo(() => makeDatePresets(tz), [tz])
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
 
   const { dateRange } = filterState

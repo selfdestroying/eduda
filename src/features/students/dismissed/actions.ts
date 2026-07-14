@@ -2,7 +2,7 @@
 
 import prisma from '@/src/lib/db/prisma'
 import { authAction } from '@/src/lib/safe-action'
-import { moscowTodayYmd } from '@/src/lib/timezone'
+import { todayYmdInTz } from '@/src/lib/timezone'
 import { ReturnToGroupSchema } from './schemas'
 
 // ─── READ ────────────────────────────────────────────────────────────────────
@@ -54,7 +54,7 @@ export const returnToGroup = authAction
         data: {
           status: 'ACTIVE',
           statusComment: null,
-          statusChangedAt: moscowTodayYmd(),
+          statusChangedAt: todayYmdInTz(ctx.tz),
         },
       })
 
@@ -79,7 +79,7 @@ export const returnToGroup = authAction
           })
         }
       } else {
-        const todayDate = moscowTodayYmd()
+        const todayDate = todayYmdInTz(ctx.tz)
         const futureLessons = await tx.lesson.findMany({
           where: {
             organizationId,

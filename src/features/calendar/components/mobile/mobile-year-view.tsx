@@ -16,7 +16,7 @@ function MiniMonthCard({
 }) {
   const cells = monthGrid(year, month, ctrl.weekStart)
   const order = dowOrder(ctrl.weekStart)
-  const today = todayYmd()
+  const today = todayYmd(ctrl.tz)
 
   return (
     <button

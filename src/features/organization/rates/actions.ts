@@ -2,7 +2,7 @@
 
 import prisma from '@/src/lib/db/prisma'
 import { authAction } from '@/src/lib/safe-action'
-import { moscowTodayYmd } from '@/src/lib/timezone'
+import { todayYmdInTz } from '@/src/lib/timezone'
 import { CreateRateSchema, DeleteRateSchema, UpdateRateSchema } from './schemas'
 
 export const getRates = authAction.metadata({ actionName: 'getRates' }).action(async ({ ctx }) => {
@@ -48,7 +48,7 @@ export const updateRate = authAction
             where: {
               teacherId: tg.teacherId,
               lesson: {
-                date: { gt: moscowTodayYmd() },
+                date: { gt: todayYmdInTz(ctx.tz) },
                 groupId: tg.groupId,
               },
             },

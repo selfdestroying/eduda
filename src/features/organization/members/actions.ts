@@ -68,7 +68,9 @@ export const createMember = authAction
       body: {
         userId: newUser.user.id,
         organizationId: ctx.session.organizationId!.toString(),
-        role,
+        // Dynamic AC: роль может быть кастомной (строка из OrganizationRole),
+        // better-auth принимает её в рантайме, тип статичен.
+        role: role as 'owner' | 'manager' | 'teacher',
       },
     })
   })

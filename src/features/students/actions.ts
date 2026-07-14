@@ -2,6 +2,7 @@
 
 import { Prisma } from '@/prisma/generated/client'
 import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@/prisma/generated/enums'
+
 import prisma from '@/src/lib/db/prisma'
 import {
   type StudentFinancialAudit,
@@ -9,8 +10,8 @@ import {
   parseIntFieldChange,
   writeFinancialHistoryTx,
 } from '@/src/lib/lessons-balance'
-import { authAction } from '@/src/lib/safe-action'
-import { moscowTodayYmd } from '@/src/lib/timezone'
+import { authAction, featureAction } from '@/src/lib/safe-action'
+import { todayYmdInTz } from '@/src/lib/timezone'
 import { getAgeFromBirthDate } from '@/src/lib/utils'
 import { randomInt } from 'crypto'
 import * as z from 'zod'
@@ -153,7 +154,7 @@ export const createStudent = authAction
   .action(async ({ ctx, parsedInput }) => {
     const { firstName, lastName, birthDate, url, parentMode, newParent, existingParentId } =
       parsedInput
-    const age = birthDate ? getAgeFromBirthDate(birthDate) : null
+    const age = birthDate ? getAgeFromBirthDate(birthDate, ctx.tz) : null
 
     const login = generateLogin(firstName, lastName)
     const password = generatePassword()
@@ -409,7 +410,7 @@ export const updateStudentGroupBalance = authAction
             bidForLesson: payment.bidForLesson,
             leadName: payment.leadName,
             productName: payment.productName,
-            date: moscowTodayYmd(),
+            date: todayYmdInTz(ctx.tz),
           },
         })
       }
@@ -753,7 +754,7 @@ export const getStudentGroupHistory = authAction
 
 // ─── SHOP STATS ──────────────────────────────────────────────────────────────
 
-export const getStudentShopStats = authAction
+export const getStudentShopStats = featureAction('shop')
   .metadata({ actionName: 'getStudentShopStats' })
   .inputSchema(z.object({ studentId: z.number().int().positive() }))
   .action(async ({ ctx, parsedInput }) => {

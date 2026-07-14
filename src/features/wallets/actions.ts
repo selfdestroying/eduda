@@ -10,7 +10,6 @@ import {
   writeFinancialHistoryTx,
 } from '@/src/lib/lessons-balance'
 import { authAction } from '@/src/lib/safe-action'
-import { moscowNow } from '@/src/lib/timezone'
 import * as z from 'zod'
 import {
   ArchiveWalletSchema,
@@ -452,6 +451,6 @@ export const archiveWallet = authAction
 
     await prisma.wallet.update({
       where: { id: parsedInput.walletId },
-      data: { status: 'ARCHIVED', archivedAt: moscowNow() },
+      data: { status: 'ARCHIVED', archivedAt: new Date() },
     })
   })

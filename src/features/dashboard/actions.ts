@@ -3,7 +3,7 @@
 import { auth } from '@/src/lib/auth/server'
 import prisma from '@/src/lib/db/prisma'
 import { authAction } from '@/src/lib/safe-action'
-import { moscowTodayYmd } from '@/src/lib/timezone'
+import { todayYmdInTz } from '@/src/lib/timezone'
 import { getFullName } from '@/src/lib/utils'
 import { headers } from 'next/headers'
 import { GetDashboardMonthDataSchema } from './schemas'
@@ -197,7 +197,7 @@ export const getDashboardMonthData = authAction
   .action(async ({ ctx, parsedInput }): Promise<DashboardMonthData> => {
     const monthStart = getMonthStart(parsedInput.month)
     const nextMonthStart = getNextMonthStart(parsedInput.month)
-    const today = moscowTodayYmd()
+    const today = todayYmdInTz(ctx.tz)
 
     const canReadAll = await auth.api.hasPermission({
       headers: await headers(),

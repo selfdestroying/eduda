@@ -2,6 +2,7 @@
 
 import prisma from '@/src/lib/db/prisma'
 import { publicAction } from '@/src/lib/safe-action'
+import { DEFAULT_TZ } from '@/src/lib/timezone'
 import { getAgeFromBirthDate } from '@/src/lib/utils'
 import {
   ConfirmPublicActualitySchema,
@@ -108,6 +109,7 @@ export const getPublicStudentData = publicAction
         birthDate: true,
         dataActual: true,
         dataActualizedAt: true,
+        organization: { select: { timezone: true } },
         parents: {
           include: {
             parent: {
@@ -135,6 +137,7 @@ export const getPublicStudentData = publicAction
       birthDate: student.birthDate ?? null,
       dataActual: student.dataActual,
       dataActualizedAt: student.dataActualizedAt?.toISOString() ?? null,
+      timezone: student.organization?.timezone ?? DEFAULT_TZ,
       parents: student.parents.map(({ parent }) => parent),
     }
   })
@@ -166,9 +169,17 @@ export const updatePublicStudent = publicAction
   .metadata({ actionName: 'updatePublicStudent' })
   .inputSchema(UpdatePublicStudentSchema)
   .action(async ({ parsedInput }) => {
-    const { studentId } = await resolveChild(parsedInput.token, parsedInput.studentId)
+    const { studentId, organizationId } = await resolveChild(
+      parsedInput.token,
+      parsedInput.studentId,
+    )
 
     const birthDate = parsedInput.birthDate
+    const org = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { timezone: true },
+    })
+    const tz = org?.timezone ?? DEFAULT_TZ
 
     const updated = await prisma.student.update({
       where: { id: studentId },
@@ -176,7 +187,7 @@ export const updatePublicStudent = publicAction
         firstName: parsedInput.firstName,
         lastName: parsedInput.lastName,
         birthDate,
-        age: birthDate ? getAgeFromBirthDate(birthDate) : null,
+        age: birthDate ? getAgeFromBirthDate(birthDate, tz) : null,
         dataActual: false,
         dataActualizedAt: null,
       },

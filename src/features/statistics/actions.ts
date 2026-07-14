@@ -2,7 +2,7 @@
 
 import prisma from '@/src/lib/db/prisma'
 import { authAction } from '@/src/lib/safe-action'
-import { moscowNow, toMoscow } from '@/src/lib/timezone'
+import { nowInTz, toTz } from '@/src/lib/timezone'
 
 // ─── ACTIVE STATISTICS ───────────────────────────────────────────────────────
 
@@ -43,7 +43,7 @@ export const getActiveStudentStatistics = authAction
 
     const monthlyStatsMap = new Map<string, { count: number; timestamp: number }>()
     uniqueStudentsMap.forEach((student) => {
-      const date = toMoscow(student.createdAt)
+      const date = toTz(student.createdAt, ctx.tz)
       const y = date.getFullYear()
       const m = date.getMonth()
       const key = `${y}-${String(m + 1).padStart(2, '0')}`
@@ -65,7 +65,7 @@ export const getActiveStudentStatistics = authAction
         }
       })
 
-    const now = moscowNow()
+    const now = nowInTz(ctx.tz)
     const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`
@@ -190,7 +190,7 @@ export const getDismissedStatistics = authAction
         }
       })
 
-    const now = moscowNow()
+    const now = nowInTz(ctx.tz)
     const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`

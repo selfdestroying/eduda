@@ -1,10 +1,11 @@
 'use client'
 
 import { useFeatureEnabled } from '@/src/hooks/use-feature-enabled'
+import type { FeatureKey } from '@/src/lib/features/registry'
 import type { ReactNode } from 'react'
 
 interface FeatureGateProps {
-  feature: string
+  feature: FeatureKey
   children: ReactNode
   fallback?: ReactNode
 }

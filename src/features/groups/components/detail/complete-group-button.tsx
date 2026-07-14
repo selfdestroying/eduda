@@ -23,7 +23,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
 import { Switch } from '@/src/components/ui/switch'
 import { Textarea } from '@/src/components/ui/textarea'
-import { moscowTodayYmd } from '@/src/lib/timezone'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import { todayYmdInTz } from '@/src/lib/timezone'
 import { ru } from 'date-fns/locale'
 import { CalendarIcon, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
@@ -47,8 +48,9 @@ export default function CompleteGroupDialog({
   const [statusChangedAt, setStatusChangedAt] = useState<Date | undefined>(undefined)
   const [comment, setComment] = useState('')
   const [deleteFutureLessons, setDeleteFutureLessons] = useState(false)
+  const tz = useOrgTimezone()
 
-  const effectiveDate = statusChangedAt ? getFullDateString(statusChangedAt) : moscowTodayYmd()
+  const effectiveDate = statusChangedAt ? getFullDateString(statusChangedAt) : todayYmdInTz(tz)
 
   const { data: futureLessonsCount, isLoading: isCountLoading } = useFutureLessonsCountQuery(
     groupId,
@@ -62,7 +64,7 @@ export default function CompleteGroupDialog({
     completeMutation.mutate(
       {
         groupId,
-        statusChangedAt: statusChangedAt ? getFullDateString(statusChangedAt) : moscowTodayYmd(),
+        statusChangedAt: statusChangedAt ? getFullDateString(statusChangedAt) : todayYmdInTz(tz),
         comment: comment || undefined,
         deleteFutureLessons,
       },

@@ -13,7 +13,7 @@ export function MiniMonth({ ctrl }: { ctrl: CalendarController }) {
   const m = c.getMonth()
   const cells = monthGrid(y, m, ctrl.weekStart)
   const order = dowOrder(ctrl.weekStart)
-  const today = todayYmd()
+  const today = todayYmd(ctrl.tz)
 
   return (
     <div>

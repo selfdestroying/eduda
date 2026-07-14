@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { moscowNow, ymdToLocalDate } from './timezone'
+import { nowInTz, ymdToLocalDate } from './timezone'
 
 export const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
 export const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || ''
@@ -29,9 +29,11 @@ export function getGroupName(group: {
   return `${group.course.name} ${parts.join(', ')}`
 }
 
-export const getAgeFromBirthDate = (birthDate: string) => {
+// `birthDate` — date-only строка `YYYY-MM-DD`; `today` берём в поясе
+// организации, чтобы «сегодня» для возраста считалось по её дню.
+export const getAgeFromBirthDate = (birthDate: string, tz: string) => {
   const birth = ymdToLocalDate(birthDate)
-  const today = moscowNow()
+  const today = nowInTz(tz)
   let age = today.getFullYear() - birth.getFullYear()
   const monthDiff = today.getMonth() - birth.getMonth()
 

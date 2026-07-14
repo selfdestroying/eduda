@@ -19,6 +19,8 @@ import NavCollapseButton from './nav-collapse-button'
 import NavDocs from './nav-docs'
 import NavMain from './nav-main'
 import NavUser from './nav-user'
+import { isDemoOrg } from '@/src/features/demo/constants'
+import { DemoBanner } from '@/src/features/demo/components/demo-banner'
 
 /** Закрывает мобильный сайдбар при смене маршрута */
 function CloseSidebarOnNavigate() {
@@ -44,6 +46,7 @@ export function AppSidebar({
   const { data: session } = useSessionQuery()
   const role = session?.memberRole as OrganizationRole | undefined
   const canSeeFeed = role === 'owner' || role === 'manager'
+  const demo = isDemoOrg(session?.organization)
 
   return (
     <SidebarProvider defaultOpen={defaultOpen ?? true}>
@@ -59,6 +62,8 @@ export function AppSidebar({
         </SidebarContent>
 
         <SidebarFooter>
+          {demo && <DemoBanner currentRole={session?.memberRole ?? null} />}
+
           <NavDocs />
           <NavUser />
         </SidebarFooter>

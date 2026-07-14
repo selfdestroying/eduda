@@ -13,7 +13,8 @@ import {
   DialogTrigger,
 } from '@/src/components/ui/dialog'
 import { Skeleton } from '@/src/components/ui/skeleton'
-import { toMoscow } from '@/src/lib/timezone'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import { formatDateTimeInTz } from '@/src/lib/timezone'
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -37,6 +38,7 @@ const filterOptions: TableFilterItem[] = [
 
 export default function UnprocessedPaymentTable() {
   const { data: unprocessedPayments = [], isLoading, isError } = useUnprocessedPaymentListQuery()
+  const tz = useOrgTimezone()
 
   const columns: ColumnDef<UnprocessedPayment>[] = useMemo(
     () => [
@@ -91,14 +93,14 @@ export default function UnprocessedPaymentTable() {
       {
         header: 'Дата',
         accessorKey: 'createdAt',
-        cell: ({ row }) => toMoscow(row.original.createdAt).toLocaleString('ru-RU'),
+        cell: ({ row }) => formatDateTimeInTz(row.original.createdAt, tz),
       },
       {
         id: 'actions',
         cell: ({ row }) => <UnprocessedPaymentActions unprocessedPayment={row.original} />,
       },
     ],
-    [],
+    [tz],
   )
 
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([

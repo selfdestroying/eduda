@@ -1,5 +1,5 @@
 import { auth } from '@/src/lib/auth/server'
-import { isRouteDisabled } from '@/src/lib/features/route-feature-map'
+import { isRouteDisabled } from '@/src/lib/features/registry'
 import { NextRequest, NextResponse } from 'next/server'
 import { protocol, rootDomain } from './lib/utils'
 
@@ -58,10 +58,20 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!subdomain) {
+    // Корневой домен: `/landing` — публичная маркетинговая страница.
+    if (pathname === '/landing') {
+      return NextResponse.next()
+    }
+    // Всё, кроме `/`, ведём на `/`.
     if (pathname !== '/') {
       return NextResponse.redirect(new URL('/', request.url))
     }
-    return NextResponse.next()
+    // `/` — гейт входа: вошёл и есть школа → сразу в школу, иначе → на вход.
+    const session = await auth.api.getSession({ headers: request.headers })
+    if (session?.organization) {
+      return NextResponse.redirect(`${protocol}://${session.organization.slug}.${rootDomain}`)
+    }
+    return NextResponse.redirect(buildAuthRedirectUrl(request))
   }
 
   const session = await auth.api.getSession({

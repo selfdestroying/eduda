@@ -2,7 +2,7 @@
 
 import prisma from '@/src/lib/db/prisma'
 import { authAction } from '@/src/lib/safe-action'
-import { moscowNow, moscowTodayYmd } from '@/src/lib/timezone'
+import { nowInTz, todayYmdInTz } from '@/src/lib/timezone'
 import { addDays } from 'date-fns'
 import z from 'zod'
 import {
@@ -26,16 +26,16 @@ function parseLessonTime(time: string): number {
   return (h ?? 0) * 60 + (m ?? 0)
 }
 
-function currentMoscowMinutes(): number {
-  const now = moscowNow()
+function currentMinutesInTz(tz: string): number {
+  const now = nowInTz(tz)
   return now.getHours() * 60 + now.getMinutes()
 }
 
 export const getUnmarkedAttendance = authAction
   .metadata({ actionName: 'getUnmarkedAttendance' })
   .action(async ({ ctx }): Promise<UnmarkedAttendanceAlert[]> => {
-    const today = moscowTodayYmd()
-    const nowMinutes = currentMoscowMinutes()
+    const today = todayYmdInTz(ctx.tz)
+    const nowMinutes = currentMinutesInTz(ctx.tz)
 
     const lessons = await prisma.lesson.findMany({
       where: {
@@ -143,7 +143,7 @@ export const getAbsentStreak = authAction
   )
   .action(async ({ ctx, parsedInput }) => {
     const { withSnoozed } = parsedInput
-    const now = moscowTodayYmd()
+    const now = todayYmdInTz(ctx.tz)
     const LESSONS_LOOKBACK = 10
 
     const groups = await prisma.group.findMany({

@@ -4,7 +4,6 @@ import { Input } from '@/src/components/ui/input'
 import { Controller, useForm } from 'react-hook-form'
 
 import { CustomCombobox } from '@/src/components/custom-combobox'
-import { memberRoleLabels } from '@/src/components/sidebar/nav-user'
 import { Button } from '@/src/components/ui/button'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import {
@@ -19,6 +18,7 @@ import {
 } from '@/src/components/ui/sheet'
 import { useIsMobile } from '@/src/hooks/use-mobile'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useAssignableRolesQuery } from '@/src/features/organization/roles/queries'
 import { Loader, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useMemberCreateMutation } from '../queries'
@@ -28,6 +28,8 @@ export default function CreateMemberDialog() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const isMobile = useIsMobile()
   const { mutate, isPending } = useMemberCreateMutation()
+  const { data: roles = [] } = useAssignableRolesQuery()
+  const roleItems = roles.map((r) => ({ label: r.label, value: r.role }))
   const form = useForm<CreateMemberSchemaType>({
     resolver: zodResolver(CreateMemberSchema),
     defaultValues: {
@@ -134,13 +136,14 @@ export default function CreateMemberDialog() {
                 <Field>
                   <FieldLabel htmlFor="roleId-field">Роль</FieldLabel>
                   <CustomCombobox
-                    items={[
-                      { label: 'Менеджер', value: 'manager' },
-                      { label: 'Учитель', value: 'teacher' },
-                    ]}
+                    items={roleItems}
                     value={
                       field.value
-                        ? { label: memberRoleLabels[field.value], value: field.value }
+                        ? {
+                            label:
+                              roleItems.find((r) => r.value === field.value)?.label ?? field.value,
+                            value: field.value,
+                          }
                         : null
                     }
                     onValueChange={(item) => field.onChange(item?.value ?? '')}

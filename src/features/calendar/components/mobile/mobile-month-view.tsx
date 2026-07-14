@@ -17,7 +17,7 @@ const lessonsWord = (n: number) => {
 function MonthCell({ ctrl, day, month }: { ctrl: CalendarController; day: Date; month: number }) {
   const ds = ymd(day)
   const inMonth = day.getMonth() === month
-  const isToday = ds === todayYmd()
+  const isToday = ds === todayYmd(ctrl.tz)
   const selected = ds === ctrl.currentDate
   // Точка статуса посещаемости: зелёная/красная; серая — будущий день или уроки отменены.
   const status = ctrl.dayStatus(ds)
@@ -58,7 +58,7 @@ function DayAgenda({ ctrl }: { ctrl: CalendarController }) {
   const ds = ctrl.currentDate
   const evs = ctrl.eventsOn(ds).sort(sortEvents)
   const d = parseYmd(ds)
-  const isToday = ds === todayYmd()
+  const isToday = ds === todayYmd(ctrl.tz)
   const status = ctrl.dayStatus(ds)
 
   return (
@@ -83,7 +83,9 @@ function DayAgenda({ ctrl }: { ctrl: CalendarController }) {
         )}
       </div>
       {evs.length > 0 ? (
-        evs.map((ev) => <AgendaRow key={ev.id} ev={ev} onClick={() => ctrl.selectEvent(ev)} />)
+        evs.map((ev) => (
+          <AgendaRow key={ev.id} ev={ev} tz={ctrl.tz} onClick={() => ctrl.selectEvent(ev)} />
+        ))
       ) : (
         <div className="text-muted-foreground/70 px-[18px] py-6 text-center text-[13.5px]">
           Нет уроков

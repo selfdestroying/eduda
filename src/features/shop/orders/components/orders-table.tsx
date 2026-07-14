@@ -4,8 +4,9 @@ import { OrderStatus } from '@/prisma/generated/enums'
 import DataTable from '@/src/components/data-table'
 import TableFilter, { TableFilterItem } from '@/src/components/table-filter'
 import { Skeleton } from '@/src/components/ui/skeleton'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
-import { toMoscow } from '@/src/lib/timezone'
+import { formatDateTimeInTz } from '@/src/lib/timezone'
 import { getFullName } from '@/src/lib/utils'
 import {
   ColumnDef,
@@ -49,6 +50,7 @@ const filterOptions: TableFilterItem[] = [
 
 export default function OrdersTable() {
   const { data: orders = [], isLoading, isError } = useOrderListQuery()
+  const tz = useOrgTimezone()
 
   const columns: ColumnDef<OrderWithProductAndStudent>[] = useMemo(
     () => [
@@ -86,14 +88,14 @@ export default function OrdersTable() {
       },
       {
         header: 'Дата',
-        accessorFn: (item) => toMoscow(item.createdAt).toLocaleString('ru-RU'),
+        accessorFn: (item) => formatDateTimeInTz(item.createdAt, tz),
       },
       {
         id: 'actions',
         cell: ({ row }) => <OrderActions order={row.original} />,
       },
     ],
-    [],
+    [tz],
   )
 
   const { pagination, setPagination, sorting, setSorting } = useTableSearchParams({

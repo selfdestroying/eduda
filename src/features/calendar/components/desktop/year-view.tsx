@@ -16,7 +16,7 @@ function MiniMonthBlock({
 }) {
   const cells = monthGrid(year, month, ctrl.weekStart)
   const order = dowOrder(ctrl.weekStart)
-  const today = todayYmd()
+  const today = todayYmd(ctrl.tz)
 
   return (
     <div className="bg-card rounded-[10px] border p-[14px_14px_10px]">
