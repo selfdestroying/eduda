@@ -3,7 +3,7 @@ model Student {
     firstName      String
     lastName       String
     age            Int?
-    birthDate      DateTime? @db.Date
+    birthDate      String?
     url            String?
     editToken      String @unique @default(uuid()) @db.Uuid
     dataActual       Boolean   @default(false)

@@ -12,6 +12,7 @@ import {
   User,
   UserRound,
 } from 'lucide-react'
+import { formatDateOnly } from '@/src/lib/timezone'
 import type { StudentDetail } from '../../types'
 
 interface StudentCardProps {
@@ -20,7 +21,7 @@ interface StudentCardProps {
 
 export default function StudentCard({ student }: StudentCardProps) {
   const birthFormatted = student.birthDate
-    ? new Date(student.birthDate).toLocaleDateString('ru-RU', {
+    ? formatDateOnly(student.birthDate, {
         day: 'numeric',
         month: 'long',
         year: 'numeric',

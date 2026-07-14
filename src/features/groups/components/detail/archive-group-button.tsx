@@ -23,7 +23,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
 import { Switch } from '@/src/components/ui/switch'
 import { Textarea } from '@/src/components/ui/textarea'
-import { moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
+import { moscowTodayYmd } from '@/src/lib/timezone'
 import { ru } from 'date-fns/locale'
 import { CalendarIcon, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
@@ -44,7 +44,7 @@ export default function ArchiveGroupDialog({ groupId, isOpen, onClose }: Archive
   const [comment, setComment] = useState('')
   const [deleteFutureLessons, setDeleteFutureLessons] = useState(false)
 
-  const effectiveDate = getFullDateString(statusChangedAt ?? normalizeDateOnly(moscowNow()))
+  const effectiveDate = statusChangedAt ? getFullDateString(statusChangedAt) : moscowTodayYmd()
 
   const { data: futureLessonsCount, isLoading: isCountLoading } = useFutureLessonsCountQuery(
     groupId,
@@ -58,7 +58,7 @@ export default function ArchiveGroupDialog({ groupId, isOpen, onClose }: Archive
     archiveMutation.mutate(
       {
         groupId,
-        statusChangedAt: getFullDateString(statusChangedAt ?? normalizeDateOnly(moscowNow())),
+        statusChangedAt: statusChangedAt ? getFullDateString(statusChangedAt) : moscowTodayYmd(),
         comment: comment || undefined,
         deleteFutureLessons,
       },

@@ -53,7 +53,7 @@ import {
 } from '../../queries'
 import type { StudentGroupWithStudent } from '../../types'
 
-import { DateOnlySchema } from '@/src/lib/timezone'
+import { DateOnlySchema, dateToYmd, formatDateOnly, ymdToLocalDate } from '@/src/lib/timezone'
 import * as z from 'zod'
 
 const DismissFormSchema = z.object({
@@ -238,7 +238,7 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
                       >
                         <CalendarIcon />
                         {field.value
-                          ? field.value.toLocaleDateString('ru-RU', {
+                          ? formatDateOnly(field.value, {
                               day: 'numeric',
                               month: 'long',
                             })
@@ -247,9 +247,9 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
                       <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                           mode="single"
-                          onSelect={field.onChange}
+                          onSelect={(d) => field.onChange(d ? dateToYmd(d) : undefined)}
                           locale={ru}
-                          selected={field.value}
+                          selected={field.value ? ymdToLocalDate(field.value) : undefined}
                         />
                       </PopoverContent>
                     </Popover>

@@ -3,7 +3,7 @@
 import { auth } from '@/src/lib/auth/server'
 import prisma from '@/src/lib/db/prisma'
 import { authAction } from '@/src/lib/safe-action'
-import { moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
+import { moscowTodayYmd } from '@/src/lib/timezone'
 import { getFullName } from '@/src/lib/utils'
 import { headers } from 'next/headers'
 import { GetDashboardMonthDataSchema } from './schemas'
@@ -27,22 +27,18 @@ function parseMonthKey(monthKey: string) {
   }
 }
 
+const pad = (n: number) => String(n).padStart(2, '0')
+
+/** Первое число месяца как `YYYY-MM-01`. */
 function getMonthStart(monthKey: string) {
   const { year, month } = parseMonthKey(monthKey)
-  return new Date(Date.UTC(year, month - 1, 1))
+  return `${year}-${pad(month)}-01`
 }
 
+/** Первое число следующего месяца как `YYYY-MM-01` (для `date < ...`). */
 function getNextMonthStart(monthKey: string) {
   const { year, month } = parseMonthKey(monthKey)
-  return new Date(Date.UTC(year, month, 1))
-}
-
-function toDateKey(date: Date) {
-  const year = date.getUTCFullYear()
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(date.getUTCDate()).padStart(2, '0')
-
-  return `${year}-${month}-${day}`
+  return month === 12 ? `${year + 1}-01-01` : `${year}-${pad(month + 1)}-01`
 }
 
 function buildLessonSummary(lesson: DashboardLessonRecord): DashboardLessonSummary {
@@ -120,7 +116,7 @@ function mapLessonItem(lesson: DashboardLessonRecord): DashboardLessonItem {
 
   return {
     id: lesson.id,
-    date: toDateKey(lesson.date),
+    date: lesson.date,
     time: lesson.time,
     status: lesson.status,
     group: {
@@ -201,7 +197,7 @@ export const getDashboardMonthData = authAction
   .action(async ({ ctx, parsedInput }): Promise<DashboardMonthData> => {
     const monthStart = getMonthStart(parsedInput.month)
     const nextMonthStart = getNextMonthStart(parsedInput.month)
-    const today = toDateKey(normalizeDateOnly(moscowNow()))
+    const today = moscowTodayYmd()
 
     const canReadAll = await auth.api.hasPermission({
       headers: await headers(),
@@ -251,7 +247,7 @@ export const getDashboardMonthData = authAction
     const daysMap = new Map<string, DashboardLessonItem[]>()
 
     for (const lesson of lessons) {
-      const dateKey = toDateKey(lesson.date)
+      const dateKey = lesson.date
       const dayLessons = daysMap.get(dateKey) ?? []
       dayLessons.push(mapLessonItem(lesson))
       daysMap.set(dateKey, dayLessons)

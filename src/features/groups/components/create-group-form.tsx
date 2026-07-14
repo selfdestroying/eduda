@@ -25,6 +25,7 @@ import { useGroupTypeListQuery } from '@/src/features/group-types/queries'
 import { useLocationListQuery } from '@/src/features/locations/queries'
 import { useMemberListQuery } from '@/src/features/organization/members/queries'
 import { useRateListQuery } from '@/src/features/organization/rates/queries'
+import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
 import { DaysOfWeek } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 
@@ -50,14 +51,14 @@ const WEEKDAYS = [
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
 
 function computeLastLessonDate(
-  startDate: Date | undefined,
+  startDate: string | undefined,
   scheduleDays: number[],
   lessonCount: number | undefined,
 ): Date | null {
   if (!startDate || !scheduleDays.length || !lessonCount || lessonCount <= 0) return null
 
   const daysSet = new Set(scheduleDays)
-  const currentDate = new Date(startDate)
+  const currentDate = ymdToLocalDate(startDate)
   let count = 0
   let lastDate = new Date(currentDate)
   const maxIterations = lessonCount * 7 + 7
@@ -427,15 +428,15 @@ export default function CreateGroupForm() {
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {field.value
-                      ? format(field.value, 'dd.MM.yyyy (EEEE)', { locale: ru })
+                      ? format(ymdToLocalDate(field.value), 'dd.MM.yyyy (EEEE)', { locale: ru })
                       : 'Выберите дату'}
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
                     <Calendar
                       id="startDate-field"
                       mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
+                      selected={field.value ? ymdToLocalDate(field.value) : undefined}
+                      onSelect={(d) => field.onChange(d ? dateToYmd(d) : undefined)}
                       locale={ru}
                       components={{
                         DayButton: (props) => (
@@ -451,7 +452,7 @@ export default function CreateGroupForm() {
                 {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 {watchedStartDate && (
                   <FieldDescription>
-                    День недели: {DaysOfWeek.full[watchedStartDate.getDay()]}
+                    День недели: {DaysOfWeek.full[ymdToLocalDate(watchedStartDate).getDay()]}
                   </FieldDescription>
                 )}
               </Field>

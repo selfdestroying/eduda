@@ -51,20 +51,16 @@ export default function RentActions({ rent }: RentActionsProps) {
   const form = useForm<UpdateRentSchemaType>({
     resolver: zodResolver(UpdateRentSchema),
     defaultValues: (() => {
-      const start = rent.startDate instanceof Date ? rent.startDate : new Date(rent.startDate)
-      const end = rent.endDate
-        ? rent.endDate instanceof Date
-          ? rent.endDate
-          : new Date(rent.endDate)
-        : null
+      // rent.startDate/endDate — date-only строки `YYYY-MM-DD`.
+      const start = new Date(rent.startDate)
       const isMonthly = rent.isMonthly
 
       return {
         id: rent.id,
         locationId: rent.locationId,
         isMonthly,
-        startDate: isMonthly ? undefined : start.toISOString().split('T')[0],
-        endDate: isMonthly || !end ? undefined : end.toISOString().split('T')[0],
+        startDate: isMonthly ? undefined : rent.startDate,
+        endDate: isMonthly || !rent.endDate ? undefined : rent.endDate,
         month: isMonthly ? start.getUTCMonth() : undefined,
         year: isMonthly ? start.getUTCFullYear() : undefined,
         amount: rent.amount,

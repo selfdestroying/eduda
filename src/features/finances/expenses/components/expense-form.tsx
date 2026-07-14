@@ -6,7 +6,7 @@ import { Calendar } from '@/src/components/ui/calendar'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
-import { normalizeDateOnly } from '@/src/lib/timezone'
+import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { Calendar as CalendarIcon } from 'lucide-react'
@@ -72,16 +72,14 @@ export default function ExpenseForm<T extends FieldValues>({ form, formId }: Exp
                 >
                   <CalendarIcon className="h-4 w-4" />
                   {field.value
-                    ? format(new Date(field.value as string), 'd MMM yyyy', { locale: ru })
+                    ? format(ymdToLocalDate(field.value as string), 'd MMM yyyy', { locale: ru })
                     : 'Выберите дату'}
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
-                    selected={field.value ? new Date(field.value as string) : undefined}
-                    onSelect={(value) =>
-                      value && field.onChange(normalizeDateOnly(value).toISOString().split('T')[0])
-                    }
+                    selected={field.value ? ymdToLocalDate(field.value as string) : undefined}
+                    onSelect={(value) => value && field.onChange(dateToYmd(value))}
                     locale={ru}
                   />
                 </PopoverContent>

@@ -31,7 +31,7 @@ export interface AttendanceWithCost {
   makeupAttendance: {
     status: string
     lesson: {
-      date: Date
+      date: string
       group: { course: { name: string } }
     }
   } | null
@@ -39,7 +39,7 @@ export interface AttendanceWithCost {
 
 export interface LessonWithCost {
   id: number
-  date: Date
+  date: string
   time: string
   status: string
   dayOfWeek: string
@@ -55,7 +55,7 @@ export interface LessonWithCost {
 }
 
 export interface DayGroup {
-  date: Date
+  date: string
   dayOfWeek: string
   dayRevenue: number
   lessons: LessonWithCost[]

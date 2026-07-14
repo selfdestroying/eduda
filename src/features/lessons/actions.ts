@@ -6,7 +6,7 @@ import prisma from '@/src/lib/db/prisma'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
 import { isLessonCharged, writeLessonsBalanceHistoryTx } from '@/src/lib/lessons-balance'
 import { authAction } from '@/src/lib/safe-action'
-import { formatDateOnly } from '@/src/lib/timezone'
+import { DateOnlySchema, formatDateOnly } from '@/src/lib/timezone'
 import { getGroupName } from '@/src/lib/utils'
 import * as z from 'zod'
 import {
@@ -62,7 +62,7 @@ export const getLessonDetail = authAction
 
 export const getLessonsByDate = authAction
   .metadata({ actionName: 'getLessonsByDate' })
-  .inputSchema(z.object({ date: z.date() }))
+  .inputSchema(z.object({ date: DateOnlySchema }))
   .action(async ({ ctx, parsedInput }) => {
     return await prisma.lesson.findMany({
       where: {

@@ -7,12 +7,6 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import type { CalendarLessonDTO } from './types'
 
-const pad = (n: number) => String(n).padStart(2, '0')
-
-/** @db.Date (UTC-полночь) → строка `YYYY-MM-DD` по компонентам UTC. */
-const dbDateToYmd = (d: Date) =>
-  `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`
-
 const rangeSchema = z.object({
   /** Начало диапазона, `YYYY-MM-DD` включительно. */
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -28,8 +22,7 @@ export const getCalendarLessons = authAction
   .metadata({ actionName: 'getCalendarLessons' })
   .inputSchema(rangeSchema)
   .action(async ({ ctx, parsedInput }): Promise<CalendarLessonDTO[]> => {
-    const from = new Date(parsedInput.from)
-    const to = new Date(parsedInput.to)
+    const { from, to } = parsedInput
 
     const canReadAll = await auth.api.hasPermission({
       headers: await headers(),
@@ -61,7 +54,7 @@ export const getCalendarLessons = authAction
 
     return lessons.map((l) => ({
       id: l.id,
-      date: dbDateToYmd(l.date),
+      date: l.date,
       time: l.time,
       duration: l.duration,
       title: l.group.course.name,

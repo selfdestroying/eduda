@@ -1,4 +1,4 @@
-import { normalizeDateOnly } from '@/src/lib/timezone'
+import { DateOnlySchema } from '@/src/lib/timezone'
 import * as z from 'zod'
 import { CreateParentSchema } from '../parents/schemas'
 
@@ -7,7 +7,7 @@ const StudentBaseFields = {
   lastName: z
     .string({ error: 'Укажите фамилию' })
     .min(2, 'Фамилия должна содержать минимум 2 символа'),
-  birthDate: z.date().transform(normalizeDateOnly).nullish(),
+  birthDate: DateOnlySchema.nullish(),
   url: z
     .string()
     .optional()

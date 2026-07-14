@@ -83,7 +83,7 @@ export const createPaymentWithBalance = authAction
           lessonCount,
           price,
           bidForLesson: Math.floor(price / lessonCount),
-          date: new Date(date),
+          date,
           paymentMethodId: paymentMethodId ?? null,
         },
       })
@@ -283,7 +283,7 @@ export const resolveUnprocessedPayment = authAction
           lessonCount,
           price,
           bidForLesson: Math.floor(price / lessonCount),
-          date: new Date(date),
+          date,
           paymentMethodId: paymentMethodId ?? null,
         },
       })

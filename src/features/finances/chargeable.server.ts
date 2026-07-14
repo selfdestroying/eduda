@@ -11,8 +11,9 @@ import { type ChargeableStatus, isChargeable, type StudentRevenueEntry } from '.
  */
 export async function computeAttendanceRevenue(params: {
   organizationId: number
-  startDate: Date | string
-  endDate: Date | string
+  /** Границы диапазона в формате `YYYY-MM-DD` (включительно). */
+  startDate: string
+  endDate: string
   chargeableStatuses: ChargeableStatus[]
 }): Promise<StudentRevenueEntry[]> {
   const { organizationId, startDate, endDate, chargeableStatuses } = params
@@ -21,7 +22,7 @@ export async function computeAttendanceRevenue(params: {
     where: {
       organizationId,
       status: 'ACTIVE',
-      date: { gte: new Date(startDate), lte: new Date(endDate) },
+      date: { gte: startDate, lte: endDate },
     },
     select: {
       group: { select: { id: true } },

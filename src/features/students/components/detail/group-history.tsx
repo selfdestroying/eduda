@@ -19,7 +19,7 @@ const statusLabels: Record<string, string> = {
   COMPLETED: 'Завершён',
 }
 
-function formatDate(date: Date) {
+function formatDate(date: string) {
   return formatDateOnly(date, { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 

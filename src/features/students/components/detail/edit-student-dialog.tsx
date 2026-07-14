@@ -54,10 +54,7 @@ export default function EditStudentDialog({ student }: { student: StudentDetail 
   })
 
   const selectedBirthDate = form.watch('birthDate')
-  const calculatedAge =
-    selectedBirthDate instanceof Date && !isNaN(selectedBirthDate.getTime())
-      ? getAgeFromBirthDate(selectedBirthDate)
-      : null
+  const calculatedAge = selectedBirthDate ? getAgeFromBirthDate(selectedBirthDate) : null
 
   const onSubmit = (values: EditStudentSchemaType) => {
     const age = values.birthDate ? getAgeFromBirthDate(values.birthDate) : null
@@ -155,14 +152,8 @@ export default function EditStudentDialog({ student }: { student: StudentDetail 
                     id="edit-birthDate-field"
                     type="date"
                     {...field}
-                    value={
-                      field.value instanceof Date && !isNaN(field.value.getTime())
-                        ? field.value.toISOString().split('T')[0]
-                        : ''
-                    }
-                    onChange={(e) =>
-                      field.onChange(e.target.value ? new Date(e.target.value) : undefined)
-                    }
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value || undefined)}
                     aria-invalid={fieldState.invalid}
                   />
                   <FieldDescription>

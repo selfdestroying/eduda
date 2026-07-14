@@ -2,7 +2,7 @@
 
 import prisma from '@/src/lib/db/prisma'
 import { authAction } from '@/src/lib/safe-action'
-import { moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
+import { moscowTodayYmd } from '@/src/lib/timezone'
 import * as z from 'zod'
 import {
   AddStudentToGroupSchema,
@@ -85,15 +85,15 @@ export const createGroup = authAction
     )
     const scheduleDaysMap = new Map(sortedSchedule.map((s) => [s.dayOfWeek, s.time]))
 
-    // Generate lesson dates
-    const lessons: Array<{ date: Date; time: string; organizationId: number }> = []
-    const currentDate = new Date(startDate.getTime())
+    // Generate lesson dates (`YYYY-MM-DD`)
+    const lessons: Array<{ date: string; time: string; organizationId: number }> = []
+    const currentDate = new Date(`${startDate}T00:00:00Z`)
     const maxIterations = lessonCount * 7 + 7
 
     for (let i = 0; i < maxIterations && lessons.length < lessonCount; i++) {
       const time = scheduleDaysMap.get(currentDate.getUTCDay())
       if (time) {
-        lessons.push({ date: new Date(currentDate.getTime()), time, organizationId: orgId })
+        lessons.push({ date: currentDate.toISOString().slice(0, 10), time, organizationId: orgId })
       }
       currentDate.setUTCDate(currentDate.getUTCDate() + 1)
     }
@@ -176,22 +176,20 @@ export const archiveGroup = authAction
   .inputSchema(ArchiveGroupSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { groupId, statusChangedAt, comment, deleteFutureLessons } = parsedInput
-    const statusChangedAtDate = new Date(
-      statusChangedAt ?? normalizeDateOnly(moscowNow()).toISOString().split('T')[0]!,
-    )
+    const statusChangedAtYmd = statusChangedAt ?? moscowTodayYmd()
     await prisma.$transaction(async (tx) => {
       await tx.group.update({
         where: { id: groupId, organizationId: ctx.session.organizationId! },
         data: {
           status: 'ARCHIVED',
-          statusChangedAt: statusChangedAtDate,
+          statusChangedAt: statusChangedAtYmd,
           statusComment: comment ?? null,
         },
       })
 
       if (deleteFutureLessons) {
         await tx.lesson.deleteMany({
-          where: { groupId, date: { gte: statusChangedAtDate } },
+          where: { groupId, date: { gte: statusChangedAtYmd } },
         })
       }
     })
@@ -204,15 +202,13 @@ export const completeGroup = authAction
   .inputSchema(CompleteGroupSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { groupId, statusChangedAt, comment, deleteFutureLessons } = parsedInput
-    const statusChangedAtDate = new Date(
-      statusChangedAt ?? normalizeDateOnly(moscowNow()).toISOString().split('T')[0]!,
-    )
+    const statusChangedAtYmd = statusChangedAt ?? moscowTodayYmd()
     await prisma.$transaction(async (tx) => {
       await tx.group.update({
         where: { id: groupId, organizationId: ctx.session.organizationId! },
         data: {
           status: 'COMPLETED',
-          statusChangedAt: statusChangedAtDate,
+          statusChangedAt: statusChangedAtYmd,
           statusComment: comment ?? null,
         },
       })
@@ -221,14 +217,14 @@ export const completeGroup = authAction
         where: { groupId, status: { in: ['ACTIVE', 'TRIAL'] } },
         data: {
           status: 'COMPLETED',
-          statusChangedAt: statusChangedAtDate,
+          statusChangedAt: statusChangedAtYmd,
           statusComment: null,
         },
       })
 
       if (deleteFutureLessons) {
         await tx.lesson.deleteMany({
-          where: { groupId, date: { gte: statusChangedAtDate } },
+          where: { groupId, date: { gte: statusChangedAtYmd } },
         })
       }
     })
@@ -243,9 +239,7 @@ export const countFutureLessons = authAction
     }),
   )
   .action(async ({ ctx, parsedInput }) => {
-    const afterDate = new Date(
-      parsedInput.afterDate ?? normalizeDateOnly(moscowNow()).toISOString().split('T')[0]!,
-    )
+    const afterDate = parsedInput.afterDate ?? moscowTodayYmd()
     return await prisma.lesson.count({
       where: {
         groupId: parsedInput.groupId,
@@ -294,15 +288,19 @@ export const updateScheduleAndRegenerateLessons = authAction
         where: { groupId, date: { gte: startDate } },
       })
 
-      // 5. Generate new lesson dates
-      const lessons: Array<{ date: Date; time: string; organizationId: number }> = []
-      const currentDate = new Date(startDate.getTime())
+      // 5. Generate new lesson dates (`YYYY-MM-DD`)
+      const lessons: Array<{ date: string; time: string; organizationId: number }> = []
+      const currentDate = new Date(`${startDate}T00:00:00Z`)
       const maxIterations = lessonCount * 7 + 7
 
       for (let i = 0; i < maxIterations && lessons.length < lessonCount; i++) {
         const time = scheduleDaysMap.get(currentDate.getUTCDay())
         if (time) {
-          lessons.push({ date: new Date(currentDate.getTime()), time, organizationId: orgId })
+          lessons.push({
+            date: currentDate.toISOString().slice(0, 10),
+            time,
+            organizationId: orgId,
+          })
         }
         currentDate.setUTCDate(currentDate.getUTCDate() + 1)
       }
@@ -390,7 +388,7 @@ export const updateScheduleOnly = authAction
       const scheduleDaysMap = new Map(schedule.map((s) => [s.dayOfWeek, s.time]))
 
       // Update time on future lessons that match schedule days
-      const today = normalizeDateOnly(moscowNow())
+      const today = moscowTodayYmd()
       const futureLessons = await tx.lesson.findMany({
         where: { groupId, date: { gte: today } },
         select: { id: true, date: true },
@@ -398,7 +396,7 @@ export const updateScheduleOnly = authAction
 
       let updatedCount = 0
       for (const lesson of futureLessons) {
-        const newTime = scheduleDaysMap.get(lesson.date.getUTCDay())
+        const newTime = scheduleDaysMap.get(new Date(`${lesson.date}T00:00:00Z`).getUTCDay())
         if (newTime) {
           await tx.lesson.update({ where: { id: lesson.id }, data: { time: newTime } })
           updatedCount++
@@ -472,13 +470,14 @@ export const addStudentToGroup = authAction
           groupId,
           studentId,
           status: 'ACTIVE',
+          statusChangedAt: moscowTodayYmd(),
           ...(effectiveWalletId ? { walletId: effectiveWalletId } : {}),
         },
       })
 
       if (!isApplyToLesson) return
 
-      const todayDate = normalizeDateOnly(moscowNow())
+      const todayDate = moscowTodayYmd()
       const futureLessons = await tx.lesson.findMany({
         where: { groupId, date: { gte: todayDate } },
         select: { id: true, organizationId: true },
@@ -539,7 +538,7 @@ export const dismissStudentFromGroup = authAction
         },
       })
 
-      const todayDate = normalizeDateOnly(moscowNow())
+      const todayDate = moscowTodayYmd()
       const futureLessons = await tx.lesson.findMany({
         where: { groupId, date: { gte: todayDate } },
         select: { id: true },
@@ -581,7 +580,7 @@ export const transferStudent = authAction
         where: { studentId_groupId: { studentId, groupId: oldGroupId } },
         data: {
           status: 'TRANSFERRED',
-          statusChangedAt: normalizeDateOnly(moscowNow()),
+          statusChangedAt: moscowTodayYmd(),
           statusComment: `Переведён в группу ${newGroupName}`,
         },
       })
@@ -599,7 +598,7 @@ export const transferStudent = authAction
           data: {
             status: 'ACTIVE',
             statusComment: null,
-            statusChangedAt: normalizeDateOnly(moscowNow()),
+            statusChangedAt: moscowTodayYmd(),
             walletId: oldSg.walletId,
           },
         })
@@ -610,6 +609,7 @@ export const transferStudent = authAction
             groupId: newGroupId,
             organizationId: orgId,
             status: 'ACTIVE',
+            statusChangedAt: moscowTodayYmd(),
             walletId: oldSg.walletId,
           },
         })
@@ -619,7 +619,7 @@ export const transferStudent = authAction
         where: { studentId, status: 'UNSPECIFIED', lesson: { groupId: oldGroupId } },
       })
 
-      const today = normalizeDateOnly(moscowNow())
+      const today = moscowTodayYmd()
       const newFutureLessons = await tx.lesson.findMany({
         where: { groupId: newGroupId, date: { gte: today } },
         select: { id: true, organizationId: true },
@@ -658,7 +658,7 @@ export const addTeacherToGroup = authAction
             include: {
               lessons: {
                 where: {
-                  date: { gt: normalizeDateOnly(moscowNow()) },
+                  date: { gt: moscowTodayYmd() },
                   teachers: { none: { teacherId } },
                 },
               },
@@ -707,7 +707,7 @@ export const editTeacherGroup = authAction
           where: {
             teacherId,
             lesson: {
-              date: { gt: normalizeDateOnly(moscowNow()) },
+              date: { gt: moscowTodayYmd() },
               groupId,
             },
           },
@@ -742,7 +742,7 @@ export const removeTeacherFromGroup = authAction
           where: {
             teacherId,
             lesson: {
-              date: { gt: normalizeDateOnly(moscowNow()) },
+              date: { gt: moscowTodayYmd() },
               groupId,
             },
           },

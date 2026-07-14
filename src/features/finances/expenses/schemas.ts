@@ -1,3 +1,4 @@
+import { DateOnlySchema } from '@/src/lib/timezone'
 import * as z from 'zod'
 
 export const ExpenseBaseSchema = z.object({
@@ -6,7 +7,7 @@ export const ExpenseBaseSchema = z.object({
     .min(1, 'Название обязательно')
     .max(100, 'Название не должно превышать 100 символов'),
   amount: z.int('Укажите сумму').positive('Сумма должна быть больше 0'),
-  date: z.string('Укажите дату'),
+  date: DateOnlySchema,
   comment: z.string().max(200, 'Комментарий не должен превышать 200 символов').optional(),
 })
 

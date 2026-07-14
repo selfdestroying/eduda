@@ -8,7 +8,7 @@ import {
   EmptyTitle,
 } from '@/src/components/ui/empty'
 import { Skeleton } from '@/src/components/ui/skeleton'
-import { normalizeDateOnly } from '@/src/lib/timezone'
+import { dateToYmd } from '@/src/lib/timezone'
 import { CalendarSearch } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { DEFAULT_CHARGEABLE_STATUSES } from '../../chargeable'
@@ -35,8 +35,8 @@ export default function Revenue() {
     if (!dateRange?.from || !dateRange?.to) return null
     if (selectedStatuses.length === 0) return null
     return {
-      startDate: normalizeDateOnly(dateRange.from).toISOString(),
-      endDate: normalizeDateOnly(dateRange.to).toISOString(),
+      startDate: dateToYmd(dateRange.from),
+      endDate: dateToYmd(dateRange.to),
       courseIds: selectedCourses.length > 0 ? selectedCourses.map((c) => +c.value) : undefined,
       locationIds:
         selectedLocations.length > 0 ? selectedLocations.map((l) => +l.value) : undefined,

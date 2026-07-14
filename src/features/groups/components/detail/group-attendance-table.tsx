@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
 import { Toggle } from '@/src/components/ui/toggle'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { useUpdateAttendanceStatusMutation } from '@/src/features/lessons/queries'
-import { formatDateOnly } from '@/src/lib/timezone'
+import { formatDateOnly, moscowTodayYmd } from '@/src/lib/timezone'
 import { cn, getFullName } from '@/src/lib/utils'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -42,7 +42,7 @@ import { groupKeys } from '../../queries'
 import type { AttendanceWithRelations, LessonWithAttendance } from '../../types'
 
 // -------------------- Utils --------------------
-const formatDate = (date: Date) => formatDateOnly(date)
+const formatDate = (date: string) => formatDateOnly(date)
 
 const statusClasses: Record<
   AttendanceStatus | 'TRIAL_PRESENT' | 'TRIAL_ABSENT' | 'TRIAL_UNSPECIFIED',
@@ -451,7 +451,8 @@ export function GroupAttendanceTable({
       )}
       <DragScrollArea
         initialScroll={
-          (lessons.reduce((prev, curr) => prev + (curr.date < new Date() ? 1 : 0), 0) - 1) * 100
+          (lessons.reduce((prev, curr) => prev + (curr.date <= moscowTodayYmd() ? 1 : 0), 0) - 1) *
+          100
         }
       >
         <table

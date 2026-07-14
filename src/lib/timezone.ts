@@ -8,7 +8,17 @@ import z from 'zod'
  * Все бизнес-даты (уроки, KPI, статистика) привязаны к этой таймзоне.
  */
 export const BUSINESS_TZ = 'Europe/Moscow'
-export const DateOnlySchema = z.date().transform(normalizeDateOnly)
+
+const pad = (n: number) => String(n).padStart(2, '0')
+
+/** Регулярка date-only строки `YYYY-MM-DD`. */
+export const YMD_REGEX = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Zod-схема date-only поля: строка `YYYY-MM-DD` (календарный день без пояса).
+ * Хранится как есть, сравнивается лексикографически = хронологически.
+ */
+export const DateOnlySchema = z.string().regex(YMD_REGEX, 'Некорректная дата')
 
 /**
  * Текущий момент времени в московской таймзоне.
@@ -85,63 +95,59 @@ export function formatMoscow(
 }
 
 /**
- * Нормализовать Date из браузера для date-only полей (@db.Date).
- * Извлекает год/месяц/день из локального Date и создаёт UTC midnight.
- * Гарантирует что "15 января" в любом браузерном TZ → 2026-01-15T00:00:00Z.
+ * `Date` из браузерного date-picker → строка `YYYY-MM-DD` по локальным компонентам.
+ * Гарантирует, что «15 января» в любом браузерном TZ → "2026-01-15".
  *
- * Использовать ТОЛЬКО для полей с @db.Date (Lesson.date, birthDate, startDate и т.д.)
+ * Использовать для date-only полей (Lesson.date, birthDate, startDate и т.д.),
+ * которые хранятся как строка `YYYY-MM-DD`.
  *
  * @example
- * // Браузер в Токио (UTC+9): пользователь выбрал 15 января
- * // new Date(2026, 0, 15) → 2026-01-14T15:00:00Z (НЕПРАВИЛЬНО)
- * // normalizeDateOnly(new Date(2026, 0, 15)) → 2026-01-15T00:00:00Z (ПРАВИЛЬНО)
+ * dateToYmd(new Date(2026, 0, 15)) // "2026-01-15"
  */
-export function normalizeDateOnly(browserDate: Date): Date {
-  return new Date(
-    Date.UTC(browserDate.getFullYear(), browserDate.getMonth(), browserDate.getDate()),
-  )
+export function dateToYmd(browserDate: Date): string {
+  return `${browserDate.getFullYear()}-${pad(browserDate.getMonth() + 1)}-${pad(browserDate.getDate())}`
 }
 
 /**
- * Преобразовать @db.Date (UTC midnight) в локальный Date для использования
- * с date-fns format() и locale. Создаёт local noon того же дня, чтобы
- * format() показывал правильную дату в любом часовом поясе браузера.
- *
- * Использовать когда нужен date-fns format() с locale (например 'd MMMM, EEEE').
- * Для простого отображения без locale предпочтительнее formatDateOnly().
- *
- * @example
- * // lesson.date = 2026-02-15T00:00:00Z (@db.Date)
- * format(dateOnlyToLocal(lesson.date), 'd MMMM, EEEE', { locale: ru }) // "15 февраля, воскресенье"
+ * Сегодняшний бизнес-день (Москва) как строка `YYYY-MM-DD`.
+ * Замена прежнего `normalizeDateOnly(moscowNow())` для date-only сравнений/записи.
  */
-export function dateOnlyToLocal(date: Date | string): Date {
-  const d = typeof date === 'string' ? new Date(date) : date
-  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0)
+export function moscowTodayYmd(): string {
+  return formatInTimeZone(new Date(), BUSINESS_TZ, 'yyyy-MM-dd')
 }
 
 /**
- * Форматировать date-only значение из БД (@db.Date) для отображения.
- * Использует timeZone: 'UTC' чтобы гарантировать правильный день
- * независимо от таймзоны браузера.
+ * Date-only строка `YYYY-MM-DD` → локальный `Date` (полдень того же дня).
+ * Для date-fns format() с locale — компоненты дня читаются корректно в любом поясе.
+ *
+ * @example
+ * format(ymdToLocalDate(lesson.date), 'd MMMM, EEEE', { locale: ru }) // "15 февраля, воскресенье"
+ */
+export function ymdToLocalDate(ymd: string): Date {
+  const [y, m, d] = ymd.split('-').map(Number) as [number, number, number]
+  return new Date(y, m - 1, d, 12, 0, 0)
+}
+
+/**
+ * Форматировать date-only строку `YYYY-MM-DD` для отображения.
  *
  * @example
  * formatDateOnly(lesson.date) // "15.01.2026"
  * formatDateOnly(student.birthDate, { year: 'numeric', month: 'long', day: 'numeric' }) // "15 января 2026 г."
  */
 export function formatDateOnly(
-  date: Date | string,
+  ymd: string,
   options?: Omit<Intl.DateTimeFormatOptions, 'timeZone'>,
 ): string {
-  const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleDateString('ru-RU', { timeZone: 'UTC', ...options })
+  return ymdToLocalDate(ymd).toLocaleDateString('ru-RU', options)
 }
 
 /**
- * Форматировать дату для отображения в формате "d MMMM" (например, "15 февраля").
+ * Форматировать date-only строку в формате "d MMMM" (например, "15 февраля").
  *
  * @example
- * formatDate(new Date()) // "15 февраля"
+ * formatDate('2026-02-15') // "15 февраля"
  */
-export function formatDate(date: Date) {
-  return format(dateOnlyToLocal(date), 'd MMMM', { locale: ru })
+export function formatDate(ymd: string) {
+  return format(ymdToLocalDate(ymd), 'd MMMM', { locale: ru })
 }

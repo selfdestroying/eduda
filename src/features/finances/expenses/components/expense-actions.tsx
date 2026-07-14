@@ -54,10 +54,7 @@ export default function ExpenseActions({ expense }: ExpenseActionsProps) {
       id: expense.id,
       name: expense.name,
       amount: expense.amount,
-      date:
-        expense.date instanceof Date
-          ? expense.date.toISOString().split('T')[0]
-          : String(expense.date).split('T')[0],
+      date: expense.date,
       comment: expense.comment ?? undefined,
     },
   })

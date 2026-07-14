@@ -9,7 +9,7 @@ import {
 import prisma from '@/src/lib/db/prisma'
 import { authAction } from '@/src/lib/safe-action'
 import { moscowNow } from '@/src/lib/timezone'
-import { endOfMonth, endOfYear, startOfMonth, startOfYear } from 'date-fns'
+import { endOfMonth, startOfMonth } from 'date-fns'
 import { DEFAULT_CHARGEABLE_STATUSES } from '../chargeable'
 import { computeAttendanceRevenue } from '../chargeable.server'
 import { ProfitMonthlyFiltersSchema } from './schemas'
@@ -45,8 +45,9 @@ export const getProfitMonthlyData = authAction
     const { year } = parsedInput
     const organizationId = ctx.session.organizationId!
 
-    const yearStart = startOfYear(new Date(year, 0, 1))
-    const yearEnd = endOfYear(new Date(year, 0, 1))
+    // Границы года как date-only строки для фильтров по строковым колонкам дат.
+    const yearStartYmd = `${year}-01-01`
+    const yearEndYmd = `${year}-12-31`
 
     // Pre-compute month boundaries
     const monthStarts = Array.from({ length: 12 }, (_, i) => startOfMonth(new Date(year, i, 1)))
@@ -77,8 +78,8 @@ export const getProfitMonthlyData = authAction
     // ── 1. Revenue (per attendance/lesson date) ─────────────────────────────
     const revenueEntries = await computeAttendanceRevenue({
       organizationId,
-      startDate: yearStart,
-      endDate: yearEnd,
+      startDate: yearStartYmd,
+      endDate: yearEndYmd,
       chargeableStatuses: [...DEFAULT_CHARGEABLE_STATUSES],
     })
     for (const e of revenueEntries) {
@@ -90,7 +91,7 @@ export const getProfitMonthlyData = authAction
     const payments = await prisma.payment.findMany({
       where: {
         organizationId,
-        date: { gte: yearStart, lte: yearEnd },
+        date: { gte: yearStartYmd, lte: yearEndYmd },
       },
       select: {
         date: true,
@@ -115,7 +116,7 @@ export const getProfitMonthlyData = authAction
     const lessons = await prisma.lesson.findMany({
       where: {
         organizationId,
-        date: { gte: yearStart, lte: yearEnd },
+        date: { gte: yearStartYmd, lte: yearEndYmd },
         status: { not: 'CANCELLED' },
       },
       select: {
@@ -142,7 +143,7 @@ export const getProfitMonthlyData = authAction
     const paychecks = await prisma.payCheck.findMany({
       where: {
         organizationId,
-        date: { gte: yearStart, lte: yearEnd },
+        date: { gte: yearStartYmd, lte: yearEndYmd },
       },
       select: { date: true, amount: true, userId: true, type: true },
     })
@@ -181,8 +182,8 @@ export const getProfitMonthlyData = authAction
         const monthEnd = monthEnds[m]!
         const applicable = rows.find(
           (s) =>
-            s.startDate.getTime() <= monthEnd.getTime() &&
-            (s.endDate === null || s.endDate.getTime() >= monthStart.getTime()),
+            new Date(s.startDate).getTime() <= monthEnd.getTime() &&
+            (s.endDate === null || new Date(s.endDate).getTime() >= monthStart.getTime()),
         )
         if (applicable) {
           salariesPerMonth[m]! += applicable.monthlyAmount
@@ -196,8 +197,8 @@ export const getProfitMonthlyData = authAction
     const rents = await prisma.rent.findMany({
       where: {
         organizationId,
-        startDate: { lte: yearEnd },
-        OR: [{ endDate: null }, { endDate: { gte: yearStart } }],
+        startDate: { lte: yearEndYmd },
+        OR: [{ endDate: null }, { endDate: { gte: yearStartYmd } }],
       },
       select: {
         amount: true,
@@ -277,7 +278,7 @@ export const getProfitMonthlyData = authAction
     const expensesRaw = await prisma.expense.findMany({
       where: {
         organizationId,
-        date: { gte: yearStart, lte: yearEnd },
+        date: { gte: yearStartYmd, lte: yearEndYmd },
       },
       select: { date: true, name: true, amount: true },
     })

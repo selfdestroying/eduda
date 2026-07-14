@@ -26,6 +26,7 @@ import {
 } from '@/src/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
+import { dateToYmd, formatDateOnly, ymdToLocalDate } from '@/src/lib/timezone'
 import { getAgeFromBirthDate } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'
@@ -66,10 +67,7 @@ export default function AddStudentButton() {
 
   const selectedBirthDate = form.watch('birthDate')
   const parentMode = form.watch('parentMode')
-  const calculatedAge =
-    selectedBirthDate instanceof Date && !isNaN(selectedBirthDate.getTime())
-      ? getAgeFromBirthDate(selectedBirthDate)
-      : null
+  const calculatedAge = selectedBirthDate ? getAgeFromBirthDate(selectedBirthDate) : null
 
   const onSubmit = (values: CreateStudentSchemaType) => {
     createMutation.mutate(values, {
@@ -169,7 +167,7 @@ export default function AddStudentButton() {
                     >
                       <CalendarIcon />
                       {field.value
-                        ? field.value.toLocaleDateString('ru-RU', {
+                        ? formatDateOnly(field.value, {
                             day: 'numeric',
                             month: 'long',
                           })
@@ -178,9 +176,9 @@ export default function AddStudentButton() {
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
-                        onSelect={field.onChange}
+                        onSelect={(d) => field.onChange(d ? dateToYmd(d) : undefined)}
                         locale={ru}
-                        selected={field.value ?? undefined}
+                        selected={field.value ? ymdToLocalDate(field.value) : undefined}
                         captionLayout="dropdown"
                       />
                     </PopoverContent>

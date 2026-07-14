@@ -1,7 +1,7 @@
 import { Badge } from '@/src/components/ui/badge'
 import { TableCell, TableRow } from '@/src/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip'
-import { dateOnlyToLocal } from '@/src/lib/timezone'
+import { ymdToLocalDate } from '@/src/lib/timezone'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
@@ -25,8 +25,8 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
-function formatDate(date: Date) {
-  return format(dateOnlyToLocal(date), 'd MMMM', { locale: ru })
+function formatDate(date: string) {
+  return format(ymdToLocalDate(date), 'd MMMM', { locale: ru })
 }
 
 interface AttendanceRowProps {

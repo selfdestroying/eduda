@@ -3,6 +3,7 @@
 import { auth } from '@/src/lib/auth/server'
 import prisma from '@/src/lib/db/prisma'
 import { authAction } from '@/src/lib/safe-action'
+import { moscowTodayYmd } from '@/src/lib/timezone'
 import { headers } from 'next/headers'
 
 export const getActiveSessions = authAction
@@ -37,7 +38,7 @@ export const getMyIncomeHistory = authAction
         where: {
           teacherId: userId,
           organizationId,
-          lesson: { status: 'ACTIVE', date: { lte: new Date() } },
+          lesson: { status: 'ACTIVE', date: { lte: moscowTodayYmd() } },
         },
         select: {
           bid: true,
@@ -57,8 +58,7 @@ export const getMyIncomeHistory = authAction
     ])
 
     const map = new Map<string, IncomeEntry>()
-    const upsert = (date: Date, key: 'lessons' | 'paychecks', amount: number) => {
-      const dateKey = date.toISOString().split('T')[0]!
+    const upsert = (dateKey: string, key: 'lessons' | 'paychecks', amount: number) => {
       const e = map.get(dateKey) ?? { date: dateKey, lessons: 0, paychecks: 0 }
       e[key] += amount
       map.set(dateKey, e)

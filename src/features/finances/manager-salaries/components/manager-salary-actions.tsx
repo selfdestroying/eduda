@@ -54,8 +54,8 @@ export default function ManagerSalaryActions({ salary }: Props) {
       id: salary.id,
       userId: salary.userId,
       monthlyAmount: salary.monthlyAmount,
-      month: salary.startDate.getUTCMonth(),
-      year: salary.startDate.getUTCFullYear(),
+      month: new Date(salary.startDate).getUTCMonth(),
+      year: new Date(salary.startDate).getUTCFullYear(),
       comment: salary.comment ?? undefined,
     },
   })

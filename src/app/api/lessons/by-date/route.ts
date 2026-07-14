@@ -17,14 +17,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing date parameter' }, { status: 400 })
   }
 
-  const date = new Date(dateParam)
-  if (isNaN(date.getTime())) {
+  // Date-only фильтр хранится как строка `YYYY-MM-DD`.
+  if (isNaN(new Date(dateParam).getTime())) {
     return NextResponse.json({ error: 'Invalid date' }, { status: 400 })
   }
 
   const lessons = await prisma.lesson.findMany({
     where: {
-      date,
+      date: dateParam,
       organizationId: session.organizationId,
     },
     include: {

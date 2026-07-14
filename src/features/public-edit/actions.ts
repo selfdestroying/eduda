@@ -132,7 +132,7 @@ export const getPublicStudentData = publicAction
       firstName: student.firstName,
       lastName: student.lastName,
       age: student.age,
-      birthDate: student.birthDate ? student.birthDate.toISOString().slice(0, 10) : null,
+      birthDate: student.birthDate ?? null,
       dataActual: student.dataActual,
       dataActualizedAt: student.dataActualizedAt?.toISOString() ?? null,
       parents: student.parents.map(({ parent }) => parent),
@@ -196,7 +196,7 @@ export const updatePublicStudent = publicAction
       firstName: updated.firstName,
       lastName: updated.lastName,
       age: updated.age,
-      birthDate: updated.birthDate ? updated.birthDate.toISOString().slice(0, 10) : null,
+      birthDate: updated.birthDate ?? null,
       dataActual: updated.dataActual,
       dataActualizedAt: updated.dataActualizedAt?.toISOString() ?? null,
     }

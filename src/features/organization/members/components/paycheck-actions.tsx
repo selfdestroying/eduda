@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/src/components/ui/select'
+import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'
 import { Loader, MoreVertical, Pen, Trash } from 'lucide-react'
@@ -213,8 +214,8 @@ export default function PayCheckActions({ paycheck, userName, userId }: PayCheck
                     <FieldLabel>Дата</FieldLabel>
                     <Calendar
                       mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
+                      selected={field.value ? ymdToLocalDate(field.value) : undefined}
+                      onSelect={(d) => field.onChange(d ? dateToYmd(d) : undefined)}
                       locale={ru}
                       components={{
                         DayButton: (props) => (

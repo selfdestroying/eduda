@@ -2,8 +2,8 @@
 
 import prisma from '@/src/lib/db/prisma'
 import { authAction } from '@/src/lib/safe-action'
-import { moscowNow, normalizeDateOnly } from '@/src/lib/timezone'
-import { addDays, startOfDay } from 'date-fns'
+import { moscowNow, moscowTodayYmd } from '@/src/lib/timezone'
+import { addDays } from 'date-fns'
 import z from 'zod'
 import {
   RestoreSnoozedAlertSchema,
@@ -34,7 +34,7 @@ function currentMoscowMinutes(): number {
 export const getUnmarkedAttendance = authAction
   .metadata({ actionName: 'getUnmarkedAttendance' })
   .action(async ({ ctx }): Promise<UnmarkedAttendanceAlert[]> => {
-    const today = normalizeDateOnly(moscowNow())
+    const today = moscowTodayYmd()
     const nowMinutes = currentMoscowMinutes()
 
     const lessons = await prisma.lesson.findMany({
@@ -53,9 +53,7 @@ export const getUnmarkedAttendance = authAction
 
     return lessons
       .filter((lesson) => {
-        const lessonDateMs = lesson.date.getTime()
-        const todayMs = today.getTime()
-        if (lessonDateMs === todayMs) {
+        if (lesson.date === today) {
           const lessonMinutes = parseLessonTime(lesson.time)
           return nowMinutes > lessonMinutes + 120
         }
@@ -145,7 +143,7 @@ export const getAbsentStreak = authAction
   )
   .action(async ({ ctx, parsedInput }) => {
     const { withSnoozed } = parsedInput
-    const now = startOfDay(new Date())
+    const now = moscowTodayYmd()
     const LESSONS_LOOKBACK = 10
 
     const groups = await prisma.group.findMany({
@@ -193,7 +191,7 @@ export const getAbsentStreak = authAction
     type GroupItem = (typeof groups)[number]
     type LessonItem = GroupItem['lessons'][number]
     type RawAttendance = LessonItem['attendance'][number]
-    type AttendanceWithLesson = RawAttendance & { lesson: { id: number; date: Date } }
+    type AttendanceWithLesson = RawAttendance & { lesson: { id: number; date: string } }
 
     const alerts: ConsecutiveAbsencesAlert[] = []
 
