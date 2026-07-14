@@ -231,7 +231,7 @@ export const getSalaryPaychecks = authAction
     return await prisma.payCheck.findMany({
       where: {
         organizationId: ctx.session.organizationId!,
-        date: { gte: new Date(parsedInput.startDate), lte: new Date(parsedInput.endDate) },
+        date: { gte: parsedInput.startDate, lte: parsedInput.endDate },
       },
     })
   })
@@ -250,7 +250,7 @@ export const getMySalaryPaychecks = authAction
       where: {
         organizationId: ctx.session.organizationId!,
         userId,
-        date: { gte: new Date(parsedInput.startDate), lte: new Date(parsedInput.endDate) },
+        date: { gte: parsedInput.startDate, lte: parsedInput.endDate },
       },
     })
   })

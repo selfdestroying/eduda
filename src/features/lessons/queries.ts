@@ -1,5 +1,5 @@
 import { dashboardKeys } from '@/src/features/dashboard/queries'
-import { normalizeDateOnly } from '@/src/lib/timezone'
+import { dateToYmd } from '@/src/lib/timezone'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -58,7 +58,7 @@ export const useLessonDetailQuery = (id: number) => {
 }
 
 export const useLessonsByDateQuery = (date?: Date) => {
-  const dateKey = date ? normalizeDateOnly(date).toISOString().split('T')[0]! : ''
+  const dateKey = date ? dateToYmd(date) : ''
   return useQuery<LessonByDate[]>({
     queryKey: lessonKeys.byDate(dateKey),
     queryFn: async () => {

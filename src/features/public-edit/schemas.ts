@@ -1,4 +1,3 @@
-import { normalizeDateOnly } from '@/src/lib/timezone'
 import * as z from 'zod'
 
 // ─── Token ──────────────────────────────────────────────────────────
@@ -27,7 +26,8 @@ const BirthDateSchema = z
       return z.NEVER
     }
 
-    return normalizeDateOnly(date)
+    // Date-only поле хранится как строка `YYYY-MM-DD` (значение уже в этом формате).
+    return value
   })
 
 const PhoneSchema = NullableTextSchema.pipe(

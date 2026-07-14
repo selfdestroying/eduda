@@ -21,7 +21,7 @@ import {
 import type { LessonWithPrice, SalaryFilters } from '@/src/features/finances/salaries/types'
 import { MyIncomeChart } from '@/src/features/users/me/components/my-income-chart'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
-import { dateOnlyToLocal, normalizeDateOnly, nowInTz, startOfDayInTz } from '@/src/lib/timezone'
+import { dateToYmd, nowInTz, startOfDayInTz, ymdToLocalDate } from '@/src/lib/timezone'
 import { cn, getGroupName } from '@/src/lib/utils'
 import { cva } from 'class-variance-authority'
 import {
@@ -125,8 +125,8 @@ export default function MySalary() {
   const filters: SalaryFilters | null = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return null
     return {
-      startDate: normalizeDateOnly(dateRange.from).toISOString(),
-      endDate: normalizeDateOnly(dateRange.to).toISOString(),
+      startDate: dateToYmd(dateRange.from),
+      endDate: dateToYmd(dateRange.to),
     }
   }, [dateRange])
 
@@ -347,7 +347,7 @@ export default function MySalary() {
                       <div className="mb-1.5 flex items-center justify-between gap-2">
                         <div className="text-muted-foreground flex items-center gap-2 text-xs font-medium">
                           <CalendarIcon className="h-3 w-3" />
-                          {format(dateOnlyToLocal(dateKey), 'd MMMM, EEEE', { locale: ru })}
+                          {format(ymdToLocalDate(dateKey), 'd MMMM, EEEE', { locale: ru })}
                         </div>
                         {dayTotal > 0 && (
                           <span className="text-muted-foreground text-xs">
@@ -433,7 +433,7 @@ function StatItem({
 function PaycheckItem({
   paycheck,
 }: {
-  paycheck: { id: number; date: Date | string; amount: number; comment: string | null }
+  paycheck: { id: number; date: string; amount: number; comment: string | null }
 }) {
   return (
     <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
@@ -443,7 +443,7 @@ function PaycheckItem({
           <span className="truncate text-sm font-medium">{paycheck.comment || 'Доп. доход'}</span>
         </div>
         <div className="text-muted-foreground mt-0.5 pl-5.5 text-xs">
-          {format(dateOnlyToLocal(paycheck.date), 'd MMM yyyy', { locale: ru })}
+          {format(ymdToLocalDate(paycheck.date), 'd MMM yyyy', { locale: ru })}
         </div>
       </div>
       <span className="text-success text-sm font-semibold whitespace-nowrap">

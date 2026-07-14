@@ -14,7 +14,7 @@ import {
 } from '@/src/components/ui/dialog'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
-import { normalizeDateOnly } from '@/src/lib/timezone'
+import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'
 import { Controller, useForm } from 'react-hook-form'
@@ -22,7 +22,7 @@ import * as z from 'zod'
 import { useUpdateLessonMutation } from '../queries'
 
 const EditLessonFormSchema = z.object({
-  date: z.date().transform(normalizeDateOnly),
+  date: z.date(),
   time: z.string('Выберите время урока'),
 })
 
@@ -39,13 +39,13 @@ export default function EditLessonDialog({ lesson, isOpen, onClose }: EditLesson
   const form = useForm<EditLessonFormValues>({
     resolver: zodResolver(EditLessonFormSchema),
     defaultValues: {
-      date: lesson.date,
+      date: ymdToLocalDate(lesson.date),
       time: lesson.time || undefined,
     },
   })
 
   const handleSubmit = (values: EditLessonFormValues) => {
-    mutate(values, { onSettled: () => onClose() })
+    mutate({ date: dateToYmd(values.date), time: values.time }, { onSettled: () => onClose() })
   }
 
   return (

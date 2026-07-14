@@ -2,7 +2,7 @@ model PayCheck {
     id        Int          @id @default(autoincrement())
     amount    Int
     comment   String
-    date      DateTime     @db.Date
+    date      String
     type      PayCheckType @default(SALARY)
     createdAt DateTime     @default(now())
     updatedAt DateTime     @updatedAt
@@ -20,8 +20,8 @@ model PayCheck {
 model ManagerSalary {
     id            Int       @id @default(autoincrement())
     monthlyAmount Int
-    startDate     DateTime  @db.Date
-    endDate       DateTime? @db.Date
+    startDate     String
+    endDate       String?
     comment       String?
     createdAt     DateTime  @default(now())
     updatedAt     DateTime  @updatedAt
@@ -60,7 +60,7 @@ model Payment {
     bidForLesson Int      @default(0)
     leadName     String   @default("")
     productName  String   @default("")
-    date         DateTime @default(now()) @db.Date
+    date         String
     createdAt    DateTime @default(now())
     updatedAt    DateTime @updatedAt
 
@@ -180,7 +180,7 @@ model Expense {
     id        Int      @id @default(autoincrement())
     name      String
     amount    Int
-    date      DateTime @db.Date
+    date      String
     comment   String?
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt

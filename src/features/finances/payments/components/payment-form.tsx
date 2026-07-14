@@ -8,7 +8,7 @@ import { Calendar } from '@/src/components/ui/calendar'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Item, ItemContent, ItemDescription, ItemTitle } from '@/src/components/ui/item'
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
-import { normalizeDateOnly } from '@/src/lib/timezone'
+import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
 import { getFullName, getGroupName } from '@/src/lib/utils'
 import { ru } from 'date-fns/locale'
 import { CalendarIcon } from 'lucide-react'
@@ -163,11 +163,9 @@ export default function PaymentForm<T extends FieldValues>({
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
-                    onSelect={(value) =>
-                      value && field.onChange(normalizeDateOnly(value).toISOString().split('T')[0])
-                    }
+                    onSelect={(value) => value && field.onChange(dateToYmd(value))}
                     locale={ru}
-                    selected={field.value}
+                    selected={field.value ? ymdToLocalDate(field.value) : undefined}
                   />
                 </PopoverContent>
               </Popover>

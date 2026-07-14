@@ -1,11 +1,11 @@
 model Group {
     id             Int       @id @default(autoincrement())
-    startDate      DateTime  @db.Date
+    startDate      String
     maxStudents    Int
     duration       Int       @default(60)
     url            String?
     status     GroupStatus   @default(ACTIVE)
-    statusChangedAt     DateTime? @db.Date
+    statusChangedAt     String?
     statusComment String?
     createdAt      DateTime  @default(now())
     updatedAt      DateTime  @updatedAt
@@ -69,8 +69,8 @@ model Location {
 
 model Rent {
     id        Int       @id @default(autoincrement())
-    startDate DateTime  @db.Date
-    endDate   DateTime? @db.Date
+    startDate String
+    endDate   String?
     isMonthly Boolean   @default(false)
     amount    Int
     comment   String?
@@ -122,7 +122,7 @@ model GroupType {
 
 model StudentGroup {
     status          StudentStatus
-    statusChangedAt DateTime      @default(now())
+    statusChangedAt String
     statusComment   String?
     createdAt       DateTime      @default(now())
     updatedAt       DateTime      @updatedAt

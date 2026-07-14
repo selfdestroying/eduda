@@ -16,6 +16,9 @@ export const getAdvancesData = authAction
 
     const periodStart = new Date(startDate)
     const periodEnd = new Date(endDate)
+    // Границы периода как date-only строки для фильтров/сравнений по колонкам-датам.
+    const periodStartYmd = periodStart.toISOString().slice(0, 10)
+    const periodEndYmd = periodEnd.toISOString().slice(0, 10)
 
     // ====================================================================
     // 1. Оплаты ДО конца периода
@@ -39,15 +42,15 @@ export const getAdvancesData = authAction
     // ====================================================================
     const allRevenueEntries = await computeAttendanceRevenue({
       organizationId,
-      startDate: new Date(0), // с начала времён
-      endDate: periodEnd,
+      startDate: '1970-01-01', // с начала времён
+      endDate: periodEndYmd,
       chargeableStatuses,
     })
 
     // Разбиваем на «до периода» и «в периоде»
-    const entriesBefore = allRevenueEntries.filter((e) => e.lessonDate < periodStart)
+    const entriesBefore = allRevenueEntries.filter((e) => e.lessonDate < periodStartYmd)
     const entriesInPeriod = allRevenueEntries.filter(
-      (e) => e.lessonDate >= periodStart && e.lessonDate <= periodEnd,
+      (e) => e.lessonDate >= periodStartYmd && e.lessonDate <= periodEndYmd,
     )
 
     const revenueBeforeByStudent = aggregateRevenueByStudent(entriesBefore)
@@ -74,7 +77,7 @@ export const getAdvancesData = authAction
       where: {
         organizationId,
         makeupForAttendanceId: null,
-        lesson: { date: { gte: periodStart, lte: periodEnd }, status: 'ACTIVE' },
+        lesson: { date: { gte: periodStartYmd, lte: periodEndYmd }, status: 'ACTIVE' },
       },
       _count: true,
     })

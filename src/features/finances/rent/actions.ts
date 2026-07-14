@@ -5,6 +5,10 @@ import { authAction } from '@/src/lib/safe-action'
 import { addDays } from 'date-fns'
 import { CreateRentSchema, DeleteRentSchema, UpdateRentSchema } from './schemas'
 
+const pad = (n: number) => String(n).padStart(2, '0')
+/** Date → `YYYY-MM-DD` по UTC-компонентам. */
+const ymd = (d: Date) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`
+
 type PeriodInput = {
   isMonthly: boolean
   startDate?: string
@@ -13,20 +17,21 @@ type PeriodInput = {
   year?: number
 }
 
-function resolvePeriod(input: PeriodInput): { startDate: Date; endDate: Date | null } {
+/** Границы аренды как date-only строки `YYYY-MM-DD`. */
+function resolvePeriod(input: PeriodInput): { startDate: string; endDate: string | null } {
   if (input.isMonthly) {
     const year = input.year!
     const month = input.month!
     return {
       // Start of contract: first day of chosen month/year
-      startDate: new Date(Date.UTC(year, month, 1)),
+      startDate: `${year}-${pad(month + 1)}-01`,
       // Monthly recurring: open-ended
       endDate: null,
     }
   }
   return {
-    startDate: new Date(input.startDate!),
-    endDate: new Date(input.endDate!),
+    startDate: input.startDate!,
+    endDate: input.endDate!,
   }
 }
 
@@ -55,7 +60,7 @@ export const createRent = authAction
             endDate: null,
             startDate: { lt: startDate },
           },
-          data: { endDate: addDays(startDate, -1) },
+          data: { endDate: ymd(addDays(new Date(`${startDate}T00:00:00Z`), -1)) },
         })
       }
       await tx.rent.create({

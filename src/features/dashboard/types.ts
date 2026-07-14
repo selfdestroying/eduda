@@ -30,7 +30,7 @@ export interface DashboardAttendanceMakeupRef {
   lessonId: number
   lesson: {
     id: number
-    date: Date
+    date: string
   }
 }
 

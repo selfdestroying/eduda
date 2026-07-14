@@ -11,6 +11,8 @@ import {
   writeFinancialHistoryTx,
 } from '@/src/lib/lessons-balance'
 import { authAction, featureAction } from '@/src/lib/safe-action'
+import { todayYmdInTz } from '@/src/lib/timezone'
+import { getAgeFromBirthDate } from '@/src/lib/utils'
 import { randomInt } from 'crypto'
 import * as z from 'zod'
 import { CreateStudentSchema, DeleteStudentSchema, UpdateStudentCoinsSchema } from './schemas'
@@ -152,13 +154,7 @@ export const createStudent = authAction
   .action(async ({ ctx, parsedInput }) => {
     const { firstName, lastName, birthDate, url, parentMode, newParent, existingParentId } =
       parsedInput
-    const age = birthDate
-      ? new Date().getFullYear() -
-        birthDate.getFullYear() -
-        (new Date() < new Date(new Date().getFullYear(), birthDate.getMonth(), birthDate.getDate())
-          ? 1
-          : 0)
-      : null
+    const age = birthDate ? getAgeFromBirthDate(birthDate, ctx.tz) : null
 
     const login = generateLogin(firstName, lastName)
     const password = generatePassword()
@@ -414,6 +410,7 @@ export const updateStudentGroupBalance = authAction
             bidForLesson: payment.bidForLesson,
             leadName: payment.leadName,
             productName: payment.productName,
+            date: todayYmdInTz(ctx.tz),
           },
         })
       }
@@ -641,7 +638,7 @@ export const updateStudentBalanceHistory = authAction
 
 export type StudentGroupHistoryEntry = {
   type: 'joined' | 'dismissed'
-  date: Date
+  date: string
   groupId: number
   groupName: string
   status?: string
@@ -701,8 +698,8 @@ export const getStudentGroupHistory = authAction
     const groupStats = new Map<
       number,
       {
-        firstDate: Date
-        lastDate: Date
+        firstDate: string
+        lastDate: string
         group: (typeof attendances)[number]['lesson']['group']
       }
     >()
@@ -750,7 +747,7 @@ export const getStudentGroupHistory = authAction
       }
     }
 
-    entries.sort((a, b) => b.date.getTime() - a.date.getTime())
+    entries.sort((a, b) => b.date.localeCompare(a.date))
 
     return entries
   })

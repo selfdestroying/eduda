@@ -11,6 +11,7 @@ import {
 } from '@/src/components/ui/empty'
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
 import { useSidebar } from '@/src/components/ui/sidebar'
+import { formatDateOnly } from '@/src/lib/timezone'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { GlobalSearch } from '@/src/features/search/components/global-search'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
@@ -157,7 +158,7 @@ export function UnmarkedAttendanceChip() {
                   </Link>
                 </p>
                 <span className="text-muted-foreground truncate text-xs underline-offset-1">
-                  {alert.lessonDate.toLocaleDateString('ru-RU')} {alert.lessonTime}
+                  {formatDateOnly(alert.lessonDate)} {alert.lessonTime}
                 </span>
               </div>
             </div>

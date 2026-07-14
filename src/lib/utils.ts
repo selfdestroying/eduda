@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { nowInTz } from './timezone'
+import { nowInTz, ymdToLocalDate } from './timezone'
 
 export const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
 export const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || ''
@@ -29,15 +29,15 @@ export function getGroupName(group: {
   return `${group.course.name} ${parts.join(', ')}`
 }
 
-export const getAgeFromBirthDate = (birthDate: Date, tz: string) => {
-  // `today` — стеночасы пояса организации (локальные геттеры = дата зоны);
-  // `birthDate` (@db.Date, UTC-полночь) читаем через getUTC*, иначе к западу
-  // от UTC день «съезжает» на предыдущий → off-by-one в возрасте.
+// `birthDate` — date-only строка `YYYY-MM-DD`; `today` берём в поясе
+// организации, чтобы «сегодня» для возраста считалось по её дню.
+export const getAgeFromBirthDate = (birthDate: string, tz: string) => {
+  const birth = ymdToLocalDate(birthDate)
   const today = nowInTz(tz)
-  let age = today.getFullYear() - birthDate.getUTCFullYear()
-  const monthDiff = today.getMonth() - birthDate.getUTCMonth()
+  let age = today.getFullYear() - birth.getFullYear()
+  const monthDiff = today.getMonth() - birth.getMonth()
 
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getUTCDate())) {
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
     age--
   }
 

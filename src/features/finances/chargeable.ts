@@ -82,7 +82,8 @@ export function isChargeable(att: AttendanceClassifiable, statuses: ChargeableSt
 export interface StudentRevenueEntry {
   studentId: number
   visitCost: number
-  lessonDate: Date
+  /** Дата урока `YYYY-MM-DD`. */
+  lessonDate: string
 }
 
 /**

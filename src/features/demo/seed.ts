@@ -10,12 +10,13 @@
  * дочерние данные (`onDelete: Cascade`), поэтому «снести и создать заново» —
  * безопасная операция.
  *
- * Даты бизнеса привязаны к Europe/Moscow через `todayInTz` и хранятся как
- * UTC-полночь (`@db.Date`), совместимо с календарём (читает `getUTC*`).
+ * Даты бизнеса берутся по Europe/Moscow (`todayYmdInTz`) и хранятся в date-only
+ * колонках как строки `YYYY-MM-DD`. Внутри сида арифметика идёт по UTC-полуночи
+ * (`getUTC*`), а на границе записи в БД дата приводится к строке через `ymd()`.
  */
 import { Prisma } from '@/prisma/generated/client'
 import prisma from '@/src/lib/db/prisma'
-import { DEFAULT_TZ, todayInTz } from '@/src/lib/timezone'
+import { DEFAULT_TZ, todayYmdInTz } from '@/src/lib/timezone'
 import { auth } from '@/src/lib/auth/server'
 import {
   DEMO_EMAILS,
@@ -43,11 +44,17 @@ const rng = makeRng(20240714)
 const pick = <T>(arr: readonly T[]): T => arr[Math.floor(rng() * arr.length)]!
 const int = (min: number, max: number) => min + Math.floor(rng() * (max - min + 1))
 
-// ─── Дата-хелперы (UTC-полночь, @db.Date) ──────────────────────────────
+// ─── Дата-хелперы ──────────────────────────────────────────────────────
+// Арифметика — по UTC-полуночи; в БД date-only колонки пишутся строкой.
 function addUTCDays(d: Date, n: number): Date {
   const r = new Date(d.getTime())
   r.setUTCDate(r.getUTCDate() + n)
   return r
+}
+
+/** UTC-полночь Date → строка `YYYY-MM-DD` для date-only колонок. */
+function ymd(d: Date): string {
+  return d.toISOString().slice(0, 10)
 }
 
 /** Уроки по расписанию в окне [from; to] включительно. */
@@ -58,11 +65,11 @@ function generateLessons(
   organizationId: number,
 ) {
   const map = new Map(schedule.map((s) => [s.dayOfWeek, s.time]))
-  const out: { date: Date; time: string; organizationId: number }[] = []
+  const out: { date: string; time: string; organizationId: number }[] = []
   const cur = new Date(from.getTime())
   while (cur.getTime() <= to.getTime()) {
     const time = map.get(cur.getUTCDay())
-    if (time) out.push({ date: new Date(cur.getTime()), time, organizationId })
+    if (time) out.push({ date: ymd(cur), time, organizationId })
     cur.setUTCDate(cur.getUTCDate() + 1)
   }
   return out
@@ -191,7 +198,8 @@ async function createDemoUser(role: DemoRole): Promise<number> {
  */
 export async function seedDemoOrg(): Promise<{ organizationId: number }> {
   const tz = DEFAULT_TZ
-  const today = todayInTz(tz)
+  const todayYmd = todayYmdInTz(tz)
+  const today = new Date(`${todayYmd}T00:00:00.000Z`)
   const windowStart = addUTCDays(today, -21)
   const windowEnd = addUTCDays(today, 18)
 
@@ -272,16 +280,21 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
   // 5. Расходы / аренда / зарплаты ──────────────────────────────────────
   await prisma.expense.createMany({
     data: [
-      { organizationId: orgId, name: 'Канцелярия', amount: 4200, date: addUTCDays(today, -12) },
-      { organizationId: orgId, name: 'Реклама', amount: 15000, date: addUTCDays(today, -6) },
-      { organizationId: orgId, name: 'Клининг', amount: 8000, date: addUTCDays(today, -2) },
+      {
+        organizationId: orgId,
+        name: 'Канцелярия',
+        amount: 4200,
+        date: ymd(addUTCDays(today, -12)),
+      },
+      { organizationId: orgId, name: 'Реклама', amount: 15000, date: ymd(addUTCDays(today, -6)) },
+      { organizationId: orgId, name: 'Клининг', amount: 8000, date: ymd(addUTCDays(today, -2)) },
     ],
   })
   await prisma.rent.create({
     data: {
       organizationId: orgId,
       locationId: locations[0]!.id,
-      startDate: addUTCDays(today, -60),
+      startDate: ymd(addUTCDays(today, -60)),
       isMonthly: true,
       amount: 60000,
       comment: 'Аренда главного корпуса',
@@ -292,7 +305,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       organizationId: orgId,
       userId: userIds.manager,
       monthlyAmount: 70000,
-      startDate: addUTCDays(today, -60),
+      startDate: ymd(addUTCDays(today, -60)),
     },
   })
   await prisma.payCheck.createMany({
@@ -303,7 +316,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
         amount: 45000,
         comment: 'Зарплата',
         type: 'SALARY',
-        date: addUTCDays(today, -30),
+        date: ymd(addUTCDays(today, -30)),
       },
       {
         organizationId: orgId,
@@ -311,7 +324,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
         amount: 5000,
         comment: 'Бонус за посещаемость',
         type: 'BONUS',
-        date: addUTCDays(today, -15),
+        date: ymd(addUTCDays(today, -15)),
       },
       {
         organizationId: orgId,
@@ -319,7 +332,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
         amount: 10000,
         comment: 'Аванс',
         type: 'ADVANCE',
-        date: addUTCDays(today, -3),
+        date: ymd(addUTCDays(today, -3)),
       },
     ],
   })
@@ -341,7 +354,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
         locationId: locations[def.location]!.id,
         groupTypeId: groupTypeGroup.id,
         maxStudents: 10,
-        startDate: windowStart,
+        startDate: ymd(windowStart),
         teachers: { create: [{ organizationId: orgId, teacherId, rateId: rateMain.id }] },
         schedules: {
           createMany: {
@@ -371,9 +384,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     createdGroups.push({
       id: group.id,
       lessonIds: group.lessons.map((l) => l.id),
-      pastLessonIds: group.lessons
-        .filter((l) => l.date.getTime() < today.getTime())
-        .map((l) => l.id),
+      pastLessonIds: group.lessons.filter((l) => l.date < todayYmd).map((l) => l.id),
     })
   }
 
@@ -417,7 +428,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       firstName: s.firstName,
       lastName: s.lastName,
       age: s.age,
-      birthDate: addUTCDays(today, -s.age * 365),
+      birthDate: ymd(addUTCDays(today, -s.age * 365)),
       lessonsBalance: s.balance,
       totalLessons: s.totalLessons,
       totalPayments: s.totalPayments,
@@ -453,6 +464,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       groupId: createdGroups[seeds[i]!.groupIdx]!.id,
       walletId: walletByStudent.get(st.id)!,
       status: seeds[i]!.status,
+      statusChangedAt: todayYmd,
     })),
   })
 
@@ -474,7 +486,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
         price,
         bidForLesson: Math.round(price / lessonCount),
         productName: `Абонемент ${lessonCount} занятий`,
-        date: addUTCDays(today, -int(1, 40)),
+        date: ymd(addUTCDays(today, -int(1, 40))),
       })
     }
   })

@@ -15,6 +15,7 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
+import { dateToYmd, formatDateOnly, ymdToLocalDate } from '@/src/lib/timezone'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'
 import { CalendarIcon, Plus } from 'lucide-react'
@@ -97,15 +98,15 @@ export default function AddCheckButton({ userId, userName }: AddCheckButtonProps
                     >
                       <CalendarIcon />
                       {field.value
-                        ? field.value.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+                        ? formatDateOnly(field.value, { day: 'numeric', month: 'long' })
                         : 'Выберите день'}
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
-                        onSelect={field.onChange}
+                        onSelect={(d) => field.onChange(d ? dateToYmd(d) : undefined)}
                         locale={ru}
-                        selected={field.value}
+                        selected={field.value ? ymdToLocalDate(field.value) : undefined}
                       />
                     </PopoverContent>
                   </Popover>

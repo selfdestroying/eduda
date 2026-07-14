@@ -25,6 +25,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
 import { Toggle } from '@/src/components/ui/toggle'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
+import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
 import { DaysOfWeek } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
@@ -273,7 +274,9 @@ export default function ManageScheduleDialog({
                                 >
                                   <CalendarIcon />
                                   {field.value
-                                    ? format(field.value, 'dd.MM.yyyy (EEEE)', { locale: ru })
+                                    ? format(ymdToLocalDate(field.value), 'dd.MM.yyyy (EEEE)', {
+                                        locale: ru,
+                                      })
                                     : 'Выберите дату'}
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
@@ -281,8 +284,8 @@ export default function ManageScheduleDialog({
                                     id="manage-startDate"
                                     mode="single"
                                     disabled={{ before: new Date() }}
-                                    selected={field.value}
-                                    onSelect={field.onChange}
+                                    selected={field.value ? ymdToLocalDate(field.value) : undefined}
+                                    onSelect={(d) => field.onChange(d ? dateToYmd(d) : undefined)}
                                     locale={ru}
                                     components={{
                                       DayButton: (props) => (
@@ -297,7 +300,8 @@ export default function ManageScheduleDialog({
                               </Popover>
                               {watchedStartDate && (
                                 <FieldDescription>
-                                  День недели: {DaysOfWeek.full[watchedStartDate.getDay()]}
+                                  День недели:{' '}
+                                  {DaysOfWeek.full[ymdToLocalDate(watchedStartDate).getDay()]}
                                 </FieldDescription>
                               )}
                             </Field>

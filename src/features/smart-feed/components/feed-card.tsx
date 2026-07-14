@@ -8,7 +8,7 @@ import {
   ItemDescription,
   ItemTitle,
 } from '@/src/components/ui/item'
-import { dateOnlyToLocal } from '@/src/lib/timezone'
+import { ymdToLocalDate } from '@/src/lib/timezone'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { BellOff } from 'lucide-react'
@@ -37,7 +37,7 @@ function UnmarkedAttendanceCard({
 }: {
   alert: SmartFeedAlert & { type: 'UNMARKED_ATTENDANCE' }
 }) {
-  const formattedDate = format(dateOnlyToLocal(alert.lessonDate), 'd MMM', { locale: ru })
+  const formattedDate = format(ymdToLocalDate(alert.lessonDate), 'd MMM', { locale: ru })
 
   return (
     <Item size={'xs'}>

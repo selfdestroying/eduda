@@ -22,7 +22,6 @@ import {
 } from '@/src/components/ui/sheet'
 import { useIsMobile } from '@/src/hooks/use-mobile'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
-import { normalizeDateOnly } from '@/src/lib/timezone'
 import { getAgeFromBirthDate } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, Pen } from 'lucide-react'
@@ -57,10 +56,7 @@ export default function EditStudentDialog({ student }: { student: StudentDetail 
 
   const tz = useOrgTimezone()
   const selectedBirthDate = form.watch('birthDate')
-  const calculatedAge =
-    selectedBirthDate instanceof Date && !isNaN(selectedBirthDate.getTime())
-      ? getAgeFromBirthDate(normalizeDateOnly(selectedBirthDate), tz)
-      : null
+  const calculatedAge = selectedBirthDate ? getAgeFromBirthDate(selectedBirthDate, tz) : null
 
   const onSubmit = (values: EditStudentSchemaType) => {
     // values.birthDate уже прогнан через DateOnlySchema (UTC-полночь) — не нормализуем повторно.
@@ -159,14 +155,8 @@ export default function EditStudentDialog({ student }: { student: StudentDetail 
                     id="edit-birthDate-field"
                     type="date"
                     {...field}
-                    value={
-                      field.value instanceof Date && !isNaN(field.value.getTime())
-                        ? field.value.toISOString().split('T')[0]
-                        : ''
-                    }
-                    onChange={(e) =>
-                      field.onChange(e.target.value ? new Date(e.target.value) : undefined)
-                    }
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value || undefined)}
                     aria-invalid={fieldState.invalid}
                   />
                   <FieldDescription>

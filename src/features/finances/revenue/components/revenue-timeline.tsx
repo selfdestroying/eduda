@@ -95,8 +95,8 @@ export default function RevenueTimeline({ days }: RevenueTimelineProps) {
 // ─── Pagination control (matches DataTable style) ───────────────────
 
 interface TimelinePaginationProps {
-  pageFrom?: Date
-  pageTo?: Date
+  pageFrom?: string
+  pageTo?: string
   currentPage: number
   totalPages: number
   canPrevious: boolean

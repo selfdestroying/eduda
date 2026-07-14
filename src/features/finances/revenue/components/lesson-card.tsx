@@ -16,7 +16,7 @@ import {
   CollapsibleTrigger,
 } from '@/src/components/ui/collapsible'
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/src/components/ui/table'
-import { dateOnlyToLocal } from '@/src/lib/timezone'
+import { ymdToLocalDate } from '@/src/lib/timezone'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import {
@@ -48,8 +48,8 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
-function formatDate(date: Date) {
-  return format(dateOnlyToLocal(date), 'd MMMM', { locale: ru })
+function formatDate(date: string) {
+  return format(ymdToLocalDate(date), 'd MMMM', { locale: ru })
 }
 
 interface LessonCardProps {

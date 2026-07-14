@@ -54,7 +54,7 @@ export interface UnmarkedAttendanceAlert {
   type: typeof ALERT_TYPE.UNMARKED_ATTENDANCE
   severity: 'red'
   lessonId: number
-  lessonDate: Date
+  lessonDate: string
   lessonTime: string
   groupId: number
   groupName: string

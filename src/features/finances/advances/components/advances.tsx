@@ -20,7 +20,7 @@ import {
   TableRow,
 } from '@/src/components/ui/table'
 import { DEFAULT_CHARGEABLE_STATUSES } from '@/src/features/finances/chargeable'
-import { normalizeDateOnly } from '@/src/lib/timezone'
+import { dateToYmd } from '@/src/lib/timezone'
 import {
   Banknote,
   CalendarSearch,
@@ -338,8 +338,8 @@ export default function Advances() {
     if (!dateRange?.from || !dateRange?.to) return null
     if (selectedStatuses.length === 0) return null
     return {
-      startDate: normalizeDateOnly(dateRange.from).toISOString(),
-      endDate: normalizeDateOnly(dateRange.to).toISOString(),
+      startDate: dateToYmd(dateRange.from),
+      endDate: dateToYmd(dateRange.to),
       chargeableStatuses: selectedStatuses,
     }
   }, [filterState])

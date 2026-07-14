@@ -225,12 +225,13 @@ function GroupCard({
 
 // ─── Status badge ───────────────────────────────────────────────────────────
 
+const formatStatusDate = (ymd: string) =>
+  formatDateOnly(ymd, { day: '2-digit', month: '2-digit', year: 'numeric' })
+
 function getStatusBadge(sg: StudentGroupWithStats) {
   switch (sg.status) {
     case 'DISMISSED': {
-      const date = sg.statusChangedAt
-        ? formatDateOnly(sg.statusChangedAt, { day: '2-digit', month: '2-digit', year: 'numeric' })
-        : null
+      const date = sg.statusChangedAt ? formatStatusDate(sg.statusChangedAt) : null
 
       return (
         <Tooltip>
@@ -250,9 +251,7 @@ function getStatusBadge(sg: StudentGroupWithStats) {
       )
     }
     case 'TRANSFERRED': {
-      const date = sg.statusChangedAt
-        ? formatDateOnly(sg.statusChangedAt, { day: '2-digit', month: '2-digit', year: 'numeric' })
-        : null
+      const date = sg.statusChangedAt ? formatStatusDate(sg.statusChangedAt) : null
 
       return (
         <Tooltip>

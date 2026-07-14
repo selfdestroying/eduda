@@ -1,7 +1,5 @@
-import { normalizeDateOnly } from '@/src/lib/timezone'
+import { DateOnlySchema } from '@/src/lib/timezone'
 import * as z from 'zod'
-
-const DateOnlySchema = z.date().transform(normalizeDateOnly)
 
 // ─── Lesson ──────────────────────────────────────────────────────────────────
 

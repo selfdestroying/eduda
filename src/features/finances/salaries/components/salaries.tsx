@@ -29,7 +29,7 @@ import { useMappedCourseListQuery } from '@/src/features/courses/queries'
 import { useMappedLocationListQuery } from '@/src/features/locations/queries'
 import { useMappedMemberListQuery } from '@/src/features/organization/members/queries'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
-import { dateOnlyToLocal, nowInTz, normalizeDateOnly } from '@/src/lib/timezone'
+import { dateToYmd, nowInTz, ymdToLocalDate } from '@/src/lib/timezone'
 import { cn, getGroupName } from '@/src/lib/utils'
 import { cva } from 'class-variance-authority'
 import {
@@ -111,8 +111,8 @@ export default function TeacherSalaries() {
   const filters: SalaryFilters | null = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return null
     return {
-      startDate: normalizeDateOnly(dateRange.from).toISOString(),
-      endDate: normalizeDateOnly(dateRange.to).toISOString(),
+      startDate: dateToYmd(dateRange.from),
+      endDate: dateToYmd(dateRange.to),
       courseIds: selectedCourses.length > 0 ? selectedCourses.map((c) => +c.value) : undefined,
       locationIds:
         selectedLocations.length > 0 ? selectedLocations.map((l) => +l.value) : undefined,
@@ -529,7 +529,7 @@ function TeacherCard({ data, paychecks }: TeacherCardProps) {
                   <div key={dateKey}>
                     <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium">
                       <CalendarIcon className="h-3 w-3" />
-                      {format(dateOnlyToLocal(dateKey), 'd MMMM, EEEE', {
+                      {format(ymdToLocalDate(dateKey), 'd MMMM, EEEE', {
                         locale: ru,
                       })}
                     </div>
@@ -667,7 +667,7 @@ function PaycheckItem({ paycheck }: PaycheckItemProps) {
           </div>
           <div className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
             <CalendarIcon className="h-3 w-3" />
-            {format(dateOnlyToLocal(paycheck.date), 'd MMMM yyyy', { locale: ru })}
+            {format(ymdToLocalDate(paycheck.date), 'd MMMM yyyy', { locale: ru })}
           </div>
         </div>
         <span className="text-success text-sm font-semibold whitespace-nowrap">

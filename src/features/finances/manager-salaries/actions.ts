@@ -12,6 +12,10 @@ import {
 } from './schemas'
 import type { ManagerSalaryBreakdown, ManagerSalaryData } from './types'
 
+const pad = (n: number) => String(n).padStart(2, '0')
+/** Date → `YYYY-MM-DD` по UTC-компонентам (для date-only строковых колонок). */
+const ymd = (d: Date) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`
+
 async function assertOwner(memberRole: string | null | undefined) {
   if (memberRole !== 'owner') {
     throw new ForbiddenError('Только владелец может изменять зарплату менеджера')
@@ -66,7 +70,8 @@ export const createManagerSalary = authAction
     await assertManagerMember(parsedInput.userId, organizationId)
 
     const { userId, monthlyAmount, month, year, comment } = parsedInput
-    const startDate = new Date(Date.UTC(year!, month!, 1))
+    const startDateObj = new Date(Date.UTC(year!, month!, 1))
+    const startDate = ymd(startDateObj)
     const endDate = null
     await prisma.$transaction(async (tx) => {
       // Auto-close previous open-ended rows that start before this one
@@ -78,7 +83,7 @@ export const createManagerSalary = authAction
             endDate: null,
             startDate: { lt: startDate },
           },
-          data: { endDate: addDays(startDate, -1) },
+          data: { endDate: ymd(addDays(startDateObj, -1)) },
         })
       }
       await tx.managerSalary.create({
@@ -102,7 +107,7 @@ export const updateManagerSalary = authAction
     const organizationId = ctx.session.organizationId!
     const { id, userId, monthlyAmount, month, year, comment } = parsedInput
     await assertManagerMember(userId, organizationId)
-    const startDate = new Date(Date.UTC(year!, month!, 1))
+    const startDate = ymd(new Date(Date.UTC(year!, month!, 1)))
     const endDate = null
     await prisma.managerSalary.update({
       where: { id, organizationId },
@@ -138,6 +143,8 @@ export const getManagerSalaryData = authAction
 
     const rangeStart = new Date(startDate)
     const rangeEnd = new Date(endDate)
+    const rangeStartYmd = ymd(rangeStart)
+    const rangeEndYmd = ymd(rangeEnd)
 
     // All managers (and owners - they might have a salary too) in the org
     const managerMembers = await prisma.member.findMany({
@@ -163,7 +170,7 @@ export const getManagerSalaryData = authAction
         where: {
           organizationId,
           userId: { in: managerUserIds },
-          date: { gte: rangeStart, lte: rangeEnd },
+          date: { gte: rangeStartYmd, lte: rangeEndYmd },
         },
       }),
     ])
@@ -183,8 +190,8 @@ export const getManagerSalaryData = authAction
         // Pick the latest applicable salary row for this month
         const applicable = userSalaries.find(
           (s) =>
-            s.startDate.getTime() <= monthEnd.getTime() &&
-            (s.endDate === null || s.endDate.getTime() >= monthStart.getTime()),
+            new Date(s.startDate).getTime() <= monthEnd.getTime() &&
+            (s.endDate === null || new Date(s.endDate).getTime() >= monthStart.getTime()),
         )
         if (applicable) {
           fixedTotal += applicable.monthlyAmount

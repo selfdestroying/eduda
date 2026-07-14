@@ -2,6 +2,7 @@
 
 import prisma from '@/src/lib/db/prisma'
 import { authAction } from '@/src/lib/safe-action'
+import { ymdToLocalDate } from '@/src/lib/timezone'
 import { CLASSIFICATION_LABELS, classifyAttendance, isChargeable } from '../chargeable'
 import { RevenueFiltersSchema } from './schemas'
 import type {
@@ -184,8 +185,8 @@ export const getRevenueData = authAction
         }
       })
 
-      const dayOfWeek = lesson.date.toLocaleDateString('ru-RU', { weekday: 'long' })
-      const dateKey = lesson.date.toISOString().split('T')[0]!
+      const dayOfWeek = ymdToLocalDate(lesson.date).toLocaleDateString('ru-RU', { weekday: 'long' })
+      const dateKey = lesson.date
 
       const lessonWithCost: LessonWithCost = {
         id: lesson.id,

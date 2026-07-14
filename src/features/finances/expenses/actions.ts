@@ -20,7 +20,6 @@ export const createExpense = authAction
     await prisma.expense.create({
       data: {
         ...parsedInput,
-        date: new Date(parsedInput.date),
         organizationId: ctx.session.organizationId!,
       },
     })
