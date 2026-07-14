@@ -1,0 +1,128 @@
+/* Стили лендинга (корневой домен). Импортируется в src/components/landing/landing.tsx.
+   Все токены и правила ограничены классом .eduda-landing, чтобы не влиять на приложение. */
+
+.eduda-landing {
+  /* Эффекты из дизайн-системы (эти токены нет в globals.css) */
+  --ring-card: 0 0 0 1px color-mix(in oklch, var(--foreground) 10%, transparent);
+  --shadow-popover: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-modal: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+  scroll-behavior: smooth;
+}
+
+.eduda-landing h1,
+.eduda-landing h2,
+.eduda-landing h3,
+.eduda-landing p {
+  margin: 0;
+}
+
+@keyframes edudaFloat {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(20px, -24px);
+  }
+}
+
+@keyframes edudaPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Появление секций при скролле */
+.eduda-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s ease;
+}
+.eduda-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Ховер карточек-фич */
+.eduda-fcard {
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+.eduda-fcard:hover {
+  box-shadow: var(--ring-card), var(--shadow-popover);
+  transform: translateY(-3px);
+}
+
+@media (min-width: 1000px) {
+  .eduda-login {
+    display: inline-flex !important;
+  }
+}
+@media (max-width: 999px) {
+  .eduda-desknav {
+    display: none !important;
+  }
+  .eduda-burger {
+    display: inline-flex !important;
+  }
+  .eduda-herogrid {
+    grid-template-columns: 1fr !important;
+    gap: 36px !important;
+    padding-top: 52px !important;
+  }
+  .eduda-pas {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .eduda-pasarrow {
+    transform: rotate(90deg);
+  }
+  .eduda-frow {
+    grid-template-columns: 1fr !important;
+    gap: 28px !important;
+  }
+  .eduda-frow-rev .eduda-mockcol {
+    order: 2;
+  }
+  .eduda-fgrid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .eduda-steps {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 28px !important;
+  }
+  .eduda-stats {
+    grid-template-columns: 1fr 1fr !important;
+    row-gap: 32px !important;
+  }
+  .eduda-testi {
+    grid-template-columns: 1fr !important;
+  }
+  .eduda-pricing {
+    grid-template-columns: 1fr !important;
+    max-width: 440px;
+    margin: 0 auto;
+  }
+  .eduda-footgrid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+@media (max-width: 560px) {
+  .eduda-fgrid {
+    grid-template-columns: 1fr !important;
+  }
+  .eduda-steps {
+    grid-template-columns: 1fr !important;
+  }
+  .eduda-footgrid {
+    grid-template-columns: 1fr !important;
+  }
+}
