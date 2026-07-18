@@ -146,22 +146,11 @@ function ToolFallbackTrigger({
       <span
         data-slot="tool-fallback-trigger-label"
         className={cn(
-          'aui-tool-fallback-trigger-label-wrapper relative inline-block text-start leading-none',
+          'aui-tool-fallback-trigger-label text-start leading-none',
           isCancelled && 'text-muted-foreground line-through',
         )}
       >
-        <span>
-          {label}: <b>{toolName}</b>
-        </span>
-        {isRunning && (
-          <span
-            aria-hidden
-            data-slot="tool-fallback-trigger-shimmer"
-            className="aui-tool-fallback-trigger-shimmer shimmer pointer-events-none absolute inset-0 motion-reduce:animate-none"
-          >
-            {label}: <b>{toolName}</b>
-          </span>
-        )}
+        {label}: <b>{toolName}</b>
       </span>
       <ToolFallbackDuration />
       <ChevronDownIcon

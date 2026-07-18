@@ -1,7 +1,7 @@
 'use client'
 
 import { ReactNode } from 'react'
-import { Toaster } from '../components/toaster'
+import { Toaster } from '../components/ui/sonner'
 import { QueryProvider } from './query-provider'
 import { ThemeProvider } from './theme-provider'
 import { FumadocsProvider } from './fumadocs-provider'
@@ -15,7 +15,7 @@ const Providers = ({ children }: Props) => {
     <ThemeProvider>
       <QueryProvider>
         <FumadocsProvider>{children}</FumadocsProvider>
-        <Toaster />
+        <Toaster richColors closeButton={false} duration={2000} position="top-center" />
       </QueryProvider>
     </ThemeProvider>
   )
