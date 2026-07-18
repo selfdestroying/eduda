@@ -5,6 +5,7 @@ import { authAction } from '@/src/lib/safe-action'
 import { ymdToLocalDate } from '@/src/lib/timezone'
 import { CLASSIFICATION_LABELS, classifyAttendance, isChargeable } from '../chargeable'
 import { RevenueFiltersSchema } from './schemas'
+import { formatCurrency } from '@/src/lib/utils'
 import type {
   AttendanceWithCost,
   DayGroup,
@@ -12,14 +13,6 @@ import type {
   RevenueData,
   RevenueStats,
 } from './types'
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
 
 export const getRevenueData = authAction
   .metadata({ actionName: 'getRevenueData' })

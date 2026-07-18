@@ -39,6 +39,7 @@ import { Fragment, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { useProfitMonthlyQuery } from '../queries'
 import type { ProfitMonthEntry } from '../types'
+import { formatCurrency } from '@/src/lib/utils'
 
 const MONTH_FULL_RU = [
   'Январь',
@@ -54,14 +55,6 @@ const MONTH_FULL_RU = [
   'Ноябрь',
   'Декабрь',
 ]
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
 
 function formatCompact(value: number) {
   return new Intl.NumberFormat('ru-RU', {

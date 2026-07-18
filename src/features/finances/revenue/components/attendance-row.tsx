@@ -7,6 +7,7 @@ import { ru } from 'date-fns/locale'
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import type { AttendanceWithCost } from '../types'
+import { formatCurrency } from '@/src/lib/utils'
 
 const ATTENDANCE_CONFIG = {
   PRESENT: {
@@ -16,14 +17,6 @@ const ATTENDANCE_CONFIG = {
   ABSENT: { label: 'Отсутствовал', class: 'bg-red-500/10 text-red-600 dark:text-red-400' },
   UNSPECIFIED: { label: 'Не указан', class: 'bg-muted text-muted-foreground' },
 } as const
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
 
 function formatDate(date: string) {
   return format(ymdToLocalDate(date), 'd MMMM', { locale: ru })

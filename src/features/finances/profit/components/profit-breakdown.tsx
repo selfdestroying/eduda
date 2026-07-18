@@ -11,14 +11,7 @@ import { Badge } from '@/src/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { Building2, CreditCard, Landmark, Receipt, Users } from 'lucide-react'
 import type { ProfitData } from '../types'
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
+import { formatCurrency } from '@/src/lib/utils'
 
 function pct(part: number, total: number) {
   if (total === 0) return '0%'

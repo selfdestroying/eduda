@@ -21,14 +21,7 @@ import { formatDate } from '@/src/lib/timezone'
 import { Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
 import LessonCard from './lesson-card'
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
+import { formatCurrency } from '@/src/lib/utils'
 
 interface DayCardProps {
   day: DayGroup

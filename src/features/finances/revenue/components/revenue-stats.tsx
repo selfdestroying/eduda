@@ -5,14 +5,7 @@ import { Card, CardContent } from '@/src/components/ui/card'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { Banknote, TrendingUp } from 'lucide-react'
 import type { RevenueStats } from '../types'
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
+import { formatCurrency } from '@/src/lib/utils'
 
 interface RevenueStatsCardsProps {
   stats: RevenueStats | undefined

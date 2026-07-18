@@ -34,19 +34,12 @@ import Link from 'next/link'
 import { useState } from 'react'
 import type { LessonWithCost } from '../types'
 import AttendanceRow from './attendance-row'
+import { formatCurrency } from '@/src/lib/utils'
 
 const STATUS_CONFIG = {
   ACTIVE: { label: 'Активный', variant: 'outline' as const, icon: CheckCircle2 },
   CANCELLED: { label: 'Отменён', variant: 'destructive' as const, icon: XCircle },
 } as const
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
 
 function formatDate(date: string) {
   return format(ymdToLocalDate(date), 'd MMMM', { locale: ru })
