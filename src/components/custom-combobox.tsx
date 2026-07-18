@@ -8,8 +8,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from '@/src/components/ui/combobox'
-import { cn } from '@/src/lib/utils'
-import { ForwardedRef, forwardRef, ReactElement, ReactNode, Ref } from 'react'
+import { ReactNode } from 'react'
 
 // ─── Default item shape ─────────────────────────────────────────────
 interface DefaultItem {
@@ -57,26 +56,23 @@ function defaultGetKey<T>(item: T): string | number {
   return (item as DefaultItem).value ?? String(item)
 }
 
-function CustomComboboxInner<T>(
-  {
-    items,
-    value,
-    onValueChange,
-    getLabel = defaultGetLabel,
-    getKey = defaultGetKey,
-    isItemEqualToValue,
-    renderItem,
-    placeholder,
-    emptyText = 'Ничего не найдено',
-    disabled = false,
-    className,
-    id,
-    showClear = false,
-    showTrigger = true,
-    itemDisabled,
-  }: CustomComboboxProps<T>,
-  ref: ForwardedRef<HTMLInputElement>,
-) {
+function CustomCombobox<T>({
+  items,
+  value,
+  onValueChange,
+  getLabel = defaultGetLabel,
+  getKey = defaultGetKey,
+  isItemEqualToValue,
+  renderItem,
+  placeholder,
+  emptyText = 'Ничего не найдено',
+  disabled = false,
+  className,
+  id,
+  showClear = false,
+  showTrigger = true,
+  itemDisabled,
+}: CustomComboboxProps<T>) {
   const equalityFn = isItemEqualToValue ?? ((a: T, b: T) => getKey(a) === getKey(b))
 
   return (
@@ -88,13 +84,12 @@ function CustomComboboxInner<T>(
       itemToStringLabel={getLabel}
     >
       <ComboboxInput
-        ref={ref}
         id={id}
         placeholder={placeholder}
         disabled={disabled}
         showClear={showClear}
         showTrigger={showTrigger}
-        className={cn(className)}
+        className={className}
       />
       <ComboboxContent>
         <ComboboxEmpty>{emptyText}</ComboboxEmpty>
@@ -109,10 +104,6 @@ function CustomComboboxInner<T>(
     </Combobox>
   )
 }
-
-const CustomCombobox = forwardRef(CustomComboboxInner) as <T>(
-  props: CustomComboboxProps<T> & { ref?: Ref<HTMLInputElement> },
-) => ReactElement
 
 export { CustomCombobox }
 export type { CustomComboboxProps }

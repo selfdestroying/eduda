@@ -78,9 +78,8 @@ export function hasPermission(session: Session, required: OrganizationPermission
 
 /**
  * Бросает `ForbiddenError`, если у сессии нет запрошенных прав.
- * Использовать в начале мутаций вместо ad-hoc `memberRole !== 'owner'`.
  */
-export function assertPermission(session: Session, required: OrganizationPermissionCheck): void {
+function assertPermission(session: Session, required: OrganizationPermissionCheck): void {
   if (!hasPermission(session, required)) {
     throw new ForbiddenError('Недостаточно прав для этого действия')
   }

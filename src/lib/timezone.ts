@@ -1,4 +1,4 @@
-import { endOfDay, format, startOfDay } from 'date-fns'
+import { format, startOfDay } from 'date-fns'
 import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz'
 import { ru } from 'date-fns/locale'
 import z from 'zod'
@@ -14,7 +14,7 @@ export const DEFAULT_TZ = 'Europe/Moscow'
 const pad = (n: number) => String(n).padStart(2, '0')
 
 /** Регулярка date-only строки `YYYY-MM-DD`. */
-export const YMD_REGEX = /^\d{4}-\d{2}-\d{2}$/
+const YMD_REGEX = /^\d{4}-\d{2}-\d{2}$/
 
 /**
  * Zod-схема date-only поля: строка `YYYY-MM-DD` (календарный день без пояса).
@@ -29,7 +29,7 @@ const validTimeZoneCache = new Map<string, boolean>()
  * Результат кешируется: конструктор `Intl.DateTimeFormat` относительно дорог,
  * а поясов в системе немного.
  */
-export function isValidTimeZone(tz: string): boolean {
+function isValidTimeZone(tz: string): boolean {
   const cached = validTimeZoneCache.get(tz)
   if (cached !== undefined) return cached
   let valid = false
@@ -87,18 +87,6 @@ export function startOfDayInTz(tz: string, date?: Date): Date {
 }
 
 /**
- * Конец дня (23:59:59.999 в указанной таймзоне), возвращённый как UTC Date.
- *
- * @param tz - IANA-таймзона организации
- * @param date - дата в стеночасах этой зоны (по умолчанию — nowInTz(tz))
- */
-export function endOfDayInTz(tz: string, date?: Date): Date {
-  const zone = safeTz(tz)
-  const zoned = date ?? toZonedTime(new Date(), zone)
-  return fromZonedTime(endOfDay(zoned), zone)
-}
-
-/**
  * Конвертировать UTC-дату в стеночасы указанной таймзоны.
  * Использовать для отображения timestamp-полей (createdAt, updatedAt).
  *
@@ -107,16 +95,6 @@ export function endOfDayInTz(tz: string, date?: Date): Date {
  */
 export function toTz(date: Date | string, tz: string): Date {
   return toZonedTime(date, safeTz(tz))
-}
-
-/**
- * Интерпретировать стеночасы указанной таймзоны как UTC-момент для записи в БД.
- *
- * @example
- * fromTz(selectedDate, tz) // 15 Jan 00:00 (зона) → соответствующий UTC
- */
-export function fromTz(date: Date | string, tz: string): Date {
-  return fromZonedTime(date, safeTz(tz))
 }
 
 /**

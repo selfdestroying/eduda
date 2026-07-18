@@ -1,8 +1,6 @@
 'use server'
 
 import prisma from '@/src/lib/db/prisma'
-import { InternalServerError } from '@/src/lib/error'
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client'
 import { randomUUID } from 'crypto'
 import fs from 'fs/promises'
 import path from 'path'
@@ -59,44 +57,38 @@ export const updateProduct = featureAction('shop')
   .metadata({ actionName: 'updateProduct' })
   .inputSchema(UpdateProductSchema)
   .action(async ({ ctx, parsedInput }) => {
-    try {
-      const { id, image, ...data } = parsedInput
-      let imageUrl: string | undefined
+    const { id, image, ...data } = parsedInput
+    let imageUrl: string | undefined
 
-      if (image) {
-        const existing = await prisma.product.findUnique({
-          where: { id, organizationId: ctx.session.organizationId! },
-          select: { imageUrl: true },
-        })
-
-        const buffer = Buffer.from(await image.arrayBuffer())
-        const ext = path.extname(image.name)
-        const fileName = `${randomUUID()}${ext}`
-        const filePath = path.join(IMAGE_PATH, fileName)
-        const fileUrl = new URL(fileName, IMAGE_URL)
-        imageUrl = fileUrl.href
-        await fs.writeFile(filePath, buffer)
-
-        if (existing?.imageUrl) {
-          await deleteImageFile(existing.imageUrl)
-        }
-      }
-
-      await prisma.product.update({
-        where: {
-          organizationId: ctx.session.organizationId!,
-          id,
-        },
-        data: {
-          ...data,
-          imageUrl,
-        },
+    if (image) {
+      const existing = await prisma.product.findUnique({
+        where: { id, organizationId: ctx.session.organizationId! },
+        select: { imageUrl: true },
       })
-    } catch (e) {
-      if (e instanceof PrismaClientKnownRequestError) {
-        throw new InternalServerError(e.message)
+
+      const buffer = Buffer.from(await image.arrayBuffer())
+      const ext = path.extname(image.name)
+      const fileName = `${randomUUID()}${ext}`
+      const filePath = path.join(IMAGE_PATH, fileName)
+      const fileUrl = new URL(fileName, IMAGE_URL)
+      imageUrl = fileUrl.href
+      await fs.writeFile(filePath, buffer)
+
+      if (existing?.imageUrl) {
+        await deleteImageFile(existing.imageUrl)
       }
     }
+
+    await prisma.product.update({
+      where: {
+        organizationId: ctx.session.organizationId!,
+        id,
+      },
+      data: {
+        ...data,
+        imageUrl,
+      },
+    })
   })
 
 export const deleteProduct = featureAction('shop')

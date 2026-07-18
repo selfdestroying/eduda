@@ -1,9 +1,9 @@
 /**
  * Базовый класс ошибок для server actions.
+ * `handleServerError` пропускает `message` наследников как есть — всё остальное
+ * схлопывается в generic-сообщение.
  */
 export abstract class ActionError extends Error {
-  type = 'ACTION_ERROR'
-
   constructor(message: string) {
     super(message)
     this.name = 'ActionError'
@@ -35,14 +35,5 @@ export class ConflictError extends ActionError {
   constructor(message = 'Конфликт данных') {
     super(message)
     this.name = 'ConflictError'
-  }
-}
-
-export class InternalServerError extends ActionError {
-  type: string = 'INTERNAL_SERVER_ERROR'
-
-  constructor(message = 'Внутрення ошибка сервера') {
-    super(message)
-    this.name = 'InternalServerError'
   }
 }
