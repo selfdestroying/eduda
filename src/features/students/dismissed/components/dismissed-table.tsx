@@ -135,9 +135,6 @@ export default function DismissedStudentsTable() {
     setSorting,
   } = useTableSearchParams({
     filters: { course: 'integer', location: 'integer', teacher: 'integer' },
-    search: true,
-    sorting: true,
-    pagination: true,
   })
 
   const table = useReactTable({

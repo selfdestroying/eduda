@@ -109,11 +109,7 @@ export default function StudentsTable() {
   }, [canDelete?.success, tz])
 
   const { globalFilter, setGlobalFilter, pagination, setPagination, sorting, setSorting } =
-    useTableSearchParams({
-      search: true,
-      pagination: true,
-      sorting: true,
-    })
+    useTableSearchParams()
 
   const table = useReactTable({
     data: students,

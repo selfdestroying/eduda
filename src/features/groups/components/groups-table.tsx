@@ -177,9 +177,6 @@ export default function GroupsTable() {
     setSorting,
   } = useTableSearchParams({
     filters: { course: 'integer', location: 'integer', teacher: 'integer' },
-    search: true,
-    pagination: true,
-    sorting: true,
   })
 
   // Student count range filter - managed separately via URL params

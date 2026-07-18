@@ -44,11 +44,7 @@ export default function CategoriesTable() {
   )
 
   const { globalFilter, setGlobalFilter, pagination, setPagination, sorting, setSorting } =
-    useTableSearchParams({
-      search: true,
-      pagination: true,
-      sorting: true,
-    })
+    useTableSearchParams()
 
   const table = useReactTable({
     data: categories,

@@ -140,9 +140,6 @@ export default function AbsentAttendanceTable() {
     setSorting,
   } = useTableSearchParams({
     filters: { course: 'integer', location: 'integer', teacher: 'integer' },
-    search: true,
-    pagination: true,
-    sorting: true,
   })
 
   // Date range filter - managed separately via URL params

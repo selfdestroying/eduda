@@ -8,216 +8,126 @@ import {
   parseAsStringLiteral,
   useQueryStates,
 } from 'nuqs'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useMemo } from 'react'
 
 /**
- * Конфигурация для определения каких URL параметров хуку отслеживать.
- * Каждый ключ - id колонки в таблице, значение - тип парсера.
+ * Маппинг id колонки → тип значения фильтра.
+ * Каждый ключ становится URL-параметром со списком значений.
  */
 type FilterConfig = Record<string, 'integer' | 'string'>
 
-interface UseTableSearchParamsOptions {
-  /** Маппинг id колонки → тип значения фильтра */
-  filters?: FilterConfig
-  /** Включить поиск (globalFilter) через URL параметр `q` */
-  search?: boolean
-  /** Включить пагинацию через URL параметры `page` и `pageSize` */
-  pagination?: boolean | { defaultPageSize?: number }
-  /** Включить сортировку через URL параметры `sort` и `order` */
-  sorting?: boolean
-}
-
 const SORT_ORDERS = ['asc', 'desc'] as const
+const DEFAULT_PAGE_SIZE = 10
 
-// Stable parsers that don't depend on config (created once)
+const QUERY_STATES_OPTIONS = { shallow: true, history: 'replace' as const }
+
 const SEARCH_PARSERS = {
   q: parseAsString.withDefault('').withOptions({ shallow: true, throttleMs: 300 }),
 }
-const PAGINATION_PARSERS_DEFAULT = {
+const PAGINATION_PARSERS = {
   page: parseAsInteger.withDefault(0),
-  pageSize: parseAsInteger.withDefault(10),
+  pageSize: parseAsInteger.withDefault(DEFAULT_PAGE_SIZE),
 }
 const SORTING_PARSERS = {
   sort: parseAsString.withDefault(''),
   order: parseAsStringLiteral(SORT_ORDERS).withDefault('asc'),
 }
-const QUERY_STATES_OPTIONS = { shallow: true, history: 'replace' as const }
 
 /**
- * Хук для синхронизации состояния таблицы с URL search params через nuqs.
- * Заменяет множественные useState для columnFilters, globalFilter, pagination, sorting.
+ * Синхронизирует состояние таблицы (фильтры, поиск, пагинация, сортировка)
+ * с URL search params через nuqs — вместо набора `useState`.
+ *
+ * Возвращает все четыре среза; таблица берёт только те, что ей нужны.
  *
  * @example
  * const { columnFilters, setColumnFilters, globalFilter, setGlobalFilter, pagination, setPagination, sorting, setSorting }
- *   = useTableSearchParams({
- *       filters: { course: 'integer', location: 'integer', teacher: 'integer' },
- *       search: true,
- *       pagination: true,
- *       sorting: true,
- *     })
+ *   = useTableSearchParams({ filters: { course: 'integer', location: 'integer' } })
  */
-export function useTableSearchParams(options: UseTableSearchParamsOptions = {}) {
-  const { filters = {}, search = false, pagination = false, sorting = false } = options
-
-  // Stabilize filters config reference via JSON serialization
-  const filtersKey = JSON.stringify(filters)
-  const stableFilters: FilterConfig = useMemo(() => JSON.parse(filtersKey), [filtersKey])
-  const filterKeys = useMemo(() => Object.keys(stableFilters), [stableFilters])
-
-  // Build parsers once per stable config
+export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {}) {
+  // Каллеры передают объектный литерал, поэтому стабилизируем конфиг по значению —
+  // иначе парсеры пересоздавались бы на каждый рендер.
+  const filtersKey = JSON.stringify(filters ?? {})
   const filterParsers = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const parsers: Record<string, any> = {}
-    for (const [key, type] of Object.entries(stableFilters)) {
-      parsers[key] =
+    const config: FilterConfig = JSON.parse(filtersKey)
+    return Object.fromEntries(
+      Object.entries(config).map(([key, type]) => [
+        key,
         type === 'integer'
           ? parseAsArrayOf(parseAsInteger).withDefault([])
-          : parseAsArrayOf(parseAsString).withDefault([])
-    }
-    return parsers
-  }, [stableFilters])
+          : parseAsArrayOf(parseAsString).withDefault([]),
+      ]),
+    )
+  }, [filtersKey])
 
   const [filterValues, setFilterValues] = useQueryStates(filterParsers, QUERY_STATES_OPTIONS)
-
-  // Search
   const [searchValues, setSearchValues] = useQueryStates(SEARCH_PARSERS, QUERY_STATES_OPTIONS)
-
-  // Pagination
-  const defaultPageSize = typeof pagination === 'object' ? (pagination.defaultPageSize ?? 10) : 10
-
-  const paginationParsers = useMemo(
-    () =>
-      defaultPageSize === 10
-        ? PAGINATION_PARSERS_DEFAULT
-        : {
-            page: parseAsInteger.withDefault(0),
-            pageSize: parseAsInteger.withDefault(defaultPageSize),
-          },
-    [defaultPageSize],
-  )
   const [paginationValues, setPaginationValues] = useQueryStates(
-    paginationParsers,
+    PAGINATION_PARSERS,
     QUERY_STATES_OPTIONS,
   )
-
-  // Sorting
   const [sortingValues, setSortingValues] = useQueryStates(SORTING_PARSERS, QUERY_STATES_OPTIONS)
 
-  // Convert filter URL values → ColumnFiltersState for react-table
-  const columnFilters: ColumnFiltersState = useMemo(() => {
-    const result: ColumnFiltersState = []
-    for (const key of filterKeys) {
-      const value = filterValues[key]
-      if (value && Array.isArray(value) && value.length > 0) {
-        result.push({ id: key, value })
-      }
-    }
-    return result
-  }, [filterKeys, filterValues])
+  const columnFilters: ColumnFiltersState = Object.entries(filterValues)
+    .filter(([, value]) => Array.isArray(value) && value.length > 0)
+    .map(([id, value]) => ({ id, value }))
 
-  // Use refs to break circular dependencies in callbacks
-  const columnFiltersRef = useRef(columnFilters)
-  const paginationStateRef = useRef<PaginationState>({ pageIndex: 0, pageSize: defaultPageSize })
-  const sortingStateRef = useRef<SortingState>([])
+  const pagination: PaginationState = {
+    pageIndex: paginationValues.page,
+    pageSize: paginationValues.pageSize,
+  }
 
-  useEffect(() => {
-    columnFiltersRef.current = columnFilters
-  }, [columnFilters])
+  const sorting: SortingState = sortingValues.sort
+    ? [{ id: sortingValues.sort, desc: sortingValues.order === 'desc' }]
+    : []
 
-  // setColumnFilters: accepts ColumnFiltersState updater (same API as useState setter)
-  const setColumnFilters = useCallback(
-    (updater: ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState)) => {
-      const newFilters = typeof updater === 'function' ? updater(columnFiltersRef.current) : updater
+  // Сеттеры с API `useState` (значение или updater), как ждёт react-table.
+  // Дефолтное значение пишем как `null`, чтобы параметр исчезал из URL.
 
-      const update: Record<string, number[] | string[] | null> = {}
-      for (const key of filterKeys) {
-        const filter = newFilters.find((f) => f.id === key)
-        if (filter && Array.isArray(filter.value) && filter.value.length > 0) {
-          update[key] = filter.value
-        } else {
-          update[key] = null
-        }
-      }
+  const setColumnFilters = (
+    updater: ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState),
+  ) => {
+    const next = typeof updater === 'function' ? updater(columnFilters) : updater
+    setFilterValues(
+      Object.fromEntries(
+        Object.keys(filterParsers).map((key) => {
+          const value = next.find((f) => f.id === key)?.value
+          return [key, Array.isArray(value) && value.length > 0 ? value : null]
+        }),
+      ),
+    )
+  }
 
-      setFilterValues(update)
-    },
-    [filterKeys, setFilterValues],
-  )
+  const setGlobalFilter = (value: string) => {
+    setSearchValues({ q: value || null })
+    setPaginationValues({ page: null })
+  }
 
-  // Global filter (search)
-  const globalFilter = search ? (searchValues.q ?? '') : ''
-  const setGlobalFilter = useCallback(
-    (value: string) => {
-      if (!search) return
-      setSearchValues({ q: value || null })
-      if (pagination) {
-        setPaginationValues({ page: null })
-      }
-    },
-    [search, setSearchValues, pagination, setPaginationValues],
-  )
+  const setPagination = (
+    updater: PaginationState | ((prev: PaginationState) => PaginationState),
+  ) => {
+    const next = typeof updater === 'function' ? updater(pagination) : updater
+    setPaginationValues({
+      page: next.pageIndex === 0 ? null : next.pageIndex,
+      pageSize: next.pageSize === DEFAULT_PAGE_SIZE ? null : next.pageSize,
+    })
+  }
 
-  // Pagination state for react-table
-  const paginationState: PaginationState = useMemo(
-    () => ({
-      pageIndex: pagination ? (paginationValues.page ?? 0) : 0,
-      pageSize: pagination ? (paginationValues.pageSize ?? defaultPageSize) : defaultPageSize,
-    }),
-    [pagination, paginationValues, defaultPageSize],
-  )
-  useEffect(() => {
-    paginationStateRef.current = paginationState
-  }, [paginationState])
-
-  const setPagination = useCallback(
-    (updater: PaginationState | ((prev: PaginationState) => PaginationState)) => {
-      if (!pagination) return
-      const newPagination =
-        typeof updater === 'function' ? updater(paginationStateRef.current) : updater
-
-      setPaginationValues({
-        page: newPagination.pageIndex === 0 ? null : newPagination.pageIndex,
-        pageSize: newPagination.pageSize === defaultPageSize ? null : newPagination.pageSize,
-      })
-    },
-    [pagination, setPaginationValues, defaultPageSize],
-  )
-
-  // Sorting state for react-table
-  const sortingState: SortingState = useMemo(() => {
-    if (!sorting || !sortingValues.sort) return []
-    return [{ id: sortingValues.sort, desc: sortingValues.order === 'desc' }]
-  }, [sorting, sortingValues])
-  useEffect(() => {
-    sortingStateRef.current = sortingState
-  }, [sortingState])
-
-  const setSorting = useCallback(
-    (updater: SortingState | ((prev: SortingState) => SortingState)) => {
-      if (!sorting) return
-      const newSorting = typeof updater === 'function' ? updater(sortingStateRef.current) : updater
-
-      if (newSorting.length === 0) {
-        setSortingValues({ sort: null, order: null })
-      } else {
-        const firstSort = newSorting[0]!
-        setSortingValues({
-          sort: firstSort.id,
-          order: firstSort.desc ? 'desc' : 'asc',
-        })
-      }
-    },
-    [sorting, setSortingValues],
-  )
+  const setSorting = (updater: SortingState | ((prev: SortingState) => SortingState)) => {
+    const next = typeof updater === 'function' ? updater(sorting) : updater
+    const first = next[0]
+    setSortingValues(
+      first ? { sort: first.id, order: first.desc ? 'desc' : 'asc' } : { sort: null, order: null },
+    )
+  }
 
   return {
     columnFilters,
     setColumnFilters,
-    globalFilter,
+    globalFilter: searchValues.q,
     setGlobalFilter,
-    pagination: paginationState,
+    pagination,
     setPagination,
-    sorting: sortingState,
+    sorting,
     setSorting,
   }
 }

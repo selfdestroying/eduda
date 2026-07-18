@@ -58,11 +58,7 @@ export default function PaymentMethodsTable() {
   )
 
   const { globalFilter, setGlobalFilter, pagination, setPagination, sorting, setSorting } =
-    useTableSearchParams({
-      search: true,
-      pagination: true,
-      sorting: true,
-    })
+    useTableSearchParams()
 
   const table = useReactTable({
     data: methods,

@@ -55,11 +55,7 @@ export default function ExpenseTable() {
   )
 
   const { globalFilter, setGlobalFilter, pagination, setPagination, sorting, setSorting } =
-    useTableSearchParams({
-      search: true,
-      pagination: true,
-      sorting: true,
-    })
+    useTableSearchParams()
 
   const table = useReactTable({
     data: expenses,

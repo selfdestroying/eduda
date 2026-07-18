@@ -133,9 +133,6 @@ export default function ActiveStudentsTable() {
     setSorting,
   } = useTableSearchParams({
     filters: { course: 'integer', location: 'integer', teacher: 'integer' },
-    search: true,
-    pagination: true,
-    sorting: true,
   })
 
   const table = useReactTable({

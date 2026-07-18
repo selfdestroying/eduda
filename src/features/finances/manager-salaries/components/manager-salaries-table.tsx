@@ -79,10 +79,7 @@ export default function ManagerRatesTable() {
     [],
   )
 
-  const { pagination, setPagination, sorting, setSorting } = useTableSearchParams({
-    pagination: true,
-    sorting: true,
-  })
+  const { pagination, setPagination, sorting, setSorting } = useTableSearchParams()
 
   const table = useReactTable({
     data: salaries,

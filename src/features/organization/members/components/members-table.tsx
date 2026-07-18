@@ -72,8 +72,6 @@ export default function MembersTable() {
   const { columnFilters, setColumnFilters, globalFilter, setGlobalFilter, sorting, setSorting } =
     useTableSearchParams({
       filters: { role: 'string' },
-      search: true,
-      sorting: true,
     })
 
   const table = useReactTable({

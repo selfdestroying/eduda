@@ -98,11 +98,7 @@ export default function OrdersTable() {
     [tz],
   )
 
-  const { pagination, setPagination, sorting, setSorting } = useTableSearchParams({
-    search: false,
-    pagination: true,
-    sorting: true,
-  })
+  const { pagination, setPagination, sorting, setSorting } = useTableSearchParams()
 
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([
     { id: 'status', value: ['PENDING'] },

@@ -40,9 +40,6 @@ export default function ProductsTable() {
     setSorting,
   } = useTableSearchParams({
     filters: { category: 'string' },
-    search: true,
-    pagination: true,
-    sorting: true,
   })
   const columns: ColumnDef<ProductWithCategory>[] = useMemo(
     () => [
