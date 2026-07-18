@@ -14,6 +14,7 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { useStudentListQuery } from '@/src/features/students/queries'
+import { useStudentWalletsQuery } from '@/src/features/wallets/queries'
 import { getFullName } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, Plus } from 'lucide-react'
@@ -26,6 +27,7 @@ import { useLessonDetail } from './lesson-detail-context'
 const AddAttendanceFormSchema = z.object({
   studentId: z.int('Выберите ученика').positive('Выберите ученика'),
   isTrial: z.boolean(),
+  walletId: z.number().int().positive().optional(),
 })
 
 type AddAttendanceFormValues = z.infer<typeof AddAttendanceFormSchema>
@@ -49,12 +51,13 @@ export default function AddAttendanceButton({ isFull }: AddAttendanceButtonProps
     defaultValues: {
       studentId: undefined,
       isTrial: false,
+      walletId: undefined,
     },
   })
 
   const handleSubmit = (data: AddAttendanceFormValues) => {
     mutate(
-      { studentId: data.studentId, isTrial: data.isTrial },
+      { studentId: data.studentId, isTrial: data.isTrial, walletId: data.walletId },
       {
         onSettled: () => {
           setOpen(false)
@@ -104,6 +107,9 @@ interface AddAttendanceFormProps {
 
 function AddAttendanceForm({ form, onSubmit }: AddAttendanceFormProps) {
   const { data: students, isLoading: isStudentsLoading } = useStudentListQuery()
+  const studentId = form.watch('studentId')
+  const { data: wallets } = useStudentWalletsQuery(studentId ?? 0, { enabled: !!studentId })
+  const activeWallets = (wallets ?? []).filter((w) => w.status === 'ACTIVE')
 
   if (isStudentsLoading) {
     return <Skeleton className="h-full w-full" />
@@ -155,6 +161,30 @@ function AddAttendanceForm({ form, onSubmit }: AddAttendanceFormProps) {
             </Field>
           )}
         />
+
+        {studentId && activeWallets.length > 0 && (
+          <Controller
+            name="walletId"
+            control={form.control}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="form-rhf-select-wallet">
+                  Списать с кошелька (для разового посещения)
+                </FieldLabel>
+                <CustomCombobox
+                  items={activeWallets}
+                  getKey={(w) => w.id}
+                  getLabel={(w) => `${w.name ?? `Кошелёк #${w.id}`} — ${w.lessonsBalance} ур.`}
+                  value={activeWallets.find((w) => w.id === field.value) ?? null}
+                  onValueChange={(w) => field.onChange(w?.id)}
+                  id="form-rhf-select-wallet"
+                  placeholder="Не списывать"
+                  emptyText="Нет кошельков"
+                />
+              </Field>
+            )}
+          />
+        )}
       </FieldGroup>
     </form>
   )

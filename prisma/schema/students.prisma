@@ -94,6 +94,7 @@ model Wallet {
     studentGroups  StudentGroup[]
     payments       Payment[]
     balanceHistory StudentLessonsBalanceHistory[]
+    attendances    Attendance[]
 
     @@index([organizationId])
     @@index([studentId])

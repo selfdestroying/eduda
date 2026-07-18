@@ -60,7 +60,13 @@ model Attendance {
     makeupForAttendance   Attendance? @relation("MakeupLink", fields: [makeupForAttendanceId], references: [id], onDelete: SetNull)
     makeupAttendance      Attendance? @relation("MakeupLink")
 
+    // Кошелёк для списания разового посещения (ученик не состоит в группе урока).
+    // null — обычная запись, списание идёт через StudentGroup группы урока.
+    walletId Int?
+    wallet   Wallet? @relation(fields: [walletId], references: [id], onDelete: SetNull)
+
     @@unique([studentId, lessonId])
     @@index([lessonId])
     @@index([organizationId])
+    @@index([walletId])
 }

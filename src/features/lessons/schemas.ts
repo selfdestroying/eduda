@@ -27,6 +27,8 @@ export const CreateAttendanceSchema = z.object({
   lessonId: z.number().int().positive(),
   studentId: z.int('Выберите ученика').positive('Выберите ученика'),
   isTrial: z.boolean(),
+  // Кошелёк для списания разового посещения (ученик не в группе урока).
+  walletId: z.number().int().positive().optional(),
 })
 
 export const UpdateAttendanceStatusSchema = z.object({
