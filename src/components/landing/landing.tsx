@@ -73,7 +73,7 @@ const primaryCta: CSSProperties = {
   fontSize: 16,
   padding: '14px 26px',
   borderRadius: 12,
-  boxShadow: '0 4px 14px rgba(76,29,149,.28)',
+  boxShadow: 'var(--shadow-cta)',
 }
 
 /* ─── Данные ─────────────────────────────────────────────────────────────── */
@@ -127,7 +127,7 @@ export function Landing({ signInUrl }: { signInUrl: string }) {
   return (
     <div
       className="eduda-landing"
-      style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)' }}
+      style={{ minHeight: '100dvh', background: 'var(--background)', color: 'var(--foreground)' }}
     >
       {/* ===== HEADER ===== */}
       <header
@@ -198,7 +198,7 @@ export function Landing({ signInUrl }: { signInUrl: string }) {
                 fontSize: 14,
                 padding: '10px 16px',
                 borderRadius: 10,
-                boxShadow: '0 1px 2px rgba(76,29,149,.25)',
+                boxShadow: 'var(--shadow-cta-sm)',
               }}
             >
               Попробовать бесплатно
@@ -557,7 +557,9 @@ export function Landing({ signInUrl }: { signInUrl: string }) {
                           >
                             {label}
                           </div>
-                          <div style={{ fontSize: 15, fontWeight: 700 }}>{value}</div>
+                          <div className="eduda-num" style={{ fontSize: 15, fontWeight: 700 }}>
+                            {value}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1177,6 +1179,7 @@ export function Landing({ signInUrl }: { signInUrl: string }) {
               ].map(([num, label]) => (
                 <div key={label} style={{ textAlign: 'center' }}>
                   <div
+                    className="eduda-num"
                     style={{
                       fontSize: 'clamp(30px,4vw,44px)',
                       fontWeight: 700,
@@ -1741,7 +1744,7 @@ function PricingCard({
         background: 'var(--card)',
         position: 'relative',
         boxShadow: featured
-          ? '0 0 0 2px var(--primary),0 24px 48px -18px rgba(76,29,149,.4)'
+          ? '0 0 0 2px var(--primary),0 24px 48px -18px color-mix(in oklch, var(--primary) 42%, transparent)'
           : 'var(--ring-card)',
       }}
     >
@@ -1764,9 +1767,26 @@ function PricingCard({
         </span>
       )}
       <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>{name}</div>
-      <p style={{ fontSize: 13, color: 'var(--muted-foreground)', marginBottom: 18 }}>{desc}</p>
+      {/* minHeight держит цену, кнопку и список фич на одной высоте во всех
+          трёх колонках — описания разной длины иначе разъезжаются. */}
+      <p
+        style={{
+          fontSize: 13,
+          lineHeight: 1.5,
+          color: 'var(--muted-foreground)',
+          marginBottom: 18,
+          minHeight: 39,
+        }}
+      >
+        {desc}
+      </p>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 20 }}>
-        <span style={{ fontSize: 38, fontWeight: 700, letterSpacing: '-0.02em' }}>{price}</span>
+        <span
+          className="eduda-num"
+          style={{ fontSize: 38, fontWeight: 700, letterSpacing: '-0.02em' }}
+        >
+          {price}
+        </span>
         <span style={{ fontSize: 14, color: 'var(--muted-foreground)' }}>/ мес</span>
       </div>
       <Link
@@ -1786,7 +1806,7 @@ function PricingCard({
             ? {
                 background: 'var(--primary)',
                 color: 'var(--primary-foreground)',
-                boxShadow: '0 4px 14px rgba(76,29,149,.28)',
+                boxShadow: 'var(--shadow-cta)',
               }
             : {
                 background: 'var(--background)',
@@ -1823,16 +1843,27 @@ function FooterCol({ title, links }: { title: string; links: [string, string][] 
     <div>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>{title}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        {links.map(([label, href]) => (
-          <a
-            key={label}
-            href={href}
-            className="hover:text-foreground transition-colors"
-            style={{ fontSize: 13.5, color: 'var(--muted-foreground)' }}
-          >
-            {label}
-          </a>
-        ))}
+        {links.map(([label, href]) =>
+          // Страницы ещё нет — показываем текстом, а не ссылкой в никуда.
+          href === '#' ? (
+            <span
+              key={label}
+              title="Скоро"
+              style={{ fontSize: 13.5, color: 'var(--muted-foreground)', opacity: 0.6 }}
+            >
+              {label}
+            </span>
+          ) : (
+            <a
+              key={label}
+              href={href}
+              className="hover:text-foreground transition-colors"
+              style={{ fontSize: 13.5, color: 'var(--muted-foreground)' }}
+            >
+              {label}
+            </a>
+          ),
+        )}
       </div>
     </div>
   )

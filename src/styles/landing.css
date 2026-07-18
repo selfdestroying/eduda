@@ -2,12 +2,36 @@
    Все токены и правила ограничены классом .eduda-landing, чтобы не влиять на приложение. */
 
 .eduda-landing {
-  /* Эффекты из дизайн-системы (эти токены нет в globals.css) */
+  /* Приглушённый фиолетовый: у общего --primary хрома 0.281 — на крупных
+     заливках (CTA-секция, кнопки) это кислотно. Переопределяем только здесь. */
+  --primary: oklch(0.52 0.164 286);
+  --primary-foreground: oklch(0.985 0.005 286);
+
+  /* Тёплая подложка вместо чистого белого — чистый #fff на всю страницу
+     выглядит стерильно и бьётся с приглушённым акцентом. */
+  --background: oklch(0.994 0.002 286);
+  --muted: oklch(0.972 0.004 286);
+
+  /* Эффекты из дизайн-системы (этих токенов нет в globals.css) */
   --ring-card: 0 0 0 1px color-mix(in oklch, var(--foreground) 10%, transparent);
-  --shadow-popover: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-modal: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-popover:
+    0 4px 6px -1px color-mix(in oklch, var(--primary) 14%, transparent),
+    0 2px 4px -2px color-mix(in oklch, var(--primary) 10%, transparent);
+  --shadow-modal:
+    0 20px 25px -5px color-mix(in oklch, var(--primary) 16%, transparent),
+    0 8px 10px -6px color-mix(in oklch, var(--primary) 12%, transparent);
+  /* Тень под акцентными кнопками — тонирована в акцент, не чёрная. */
+  --shadow-cta: 0 4px 14px color-mix(in oklch, var(--primary) 32%, transparent);
+  --shadow-cta-sm: 0 1px 2px color-mix(in oklch, var(--primary) 28%, transparent);
 
   scroll-behavior: smooth;
+}
+
+.dark .eduda-landing {
+  --primary: oklch(0.68 0.145 287);
+  --primary-foreground: oklch(0.18 0.02 286);
+  --background: oklch(0.16 0.006 286);
+  --muted: oklch(0.225 0.008 286);
 }
 
 .eduda-landing h1,
@@ -15,6 +39,28 @@
 .eduda-landing h3,
 .eduda-landing p {
   margin: 0;
+}
+
+/* Заголовки не должны ронять одно слово на последнюю строку. */
+.eduda-landing h1,
+.eduda-landing h2 {
+  text-wrap: balance;
+}
+.eduda-landing p {
+  text-wrap: pretty;
+}
+
+/* Цифры в метриках и ценах — моноширинные, чтобы не «прыгали» по ширине. */
+.eduda-landing .eduda-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* Видимый фокус для клавиатуры — на лендинге его не было вообще. */
+.eduda-landing :is(a, button):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+  border-radius: 6px;
 }
 
 @keyframes edudaFloat {
@@ -42,8 +88,8 @@
   opacity: 0;
   transform: translateY(24px);
   transition:
-    opacity 0.7s ease,
-    transform 0.7s ease;
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .eduda-reveal.is-visible {
   opacity: 1;
@@ -59,6 +105,36 @@
 .eduda-fcard:hover {
   box-shadow: var(--ring-card), var(--shadow-popover);
   transform: translateY(-3px);
+}
+
+/* Отклик на нажатие: без него кнопки ощущаются «мёртвыми». */
+.eduda-landing :is(a, button):active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+.eduda-landing :is(a, button) {
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+/* Уважаем системную настройку «меньше движения». */
+@media (prefers-reduced-motion: reduce) {
+  .eduda-landing *,
+  .eduda-landing *::before,
+  .eduda-landing *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .eduda-reveal {
+    opacity: 1;
+    transform: none;
+  }
+  .eduda-landing {
+    scroll-behavior: auto;
+  }
 }
 
 @media (min-width: 1000px) {
