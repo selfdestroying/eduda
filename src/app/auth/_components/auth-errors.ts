@@ -23,13 +23,6 @@ const authErrorMessages: Record<string, string> = {
   USER_ALREADY_EXISTS: 'Этот email уже зарегистрирован',
 }
 
-// Не экспортируются намеренно: `authErrorMessage` — единственный вход в модуль.
-// Иначе форма снова дотянется до карты напрямую и вернёт `|| error.message`,
-// то есть английский текст better-auth в русский тост.
-const FALLBACK_ERROR = 'Сервис временно недоступен. Попробуйте позже.'
-
-const RATE_LIMITED = 'Слишком много попыток. Подождите немного и попробуйте снова.'
-
 /**
  * Сообщение для тоста. Английский `error.message` намеренно не показываем:
  * better-auth отвечает по-английски, а UI у нас русский — незнакомый код
@@ -47,9 +40,9 @@ export function authErrorMessage(error: {
   const code = typeof error.code === 'string' ? error.code : ''
   const known = authErrorMessages[code]
   if (known) return known
-  if (error.status === 429) return RATE_LIMITED
+  if (error.status === 429) return 'Слишком много попыток. Подождите немного и попробуйте снова.'
   if (code || error.message) {
     console.error('auth: непереведённая ошибка', { code, message: error.message })
   }
-  return FALLBACK_ERROR
+  return 'Сервис временно недоступен. Попробуйте позже.'
 }

@@ -32,34 +32,29 @@ import {
   LogOut,
   Percent,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 
 // ─── Константы шагов ─────────────────────────────────────────────────────────
 
+/** `nav` — заголовок шага и подпись в сайдбаре, `hint` — строка под ним. */
 const STEPS = [
   {
     icon: Building2,
     nav: 'Данные школы',
-    navDesc: 'Название и адрес',
-    checklistDesc: 'Название и адрес в сети',
-    title: 'Данные школы',
+    hint: 'Название и адрес',
     desc: 'Как называется ваша школа и по какому адресу её будут открывать ученики и сотрудники.',
   },
   {
     icon: Clock,
     nav: 'Часовой пояс',
-    navDesc: 'Регион и время',
-    checklistDesc: 'Регион для расписания и отчётов',
-    title: 'Часовой пояс',
+    hint: 'Регион и время',
     desc: 'Мы используем его для расписания занятий, напоминаний и отчётов.',
   },
   {
     icon: Percent,
     nav: 'Налоги',
-    navDesc: 'Режим и ставка',
-    checklistDesc: 'Режим налогообложения',
-    title: 'Налоги',
+    hint: 'Режим и ставка',
     desc: 'Настройте налоговый режим — он учитывается в зарплатах и отчёте о прибыли.',
   },
 ] as const
@@ -89,7 +84,6 @@ const utcOffset = (tz: string) => formatTimeZoneLabel(tz).split(', ')[1] ?? ''
 export default function Onboarding() {
   // 0 — приветствие, 1..3 — мастер, 4 — успех.
   const [step, setStep] = useState(0)
-  const [maxReached, setMaxReached] = useState(1)
   const [creating, setCreating] = useState(false)
   // Сохранились ли таймзона и налоговый режим: школу создаём даже если нет,
   // но сводка не должна подтверждать настройки, которых в базе не оказалось.
@@ -105,13 +99,6 @@ export default function Onboarding() {
   const [timezone, setTimezone] = useState(DEFAULT_TZ)
   const [taxSystem, setTaxSystem] = useState(TAX_SYSTEMS.find((t) => t.enabled)!.value)
 
-  // Часы «сейчас в вашей школе» тикают раз в 30 с, иначе выглядят зависшими.
-  const [, tick] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => tick((n) => n + 1), 30_000)
-    return () => clearInterval(id)
-  }, [])
-
   const trimmedName = name.trim()
   const domain = `${slug || 'адрес'}.${rootDomain}`
   const tzOption = TIMEZONES.find((t) => t.tz === timezone) ?? TIMEZONES[1]!
@@ -119,18 +106,13 @@ export default function Onboarding() {
 
   const goTo = (n: number) => {
     setStep(n)
-    setMaxReached((m) => Math.max(m, n))
     setErrors({})
   }
 
   /**
    * Проверки шага 1: нормализует адрес, выставляет ошибки полей и возвращает
-   * годный slug либо `null`. `returnToStep1` — для входов не с самого шага
-   * (прыжок по сайдбару, «Создать школу»), иначе ошибка легла бы на экран, где
-   * полей не видно.
-   *
-   * Общая для всех трёх входов: без неё пройденный шаг можно испортить и
-   * перескочить, а поймал бы это только сервер.
+   * годный slug либо `null`. `returnToStep1` — для «Создать школу» на последнем
+   * шаге, иначе ошибка легла бы на экран, где полей не видно.
    */
   const commitStep1 = ({ returnToStep1 = false } = {}) => {
     // Края slug подрезаем здесь: `onChange` их намеренно не трогает.
@@ -148,12 +130,6 @@ export default function Onboarding() {
       return null
     }
     return normalized
-  }
-
-  /** Переход по кружкам сайдбара — мимо «Далее», поэтому со своей проверкой. */
-  const jumpTo = (n: number) => {
-    if (n > 1 && !commitStep1({ returnToStep1: true })) return
-    goTo(n)
   }
 
   const onNameChange = (value: string) => {
@@ -297,14 +273,10 @@ export default function Onboarding() {
                 const n = i + 1
                 const done = step > n
                 const current = step === n
-                const clickable = n <= maxReached
                 return (
                   <li key={s.nav} className="flex gap-3">
                     <div className="flex flex-col items-center self-stretch">
-                      <button
-                        type="button"
-                        disabled={!clickable}
-                        onClick={() => jumpTo(n)}
+                      <div
                         className={cn(
                           'flex size-8.5 shrink-0 items-center justify-center rounded-full text-[0.8125rem] font-semibold transition-colors',
                           done && 'bg-primary text-primary-foreground',
@@ -312,11 +284,10 @@ export default function Onboarding() {
                           !done &&
                             !current &&
                             'bg-muted text-muted-foreground ring-border ring-1 ring-inset',
-                          clickable ? 'cursor-pointer' : 'cursor-default',
                         )}
                       >
                         {done ? <Check className="size-4" /> : n}
-                      </button>
+                      </div>
                       {n < LAST_STEP && (
                         <div
                           className={cn(
@@ -336,7 +307,7 @@ export default function Onboarding() {
                       >
                         {s.nav}
                       </div>
-                      <div className="text-muted-foreground text-[0.6875rem]">{s.navDesc}</div>
+                      <div className="text-muted-foreground text-[0.6875rem]">{s.hint}</div>
                     </div>
                   </li>
                 )
@@ -391,7 +362,7 @@ export default function Onboarding() {
             </div>
 
             <header className="mb-5">
-              <h1 className="text-xl font-semibold tracking-tight">{STEPS[step - 1]!.title}</h1>
+              <h1 className="text-xl font-semibold tracking-tight">{STEPS[step - 1]!.nav}</h1>
               <p className="text-muted-foreground mt-1.5 text-[0.8125rem] leading-relaxed">
                 {STEPS[step - 1]!.desc}
               </p>
@@ -605,7 +576,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
             </div>
             <div>
               <div className="text-[0.8125rem] font-semibold">{s.nav}</div>
-              <div className="text-muted-foreground text-[0.6875rem]">{s.checklistDesc}</div>
+              <div className="text-muted-foreground text-[0.6875rem]">{s.hint}</div>
             </div>
           </div>
         ))}

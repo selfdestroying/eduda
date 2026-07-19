@@ -42,7 +42,6 @@ const tabTriggerClass =
 export default function SignIn() {
   const panel = useMeasuredHeight()
   const [tab, setTab] = useState('sign-in')
-  const isSignIn = tab === 'sign-in'
 
   const handleSuccess = async () => {
     // Получаем сессию с информацией о членстве в организациях
@@ -119,17 +118,6 @@ export default function SignIn() {
                 </TabsContent>
               </div>
             </div>
-
-            <p className="text-muted-foreground text-center text-[0.71875rem]">
-              {isSignIn ? 'Ещё нет аккаунта?' : 'Уже есть аккаунт?'}
-              <button
-                type="button"
-                onClick={() => setTab(isSignIn ? 'sign-up' : 'sign-in')}
-                className="text-primary focus-visible:ring-ring/50 ml-1 rounded-sm font-semibold hover:underline focus-visible:ring-[3px] focus-visible:outline-none"
-              >
-                {isSignIn ? 'Зарегистрироваться' : 'Войти'}
-              </button>
-            </p>
           </Tabs>
         </div>
 

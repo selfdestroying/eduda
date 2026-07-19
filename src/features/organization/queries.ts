@@ -13,10 +13,10 @@ export const organizationKeys = {
 
 export async function getOrganizationPermission(permission: OrganizationPermissionCheck) {
   const { data, error } = await authClient.organization.hasPermission({
-    // better-auth ждёт изменяемые массивы — readonly снимается копией
-    permissions: Object.fromEntries(
-      Object.entries(permission).map(([key, actions]) => [key, [...actions]]),
-    ) as Parameters<typeof authClient.organization.hasPermission>[0]['permissions'],
+    // better-auth ждёт изменяемые массивы — readonly существует только в типах
+    permissions: permission as Parameters<
+      typeof authClient.organization.hasPermission
+    >[0]['permissions'],
   })
   if (error) throw new Error(error.message || 'Не удалось проверить права доступа')
 
