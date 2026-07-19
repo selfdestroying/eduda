@@ -124,43 +124,30 @@ export default function Onboarding() {
   }
 
   /**
-   * Проверки шага 1 — чистые: возвращают нормализованный slug и ошибки полей,
-   * никуда не переводя. Куда вести пользователя, решает вызывающий: «Далее»
-   * оставляет его на месте, прыжок по сайдбару и «Создать школу» — возвращают
-   * на шаг с адресом.
+   * Проверки шага 1: нормализует адрес, выставляет ошибки полей и возвращает
+   * годный slug либо `null`. `returnToStep1` — для входов не с самого шага
+   * (прыжок по сайдбару, «Создать школу»), иначе ошибка легла бы на экран, где
+   * полей не видно.
    *
-   * Общие для всех трёх: без них пройденный шаг можно было испортить и
+   * Общая для всех трёх входов: без неё пройденный шаг можно испортить и
    * перескочить, а поймал бы это только сервер.
    */
-  const validateStep1 = () => {
+  const commitStep1 = ({ returnToStep1 = false } = {}) => {
     // Края slug подрезаем здесь: `onChange` их намеренно не трогает.
     const normalized = slugify(slug)
+    setSlug(normalized)
 
     const fieldErrors: typeof errors = {}
     if (trimmedName.length < 2) fieldErrors.name = 'Введите название школы.'
     if (normalized.length < 3) fieldErrors.slug = 'Минимум 3 символа: латиница, цифры и дефис.'
     else if (RESERVED_SLUGS.has(normalized)) fieldErrors.slug = 'Этот адрес зарезервирован.'
 
-    return {
-      slug: normalized,
-      errors: fieldErrors.name || fieldErrors.slug ? fieldErrors : null,
-    }
-  }
-
-  /**
-   * Применяет результат `validateStep1`: нормализует поле и выставляет ошибки.
-   * Возвращает годный slug либо `null`. `returnToStep1` нужен вызовам не с
-   * самого шага — иначе ошибка появилась бы на экране, где полей не видно.
-   */
-  const commitStep1 = ({ returnToStep1 = false } = {}) => {
-    const checked = validateStep1()
-    setSlug(checked.slug)
-    if (checked.errors) {
+    if (fieldErrors.name || fieldErrors.slug) {
       if (returnToStep1) setStep(1)
-      setErrors(checked.errors)
+      setErrors(fieldErrors)
       return null
     }
-    return checked.slug
+    return normalized
   }
 
   /** Переход по кружкам сайдбара — мимо «Далее», поэтому со своей проверкой. */
@@ -689,10 +676,12 @@ function SuccessScreen({
       {!configured && (
         <Alert className="border-warning/20 bg-warning/8 mb-6 text-left">
           <Info className="text-warning" />
-          <AlertTitle>Часовой пояс и налоги сохранить не удалось</AlertTitle>
+          {/* Формулировка нейтральная: записей две, упасть могла вторая из них,
+              и тогда «пояс не сохранился» было бы неправдой. */}
+          <AlertTitle>Часть настроек сохранить не удалось</AlertTitle>
           <AlertDescription>
-            Школа создана. Задайте их в разделе «Организация» — до этого расписание считается по
-            московскому времени.
+            Школа создана. Проверьте часовой пояс и налоговый режим в разделе «Организация» — пока
+            расписание может считаться по московскому времени.
           </AlertDescription>
         </Alert>
       )}
