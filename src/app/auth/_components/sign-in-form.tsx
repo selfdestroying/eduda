@@ -11,6 +11,7 @@ import { useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import z from 'zod'
+import { authErrorMessages, FALLBACK_ERROR } from './auth-errors'
 
 interface SignInFormProps {
   onSuccess?: () => void | Promise<void>
@@ -22,22 +23,6 @@ const SignInSchema = z.object({
 })
 
 type SignInSchemaType = z.infer<typeof SignInSchema>
-
-/**
- * better-auth отдаёт сообщения на английском, поэтому переводим по коду ошибки.
- * Неверные учётные данные намеренно описаны обобщённо: иначе по разнице
- * формулировок можно перебором выяснить, какие email зарегистрированы.
- */
-const authErrorMessages: Record<string, string> = {
-  INVALID_EMAIL_OR_PASSWORD: 'Неверный email или пароль',
-  INVALID_PASSWORD: 'Неверный email или пароль',
-  USER_EMAIL_NOT_FOUND: 'Неверный email или пароль',
-  INVALID_EMAIL: 'Некорректный email',
-  EMAIL_NOT_VERIFIED: 'Email не подтверждён',
-  FAILED_TO_CREATE_SESSION: 'Не удалось создать сессию. Попробуйте ещё раз.',
-}
-
-const FALLBACK_ERROR = 'Сервис временно недоступен. Попробуйте позже.'
 
 export function SignInForm({ onSuccess }: SignInFormProps) {
   const [loading, startTransition] = useTransition()

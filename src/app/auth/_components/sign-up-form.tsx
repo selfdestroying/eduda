@@ -4,22 +4,22 @@ import { PasswordInput } from '@/src/components/password-input'
 import { Button } from '@/src/components/ui/button'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
+import { authClient } from '@/src/lib/auth/client'
 import { cn } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Loader } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import z from 'zod'
+import { authErrorMessages, FALLBACK_ERROR } from './auth-errors'
 
 const SignUpSchema = z
   .object({
     firstName: z.string().trim().min(1, 'Обязательно'),
     lastName: z.string().trim().min(1, 'Обязательно'),
     email: z.email('Введите корректный email'),
-    phone: z
-      .string()
-      .trim()
-      .min(1, 'Введите телефон')
-      .refine((v) => v.replace(/\D/g, '').length >= 10, 'Некорректный номер'),
     password: z.string().min(8, 'Минимум 8 символов'),
     confirm: z.string().min(1, 'Повторите пароль'),
   })
@@ -50,22 +50,40 @@ const strengthLevels = [
 ]
 
 export function SignUpForm() {
+  const router = useRouter()
+  const [loading, startTransition] = useTransition()
+
   const form = useForm<SignUpSchemaType>({
     resolver: zodResolver(SignUpSchema),
     defaultValues: {
       firstName: '',
       lastName: '',
       email: '',
-      phone: '',
       password: '',
       confirm: '',
     },
   })
 
-  // Публичная регистрация отключена на бэкенде (emailAndPassword.disableSignUp),
-  // плюс session-хук не пускает пользователя без организации.
-  const onSubmit = () => {
-    toast.info('Регистрация пока закрыта — обратитесь к администратору школы.')
+  const onSubmit = (data: SignUpSchemaType) => {
+    startTransition(async () => {
+      await authClient.signUp.email({
+        // В `User` одно поле под ФИО — склеиваем.
+        name: `${data.firstName} ${data.lastName}`,
+        email: data.email,
+        password: data.password,
+        fetchOptions: {
+          onSuccess() {
+            // `autoSignIn` уже создал сессию, но школы ещё нет — сразу в мастер.
+            // Тот же origin (`auth.*`), proxy зарерайтит в `/auth/onboarding`.
+            router.push('/onboarding')
+          },
+          onError({ error }) {
+            const code = typeof error.code === 'string' ? error.code : ''
+            toast.error(authErrorMessages[code] || error.message || FALLBACK_ERROR)
+          },
+        },
+      })
+    })
   }
 
   const password = form.watch('password')
@@ -76,7 +94,7 @@ export function SignUpForm() {
     <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-3">
       <FieldGroup>
         <p className="text-muted-foreground text-center text-[0.78125rem] leading-relaxed">
-          Регистрация новых школ пока по приглашению
+          Создайте аккаунт — школу настроим на следующем шаге
         </p>
 
         <div className="grid grid-cols-2 gap-3">
@@ -136,25 +154,6 @@ export function SignUpForm() {
         />
 
         <Controller
-          name="phone"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="sign-up-phone">Телефон</FieldLabel>
-              <Input
-                {...field}
-                id="sign-up-phone"
-                type="tel"
-                placeholder="+7 900 000-00-00"
-                aria-invalid={fieldState.invalid}
-                autoComplete="tel"
-              />
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-            </Field>
-          )}
-        />
-
-        <Controller
           name="password"
           control={form.control}
           render={({ field: { ref, ...field }, fieldState }) => (
@@ -206,8 +205,12 @@ export function SignUpForm() {
         />
       </FieldGroup>
 
-      <Button type="submit" className="h-10 w-full gap-2 rounded-xl text-sm font-semibold">
-        Создать аккаунт
+      <Button
+        type="submit"
+        className="h-10 w-full gap-2 rounded-xl text-sm font-semibold"
+        disabled={loading}
+      >
+        {loading ? <Loader size={16} className="animate-spin" /> : 'Создать аккаунт'}
       </Button>
     </form>
   )

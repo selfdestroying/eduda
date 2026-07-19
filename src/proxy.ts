@@ -1,16 +1,21 @@
 import { auth } from '@/src/lib/auth/server'
 import { isRouteDisabled } from '@/src/lib/features/registry'
 import { NextRequest, NextResponse } from 'next/server'
-import { protocol, rootDomain, signInUrl } from './lib/utils'
+import {
+  extractSubdomain,
+  onboardingUrl,
+  protocol,
+  RESERVED_SUBDOMAINS,
+  rootDomain,
+  signInUrl,
+} from './lib/utils'
 
 type SessionData = Awaited<ReturnType<typeof auth.api.getSession>>
 
-const RESERVED_SUBDOMAINS = new Set(['auth', 'admin', 'shop', 'docs'])
-
-/** Hostname корневого домена без порта */
-const rootHostname = rootDomain.split(':')[0]
-
 const ROOT_URL = `${protocol}://${rootDomain}`
+
+/** URL кабинета организации. */
+const orgUrl = (slug: string) => `${protocol}://${slug}.${rootDomain}`
 
 /**
  * При недоступной БД better-auth обычно возвращает `null` (внутри
@@ -27,37 +32,8 @@ async function getSessionSafe(request: NextRequest): Promise<SessionData> {
   }
 }
 
-function extractSubdomain(request: NextRequest): string | null {
-  const host = request.headers.get('host') ?? ''
-  const hostname = host.split(':')[0] ?? ''
-
-  // localhost: поддомен только при наличии точки перед localhost
-  if (hostname.endsWith('.localhost')) {
-    return hostname.split('.')[0] ?? null
-  }
-  if (hostname === 'localhost') {
-    return null
-  }
-
-  // Preview deployment URLs (tenant---branch-name.vercel.app)
-  if (hostname.includes('---') && hostname.endsWith('.vercel.app')) {
-    return hostname.split('---')[0] ?? null
-  }
-
-  // Проверяем, что hostname - поддомен rootHostname (не сам root и не www)
-  if (
-    hostname !== rootHostname &&
-    hostname !== `www.${rootHostname}` &&
-    hostname.endsWith(`.${rootHostname}`)
-  ) {
-    return hostname.replace(`.${rootHostname}`, '')
-  }
-
-  return null
-}
-
 export async function proxy(request: NextRequest) {
-  const subdomain = extractSubdomain(request)
+  const subdomain = extractSubdomain(request.headers.get('host'))
   const { pathname, search } = request.nextUrl
 
   // Личный кабинет родителя по ключу-ссылке + старый адрес /edit (redirect)
@@ -75,10 +51,15 @@ export async function proxy(request: NextRequest) {
     if (pathname !== '/') {
       return NextResponse.redirect(new URL('/', request.url))
     }
-    // `/` — гейт входа: вошёл и есть школа → сразу в школу, иначе → на вход.
+    // `/` — гейт входа: есть школа → в школу, вошёл без школы → на онбординг
+    // (иначе форма входа отправляла бы залогиненного юзера по кругу),
+    // не вошёл → на вход.
     const session = await getSessionSafe(request)
     if (session?.organization) {
-      return NextResponse.redirect(`${protocol}://${session.organization.slug}.${rootDomain}`)
+      return NextResponse.redirect(orgUrl(session.organization.slug))
+    }
+    if (session) {
+      return NextResponse.redirect(onboardingUrl)
     }
     return NextResponse.redirect(signInUrl)
   }
@@ -100,9 +81,24 @@ function handleReservedSubdomain(
   session: SessionData,
 ) {
   switch (subdomain) {
-    // `auth` — поверхность восстановления: форму входа показываем всегда,
-    // сессию здесь не проверяем.
     case 'auth': {
+      // От сессии зависят только форма входа и мастер. Прочие пути
+      // auth-поддомена остаются поверхностью восстановления и доступны всегда.
+      if (pathname === '/' || pathname === '/onboarding') {
+        // Школа уже есть — на auth-поддомене делать нечего: при
+        // `organizationLimit: 1` вторую всё равно не создать.
+        if (session?.organization) {
+          return NextResponse.redirect(orgUrl(session.organization.slug))
+        }
+        // Мастер создания первой школы — только для вошедших.
+        if (!session && pathname === '/onboarding') {
+          return NextResponse.redirect(signInUrl)
+        }
+        // Вошёл, но школы ещё нет — с формы входа сразу в мастер.
+        if (session && pathname === '/') {
+          return NextResponse.redirect(onboardingUrl)
+        }
+      }
       // `/` — сама страница входа, поэтому хопа на /sign-in больше нет.
       // Для корня отдаём `/auth`, а не `/auth/`, чтобы не плодить редирект на слэше.
       const suffix = pathname === '/' ? '' : pathname
@@ -144,16 +140,17 @@ function handleOrgSubdomain(
     return NextResponse.redirect(signInUrl)
   }
 
-  const isMember = session.organization?.slug === subdomain
-
-  if (!isMember) {
+  // `session.organization` резолвится по этому же поддомену, поэтому `null`
+  // означает ровно одно: пользователь не состоит в этой школе. Уводим на корень,
+  // а он уже разберётся — в свою школу или на онбординг.
+  if (!session.organization) {
     return NextResponse.redirect(ROOT_URL)
   }
 
   // Feature guard: block access to disabled features
   const disabledFeatures = (session.disabledFeatures as string[] | undefined) ?? []
   if (isRouteDisabled(pathname, disabledFeatures)) {
-    return NextResponse.redirect(new URL(`${protocol}://${subdomain}.${rootDomain}`))
+    return NextResponse.redirect(orgUrl(subdomain))
   }
 
   const response = NextResponse.rewrite(new URL(`/${subdomain}${pathname}${search}`, request.url))

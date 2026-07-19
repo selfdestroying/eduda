@@ -25,9 +25,15 @@ export const getSalaryData = authAction
     const userId = Number(ctx.session.user.id)
 
     // Check if user has salary:readAll permission
+    // organizationId передаём явно: без него better-auth возьмёт
+    // `session.activeOrganizationId`, который может указывать на другую школу,
+    // чем поддомен запроса.
     const { success: canReadAll } = await auth.api.hasPermission({
       headers: await headers(),
-      body: { permissions: { salary: ['readAll'] } },
+      body: {
+        organizationId: String(ctx.session.organizationId),
+        permissions: { salary: ['readAll'] },
+      },
     })
 
     // Build group filter
@@ -132,9 +138,15 @@ export const getMySalaryData = authAction
     const userId = Number(ctx.session.user.id)
 
     // Check if user has salary:readAll permission
+    // organizationId передаём явно: без него better-auth возьмёт
+    // `session.activeOrganizationId`, который может указывать на другую школу,
+    // чем поддомен запроса.
     const { success: canReadAll } = await auth.api.hasPermission({
       headers: await headers(),
-      body: { permissions: { salary: ['readAll'] } },
+      body: {
+        organizationId: String(ctx.session.organizationId),
+        permissions: { salary: ['readAll'] },
+      },
     })
 
     // Build group filter

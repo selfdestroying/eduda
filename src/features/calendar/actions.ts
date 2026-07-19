@@ -24,9 +24,15 @@ export const getCalendarLessons = authAction
   .action(async ({ ctx, parsedInput }): Promise<CalendarLessonDTO[]> => {
     const { from, to } = parsedInput
 
+    // organizationId передаём явно: без него better-auth возьмёт
+    // `session.activeOrganizationId`, который может указывать на другую школу,
+    // чем поддомен запроса.
     const canReadAll = await auth.api.hasPermission({
       headers: await headers(),
-      body: { permissions: { lesson: ['readAll'] } },
+      body: {
+        organizationId: String(ctx.session.organizationId),
+        permissions: { lesson: ['readAll'] },
+      },
     })
     const teacherFilter = !canReadAll.success
       ? { some: { teacherId: Number(ctx.session.user.id) } }

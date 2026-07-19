@@ -7,11 +7,19 @@ import { Badge } from '@/src/components/ui/badge'
 import { Button } from '@/src/components/ui/button'
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/src/components/ui/input-group'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from '@/src/components/ui/input-group'
 import { Progress } from '@/src/components/ui/progress'
+import { createSchool } from '@/src/features/organization/actions'
 import { TAX_SYSTEMS } from '@/src/features/organization/tax-systems/schemas'
+import { signOut } from '@/src/features/users/me/queries'
+import { authClient } from '@/src/lib/auth/client'
 import { DEFAULT_TZ, formatInTz, formatTimeZoneLabel } from '@/src/lib/timezone'
-import { cn, rootDomain, slugify } from '@/src/lib/utils'
+import { cn, protocol, RESERVED_SLUGS, rootDomain, signInUrl, slugify } from '@/src/lib/utils'
 import {
   ArrowLeft,
   ArrowRight,
@@ -23,9 +31,9 @@ import {
   Loader2,
   LogOut,
   Percent,
-  UserPlus,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 // ─── Константы шагов ─────────────────────────────────────────────────────────
 
@@ -83,6 +91,8 @@ export default function Onboarding() {
   const [step, setStep] = useState(0)
   const [maxReached, setMaxReached] = useState(1)
   const [creating, setCreating] = useState(false)
+  const [checkingSlug, setCheckingSlug] = useState(false)
+  const [leaving, setLeaving] = useState(false)
 
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -122,29 +132,68 @@ export default function Onboarding() {
     setErrors((e) => ({ ...e, slug: undefined }))
   }
 
-  // ponytail: заглушка — школа не создаётся. Здесь подключается
-  // authClient.organization.create + timezone + upsertTaxConfig, когда снимут
-  // disableSignUp и session-хук начнёт пускать пользователя без Member.
-  const create = () => {
+  const create = async () => {
     setCreating(true)
-    setTimeout(() => {
-      setCreating(false)
-      setStep(LAST_STEP + 1)
-    }, 1000)
+    const result = await createSchool({ name: trimmedName, slug, timezone })
+    setCreating(false)
+
+    const invalid = result?.validationErrors
+    const error =
+      result?.serverError ??
+      invalid?.slug?._errors?.[0] ??
+      invalid?.name?._errors?.[0] ??
+      (invalid ? 'Проверьте данные школы.' : null)
+    if (error) {
+      // Почти всегда это занятый slug — возвращаем на шаг с адресом.
+      toast.error(error)
+      setStep(1)
+      setErrors({ slug: error })
+      return
+    }
+
+    setStep(LAST_STEP + 1)
   }
 
-  const next = () => {
+  /**
+   * Единственный выход из мастера: пользователь без школы заперт на нём —
+   * и корень, и форма входа редиректят обратно сюда, а сайдбар приложения
+   * с выходом живёт только на поддоменах школ.
+   */
+  const leave = async () => {
+    setLeaving(true)
+    try {
+      await signOut()
+    } catch {
+      // Кука могла протухнуть сама — всё равно уводим на форму входа.
+    }
+    // Полная перезагрузка, чтобы proxy перечитал уже очищенную куку.
+    window.location.href = signInUrl
+  }
+
+  const next = async () => {
     if (step === 1) {
+      // Локальные проверки строго первыми: `checkSlug` знает только про
+      // занятость и на зарезервированный адрес вроде `admin` ответит
+      // «свободен» — без этой ветки юзер узнал бы о проблеме только в конце.
       const nextErrors: typeof errors = {}
       if (trimmedName.length < 2) nextErrors.name = 'Введите название школы.'
       if (slug.length < 3) nextErrors.slug = 'Минимум 3 символа: латиница, цифры и дефис.'
+      else if (RESERVED_SLUGS.has(slug)) nextErrors.slug = 'Этот адрес зарезервирован.'
       if (nextErrors.name || nextErrors.slug) {
         setErrors(nextErrors)
         return
       }
+
+      setCheckingSlug(true)
+      const { data, error } = await authClient.organization.checkSlug({ slug })
+      setCheckingSlug(false)
+      if (error || !data?.status) {
+        setErrors({ slug: 'Этот адрес уже занят — выберите другой.' })
+        return
+      }
     }
     if (step === LAST_STEP) {
-      create()
+      await create()
       return
     }
     goTo(step + 1)
@@ -240,17 +289,42 @@ export default function Onboarding() {
               <Button
                 variant="ghost"
                 size="lg"
-                className="text-muted-foreground mt-4 w-full justify-start"
-                onClick={() => setStep(0)}
+                className="text-muted-foreground mt-4 h-9 w-full justify-start"
+                onClick={leave}
+                disabled={leaving}
               >
                 <LogOut className="rotate-180" />
-                Выйти из настройки
+                Выйти из аккаунта
               </Button>
             </div>
           </aside>
 
           {/* Содержимое шага */}
-          <div className="flex min-w-0 flex-1 flex-col px-6 pt-8 sm:px-10">
+          {/* Паддинги совпадают с `p-6` сайдбара: по горизонтали и сверху здесь,
+              снизу — через `pb-6` футера. */}
+          <div className="flex min-w-0 flex-1 flex-col px-6 pt-6">
+            {/* Сайдбар скрыт ниже md, поэтому позицию в мастере и выход
+                дублируем здесь. Кружки шагов не повторяем: название текущего
+                шага и так стоит в заголовке сразу под этим блоком. */}
+            <div className="mb-5 flex flex-col gap-2 md:hidden">
+              <div className="flex items-center gap-3">
+                <span className="text-muted-foreground flex-1 text-[0.6875rem]">
+                  Шаг {step} из {LAST_STEP} · {Math.round((step / LAST_STEP) * 100)}%
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground -mr-2 h-8"
+                  onClick={leave}
+                  disabled={leaving}
+                >
+                  <LogOut className="rotate-180" />
+                  Выйти
+                </Button>
+              </div>
+              <Progress value={(step / LAST_STEP) * 100} />
+            </div>
+
             <header className="mb-5">
               <h1 className="text-xl font-semibold tracking-tight">{STEPS[step - 1]!.title}</h1>
               <p className="text-muted-foreground mt-1.5 text-[0.8125rem] leading-relaxed">
@@ -287,8 +361,8 @@ export default function Onboarding() {
                         onChange={(e) => onSlugChange(e.target.value)}
                         aria-invalid={!!errors.slug}
                       />
-                      <InputGroupAddon align="inline-end" className="border-l">
-                        .{rootDomain}
+                      <InputGroupAddon align="inline-end">
+                        <InputGroupText>.{rootDomain}</InputGroupText>
                       </InputGroupAddon>
                     </InputGroup>
                     <FieldDescription>
@@ -391,20 +465,27 @@ export default function Onboarding() {
               )}
             </div>
 
-            <footer className="mt-2 flex items-center gap-2.5 border-t py-4">
+            <footer className="mt-2 flex items-center gap-2.5 border-t pt-4 pb-6">
               <Button
                 variant="outline"
                 size="lg"
-                disabled={step === 1}
+                className="h-9 px-4"
+                // С первого шага уводит на экран приветствия (step 0).
                 onClick={() => goTo(step - 1)}
               >
                 <ArrowLeft />
                 Назад
               </Button>
               <div className="flex-1" />
-              <Button size="lg" className="px-5" onClick={next}>
-                {step === LAST_STEP ? 'Создать школу' : 'Далее'}
-                <ArrowRight />
+              <Button size="lg" className="h-9 px-5" onClick={next} disabled={checkingSlug}>
+                {checkingSlug ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <>
+                    {step === LAST_STEP ? 'Создать школу' : 'Далее'}
+                    <ArrowRight />
+                  </>
+                )}
               </Button>
             </footer>
           </div>
@@ -417,7 +498,10 @@ export default function Onboarding() {
           domain={domain}
           timezone={`${tzOption.label}, ${utcOffset(tzOption.tz)}`}
           tax={taxOption.label}
-          onRestart={() => setStep(0)}
+          // Переход межподдоменный — router.push() здесь не сработает.
+          onOpen={() => {
+            window.location.href = `${protocol}://${slug}.${rootDomain}`
+          }}
         />
       )}
 
@@ -474,13 +558,13 @@ function SuccessScreen({
   domain,
   timezone,
   tax,
-  onRestart,
+  onOpen,
 }: {
   name: string
   domain: string
   timezone: string
   tax: string
-  onRestart: () => void
+  onOpen: () => void
 }) {
   const summary = [
     { label: 'Название', value: name },
@@ -491,7 +575,7 @@ function SuccessScreen({
 
   return (
     <div className="animate-landing-enter relative z-10 flex w-full max-w-113 flex-col items-center text-center">
-      <div className="bg-success/12 text-success mb-5 flex size-19 items-center justify-center rounded-full">
+      <div className="bg-primary/12 text-primary mb-5 flex size-19 items-center justify-center rounded-full">
         <CircleCheckBig className="size-9" />
       </div>
       <h1 className="text-2xl font-bold tracking-tight text-balance">Школа готова к работе</h1>
@@ -499,7 +583,9 @@ function SuccessScreen({
         «{name}» создана и доступна по адресу {domain}.
       </p>
 
-      <div className="bg-card ring-border/60 mb-6 w-full divide-y rounded-2xl px-4 text-left ring-1">
+      {/* `py-1.5` (6px) + `py-2.5` строки = 16px по краям, как и по бокам:
+          иначе крайние строки подрезает скругление `rounded-2xl`. */}
+      <div className="bg-card ring-border/60 mb-6 w-full divide-y rounded-2xl px-4 py-1.5 text-left ring-1">
         {summary.map((row) => (
           <div key={row.label} className="flex items-center justify-between gap-4 py-2.5">
             <span className="text-muted-foreground text-xs">{row.label}</span>
@@ -508,16 +594,10 @@ function SuccessScreen({
         ))}
       </div>
 
-      <div className="flex w-full gap-2.5">
-        <Button size="lg" className="h-11 flex-1 rounded-xl text-sm" onClick={onRestart}>
-          Перейти в дашборд
-          <ArrowRight />
-        </Button>
-        <Button variant="outline" size="lg" className="h-11 flex-1 rounded-xl text-sm" disabled>
-          <UserPlus />
-          Пригласить
-        </Button>
-      </div>
+      <Button size="lg" className="h-11 w-full rounded-xl text-sm" onClick={onOpen}>
+        Перейти в дашборд
+        <ArrowRight />
+      </Button>
       <p className="text-muted-foreground mt-4 text-xs">
         Настройки всегда можно изменить в разделе «Организация»
       </p>
