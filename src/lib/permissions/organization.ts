@@ -76,7 +76,7 @@ const owner = ac.newRole({
 export type OrganizationStatementKeys = keyof typeof statement
 export type OrganizationAction<T extends OrganizationStatementKeys> = (typeof statement)[T][number]
 export type OrganizationPermissionCheck = {
-  [R in OrganizationStatementKeys]?: Array<OrganizationAction<R>>
+  [R in OrganizationStatementKeys]?: readonly OrganizationAction<R>[]
 }
 
 /** Полный каталог всех ресурсов и действий (для UI и валидации). */
