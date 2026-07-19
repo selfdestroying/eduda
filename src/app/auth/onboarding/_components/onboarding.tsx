@@ -1,0 +1,526 @@
+'use client'
+
+import { Logo } from '@/src/components/logo'
+import { SwitchThemeButton } from '@/src/components/switch-theme-button'
+import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert'
+import { Badge } from '@/src/components/ui/badge'
+import { Button } from '@/src/components/ui/button'
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/src/components/ui/field'
+import { Input } from '@/src/components/ui/input'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/src/components/ui/input-group'
+import { Progress } from '@/src/components/ui/progress'
+import { TAX_SYSTEMS } from '@/src/features/organization/tax-systems/schemas'
+import { DEFAULT_TZ, formatInTz, formatTimeZoneLabel } from '@/src/lib/timezone'
+import { cn, rootDomain, slugify } from '@/src/lib/utils'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Building2,
+  Check,
+  CircleCheckBig,
+  Clock,
+  Info,
+  Loader2,
+  LogOut,
+  Percent,
+  UserPlus,
+} from 'lucide-react'
+import { useEffect, useState } from 'react'
+
+// ─── Константы шагов ─────────────────────────────────────────────────────────
+
+const STEPS = [
+  {
+    icon: Building2,
+    nav: 'Данные школы',
+    navDesc: 'Название и адрес',
+    checklistDesc: 'Название и адрес в сети',
+    title: 'Данные школы',
+    desc: 'Как называется ваша школа и по какому адресу её будут открывать ученики и сотрудники.',
+  },
+  {
+    icon: Clock,
+    nav: 'Часовой пояс',
+    navDesc: 'Регион и время',
+    checklistDesc: 'Регион для расписания и отчётов',
+    title: 'Часовой пояс',
+    desc: 'Мы используем его для расписания занятий, напоминаний и отчётов.',
+  },
+  {
+    icon: Percent,
+    nav: 'Налоги',
+    navDesc: 'Режим и ставка',
+    checklistDesc: 'Режим налогообложения',
+    title: 'Налоги',
+    desc: 'Настройте налоговый режим — он учитывается в зарплатах и отчёте о прибыли.',
+  },
+] as const
+
+const LAST_STEP = STEPS.length
+
+/** IANA-пояса России, от западного к восточному. Смещение считается живьём. */
+const TIMEZONES = [
+  { tz: 'Europe/Kaliningrad', label: 'Калининград' },
+  { tz: 'Europe/Moscow', label: 'Москва' },
+  { tz: 'Europe/Samara', label: 'Самара' },
+  { tz: 'Asia/Yekaterinburg', label: 'Екатеринбург' },
+  { tz: 'Asia/Omsk', label: 'Омск' },
+  { tz: 'Asia/Krasnoyarsk', label: 'Красноярск' },
+  { tz: 'Asia/Irkutsk', label: 'Иркутск' },
+  { tz: 'Asia/Yakutsk', label: 'Якутск' },
+  { tz: 'Asia/Vladivostok', label: 'Владивосток' },
+  { tz: 'Asia/Magadan', label: 'Магадан' },
+  { tz: 'Asia/Kamchatka', label: 'Камчатка' },
+]
+
+/** `formatTimeZoneLabel` возвращает «Europe/Moscow, UTC+3» — берём только смещение. */
+const utcOffset = (tz: string) => formatTimeZoneLabel(tz).split(', ')[1] ?? ''
+
+// ─── Компонент ───────────────────────────────────────────────────────────────
+
+export default function Onboarding() {
+  // 0 — приветствие, 1..3 — мастер, 4 — успех.
+  const [step, setStep] = useState(0)
+  const [maxReached, setMaxReached] = useState(1)
+  const [creating, setCreating] = useState(false)
+
+  const [name, setName] = useState('')
+  const [slug, setSlug] = useState('')
+  const [slugEdited, setSlugEdited] = useState(false)
+  const [errors, setErrors] = useState<{ name?: string; slug?: string }>({})
+
+  const [timezone, setTimezone] = useState(DEFAULT_TZ)
+  const [taxSystem, setTaxSystem] = useState(TAX_SYSTEMS.find((t) => t.enabled)!.value)
+
+  // Часы «сейчас в вашей школе» тикают раз в 30 с, иначе выглядят зависшими.
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 30_000)
+    return () => clearInterval(id)
+  }, [])
+
+  const trimmedName = name.trim()
+  const domain = `${slug || 'адрес'}.${rootDomain}`
+  const tzOption = TIMEZONES.find((t) => t.tz === timezone) ?? TIMEZONES[1]!
+  const taxOption = TAX_SYSTEMS.find((t) => t.value === taxSystem)!
+
+  const goTo = (n: number) => {
+    setStep(n)
+    setMaxReached((m) => Math.max(m, n))
+    setErrors({})
+  }
+
+  const onNameChange = (value: string) => {
+    setName(value)
+    if (!slugEdited) setSlug(slugify(value))
+    setErrors((e) => ({ ...e, name: undefined }))
+  }
+
+  const onSlugChange = (value: string) => {
+    setSlug(slugify(value))
+    setSlugEdited(true)
+    setErrors((e) => ({ ...e, slug: undefined }))
+  }
+
+  // ponytail: заглушка — школа не создаётся. Здесь подключается
+  // authClient.organization.create + timezone + upsertTaxConfig, когда снимут
+  // disableSignUp и session-хук начнёт пускать пользователя без Member.
+  const create = () => {
+    setCreating(true)
+    setTimeout(() => {
+      setCreating(false)
+      setStep(LAST_STEP + 1)
+    }, 1000)
+  }
+
+  const next = () => {
+    if (step === 1) {
+      const nextErrors: typeof errors = {}
+      if (trimmedName.length < 2) nextErrors.name = 'Введите название школы.'
+      if (slug.length < 3) nextErrors.slug = 'Минимум 3 символа: латиница, цифры и дефис.'
+      if (nextErrors.name || nextErrors.slug) {
+        setErrors(nextErrors)
+        return
+      }
+    }
+    if (step === LAST_STEP) {
+      create()
+      return
+    }
+    goTo(step + 1)
+  }
+
+  return (
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden p-6">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="animate-landing-float bg-primary/10 absolute -top-32 -right-32 h-96 w-96 rounded-full blur-3xl" />
+        <div className="animate-landing-float-delayed bg-primary/8 absolute -bottom-40 -left-40 h-120 w-120 rounded-full blur-3xl" />
+      </div>
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-size-[4rem_4rem] opacity-30" />
+
+      <div className="absolute top-5 right-5 z-10">
+        <SwitchThemeButton />
+      </div>
+
+      {step === 0 && <WelcomeScreen onStart={() => goTo(1)} />}
+
+      {step >= 1 && step <= LAST_STEP && (
+        <div className="bg-card ring-border/70 animate-landing-enter relative z-10 flex h-[min(41.5rem,calc(100vh-3rem))] w-full max-w-235 overflow-hidden rounded-2xl shadow-2xl ring-1 shadow-black/10 dark:shadow-black/40">
+          {/* Навигация по шагам */}
+          <aside className="bg-sidebar hidden w-73 shrink-0 flex-col border-r p-6 md:flex">
+            <div className="mb-7 flex items-center gap-2.5">
+              <div className="bg-card ring-border flex size-9 items-center justify-center rounded-lg ring-1">
+                <Logo className="text-primary size-5.5" />
+              </div>
+              <div className="flex flex-col leading-tight">
+                <span className="text-sm font-bold tracking-tight">ЕДУДА</span>
+                <span className="text-muted-foreground text-[0.6875rem]">Настройка школы</span>
+              </div>
+            </div>
+
+            <ol className="flex flex-col">
+              {STEPS.map((s, i) => {
+                const n = i + 1
+                const done = step > n
+                const current = step === n
+                const clickable = n <= maxReached
+                return (
+                  <li key={s.nav} className="flex gap-3">
+                    <div className="flex flex-col items-center self-stretch">
+                      <button
+                        type="button"
+                        disabled={!clickable}
+                        onClick={() => goTo(n)}
+                        className={cn(
+                          'flex size-8.5 shrink-0 items-center justify-center rounded-full text-[0.8125rem] font-semibold transition-colors',
+                          done && 'bg-primary text-primary-foreground',
+                          current && 'bg-primary/12 text-primary ring-primary ring-2 ring-inset',
+                          !done &&
+                            !current &&
+                            'bg-muted text-muted-foreground ring-border ring-1 ring-inset',
+                          clickable ? 'cursor-pointer' : 'cursor-default',
+                        )}
+                      >
+                        {done ? <Check className="size-4" /> : n}
+                      </button>
+                      {n < LAST_STEP && (
+                        <div
+                          className={cn(
+                            'mt-1.5 w-0.5 grow rounded-full',
+                            done ? 'bg-primary' : 'bg-border',
+                          )}
+                        />
+                      )}
+                    </div>
+                    <div className={cn('mt-1.5 flex-1', n < LAST_STEP && 'pb-5.5')}>
+                      <div
+                        className={cn(
+                          'text-[0.8125rem]',
+                          current ? 'font-semibold' : 'font-medium',
+                          done || current ? 'text-foreground' : 'text-muted-foreground',
+                        )}
+                      >
+                        {s.nav}
+                      </div>
+                      <div className="text-muted-foreground text-[0.6875rem]">{s.navDesc}</div>
+                    </div>
+                  </li>
+                )
+              })}
+            </ol>
+
+            <div className="mt-auto pt-5">
+              <div className="text-muted-foreground mb-1.5 flex justify-between text-[0.6875rem]">
+                <span>
+                  Шаг {step} из {LAST_STEP}
+                </span>
+                <span>{Math.round((step / LAST_STEP) * 100)}%</span>
+              </div>
+              <Progress value={(step / LAST_STEP) * 100} />
+              <Button
+                variant="ghost"
+                size="lg"
+                className="text-muted-foreground mt-4 w-full justify-start"
+                onClick={() => setStep(0)}
+              >
+                <LogOut className="rotate-180" />
+                Выйти из настройки
+              </Button>
+            </div>
+          </aside>
+
+          {/* Содержимое шага */}
+          <div className="flex min-w-0 flex-1 flex-col px-6 pt-8 sm:px-10">
+            <header className="mb-5">
+              <h1 className="text-xl font-semibold tracking-tight">{STEPS[step - 1]!.title}</h1>
+              <p className="text-muted-foreground mt-1.5 text-[0.8125rem] leading-relaxed">
+                {STEPS[step - 1]!.desc}
+              </p>
+            </header>
+
+            {/* `-mx-1 px-1`: `overflow-y-auto` навязывает `overflow-x: auto`, без
+                этого запаса focus-ring инпутов обрезается по краям. */}
+            <div className="thin-scrollbar -mx-1 flex-1 overflow-y-auto px-1 pb-2">
+              {step === 1 && (
+                <div className="animate-landing-enter flex flex-col gap-5">
+                  <Field data-invalid={!!errors.name}>
+                    <FieldLabel htmlFor="onb-name">Название школы</FieldLabel>
+                    <Input
+                      id="onb-name"
+                      className="h-9"
+                      placeholder="Например: Школа программирования «Кодик»"
+                      value={name}
+                      onChange={(e) => onNameChange(e.target.value)}
+                      aria-invalid={!!errors.name}
+                      autoFocus
+                    />
+                    {errors.name && <FieldError>{errors.name}</FieldError>}
+                  </Field>
+
+                  <Field data-invalid={!!errors.slug}>
+                    <FieldLabel htmlFor="onb-slug">Адрес в ЕДУДА</FieldLabel>
+                    <InputGroup className="h-9">
+                      <InputGroupInput
+                        id="onb-slug"
+                        placeholder="kodik"
+                        value={slug}
+                        onChange={(e) => onSlugChange(e.target.value)}
+                        aria-invalid={!!errors.slug}
+                      />
+                      <InputGroupAddon align="inline-end" className="border-l">
+                        .{rootDomain}
+                      </InputGroupAddon>
+                    </InputGroup>
+                    <FieldDescription>
+                      Кабинет откроется по адресу{' '}
+                      <strong className="text-foreground">{domain}</strong>
+                    </FieldDescription>
+                    {errors.slug && <FieldError>{errors.slug}</FieldError>}
+                  </Field>
+
+                  <Alert className="border-info/20 bg-info/8">
+                    <Info className="text-info" />
+                    <AlertTitle>Адрес можно изменить позже</AlertTitle>
+                    <AlertDescription>
+                      В настройках организации, пока школой никто не пользуется.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+
+              {step === 2 && (
+                <div className="animate-landing-enter flex flex-col gap-4">
+                  <Field>
+                    <FieldLabel>Часовой пояс</FieldLabel>
+                    <div className="thin-scrollbar max-h-62 divide-y overflow-y-auto rounded-xl border">
+                      {TIMEZONES.map((t) => (
+                        <button
+                          key={t.tz}
+                          type="button"
+                          onClick={() => setTimezone(t.tz)}
+                          className={cn(
+                            'flex w-full cursor-pointer items-center justify-between px-3.5 py-2.5 text-left transition-colors',
+                            t.tz === timezone ? 'bg-primary/8' : 'hover:bg-muted/50',
+                          )}
+                        >
+                          <span className="flex flex-col">
+                            <span className="text-[0.8125rem] font-medium">{t.label}</span>
+                            <span className="text-muted-foreground text-[0.6875rem]">
+                              {utcOffset(t.tz)}
+                            </span>
+                          </span>
+                          {t.tz === timezone && <Check className="text-primary size-4" />}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                  <div className="text-muted-foreground flex items-center gap-2 text-[0.8125rem]">
+                    <Clock className="size-3.5" />
+                    Сейчас в вашей школе:{' '}
+                    <strong className="text-foreground">
+                      {formatInTz(new Date(), tzOption.tz, 'HH:mm')}
+                    </strong>
+                  </div>
+                </div>
+              )}
+
+              {step === 3 && (
+                <div className="animate-landing-enter flex flex-col gap-4">
+                  <Field>
+                    <FieldLabel>Налоговый режим</FieldLabel>
+                    <div className="flex flex-col gap-2">
+                      {TAX_SYSTEMS.map((t) => {
+                        const selected = t.value === taxSystem && t.enabled
+                        return (
+                          <button
+                            key={t.value}
+                            type="button"
+                            disabled={!t.enabled}
+                            onClick={() => setTaxSystem(t.value)}
+                            className={cn(
+                              'flex items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors',
+                              t.enabled ? 'cursor-pointer' : 'cursor-default opacity-55',
+                              selected ? 'border-primary/45 bg-primary/6' : 'bg-card',
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                'flex size-4.5 shrink-0 items-center justify-center rounded-full border',
+                                selected ? 'border-primary' : 'border-input',
+                              )}
+                            >
+                              {selected && <span className="bg-primary size-2 rounded-full" />}
+                            </span>
+                            <span className="flex-1">
+                              <span className="block text-[0.8125rem] font-medium">{t.label}</span>
+                              <span className="text-muted-foreground block text-[0.6875rem]">
+                                {t.description}
+                              </span>
+                            </span>
+                            {!t.enabled && <Badge variant="secondary">Скоро</Badge>}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <FieldDescription>
+                      Пока доступен режим УСН «Доходы». Ставки и остальные параметры настраиваются в
+                      разделе «Организация → Налогообложение».
+                    </FieldDescription>
+                  </Field>
+                </div>
+              )}
+            </div>
+
+            <footer className="mt-2 flex items-center gap-2.5 border-t py-4">
+              <Button
+                variant="outline"
+                size="lg"
+                disabled={step === 1}
+                onClick={() => goTo(step - 1)}
+              >
+                <ArrowLeft />
+                Назад
+              </Button>
+              <div className="flex-1" />
+              <Button size="lg" className="px-5" onClick={next}>
+                {step === LAST_STEP ? 'Создать школу' : 'Далее'}
+                <ArrowRight />
+              </Button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {step === LAST_STEP + 1 && (
+        <SuccessScreen
+          name={trimmedName || 'Ваша школа'}
+          domain={domain}
+          timezone={`${tzOption.label}, ${utcOffset(tzOption.tz)}`}
+          tax={taxOption.label}
+          onRestart={() => setStep(0)}
+        />
+      )}
+
+      {creating && (
+        <div className="bg-background/65 absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 backdrop-blur-sm">
+          <Loader2 className="text-primary size-11 animate-spin" />
+          <p className="text-muted-foreground text-sm">Создаём вашу школу…</p>
+        </div>
+      )}
+    </main>
+  )
+}
+
+// ─── Вспомогательные экраны ──────────────────────────────────────────────────
+
+function WelcomeScreen({ onStart }: { onStart: () => void }) {
+  return (
+    <div className="animate-landing-enter relative z-10 flex w-full max-w-113 flex-col items-center text-center">
+      <div className="bg-card/80 ring-border/60 mb-5 flex size-18 items-center justify-center rounded-[1.125rem] ring-1">
+        <Logo className="text-primary size-11" />
+      </div>
+      <h1 className="text-2xl font-bold tracking-tight text-balance">Добро пожаловать в ЕДУДА</h1>
+      <p className="text-muted-foreground mt-2 mb-6 max-w-95 text-sm leading-relaxed">
+        Аккаунт создан. Осталось несколько шагов, чтобы настроить вашу школу и начать работу.
+      </p>
+
+      <div className="bg-card ring-border/60 mb-6 w-full divide-y rounded-2xl p-1.5 text-left ring-1">
+        {STEPS.map((s) => (
+          <div key={s.nav} className="flex items-center gap-3 px-3 py-2.5">
+            <div className="bg-primary/10 text-primary flex size-8.5 shrink-0 items-center justify-center rounded-[0.5625rem]">
+              <s.icon className="size-4" />
+            </div>
+            <div>
+              <div className="text-[0.8125rem] font-semibold">{s.nav}</div>
+              <div className="text-muted-foreground text-[0.6875rem]">{s.checklistDesc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Button size="lg" className="h-11 w-full rounded-xl text-[0.9375rem]" onClick={onStart}>
+        Начать настройку
+        <ArrowRight />
+      </Button>
+      <p className="text-muted-foreground mt-4 text-xs">
+        Займёт около минуты · можно вернуться позже
+      </p>
+    </div>
+  )
+}
+
+function SuccessScreen({
+  name,
+  domain,
+  timezone,
+  tax,
+  onRestart,
+}: {
+  name: string
+  domain: string
+  timezone: string
+  tax: string
+  onRestart: () => void
+}) {
+  const summary = [
+    { label: 'Название', value: name },
+    { label: 'Адрес', value: domain },
+    { label: 'Часовой пояс', value: timezone },
+    { label: 'Налоговый режим', value: tax },
+  ]
+
+  return (
+    <div className="animate-landing-enter relative z-10 flex w-full max-w-113 flex-col items-center text-center">
+      <div className="bg-success/12 text-success mb-5 flex size-19 items-center justify-center rounded-full">
+        <CircleCheckBig className="size-9" />
+      </div>
+      <h1 className="text-2xl font-bold tracking-tight text-balance">Школа готова к работе</h1>
+      <p className="text-muted-foreground mt-2 mb-6 max-w-97 text-sm leading-relaxed">
+        «{name}» создана и доступна по адресу {domain}.
+      </p>
+
+      <div className="bg-card ring-border/60 mb-6 w-full divide-y rounded-2xl px-4 text-left ring-1">
+        {summary.map((row) => (
+          <div key={row.label} className="flex items-center justify-between gap-4 py-2.5">
+            <span className="text-muted-foreground text-xs">{row.label}</span>
+            <span className="text-right text-xs font-medium">{row.value}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex w-full gap-2.5">
+        <Button size="lg" className="h-11 flex-1 rounded-xl text-sm" onClick={onRestart}>
+          Перейти в дашборд
+          <ArrowRight />
+        </Button>
+        <Button variant="outline" size="lg" className="h-11 flex-1 rounded-xl text-sm" disabled>
+          <UserPlus />
+          Пригласить
+        </Button>
+      </div>
+      <p className="text-muted-foreground mt-4 text-xs">
+        Настройки всегда можно изменить в разделе «Организация»
+      </p>
+    </div>
+  )
+}
