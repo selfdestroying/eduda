@@ -91,6 +91,9 @@ export default function Onboarding() {
   const [step, setStep] = useState(0)
   const [maxReached, setMaxReached] = useState(1)
   const [creating, setCreating] = useState(false)
+  // Сохранились ли таймзона и налоговый режим: школу создаём даже если нет,
+  // но сводка не должна подтверждать настройки, которых в базе не оказалось.
+  const [configured, setConfigured] = useState(true)
   const [checkingSlug, setCheckingSlug] = useState(false)
   const [leaving, setLeaving] = useState(false)
 
@@ -144,19 +147,25 @@ export default function Onboarding() {
     }
   }
 
-  /** Переход по кружкам сайдбара — мимо «Далее», поэтому со своей проверкой. */
-  const jumpTo = (n: number) => {
-    if (n <= 1) {
-      goTo(n)
-      return
-    }
+  /**
+   * Применяет результат `validateStep1`: нормализует поле и выставляет ошибки.
+   * Возвращает годный slug либо `null`. `returnToStep1` нужен вызовам не с
+   * самого шага — иначе ошибка появилась бы на экране, где полей не видно.
+   */
+  const commitStep1 = ({ returnToStep1 = false } = {}) => {
     const checked = validateStep1()
     setSlug(checked.slug)
     if (checked.errors) {
-      setStep(1)
+      if (returnToStep1) setStep(1)
       setErrors(checked.errors)
-      return
+      return null
     }
+    return checked.slug
+  }
+
+  /** Переход по кружкам сайдбара — мимо «Далее», поэтому со своей проверкой. */
+  const jumpTo = (n: number) => {
+    if (n > 1 && !commitStep1({ returnToStep1: true })) return
     goTo(n)
   }
 
@@ -176,20 +185,15 @@ export default function Onboarding() {
   const create = async () => {
     // Нормализуем и проверяем здесь же, а не полагаемся на то, что стейт успел
     // обновиться после шага 1: отправляем ровно то, что проверили.
-    const checked = validateStep1()
-    setSlug(checked.slug)
-    if (checked.errors) {
-      setStep(1)
-      setErrors(checked.errors)
-      return
-    }
+    const validSlug = commitStep1({ returnToStep1: true })
+    if (!validSlug) return
 
     setCreating(true)
     let result
     try {
       result = await createSchool({
         name: trimmedName,
-        slug: checked.slug,
+        slug: validSlug,
         timezone,
         taxSystem,
       })
@@ -220,6 +224,7 @@ export default function Onboarding() {
       return
     }
 
+    setConfigured(result?.data?.configured ?? true)
     setStep(LAST_STEP + 1)
   }
 
@@ -244,16 +249,12 @@ export default function Onboarding() {
       // Локальные проверки строго первыми: `checkSlug` знает только про
       // занятость и на зарезервированный адрес вроде `admin` ответит
       // «свободен» — без этой ветки юзер узнал бы о проблеме только в конце.
-      const checked = validateStep1()
-      setSlug(checked.slug)
-      if (checked.errors) {
-        setErrors(checked.errors)
-        return
-      }
+      const validSlug = commitStep1()
+      if (!validSlug) return
 
       setCheckingSlug(true)
       try {
-        const { data, error } = await authClient.organization.checkSlug({ slug: checked.slug })
+        const { data, error } = await authClient.organization.checkSlug({ slug: validSlug })
         if (error || !data?.status) {
           setErrors({ slug: 'Этот адрес уже занят — выберите другой.' })
           return
@@ -433,6 +434,9 @@ export default function Onboarding() {
                     <InputGroup className="h-9">
                       <InputGroupInput
                         id="onb-slug"
+                        // Иначе правка во время проверки: ответ придёт про
+                        // старый адрес, а дальше уедет уже новый, непроверенный.
+                        disabled={checkingSlug}
                         placeholder="kodik"
                         value={slug}
                         onChange={(e) => onSlugChange(e.target.value)}
@@ -575,6 +579,7 @@ export default function Onboarding() {
           domain={domain}
           timezone={`${tzOption.label}, ${utcOffset(tzOption.tz)}`}
           tax={taxOption.label}
+          configured={configured}
           // Переход межподдоменный — router.push() здесь не сработает.
           onOpen={() => {
             window.location.href = `${protocol}://${slug}.${rootDomain}`
@@ -635,19 +640,29 @@ function SuccessScreen({
   domain,
   timezone,
   tax,
+  configured,
   onOpen,
 }: {
   name: string
   domain: string
   timezone: string
   tax: string
+  /** Легли ли таймзона и налоги в базу. См. `createSchool`. */
+  configured: boolean
   onOpen: () => void
 }) {
+  // Школа создана в любом случае, но подтверждать несохранённое нельзя: с
+  // разошедшимся поясом уедут расписание и границы учебного дня, а пользователь
+  // считал бы вопрос закрытым.
   const summary = [
     { label: 'Название', value: name },
     { label: 'Адрес', value: domain },
-    { label: 'Часовой пояс', value: timezone },
-    { label: 'Налоговый режим', value: tax },
+    ...(configured
+      ? [
+          { label: 'Часовой пояс', value: timezone },
+          { label: 'Налоговый режим', value: tax },
+        ]
+      : []),
   ]
 
   return (
@@ -670,6 +685,17 @@ function SuccessScreen({
           </div>
         ))}
       </div>
+
+      {!configured && (
+        <Alert className="border-warning/20 bg-warning/8 mb-6 text-left">
+          <Info className="text-warning" />
+          <AlertTitle>Часовой пояс и налоги сохранить не удалось</AlertTitle>
+          <AlertDescription>
+            Школа создана. Задайте их в разделе «Организация» — до этого расписание считается по
+            московскому времени.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Button size="lg" className="h-11 w-full rounded-xl text-sm" onClick={onOpen}>
         Перейти в дашборд

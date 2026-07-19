@@ -10,7 +10,12 @@ import { RESERVED_SLUGS, slugify } from '@/src/lib/utils'
 import { APIError } from 'better-auth'
 import { headers } from 'next/headers'
 import z from 'zod'
-import { TAX_SYSTEM_CONFIG_SCHEMAS, TAX_SYSTEMS, type TaxSystemKey } from './tax-systems/schemas'
+import {
+  DEFAULT_TAX_SYSTEM,
+  TAX_SYSTEM_CONFIG_SCHEMAS,
+  TAX_SYSTEMS,
+  type TaxSystemKey,
+} from './tax-systems/schemas'
 
 /** better-auth отдаёт свои ошибки по-английски — переводим по коду. */
 const ORG_ERROR_MESSAGES: Record<string, string> = {
@@ -18,9 +23,14 @@ const ORG_ERROR_MESSAGES: Record<string, string> = {
   YOU_HAVE_REACHED_THE_MAXIMUM_NUMBER_OF_ORGANIZATIONS: 'У вас уже есть школа.',
 }
 
-const ENABLED_TAX_SYSTEMS = TAX_SYSTEMS.filter((t) => t.enabled).map((t) => t.value) as [
-  TaxSystemKey,
-  ...TaxSystemKey[],
+/**
+ * Режим по умолчанию идёт первым элементом, а не приходит из `filter` — так
+ * непустота кортежа верна по построению, без каста. Погасите `enabled` у всех
+ * режимов, и `z.enum([])` молча отвергал бы вообще любое создание школы.
+ */
+const ENABLED_TAX_SYSTEMS: [TaxSystemKey, ...TaxSystemKey[]] = [
+  DEFAULT_TAX_SYSTEM,
+  ...TAX_SYSTEMS.filter((t) => t.enabled && t.value !== DEFAULT_TAX_SYSTEM).map((t) => t.value),
 ]
 
 const CreateSchoolSchema = z.object({
@@ -120,7 +130,11 @@ export const createSchool = publicAction
       })
     } catch (error) {
       console.error('createSchool: школа создана, донастройка не удалась', { slug, error })
+      // Школу отдаём, но не даём мастеру отрапортовать настройки, которых нет:
+      // молча разошедшийся часовой пояс — это сдвинутое расписание и границы
+      // учебного дня, а пользователь видел бы подтверждение своего выбора.
+      return { slug, configured: false }
     }
 
-    return { slug }
+    return { slug, configured: true }
   })
