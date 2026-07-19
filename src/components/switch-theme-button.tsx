@@ -1,24 +1,13 @@
 'use client'
 
-import { Monitor, Moon, Sun } from 'lucide-react'
+import { Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
 import { Button } from '@/src/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
 import { useSyncExternalStore } from 'react'
 
-const themeNames: Record<string, React.ReactNode> = {
-  light: <Sun />,
-  dark: <Moon />,
-  system: <Monitor />,
-}
 export function SwitchThemeButton() {
-  const { theme, setTheme } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme()
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -26,15 +15,13 @@ export function SwitchThemeButton() {
   )
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" size={'icon'} />}>
-        {mounted && theme && themeNames[theme]}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme('light')}>Светлая</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('dark')}>Тёмная</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('system')}>Системная</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button
+      variant="outline"
+      size="icon-lg"
+      aria-label="Сменить тему"
+      onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+    >
+      {mounted && (resolvedTheme === 'dark' ? <Moon /> : <Sun />)}
+    </Button>
   )
 }
