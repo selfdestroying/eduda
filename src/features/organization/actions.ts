@@ -5,10 +5,12 @@ import { auth } from '@/src/lib/auth/server'
 import prisma from '@/src/lib/db/prisma'
 import { ConflictError, UnauthorizedError } from '@/src/lib/error'
 import { publicAction } from '@/src/lib/safe-action'
+import { isValidTimeZone } from '@/src/lib/timezone'
 import { RESERVED_SLUGS, slugify } from '@/src/lib/utils'
 import { APIError } from 'better-auth'
 import { headers } from 'next/headers'
 import z from 'zod'
+import { TAX_SYSTEM_CONFIG_SCHEMAS, type TaxSystemKey } from './tax-systems/schemas'
 
 /** better-auth отдаёт свои ошибки по-английски — переводим по коду. */
 const ORG_ERROR_MESSAGES: Record<string, string> = {
@@ -24,7 +26,15 @@ const CreateSchoolSchema = z.object({
     .min(3, 'Минимум 3 символа: латиница, цифры и дефис')
     .refine((v) => slugify(v) === v, 'Только латиница, цифры и дефис')
     .refine((v) => !RESERVED_SLUGS.has(v), 'Этот адрес зарезервирован'),
-  timezone: z.string().min(1),
+  // Экшен публичный, а список поясов живёт только в клиентском компоненте —
+  // валидируем тем же `isValidTimeZone`, что и хелперы дат. Без этого мусорная
+  // строка молча легла бы в колонку, а `safeTz` так же молча подменял бы её на
+  // DEFAULT_TZ: школа работала бы по Москве, и никто бы не узнал.
+  timezone: z.string().refine(isValidTimeZone, 'Неизвестный часовой пояс'),
+  taxSystem: z.enum(
+    Object.keys(TAX_SYSTEM_CONFIG_SCHEMAS) as [TaxSystemKey, ...TaxSystemKey[]],
+    'Неизвестная система налогообложения',
+  ),
 })
 
 /**
@@ -42,7 +52,7 @@ export const createSchool = publicAction
     const session = await auth.api.getSession({ headers: requestHeaders })
     if (!session) throw new UnauthorizedError()
 
-    const { name, slug, timezone } = parsedInput
+    const { name, slug, timezone, taxSystem } = parsedInput
 
     try {
       // Заводит Organization + Member с ролью owner и проставляет
@@ -62,8 +72,16 @@ export const createSchool = publicAction
         data: { timezone },
       })
 
-      // TaxConfig не создаём: единственный доступный режим (USN_INCOME) — он же
-      // DEFAULT_TAX_SYSTEM, а `getTaxConfig` заводит эту строку лениво.
+      // Выбор из шага «Налоги» — со ставками по умолчанию для этого режима.
+      // `getTaxConfig` завёл бы строку лениво, но всегда с DEFAULT_TAX_SYSTEM,
+      // то есть выбор мастера потерялся бы, как только появится второй режим.
+      await prisma.taxConfig.create({
+        data: {
+          taxSystem,
+          config: TAX_SYSTEM_CONFIG_SCHEMAS[taxSystem].parse({}) as Prisma.InputJsonValue,
+          organizationId: Number(organization.id),
+        },
+      })
 
       return { slug }
     } catch (error) {
@@ -73,9 +91,15 @@ export const createSchool = publicAction
         throw new ConflictError('Этот адрес уже занят — выберите другой.')
       }
       if (error instanceof APIError) {
-        const code = (error.body as { code?: string } | undefined)?.code ?? ''
+        const body = error.body as { code?: string; message?: string } | undefined
+        // `message` — до generic-строки: свои `APIError` (например, бросок из
+        // `beforeCreateOrganization` про зарезервированный адрес) идут без
+        // `code`, и без этой ветки внятная причина подменялась бы на «попробуйте
+        // ещё раз» — предложение повторить то, что никогда не сработает.
         throw new ConflictError(
-          ORG_ERROR_MESSAGES[code] ?? 'Не удалось создать школу. Попробуйте ещё раз.',
+          ORG_ERROR_MESSAGES[body?.code ?? ''] ??
+            body?.message ??
+            'Не удалось создать школу. Попробуйте ещё раз.',
         )
       }
       throw error

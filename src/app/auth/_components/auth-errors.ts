@@ -24,3 +24,29 @@ export const authErrorMessages: Record<string, string> = {
 }
 
 export const FALLBACK_ERROR = 'Сервис временно недоступен. Попробуйте позже.'
+
+const RATE_LIMITED = 'Слишком много попыток. Подождите немного и попробуйте снова.'
+
+/**
+ * Сообщение для тоста. Английский `error.message` намеренно не показываем:
+ * better-auth отвечает по-английски, а UI у нас русский — незнакомый код
+ * логируем и отдаём общий текст, вместо того чтобы показать «Too many requests».
+ *
+ * На необработанной ошибке (например, недоступна БД) better-call отдаёт 500 с
+ * пустым телом — `new Response(null, ...)`, поэтому и code, и message здесь
+ * пустые, хотя тип обещает строку.
+ */
+export function authErrorMessage(error: {
+  code?: string
+  message?: string
+  status?: number
+}): string {
+  const code = typeof error.code === 'string' ? error.code : ''
+  const known = authErrorMessages[code]
+  if (known) return known
+  if (error.status === 429) return RATE_LIMITED
+  if (code || error.message) {
+    console.error('auth: непереведённая ошибка', { code, message: error.message })
+  }
+  return FALLBACK_ERROR
+}

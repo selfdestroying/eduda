@@ -120,6 +120,37 @@ export default function Onboarding() {
     setErrors({})
   }
 
+  /**
+   * Проверки шага 1. Возвращает нормализованный slug или `null`, если данные
+   * не годятся — тогда сама возвращает пользователя на шаг с адресом.
+   * Общая и для «Далее», и для прыжков по сайдбару: без неё пройденный шаг
+   * можно было испортить и перескочить через него, а поймал бы это только
+   * сервер — уже на «Создать школу».
+   */
+  const validateStep1 = () => {
+    // Края slug подрезаем здесь: `onChange` их намеренно не трогает.
+    const normalized = slugify(slug)
+    if (normalized !== slug) setSlug(normalized)
+
+    const nextErrors: typeof errors = {}
+    if (trimmedName.length < 2) nextErrors.name = 'Введите название школы.'
+    if (normalized.length < 3) nextErrors.slug = 'Минимум 3 символа: латиница, цифры и дефис.'
+    else if (RESERVED_SLUGS.has(normalized)) nextErrors.slug = 'Этот адрес зарезервирован.'
+
+    if (nextErrors.name || nextErrors.slug) {
+      setStep(1)
+      setErrors(nextErrors)
+      return null
+    }
+    return normalized
+  }
+
+  /** Переход по кружкам сайдбара — мимо «Далее», поэтому со своей проверкой. */
+  const jumpTo = (n: number) => {
+    if (n > 1 && !validateStep1()) return
+    goTo(n)
+  }
+
   const onNameChange = (value: string) => {
     setName(value)
     if (!slugEdited) setSlug(slugify(value))
@@ -127,27 +158,41 @@ export default function Onboarding() {
   }
 
   const onSlugChange = (value: string) => {
-    setSlug(slugify(value))
+    // `trim: false` — иначе дефис стирался бы прямо в момент набора.
+    setSlug(slugify(value, { trim: false }))
     setSlugEdited(true)
     setErrors((e) => ({ ...e, slug: undefined }))
   }
 
   const create = async () => {
     setCreating(true)
-    const result = await createSchool({ name: trimmedName, slug, timezone })
-    setCreating(false)
+    let result
+    try {
+      result = await createSchool({ name: trimmedName, slug, timezone, taxSystem })
+    } catch {
+      // Промис реджектится только на транспортном сбое: next-safe-action всё,
+      // что поймал на сервере, отдаёт в `serverError`.
+      toast.error('Не удалось связаться с сервером. Проверьте соединение.')
+      return
+    } finally {
+      // Строго в finally: иначе оверлей «Создаём вашу школу…» остаётся висеть
+      // поверх всего мастера навсегда, и выйти можно только перезагрузкой.
+      setCreating(false)
+    }
 
     const invalid = result?.validationErrors
-    const error =
-      result?.serverError ??
-      invalid?.slug?._errors?.[0] ??
-      invalid?.name?._errors?.[0] ??
-      (invalid ? 'Проверьте данные школы.' : null)
+    // Ошибку показываем у того поля, из которого она пришла: раньше всё
+    // сваливалось в slug, и «Введите название школы» висело под адресом.
+    // `serverError` относим к адресу — это почти всегда занятый slug (гонка
+    // с `checkSlug`), а остальные его варианты и без подписи у поля понятны.
+    const nameError = invalid?.name?._errors?.[0]
+    const slugError = invalid?.slug?._errors?.[0] ?? result?.serverError
+    const error = nameError ?? slugError ?? (invalid ? 'Проверьте данные школы.' : null)
+
     if (error) {
-      // Почти всегда это занятый slug — возвращаем на шаг с адресом.
       toast.error(error)
       setStep(1)
-      setErrors({ slug: error })
+      setErrors(nameError ? { name: nameError } : { slug: slugError })
       return
     }
 
@@ -175,21 +220,23 @@ export default function Onboarding() {
       // Локальные проверки строго первыми: `checkSlug` знает только про
       // занятость и на зарезервированный адрес вроде `admin` ответит
       // «свободен» — без этой ветки юзер узнал бы о проблеме только в конце.
-      const nextErrors: typeof errors = {}
-      if (trimmedName.length < 2) nextErrors.name = 'Введите название школы.'
-      if (slug.length < 3) nextErrors.slug = 'Минимум 3 символа: латиница, цифры и дефис.'
-      else if (RESERVED_SLUGS.has(slug)) nextErrors.slug = 'Этот адрес зарезервирован.'
-      if (nextErrors.name || nextErrors.slug) {
-        setErrors(nextErrors)
-        return
-      }
+      const normalized = validateStep1()
+      if (!normalized) return
 
       setCheckingSlug(true)
-      const { data, error } = await authClient.organization.checkSlug({ slug })
-      setCheckingSlug(false)
-      if (error || !data?.status) {
-        setErrors({ slug: 'Этот адрес уже занят — выберите другой.' })
+      try {
+        const { data, error } = await authClient.organization.checkSlug({ slug: normalized })
+        if (error || !data?.status) {
+          setErrors({ slug: 'Этот адрес уже занят — выберите другой.' })
+          return
+        }
+      } catch {
+        // Сбой на уровне fetch — не повод молча запирать пользователя на шаге.
+        setErrors({ slug: 'Не удалось проверить адрес. Попробуйте ещё раз.' })
         return
+      } finally {
+        // Строго в finally: иначе `checkingSlug` навсегда блокирует «Далее».
+        setCheckingSlug(false)
       }
     }
     if (step === LAST_STEP) {
@@ -239,7 +286,7 @@ export default function Onboarding() {
                       <button
                         type="button"
                         disabled={!clickable}
-                        onClick={() => goTo(n)}
+                        onClick={() => jumpTo(n)}
                         className={cn(
                           'flex size-8.5 shrink-0 items-center justify-center rounded-full text-[0.8125rem] font-semibold transition-colors',
                           done && 'bg-primary text-primary-foreground',

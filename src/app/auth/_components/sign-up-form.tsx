@@ -13,7 +13,7 @@ import { useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import z from 'zod'
-import { authErrorMessages, FALLBACK_ERROR } from './auth-errors'
+import { authErrorMessage } from './auth-errors'
 
 const SignUpSchema = z
   .object({
@@ -78,8 +78,7 @@ export function SignUpForm() {
             router.push('/onboarding')
           },
           onError({ error }) {
-            const code = typeof error.code === 'string' ? error.code : ''
-            toast.error(authErrorMessages[code] || error.message || FALLBACK_ERROR)
+            toast.error(authErrorMessage(error))
           },
         },
       })

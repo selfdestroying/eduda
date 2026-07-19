@@ -11,7 +11,7 @@ import { useTransition } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import z from 'zod'
-import { authErrorMessages, FALLBACK_ERROR } from './auth-errors'
+import { authErrorMessage } from './auth-errors'
 
 interface SignInFormProps {
   onSuccess?: () => void | Promise<void>
@@ -45,11 +45,7 @@ export function SignInForm({ onSuccess }: SignInFormProps) {
             await onSuccess?.()
           },
           onError({ error }) {
-            // На необработанной ошибке (например, недоступна БД) better-call
-            // отдаёт 500 с пустым телом — `new Response(null, ...)`, поэтому
-            // и code, и message здесь пустые, хотя тип обещает строку.
-            const code = typeof error.code === 'string' ? error.code : ''
-            toast.error(authErrorMessages[code] || error.message || FALLBACK_ERROR)
+            toast.error(authErrorMessage(error))
           },
         },
       })

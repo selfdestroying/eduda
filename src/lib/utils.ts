@@ -116,18 +116,23 @@ const TRANSLIT: Record<string, string> = {
   я: 'ya',
 }
 
-/** Название → slug: транслит кириллицы, латиница/цифры, дефисы. */
-export function slugify(input: string): string {
+/**
+ * Название → slug: транслит кириллицы, латиница/цифры, дефисы.
+ *
+ * `trim: false` оставляет дефисы и цифры по краям — режим для `onChange`:
+ * при полной нормализации на каждое нажатие дефис исчезал бы в момент набора
+ * (`kod-` → `kod`), и ввести `kod-lab` было бы невозможно. Края подрезаем
+ * дефолтным `slugify()` перед валидацией и отправкой.
+ */
+export function slugify(input: string, { trim = true } = {}): string {
   let out = ''
   for (const ch of input.toLowerCase()) {
     if (ch in TRANSLIT) out += TRANSLIT[ch]
     else if (/[a-z0-9]/.test(ch)) out += ch
     else out += '-'
   }
-  return out
-    .replace(/-+/g, '-')
-    .replace(/^[^a-z]+/, '')
-    .replace(/-+$/, '')
+  out = out.replace(/-+/g, '-')
+  return trim ? out.replace(/^[^a-z]+/, '').replace(/-+$/, '') : out
 }
 
 export const DaysOfWeek = {
