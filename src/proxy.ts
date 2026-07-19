@@ -1,7 +1,7 @@
 import { auth } from '@/src/lib/auth/server'
 import { isRouteDisabled } from '@/src/lib/features/registry'
 import { NextRequest, NextResponse } from 'next/server'
-import { protocol, rootDomain } from './lib/utils'
+import { protocol, rootDomain, signInUrl } from './lib/utils'
 
 type SessionData = Awaited<ReturnType<typeof auth.api.getSession>>
 
@@ -10,8 +10,22 @@ const RESERVED_SUBDOMAINS = new Set(['auth', 'admin', 'shop', 'docs'])
 /** Hostname корневого домена без порта */
 const rootHostname = rootDomain.split(':')[0]
 
-const AUTH_REDIRECT_BASE = `${protocol}://auth.${rootDomain}/sign-in`
 const ROOT_URL = `${protocol}://${rootDomain}`
+
+/**
+ * При недоступной БД better-auth обычно возвращает `null` (внутри
+ * `getSessionFromCtx` стоит `.catch(() => null)`), но на отдельных путях может и
+ * бросить. Ловим, чтобы сбой не превращался в 500 на всех маршрутах сразу:
+ * пользователь просто уедет на форму входа, а попытка войти покажет причину.
+ */
+async function getSessionSafe(request: NextRequest): Promise<SessionData> {
+  try {
+    return await auth.api.getSession({ headers: request.headers })
+  } catch (error) {
+    console.error('proxy: не удалось прочитать сессию', error)
+    return null
+  }
+}
 
 function extractSubdomain(request: NextRequest): string | null {
   const host = request.headers.get('host') ?? ''
@@ -42,11 +56,6 @@ function extractSubdomain(request: NextRequest): string | null {
   return null
 }
 
-function buildAuthRedirectUrl(request: NextRequest): string {
-  const returnTo = encodeURIComponent(request.nextUrl.href)
-  return `${AUTH_REDIRECT_BASE}?returnTo=${returnTo}`
-}
-
 export async function proxy(request: NextRequest) {
   const subdomain = extractSubdomain(request)
   const { pathname, search } = request.nextUrl
@@ -67,16 +76,14 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL('/', request.url))
     }
     // `/` — гейт входа: вошёл и есть школа → сразу в школу, иначе → на вход.
-    const session = await auth.api.getSession({ headers: request.headers })
+    const session = await getSessionSafe(request)
     if (session?.organization) {
       return NextResponse.redirect(`${protocol}://${session.organization.slug}.${rootDomain}`)
     }
-    return NextResponse.redirect(buildAuthRedirectUrl(request))
+    return NextResponse.redirect(signInUrl)
   }
 
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  })
+  const session = await getSessionSafe(request)
 
   if (RESERVED_SUBDOMAINS.has(subdomain)) {
     return handleReservedSubdomain(subdomain, pathname, search, request, session)
@@ -93,11 +100,13 @@ function handleReservedSubdomain(
   session: SessionData,
 ) {
   switch (subdomain) {
+    // `auth` — поверхность восстановления: форму входа показываем всегда,
+    // сессию здесь не проверяем.
     case 'auth': {
-      if (pathname === '/') {
-        return NextResponse.redirect(new URL('/sign-in', request.url))
-      }
-      return NextResponse.rewrite(new URL(`/auth${pathname}${search}`, request.url))
+      // `/` — сама страница входа, поэтому хопа на /sign-in больше нет.
+      // Для корня отдаём `/auth`, а не `/auth/`, чтобы не плодить редирект на слэше.
+      const suffix = pathname === '/' ? '' : pathname
+      return NextResponse.rewrite(new URL(`/auth${suffix}${search}`, request.url))
     }
 
     case 'admin': {
@@ -105,7 +114,7 @@ function handleReservedSubdomain(
         return NextResponse.redirect(new URL('/', request.url))
       }
       if (!session) {
-        return NextResponse.redirect(buildAuthRedirectUrl(request))
+        return NextResponse.redirect(signInUrl)
       }
       if (session.userRole === 'admin') {
         return NextResponse.rewrite(new URL(`/admin${pathname}${search}`, request.url))
@@ -132,7 +141,7 @@ function handleOrgSubdomain(
   session: SessionData,
 ) {
   if (!session) {
-    return NextResponse.redirect(buildAuthRedirectUrl(request))
+    return NextResponse.redirect(signInUrl)
   }
 
   const isMember = session.organization?.slug === subdomain

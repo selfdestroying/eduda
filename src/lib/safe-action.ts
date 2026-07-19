@@ -9,7 +9,7 @@ import { ActionError, ForbiddenError, UnauthorizedError } from './error'
 import { type FeatureKey, isFeatureDisabled } from './features/registry'
 import { checkPermission, type OrganizationPermissionCheck } from './permissions/organization'
 import { DEFAULT_TZ } from './timezone'
-import { protocol, rootDomain } from './utils'
+import { signInUrl } from './utils'
 
 /** Схема метаданных для всех server actions */
 const metadataSchema = z.object({
@@ -47,7 +47,7 @@ export const authAction = baseClient.use(async ({ next }) => {
   })
 
   if (!session) {
-    redirect(`${protocol}://auth.${rootDomain}/sign-in`)
+    redirect(signInUrl)
   }
 
   if (!session.organizationId) {

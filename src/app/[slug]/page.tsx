@@ -1,7 +1,7 @@
 import { Calendar } from '@/src/features/calendar/components/calendar'
 import { HOME_VIEW_CALENDAR, HOME_VIEW_COOKIE } from '@/src/features/calendar/lib/view-preference'
 import { auth } from '@/src/lib/auth/server'
-import { protocol, rootDomain } from '@/src/lib/utils'
+import { signInUrl } from '@/src/lib/utils'
 import { Metadata } from 'next'
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -15,7 +15,7 @@ export default async function Page() {
     headers: requestHeaders,
   })
   if (!session) {
-    redirect(`${protocol}://auth.${rootDomain}/sign-in`)
+    redirect(signInUrl)
   }
 
   // Пользователь включил новый вид — главная сразу показывает календарь.

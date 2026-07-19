@@ -1,7 +1,7 @@
 import { Card, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
 import SmartFeedPage from '@/src/features/smart-feed/components/smart-feed-page'
 import { auth } from '@/src/lib/auth/server'
-import { protocol, rootDomain } from '@/src/lib/utils'
+import { signInUrl } from '@/src/lib/utils'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 
@@ -14,7 +14,7 @@ export default async function Page() {
   })
 
   if (!session || !session.organizationId) {
-    redirect(`${protocol}://auth.${rootDomain}/sign-in`)
+    redirect(signInUrl)
   }
 
   if (session.memberRole !== 'owner' && session.memberRole !== 'manager') {

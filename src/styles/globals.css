@@ -211,3 +211,34 @@
 @utility animate-landing-pulse {
   animation: landing-pulse 6s ease-in-out infinite;
 }
+
+/*
+ * Переключение вкладок: пилюля, высота контейнера и появление контента должны
+ * читаться как одно движение, поэтому длительность и кривая у всех трёх общие
+ * (см. `TabsIndicator` — там те же значения).
+ */
+@theme {
+  --ease-tab: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-tab: 300ms;
+}
+
+@keyframes tab-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-tab-enter {
+  animation: tab-enter var(--duration-tab) var(--ease-tab) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-tab-enter {
+    animation: none;
+  }
+}

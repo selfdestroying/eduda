@@ -17,7 +17,7 @@ function Tabs({ className, orientation = 'horizontal', ...props }: TabsPrimitive
 }
 
 const tabsListVariants = cva(
-  'rounded-lg p-[3px] group-data-horizontal/tabs:h-8 data-[variant=line]:rounded-none group/tabs-list text-muted-foreground inline-flex w-fit items-center justify-center group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col',
+  'relative rounded-lg p-[3px] group-data-horizontal/tabs:h-8 data-[variant=line]:rounded-none group/tabs-list text-muted-foreground inline-flex w-fit items-center justify-center group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col',
   {
     variants: {
       variant: {
@@ -41,6 +41,25 @@ function TabsList({
       data-slot="tabs-list"
       data-variant={variant}
       className={cn(tabsListVariants({ variant }), className)}
+      {...props}
+    />
+  )
+}
+
+/**
+ * Скользящая «пилюля» под активной вкладкой. Base UI отдаёт позицию и размер
+ * активного таба через CSS-переменные `--active-tab-*`.
+ * Используется вместе с `data-active:bg-transparent` на триггерах.
+ */
+function TabsIndicator({ className, ...props }: TabsPrimitive.Indicator.Props) {
+  return (
+    <TabsPrimitive.Indicator
+      data-slot="tabs-indicator"
+      renderBeforeHydration
+      className={cn(
+        'bg-background pointer-events-none absolute top-(--active-tab-top) left-0 h-(--active-tab-height) w-(--active-tab-width) [transform:translateX(var(--active-tab-left))] rounded-md shadow-sm transition-[transform,width] duration-(--duration-tab) ease-(--ease-tab) motion-reduce:transition-none',
+        className,
+      )}
       {...props}
     />
   )
@@ -72,4 +91,4 @@ function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   )
 }
 
-export { Tabs, TabsContent, TabsList, tabsListVariants, TabsTrigger }
+export { Tabs, TabsContent, TabsIndicator, TabsList, tabsListVariants, TabsTrigger }
