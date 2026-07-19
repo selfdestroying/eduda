@@ -10,7 +10,7 @@
  * приходить — тогда форму регистрации надо будет переводить на «мы отправили
  * письмо».
  */
-export const authErrorMessages: Record<string, string> = {
+const authErrorMessages: Record<string, string> = {
   INVALID_EMAIL_OR_PASSWORD: 'Неверный email или пароль',
   INVALID_PASSWORD: 'Неверный email или пароль',
   USER_EMAIL_NOT_FOUND: 'Неверный email или пароль',
@@ -23,7 +23,10 @@ export const authErrorMessages: Record<string, string> = {
   USER_ALREADY_EXISTS: 'Этот email уже зарегистрирован',
 }
 
-export const FALLBACK_ERROR = 'Сервис временно недоступен. Попробуйте позже.'
+// Не экспортируются намеренно: `authErrorMessage` — единственный вход в модуль.
+// Иначе форма снова дотянется до карты напрямую и вернёт `|| error.message`,
+// то есть английский текст better-auth в русский тост.
+const FALLBACK_ERROR = 'Сервис временно недоступен. Попробуйте позже.'
 
 const RATE_LIMITED = 'Слишком много попыток. Подождите немного и попробуйте снова.'
 

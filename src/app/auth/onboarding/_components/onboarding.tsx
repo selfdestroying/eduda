@@ -121,33 +121,42 @@ export default function Onboarding() {
   }
 
   /**
-   * Проверки шага 1. Возвращает нормализованный slug или `null`, если данные
-   * не годятся — тогда сама возвращает пользователя на шаг с адресом.
-   * Общая и для «Далее», и для прыжков по сайдбару: без неё пройденный шаг
-   * можно было испортить и перескочить через него, а поймал бы это только
-   * сервер — уже на «Создать школу».
+   * Проверки шага 1 — чистые: возвращают нормализованный slug и ошибки полей,
+   * никуда не переводя. Куда вести пользователя, решает вызывающий: «Далее»
+   * оставляет его на месте, прыжок по сайдбару и «Создать школу» — возвращают
+   * на шаг с адресом.
+   *
+   * Общие для всех трёх: без них пройденный шаг можно было испортить и
+   * перескочить, а поймал бы это только сервер.
    */
   const validateStep1 = () => {
     // Края slug подрезаем здесь: `onChange` их намеренно не трогает.
     const normalized = slugify(slug)
-    if (normalized !== slug) setSlug(normalized)
 
-    const nextErrors: typeof errors = {}
-    if (trimmedName.length < 2) nextErrors.name = 'Введите название школы.'
-    if (normalized.length < 3) nextErrors.slug = 'Минимум 3 символа: латиница, цифры и дефис.'
-    else if (RESERVED_SLUGS.has(normalized)) nextErrors.slug = 'Этот адрес зарезервирован.'
+    const fieldErrors: typeof errors = {}
+    if (trimmedName.length < 2) fieldErrors.name = 'Введите название школы.'
+    if (normalized.length < 3) fieldErrors.slug = 'Минимум 3 символа: латиница, цифры и дефис.'
+    else if (RESERVED_SLUGS.has(normalized)) fieldErrors.slug = 'Этот адрес зарезервирован.'
 
-    if (nextErrors.name || nextErrors.slug) {
-      setStep(1)
-      setErrors(nextErrors)
-      return null
+    return {
+      slug: normalized,
+      errors: fieldErrors.name || fieldErrors.slug ? fieldErrors : null,
     }
-    return normalized
   }
 
   /** Переход по кружкам сайдбара — мимо «Далее», поэтому со своей проверкой. */
   const jumpTo = (n: number) => {
-    if (n > 1 && !validateStep1()) return
+    if (n <= 1) {
+      goTo(n)
+      return
+    }
+    const checked = validateStep1()
+    setSlug(checked.slug)
+    if (checked.errors) {
+      setStep(1)
+      setErrors(checked.errors)
+      return
+    }
     goTo(n)
   }
 
@@ -165,10 +174,25 @@ export default function Onboarding() {
   }
 
   const create = async () => {
+    // Нормализуем и проверяем здесь же, а не полагаемся на то, что стейт успел
+    // обновиться после шага 1: отправляем ровно то, что проверили.
+    const checked = validateStep1()
+    setSlug(checked.slug)
+    if (checked.errors) {
+      setStep(1)
+      setErrors(checked.errors)
+      return
+    }
+
     setCreating(true)
     let result
     try {
-      result = await createSchool({ name: trimmedName, slug, timezone, taxSystem })
+      result = await createSchool({
+        name: trimmedName,
+        slug: checked.slug,
+        timezone,
+        taxSystem,
+      })
     } catch {
       // Промис реджектится только на транспортном сбое: next-safe-action всё,
       // что поймал на сервере, отдаёт в `serverError`.
@@ -220,18 +244,24 @@ export default function Onboarding() {
       // Локальные проверки строго первыми: `checkSlug` знает только про
       // занятость и на зарезервированный адрес вроде `admin` ответит
       // «свободен» — без этой ветки юзер узнал бы о проблеме только в конце.
-      const normalized = validateStep1()
-      if (!normalized) return
+      const checked = validateStep1()
+      setSlug(checked.slug)
+      if (checked.errors) {
+        setErrors(checked.errors)
+        return
+      }
 
       setCheckingSlug(true)
       try {
-        const { data, error } = await authClient.organization.checkSlug({ slug: normalized })
+        const { data, error } = await authClient.organization.checkSlug({ slug: checked.slug })
         if (error || !data?.status) {
           setErrors({ slug: 'Этот адрес уже занят — выберите другой.' })
           return
         }
-      } catch {
+      } catch (error) {
         // Сбой на уровне fetch — не повод молча запирать пользователя на шаге.
+        // Логируем: иначе CORS, офлайн и 500 неотличимы по жалобе «не пускает».
+        console.error('onboarding: checkSlug не отработал', error)
         setErrors({ slug: 'Не удалось проверить адрес. Попробуйте ещё раз.' })
         return
       } finally {
