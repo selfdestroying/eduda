@@ -29,7 +29,7 @@ const validTimeZoneCache = new Map<string, boolean>()
  * Результат кешируется: конструктор `Intl.DateTimeFormat` относительно дорог,
  * а поясов в системе немного.
  */
-function isValidTimeZone(tz: string): boolean {
+export function isValidTimeZone(tz: string): boolean {
   const cached = validTimeZoneCache.get(tz)
   if (cached !== undefined) return cached
   let valid = false

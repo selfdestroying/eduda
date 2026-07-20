@@ -199,9 +199,13 @@ export const getDashboardMonthData = authAction
     const nextMonthStart = getNextMonthStart(parsedInput.month)
     const today = todayYmdInTz(ctx.tz)
 
+    // organizationId передаём явно: без него better-auth возьмёт
+    // `session.activeOrganizationId`, который может указывать на другую школу,
+    // чем поддомен запроса.
     const canReadAll = await auth.api.hasPermission({
       headers: await headers(),
       body: {
+        organizationId: String(ctx.session.organizationId),
         permissions: {
           lesson: ['readAll'],
         },

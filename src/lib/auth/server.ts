@@ -5,6 +5,7 @@ import { admin as adminPlugin, customSession, organization } from 'better-auth/p
 import prisma from '../db/prisma'
 import { getEffectiveFeatures } from '../features/effective'
 import globalPermissions from '../permissions/global'
+import { extractSubdomain, RESERVED_SLUGS, RESERVED_SUBDOMAINS } from '../utils'
 import organizationPermissions, {
   fullPermission,
   getStaticRolePermission,
@@ -33,7 +34,6 @@ const options = {
   },
   emailAndPassword: {
     enabled: true,
-    disableSignUp: true,
   },
   rateLimit: {
     enabled: true,
@@ -43,15 +43,19 @@ const options = {
     session: {
       create: {
         before: async (session) => {
+          // ponytail: «последняя посещённая школа» = просто первая по findFirst.
+          // Отдельная колонка `User.lastOrganizationId` понадобится, только когда
+          // у людей реально появится несколько школ — при `organizationLimit: 1`
+          // вторая возможна лишь по приглашению, так что почти у всех она одна.
           const member = await prisma.member.findFirst({
             where: { userId: Number(session.userId) },
-            include: { organization: true },
           })
 
+          // Пользователь без школы — легальное состояние сразу после регистрации:
+          // proxy отправит его на онбординг. Раньше здесь бросался UNAUTHORIZED,
+          // из-за чего новый аккаунт не мог получить сессию в принципе.
           if (!member) {
-            throw new APIError('UNAUTHORIZED', {
-              message: 'Вы не состоите ни в одной школе.',
-            })
+            return { data: session }
           }
 
           return {
@@ -98,6 +102,21 @@ const options = {
         enabled: true,
       },
       allowUserToCreateOrganization: true,
+      // Вторая школа — только по приглашению. Без лимита любой аккаунт мог бы
+      // нарезать организации через API мимо UI, а регистрация теперь открыта.
+      organizationLimit: 1,
+      organizationHooks: {
+        // `checkSlug` знает только про занятость и на `admin` ответит
+        // «свободен», поэтому зарезервированные адреса отсекаем сами.
+        beforeCreateOrganization: async ({ organization }) => {
+          // slug в хуке опционален по типам; пустая строка в набор не попадёт.
+          if (RESERVED_SLUGS.has(organization.slug ?? '')) {
+            throw new APIError('BAD_REQUEST', {
+              message: 'Этот адрес зарезервирован — выберите другой.',
+            })
+          }
+        },
+      },
       schema: {
         member: { modelName: 'Member' },
         organization: { modelName: 'Organization' },
@@ -147,15 +166,57 @@ async function resolveMemberPermissions(
   return { permissions: getStaticRolePermission(role) ?? {}, roleLabel: fallbackLabel }
 }
 
+/**
+ * Организацию запроса задаёт поддомен: страница, отрисованная на `b.eduda`,
+ * обязана работать с организацией `b`, иначе `ctx.session.organizationId` в
+ * server actions разойдётся с тенантом страницы и запись уйдёт в чужую школу.
+ *
+ * На корневом домене и на `auth.*` организации нет — там резолв отвечает на
+ * другой вопрос: «куда вести пользователя». Берём последнюю активную, иначе
+ * первую попавшуюся.
+ */
+async function resolveMember(
+  userId: number,
+  host: string | null | undefined,
+  activeOrganizationId: string | null | undefined,
+) {
+  const subdomain = extractSubdomain(host)
+
+  if (subdomain && !RESERVED_SUBDOMAINS.has(subdomain)) {
+    // Не член этой школы → `null`, и proxy уведёт на корень.
+    return prisma.member.findFirst({
+      where: { userId, organization: { slug: subdomain } },
+      include: { organization: true },
+    })
+  }
+
+  if (activeOrganizationId) {
+    const active = await prisma.member.findFirst({
+      where: { userId, organizationId: Number(activeOrganizationId) },
+      include: { organization: true },
+    })
+    if (active) return active
+  }
+
+  return prisma.member.findFirst({
+    where: { userId },
+    include: { organization: true },
+  })
+}
+
 export const auth = betterAuth({
   ...options,
   plugins: [
     ...(options.plugins ?? []),
-    customSession(async ({ user, session }) => {
-      const member = await prisma.member.findFirst({
-        where: { userId: Number(session.userId) },
-        include: { organization: true },
-      })
+    customSession(async ({ user, session }, ctx) => {
+      // `session` в колбэке не выводит поля плагинов — отсюда каст.
+      const { activeOrganizationId } = session as { activeOrganizationId?: string | null }
+
+      const member = await resolveMember(
+        Number(session.userId),
+        ctx?.headers?.get('host'),
+        activeOrganizationId,
+      )
 
       const { disabledFeatures } = await getEffectiveFeatures(member?.organizationId ?? null)
 

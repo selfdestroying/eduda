@@ -15,6 +15,7 @@ import { Field, FieldLabel } from '@/src/components/ui/field'
 import { Input } from '@/src/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/src/components/ui/radio-group'
 import { PERMISSION_MODULE_KEYS, type ModuleLevel } from '@/src/lib/permissions/modules'
+import { slugify } from '@/src/lib/utils'
 import { Loader, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useRoleCreateMutation } from '../queries'
@@ -27,56 +28,6 @@ const PRESETS: { value: ModuleLevel; label: string; description: string }[] = [
 
 const buildModules = (level: ModuleLevel): Record<string, ModuleLevel> =>
   Object.fromEntries(PERMISSION_MODULE_KEYS.map((key) => [key, level]))
-
-const TRANSLIT: Record<string, string> = {
-  а: 'a',
-  б: 'b',
-  в: 'v',
-  г: 'g',
-  д: 'd',
-  е: 'e',
-  ё: 'e',
-  ж: 'zh',
-  з: 'z',
-  и: 'i',
-  й: 'i',
-  к: 'k',
-  л: 'l',
-  м: 'm',
-  н: 'n',
-  о: 'o',
-  п: 'p',
-  р: 'r',
-  с: 's',
-  т: 't',
-  у: 'u',
-  ф: 'f',
-  х: 'h',
-  ц: 'c',
-  ч: 'ch',
-  ш: 'sh',
-  щ: 'sch',
-  ъ: '',
-  ы: 'y',
-  ь: '',
-  э: 'e',
-  ю: 'yu',
-  я: 'ya',
-}
-
-/** Название → slug: транслит кириллицы, латиница/цифры, дефисы. */
-function slugify(input: string): string {
-  let out = ''
-  for (const ch of input.toLowerCase()) {
-    if (ch in TRANSLIT) out += TRANSLIT[ch]
-    else if (/[a-z0-9]/.test(ch)) out += ch
-    else out += '-'
-  }
-  return out
-    .replace(/-+/g, '-')
-    .replace(/^[^a-z]+/, '')
-    .replace(/-+$/, '')
-}
 
 export default function AddRoleDialog() {
   const [open, setOpen] = useState(false)

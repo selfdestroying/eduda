@@ -20,7 +20,6 @@ const PasswordInput = ({ ref, className, ...props }: PasswordInputProps) => {
       <Input
         {...props}
         type={showPassword ? 'text' : 'password'}
-        name="password_fake"
         className={cn('hide-password-toggle pr-10', className)}
         ref={ref}
       />
