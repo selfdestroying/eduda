@@ -1,16 +1,14 @@
 'use client'
 
-import { createContext, ReactNode, useContext, useId } from 'react'
+import { createContext, ReactNode, useContext } from 'react'
 import { NumberField as NumberFieldPrimitive } from '@base-ui/react/number-field'
 import { cva, VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/src/lib/utils'
-import { Label } from '@/src/components/ui/label'
 import { MinusIcon, PlusIcon } from 'lucide-react'
 
 const NumberFieldContext = createContext<{
-  fieldId: string
-  size: 'sm' | 'default' | 'lg'
+  size: 'sm' | 'default'
 } | null>(null)
 
 const numberFieldGroupVariants = cva(
@@ -20,7 +18,6 @@ const numberFieldGroupVariants = cva(
       size: {
         sm: 'h-7 text-sm',
         default: 'h-8 text-sm',
-        lg: 'h-9 text-sm',
       },
     },
     defaultVariants: {
@@ -34,10 +31,8 @@ const numberFieldButtonVariants = cva(
   {
     variants: {
       size: {
-        sm: "px-1.5 ([class*='size-'])]:size-3.5 ([class*='size-'])]:size-3.5 [&_svg:not([class*='size-'])]:size-3.5 ([class*='size-'])]:size-3.5 ([class*='size-'])]:size-3 ([class*='size-'])]:size-3.5 ([class*='size-'])]:size-3.5",
-        default:
-          "px-2 ([class*='size-'])]:size-4 ([class*='size-'])]:size-4 [&_svg:not([class*='size-'])]:size-4 ([class*='size-'])]:size-4 ([class*='size-'])]:size-3.5 ([class*='size-'])]:size-4 ([class*='size-'])]:size-3.5",
-        lg: "px-2.5 ([class*='size-'])]:size-4 ([class*='size-'])]:size-4 [&_svg:not([class*='size-'])]:size-4 ([class*='size-'])]:size-4 ([class*='size-'])]:size-3.5 ([class*='size-'])]:size-4 ([class*='size-'])]:size-3.5",
+        sm: "px-1.5 [&_svg:not([class*='size-'])]:size-3.5",
+        default: "px-2 [&_svg:not([class*='size-'])]:size-4",
       },
     },
     defaultVariants: {
@@ -53,7 +48,6 @@ const numberFieldInputVariants = cva(
       size: {
         sm: 'px-2 py-0.5',
         default: 'px-2.5 py-1',
-        lg: 'px-2.5 py-1.5',
       },
     },
     defaultVariants: {
@@ -63,22 +57,18 @@ const numberFieldInputVariants = cva(
 )
 
 function NumberField({
-  id,
   className,
   size = 'default',
   ...props
 }: NumberFieldPrimitive.Root.Props & VariantProps<typeof numberFieldGroupVariants>) {
-  const generatedId = useId()
-  const fieldId = id ?? generatedId
   const sizeValue = size ?? 'default'
 
   return (
-    <NumberFieldContext.Provider value={{ fieldId, size: sizeValue }}>
+    <NumberFieldContext.Provider value={{ size: sizeValue }}>
       <NumberFieldPrimitive.Root
         className={cn('flex w-full flex-col items-start gap-2', className)}
         data-size={sizeValue}
         data-slot="number-field"
-        id={fieldId}
         {...props}
       />
     </NumberFieldContext.Provider>
@@ -177,55 +167,8 @@ function NumberFieldInput({
   )
 }
 
-function NumberFieldScrubArea({
-  className,
-  label,
-  ...props
-}: NumberFieldPrimitive.ScrubArea.Props & {
-  label: string
-}) {
-  const context = useContext(NumberFieldContext)
-  if (!context) {
-    throw new Error(
-      'NumberFieldScrubArea must be used within a NumberField component for accessibility.',
-    )
-  }
-
-  return (
-    <NumberFieldPrimitive.ScrubArea
-      className={cn('flex cursor-ew-resize', className)}
-      data-slot="number-field-scrub-area"
-      {...props}
-    >
-      <Label className="cursor-ew-resize" htmlFor={context.fieldId}>
-        {label}
-      </Label>
-      <NumberFieldPrimitive.ScrubAreaCursor className="drop-shadow-[0_1px_1px_#0008] filter">
-        <CursorGrowIcon />
-      </NumberFieldPrimitive.ScrubAreaCursor>
-    </NumberFieldPrimitive.ScrubArea>
-  )
-}
-
-function CursorGrowIcon(props: React.ComponentProps<'svg'>) {
-  return (
-    <svg
-      fill="black"
-      height="14"
-      stroke="white"
-      viewBox="0 0 24 14"
-      width="26"
-      xmlns="http://www.w3.org/2000/svg"
-      {...props}
-    >
-      <path d="M19.5 5.5L6.49737 5.51844V2L1 6.9999L6.5 12L6.49737 8.5L19.5 8.5V12L25 6.9999L19.5 2V5.5Z" />
-    </svg>
-  )
-}
-
 export {
   NumberField,
-  NumberFieldScrubArea,
   NumberFieldDecrement,
   NumberFieldIncrement,
   NumberFieldGroup,

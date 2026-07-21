@@ -158,10 +158,8 @@ export default function CreateGroupForm() {
     })
   }
 
-  const scheduleDays = fields.map((f) => f.dayOfWeek)
-  const lastLessonDate = computeLastLessonDate(watchedStartDate, scheduleDays, watchedLessonCount)
-
   const usedDays = fields.map((f) => f.dayOfWeek)
+  const lastLessonDate = computeLastLessonDate(watchedStartDate, usedDays, watchedLessonCount)
 
   const addDay = () => {
     const next = DAY_ORDER.find((d) => !usedDays.includes(d))
