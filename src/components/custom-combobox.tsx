@@ -46,6 +46,7 @@ interface CustomComboboxProps<T> {
   id?: string
   showClear?: boolean
   showTrigger?: boolean
+  ariaInvalid?: boolean
 }
 
 function defaultGetLabel<T>(item: T): string {
@@ -72,6 +73,7 @@ function CustomCombobox<T>({
   showClear = false,
   showTrigger = true,
   itemDisabled,
+  ariaInvalid,
 }: CustomComboboxProps<T>) {
   const equalityFn = isItemEqualToValue ?? ((a: T, b: T) => getKey(a) === getKey(b))
 
@@ -90,6 +92,7 @@ function CustomCombobox<T>({
         showClear={showClear}
         showTrigger={showTrigger}
         className={className}
+        aria-invalid={ariaInvalid}
       />
       <ComboboxContent>
         <ComboboxEmpty>{emptyText}</ComboboxEmpty>
