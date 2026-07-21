@@ -9,6 +9,7 @@ import {
   getStudentShopStats,
   getStudents,
   redistributeBalance,
+  searchStudents,
   updateStudent,
   updateStudentBalanceHistory,
   updateStudentCoins,
@@ -38,6 +39,19 @@ export const useStudentListQuery = () => {
       if (serverError) throw serverError
       return data ?? []
     },
+  })
+}
+
+export const useStudentSearchQuery = (query: string) => {
+  return useQuery({
+    queryKey: [...studentKeys.all, 'search', query],
+    queryFn: async () => {
+      const { data, serverError } = await searchStudents({ query })
+      if (serverError) throw serverError
+      return data ?? []
+    },
+    enabled: query.trim().length > 0,
+    placeholderData: (prev) => prev,
   })
 }
 

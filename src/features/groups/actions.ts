@@ -70,30 +70,37 @@ export const createGroup = authAction
     const {
       courseId,
       locationId,
-      teacherId,
-      rateId,
+      teachers,
       startDate,
       lessonCount,
       schedule,
       maxStudents,
       groupTypeId,
       url,
+      students,
+      name,
     } = parsedInput
 
     const sortedSchedule = [...schedule].sort(
       (a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek),
     )
-    const scheduleDaysMap = new Map(sortedSchedule.map((s) => [s.dayOfWeek, s.time]))
+    const scheduleDaysMap = new Map(sortedSchedule.map((s) => [s.dayOfWeek, s]))
 
-    // Generate lesson dates (`YYYY-MM-DD`)
-    const lessons: Array<{ date: string; time: string; organizationId: number }> = []
+    // Generate lesson dates (`YYYY-MM-DD`), stamping each day's duration
+    const lessons: Array<{ date: string; time: string; duration: number; organizationId: number }> =
+      []
     const currentDate = new Date(`${startDate}T00:00:00Z`)
     const maxIterations = lessonCount * 7 + 7
 
     for (let i = 0; i < maxIterations && lessons.length < lessonCount; i++) {
-      const time = scheduleDaysMap.get(currentDate.getUTCDay())
-      if (time) {
-        lessons.push({ date: currentDate.toISOString().slice(0, 10), time, organizationId: orgId })
+      const slot = scheduleDaysMap.get(currentDate.getUTCDay())
+      if (slot) {
+        lessons.push({
+          date: currentDate.toISOString().slice(0, 10),
+          time: slot.time,
+          duration: slot.duration,
+          organizationId: orgId,
+        })
       }
       currentDate.setUTCDate(currentDate.getUTCDate() + 1)
     }
@@ -107,9 +114,14 @@ export const createGroup = authAction
           maxStudents,
           groupTypeId,
           url,
+          name: name || undefined,
           startDate,
           teachers: {
-            create: [{ organizationId: orgId, teacherId, rateId }],
+            create: teachers.map((t) => ({
+              organizationId: orgId,
+              teacherId: t.teacherId,
+              rateId: t.rateId,
+            })),
           },
           lessons: { createMany: { data: lessons } },
         },
@@ -119,17 +131,17 @@ export const createGroup = authAction
         },
       })
 
-      const firstTeacher = group.teachers[0]
-      if (!firstTeacher) throw new Error('Group must have at least one teacher')
-
+      // Одна запись teacherLesson на каждого преподавателя × каждый урок
       await tx.teacherLesson.createMany({
-        data: group.lessons.map((l) => ({
-          organizationId: orgId,
-          lessonId: l.id,
-          teacherId: firstTeacher.teacherId,
-          bid: firstTeacher.rate.bid,
-          bonusPerStudent: firstTeacher.rate.bonusPerStudent,
-        })),
+        data: group.teachers.flatMap((tg) =>
+          group.lessons.map((l) => ({
+            organizationId: orgId,
+            lessonId: l.id,
+            teacherId: tg.teacherId,
+            bid: tg.rate.bid,
+            bonusPerStudent: tg.rate.bonusPerStudent,
+          })),
+        ),
       })
 
       if (sortedSchedule.length > 0) {
@@ -137,9 +149,50 @@ export const createGroup = authAction
           data: sortedSchedule.map((s) => ({
             dayOfWeek: s.dayOfWeek,
             time: s.time,
+            duration: s.duration,
             groupId: group.id,
             organizationId: orgId,
           })),
+        })
+      }
+
+      // Зачисление учеников: StudentGroup (+ опциональный кошелёк) и посещаемость
+      if (students.length > 0) {
+        const today = todayYmdInTz(ctx.tz)
+        for (const st of students) {
+          let walletId = st.walletId
+          if (st.newWalletName !== undefined) {
+            const wallet = await tx.wallet.create({
+              data: {
+                studentId: st.studentId,
+                organizationId: orgId,
+                name: st.newWalletName || undefined,
+              },
+            })
+            walletId = wallet.id
+          }
+          await tx.studentGroup.create({
+            data: {
+              organizationId: orgId,
+              groupId: group.id,
+              studentId: st.studentId,
+              status: 'ACTIVE',
+              statusChangedAt: today,
+              ...(walletId ? { walletId } : {}),
+            },
+          })
+        }
+
+        await tx.attendance.createMany({
+          data: students.flatMap((st) =>
+            group.lessons.map((l) => ({
+              organizationId: orgId,
+              lessonId: l.id,
+              studentId: st.studentId,
+              status: 'UNSPECIFIED' as const,
+              comment: '',
+            })),
+          ),
         })
       }
     })
@@ -268,6 +321,7 @@ export const updateScheduleAndRegenerateLessons = authAction
         data: schedule.map((s) => ({
           dayOfWeek: s.dayOfWeek,
           time: s.time,
+          duration: s.duration,
           groupId,
           organizationId: orgId,
         })),
@@ -281,24 +335,30 @@ export const updateScheduleAndRegenerateLessons = authAction
       const sortedSchedules = [...schedule].sort(
         (a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek),
       )
-      const scheduleDaysMap = new Map(sortedSchedules.map((s) => [s.dayOfWeek, s.time]))
+      const scheduleDaysMap = new Map(sortedSchedules.map((s) => [s.dayOfWeek, s]))
 
       // 4. Delete future lessons
       const { count: deletedLessonsCount } = await tx.lesson.deleteMany({
         where: { groupId, date: { gte: startDate } },
       })
 
-      // 5. Generate new lesson dates (`YYYY-MM-DD`)
-      const lessons: Array<{ date: string; time: string; organizationId: number }> = []
+      // 5. Generate new lesson dates (`YYYY-MM-DD`), stamping each day's duration
+      const lessons: Array<{
+        date: string
+        time: string
+        duration: number
+        organizationId: number
+      }> = []
       const currentDate = new Date(`${startDate}T00:00:00Z`)
       const maxIterations = lessonCount * 7 + 7
 
       for (let i = 0; i < maxIterations && lessons.length < lessonCount; i++) {
-        const time = scheduleDaysMap.get(currentDate.getUTCDay())
-        if (time) {
+        const slot = scheduleDaysMap.get(currentDate.getUTCDay())
+        if (slot) {
           lessons.push({
             date: currentDate.toISOString().slice(0, 10),
-            time,
+            time: slot.time,
+            duration: slot.duration,
             organizationId: orgId,
           })
         }
@@ -309,7 +369,13 @@ export const updateScheduleAndRegenerateLessons = authAction
       const createdLessons = await Promise.all(
         lessons.map((l) =>
           tx.lesson.create({
-            data: { date: l.date, time: l.time, organizationId: l.organizationId, groupId },
+            data: {
+              date: l.date,
+              time: l.time,
+              duration: l.duration,
+              organizationId: l.organizationId,
+              groupId,
+            },
           }),
         ),
       )
@@ -379,15 +445,16 @@ export const updateScheduleOnly = authAction
         data: schedule.map((s) => ({
           dayOfWeek: s.dayOfWeek,
           time: s.time,
+          duration: s.duration,
           groupId,
           organizationId: orgId,
         })),
       })
 
-      // Build day → time map
-      const scheduleDaysMap = new Map(schedule.map((s) => [s.dayOfWeek, s.time]))
+      // Build day → slot map
+      const scheduleDaysMap = new Map(schedule.map((s) => [s.dayOfWeek, s]))
 
-      // Update time on future lessons that match schedule days
+      // Sync time + duration on future lessons that match schedule days
       const today = todayYmdInTz(ctx.tz)
       const futureLessons = await tx.lesson.findMany({
         where: { groupId, date: { gte: today } },
@@ -396,9 +463,12 @@ export const updateScheduleOnly = authAction
 
       let updatedCount = 0
       for (const lesson of futureLessons) {
-        const newTime = scheduleDaysMap.get(new Date(`${lesson.date}T00:00:00Z`).getUTCDay())
-        if (newTime) {
-          await tx.lesson.update({ where: { id: lesson.id }, data: { time: newTime } })
+        const slot = scheduleDaysMap.get(new Date(`${lesson.date}T00:00:00Z`).getUTCDay())
+        if (slot) {
+          await tx.lesson.update({
+            where: { id: lesson.id },
+            data: { time: slot.time, duration: slot.duration },
+          })
           updatedCount++
         }
       }
@@ -766,11 +836,16 @@ export const createLessonForGroup = authAction
         include: {
           students: { where: { status: { in: ['ACTIVE', 'TRIAL'] } } },
           teachers: { include: { rate: true } },
+          schedules: true,
         },
       })
 
+      // Длительность берём из расписания для дня недели урока, иначе дефолт
+      const weekday = new Date(`${date}T00:00:00Z`).getUTCDay()
+      const duration = group.schedules.find((s) => s.dayOfWeek === weekday)?.duration ?? 60
+
       const lesson = await tx.lesson.create({
-        data: { date, time, organizationId: orgId, groupId },
+        data: { date, time, duration, organizationId: orgId, groupId },
       })
 
       if (group.students.length > 0) {

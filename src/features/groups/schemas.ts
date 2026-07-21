@@ -5,7 +5,28 @@ import * as z from 'zod'
 const ScheduleItemSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6),
   time: z.string().min(1, 'Выберите время'),
+  duration: z.number().int().positive('Укажите длительность'),
 })
+
+// ─── Teacher + rate pair ────────────────────────────────────────────
+const TeacherRateSchema = z.object({
+  teacherId: z.int('Выберите преподавателя').positive('Выберите преподавателя'),
+  rateId: z.int('Выберите ставку').positive('Выберите ставку'),
+})
+
+// ─── Enrolled student (+ wallet choice) ─────────────────────────────
+const EnrolledStudentSchema = z
+  .object({
+    studentId: z.int().positive(),
+    walletId: z.int().positive().optional(),
+    // Задан (даже пустой строкой) → создать новый кошелёк с этим именем
+    newWalletName: z.string().optional(),
+  })
+  // Ученик зачисляется только с кошельком: либо существующий, либо новый
+  .refine((v) => v.walletId !== undefined || v.newWalletName !== undefined, {
+    message: 'Выберите кошелёк',
+    path: ['walletId'],
+  })
 
 // ─── Base (shared editable fields) ─────────────────────────────────
 export const GroupBaseSchema = z.object({
@@ -22,13 +43,13 @@ export const GroupBaseSchema = z.object({
 // ─── Create ─────────────────────────────────────────────────────────
 export const CreateGroupSchema = GroupBaseSchema.extend({
   name: z.string(),
-  teacherId: z.int('Выберите учителя').positive('Выберите учителя'),
-  rateId: z.int('Выберите ставку').positive('Выберите ставку'),
+  teachers: z.array(TeacherRateSchema).min(1, 'Добавьте хотя бы одного преподавателя'),
   startDate: DateOnlySchema,
   schedule: z.array(ScheduleItemSchema).min(1, 'Выберите хотя бы один день занятий'),
   lessonCount: z
     .number('Введите количество занятий')
     .positive('Количество занятий должно быть положительным'),
+  students: z.array(EnrolledStudentSchema),
 })
 
 // ─── Update (partial base + id) ────────────────────────────────────
