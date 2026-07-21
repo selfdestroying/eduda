@@ -1,8 +1,8 @@
 model Group {
     id             Int       @id @default(autoincrement())
+    name           String?
     startDate      String
     maxStudents    Int
-    duration       Int       @default(60)
     url            String?
     status     GroupStatus   @default(ACTIVE)
     statusChangedAt     String?
@@ -37,6 +37,7 @@ model GroupSchedule {
     id        Int      @id @default(autoincrement())
     dayOfWeek Int
     time      String
+    duration  Int      @default(60)
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 

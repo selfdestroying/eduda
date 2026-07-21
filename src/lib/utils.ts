@@ -145,9 +145,11 @@ export function getFullName(firstName: string, lastName: string | null): string 
 }
 
 export function getGroupName(group: {
+  name?: string | null
   course: { name: string }
   schedules: Array<{ dayOfWeek: number; time: string }>
 }) {
+  if (group.name) return group.name
   const sorted = [...group.schedules].sort(
     (a, b) => ((a.dayOfWeek + 6) % 7) - ((b.dayOfWeek + 6) % 7),
   )

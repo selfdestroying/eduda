@@ -51,7 +51,7 @@ const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
 
 interface ManageScheduleButtonProps {
   groupId: number
-  schedules: Array<{ id: number; dayOfWeek: number; time: string }>
+  schedules: Array<{ id: number; dayOfWeek: number; time: string; duration: number }>
   isOpen: boolean
   onClose: () => void
 }
@@ -76,7 +76,7 @@ export default function ManageScheduleDialog({
 
   const sortedInitial = [...schedules]
     .sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek))
-    .map((s) => ({ dayOfWeek: s.dayOfWeek, time: s.time }))
+    .map((s) => ({ dayOfWeek: s.dayOfWeek, time: s.time, duration: s.duration }))
 
   const form = useForm<UpdateScheduleAndLessonsSchemaType>({
     resolver: zodResolver(UpdateScheduleAndLessonsSchema),
@@ -104,7 +104,7 @@ export default function ManageScheduleDialog({
     if (exists) {
       updated = current.filter((s) => s.dayOfWeek !== dayOfWeek)
     } else {
-      updated = [...current, { dayOfWeek, time: '' }]
+      updated = [...current, { dayOfWeek, time: '', duration: 60 }]
     }
     updated.sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek))
     replace(updated)

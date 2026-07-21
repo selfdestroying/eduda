@@ -87,6 +87,30 @@ export const getStudents = authAction
     })
   })
 
+// Лёгкий поиск учеников по имени для async-комбобокса (id + ФИО, максимум 20)
+export const searchStudents = authAction
+  .metadata({ actionName: 'searchStudents' })
+  .inputSchema(z.object({ query: z.string() }))
+  .action(async ({ ctx, parsedInput }) => {
+    const q = parsedInput.query.trim()
+    return await prisma.student.findMany({
+      where: {
+        organizationId: ctx.session.organizationId!,
+        ...(q
+          ? {
+              OR: [
+                { firstName: { contains: q, mode: 'insensitive' } },
+                { lastName: { contains: q, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      select: { id: true, firstName: true, lastName: true },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+      take: 20,
+    })
+  })
+
 export const getStudent = authAction
   .metadata({ actionName: 'getStudent' })
   .inputSchema(
