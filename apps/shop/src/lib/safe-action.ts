@@ -3,7 +3,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { getStudentSession } from './auth/student-session'
-import { ActionError } from './error'
+import { ActionError, ForbiddenError } from './error'
 
 const metadataSchema = z.object({
   actionName: z.string(),
@@ -32,4 +32,16 @@ export const studentAction = baseClient.use(async ({ next }) => {
     redirect('/login')
   }
   return next({ ctx: session })
+})
+
+/**
+ * Магазинный экшен. Гейт фичи продублирован здесь, чтобы его нельзя было забыть:
+ * страница может отдать 404 сама, но `addToCart`, вызванный мимо неё, обязан
+ * упереться в тот же запрет (§11.6).
+ */
+export const shopAction = studentAction.use(async ({ next, ctx }) => {
+  if (ctx.disabledShop) {
+    throw new ForbiddenError('Магазин отключён школой')
+  }
+  return next()
 })

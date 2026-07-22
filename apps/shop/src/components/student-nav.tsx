@@ -5,23 +5,24 @@ import { cn } from '@/src/lib/utils'
 import { Button } from '@repo/ui/components/button'
 import { Logo } from '@repo/ui/components/logo'
 import { SwitchThemeButton } from '@repo/ui/components/switch-theme-button'
-import { CalendarCheck, Coins, LogOut, Trophy, User } from 'lucide-react'
+import { CalendarCheck, Coins, LogOut, ShoppingBag, Trophy, User } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTransition } from 'react'
 
-type NavItem = { href: string; label: string; icon: LucideIcon }
+type NavItem = { href: string; label: string; icon: LucideIcon; shop?: true }
 
-// Растёт по мере слайсов: магазин, заказы.
+// Растёт по мере слайсов: заказы.
 const ITEMS: NavItem[] = [
   { href: '/', label: 'Профиль', icon: User },
   { href: '/attendance', label: 'Посещаемость', icon: CalendarCheck },
   { href: '/coins', label: 'Коины', icon: Coins },
   { href: '/achievements', label: 'Достижения', icon: Trophy },
+  { href: '/shop', label: 'Магазин', icon: ShoppingBag, shop: true },
 ]
 
-export function StudentNav() {
+export function StudentNav({ shopDisabled }: { shopDisabled: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
   const [signingOut, startSignOut] = useTransition()
@@ -38,8 +39,8 @@ export function StudentNav() {
       <div className="mx-auto flex h-14 max-w-3xl items-center gap-1 px-4">
         <Logo className="text-primary mr-2 size-6 shrink-0" />
         <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
-          {ITEMS.map((item) => {
-            const active = pathname === item.href
+          {ITEMS.filter((item) => !(item.shop && shopDisabled)).map((item) => {
+            const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
             return (
               <Link
                 key={item.href}
