@@ -55,7 +55,12 @@ export const DeleteStudentSchema = z.object({
   id: z.number().int().positive(),
 })
 
+export const RevealStudentPasswordSchema = z.object({
+  studentId: z.number().int().positive(),
+})
+
 export type CreateStudentSchemaType = z.infer<typeof CreateStudentSchema>
 export type EditStudentSchemaType = z.infer<typeof EditStudentSchema>
 export type UpdateStudentCoinsSchemaType = z.infer<typeof UpdateStudentCoinsSchema>
 export type DeleteStudentSchemaType = z.infer<typeof DeleteStudentSchema>
+export type RevealStudentPasswordSchemaType = z.infer<typeof RevealStudentPasswordSchema>

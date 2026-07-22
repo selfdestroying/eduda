@@ -59,6 +59,18 @@ export function demoPassword(role: DemoRole): string {
   return process.env[DEMO_USERS[role].passwordEnv] || DEMO_DEFAULT_PASSWORD
 }
 
+/**
+ * Учётки демо-учеников для входа в шоп (`apps/shop`). Логин — `demo-uchenik-N`,
+ * пароль общий: демо публичное, и один хеш на всех держит сид в лимите времени
+ * роута сброса (scrypt на каждого из ~28 учеников туда не влезает).
+ */
+export const DEMO_STUDENT_PASSWORD = 'demo1234'
+export const DEMO_STUDENT_LOGIN_PREFIX = 'demo-uchenik-'
+
+export function demoStudentLogin(index: number): string {
+  return `${DEMO_STUDENT_LOGIN_PREFIX}${index + 1}`
+}
+
 export function isDemoRole(value: string | null | undefined): value is DemoRole {
   return value === 'owner' || value === 'manager' || value === 'teacher'
 }

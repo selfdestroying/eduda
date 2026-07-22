@@ -9,6 +9,7 @@ import {
   getStudentShopStats,
   getStudents,
   redistributeBalance,
+  revealStudentPassword,
   searchStudents,
   updateStudent,
   updateStudentBalanceHistory,
@@ -17,6 +18,7 @@ import {
 import type {
   CreateStudentSchemaType,
   DeleteStudentSchemaType,
+  RevealStudentPasswordSchemaType,
   UpdateStudentCoinsSchemaType,
 } from './schemas'
 
@@ -186,6 +188,25 @@ export const useStudentCoinsMutation = (studentId: number) => {
       const message =
         typeof error === 'string' ? error : error instanceof Error ? error.message : null
       toast.error(message || 'Ошибка при изменении баланса монет.')
+    },
+  })
+}
+
+/**
+ * Показ пароля — мутация, а не запрос: каждый вызов пишется в аудит, поэтому
+ * кешировать и перезапрашивать его в фоне нельзя.
+ */
+export const useRevealStudentPasswordMutation = () => {
+  return useMutation({
+    mutationFn: async (input: RevealStudentPasswordSchemaType) => {
+      const { data, serverError } = await revealStudentPassword(input)
+      if (serverError) throw serverError
+      return data?.password ?? null
+    },
+    onError: (error) => {
+      const message =
+        typeof error === 'string' ? error : error instanceof Error ? error.message : null
+      toast.error(message || 'Не удалось показать пароль.')
     },
   })
 }

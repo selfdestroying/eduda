@@ -68,15 +68,21 @@ model StudentParent {
 }
 
 model StudentAccount {
-    id       Int    @id @default(autoincrement())
-    login    String
-    password String
-    coins    Int    @default(0)
+    id    Int    @id @default(autoincrement())
+    // Логин уникален глобально: вход в шоп идёт на едином домене, без поддомена школы.
+    login String @unique
+    // Обратимая копия пароля (AES-256-GCM, ключ STUDENT_PW_KEY) — школа обязана
+    // видеть пароль ученика. Хеш для входа лежит в StudentCredential.password.
+    // Ученик пароль не меняет, поэтому копии не могут разойтись.
+    passwordEnc Bytes?
+    coins       Int    @default(0)
 
     organizationId Int
     organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-    studentId Int     @unique
-    student   Student @relation(fields: [studentId], references: [id])
+    studentId      Int          @unique
+    student        Student      @relation(fields: [studentId], references: [id])
+    studentUserId  Int?         @unique
+    studentUser    StudentUser? @relation(fields: [studentUserId], references: [id], onDelete: SetNull)
 
     @@index([organizationId])
 }

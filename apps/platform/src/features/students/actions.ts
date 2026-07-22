@@ -10,12 +10,20 @@ import {
   parseIntFieldChange,
   writeFinancialHistoryTx,
 } from '@/src/lib/lessons-balance'
-import { authAction, featureAction } from '@/src/lib/safe-action'
+import { ConflictError, NotFoundError } from '@/src/lib/error'
+import { authAction, featureAction, permissionAction } from '@/src/lib/safe-action'
+import { createStudentUserTx, hashStudentPassword } from '@/src/lib/student-auth'
+import { decryptStudentPassword } from '@/src/lib/student-password'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import { getAgeFromBirthDate } from '@/src/lib/utils'
 import { randomInt } from 'crypto'
 import * as z from 'zod'
-import { CreateStudentSchema, DeleteStudentSchema, UpdateStudentCoinsSchema } from './schemas'
+import {
+  CreateStudentSchema,
+  DeleteStudentSchema,
+  RevealStudentPasswordSchema,
+  UpdateStudentCoinsSchema,
+} from './schemas'
 
 const transliterateToLatin = (value: string) => {
   const map: Record<string, string> = {
@@ -64,6 +72,27 @@ function generateLogin(firstName: string, lastName: string) {
   const first = transliterateToLatin(firstName).replace(/[^a-z]/g, '')
   const last = transliterateToLatin(lastName).replace(/[^a-z]/g, '')
   return `${first}${last}${randomInt(10, 99)}`
+}
+
+/**
+ * Логин уникален глобально — вход в шоп идёт на едином домене, без поддомена
+ * школы, так что «ivanov» в двух школах столкнулись бы. Случайный суффикс делает
+ * коллизию редкой; на всякий случай перебираем несколько вариантов, а последнее
+ * слово всё равно за уникальными индексами в БД.
+ *
+ * Сравнение регистронезависимое: better-auth ищет username в нижнем регистре,
+ * поэтому занятый «Ivanov» делает занятым и «ivanov».
+ */
+async function pickFreeLogin(firstName: string, lastName: string) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const login = generateLogin(firstName, lastName)
+    const taken = await prisma.studentAccount.findFirst({
+      where: { login: { equals: login, mode: 'insensitive' } },
+      select: { id: true },
+    })
+    if (!taken) return login
+  }
+  throw new ConflictError('Логин занят — попробуйте ещё раз')
 }
 
 function generatePassword() {
@@ -180,11 +209,20 @@ export const createStudent = authAction
       parsedInput
     const age = birthDate ? getAgeFromBirthDate(birthDate, ctx.tz) : null
 
-    const login = generateLogin(firstName, lastName)
+    const login = await pickFreeLogin(firstName, lastName)
     const password = generatePassword()
     const organizationId = ctx.session.organizationId!
+    // scrypt считается до транзакции — держать её открытой на время хеширования незачем.
+    const hash = await hashStudentPassword(password)
 
     await prisma.$transaction(async (tx) => {
+      const { studentUserId, passwordEnc } = await createStudentUserTx(tx, {
+        login,
+        password,
+        hash,
+        name: `${lastName} ${firstName}`,
+      })
+
       const student = await tx.student.create({
         data: {
           firstName,
@@ -194,7 +232,7 @@ export const createStudent = authAction
           url,
           organizationId,
           cart: { create: {} },
-          account: { create: { login, password, organizationId } },
+          account: { create: { login, passwordEnc, studentUserId, organizationId } },
         },
       })
 
@@ -211,6 +249,42 @@ export const createStudent = authAction
         })
       }
     })
+  })
+
+// ─── ПАРОЛЬ УЧЕНИКА ──────────────────────────────────────────────────────────
+
+/**
+ * Расшифровывает пароль ученика для показа в карточке. За permission-гейтом,
+ * каждый показ логируется: пароль виден только тому, кто и так может менять
+ * ученика, и не «просто так», а под запись.
+ */
+export const revealStudentPassword = permissionAction({ student: ['update'] })
+  .metadata({ actionName: 'revealStudentPassword' })
+  .inputSchema(RevealStudentPasswordSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const account = await prisma.studentAccount.findFirst({
+      where: {
+        studentId: parsedInput.studentId,
+        organizationId: ctx.session.organizationId!,
+      },
+      select: { passwordEnc: true },
+    })
+
+    if (!account?.passwordEnc) {
+      throw new NotFoundError('Пароль не найден — пересоздайте учётную запись ученика')
+    }
+
+    console.info(
+      '[audit] revealStudentPassword',
+      JSON.stringify({
+        actorUserId: ctx.session.user.id,
+        organizationId: ctx.session.organizationId,
+        studentId: parsedInput.studentId,
+        at: new Date().toISOString(),
+      }),
+    )
+
+    return { password: decryptStudentPassword(account.passwordEnc) }
   })
 
 // ─── UPDATE ──────────────────────────────────────────────────────────────────

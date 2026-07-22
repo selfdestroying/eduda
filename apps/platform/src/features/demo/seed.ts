@@ -18,13 +18,18 @@ import { Prisma } from '@repo/db'
 import { prisma } from '@repo/db'
 import { DEFAULT_TZ, todayYmdInTz } from '@/src/lib/timezone'
 import { auth } from '@/src/lib/auth/server'
+import { hashStudentPassword, studentEmail } from '@/src/lib/student-auth'
+import { encryptStudentPassword } from '@/src/lib/student-password'
 import {
   DEMO_EMAILS,
   DEMO_ORG_NAME,
   DEMO_ROLES,
   DEMO_SLUG,
+  DEMO_STUDENT_LOGIN_PREFIX,
+  DEMO_STUDENT_PASSWORD,
   DEMO_USERS,
   demoPassword,
+  demoStudentLogin,
   type DemoRole,
 } from './constants'
 
@@ -206,6 +211,11 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
   // 1. Снос ────────────────────────────────────────────────────────────
   await prisma.organization.deleteMany({ where: { slug: DEMO_SLUG } })
   await prisma.user.deleteMany({ where: { email: { in: DEMO_EMAILS } } })
+  // `StudentUser` не висит на организации, каскад орг его не заденет — чистим сами
+  // (каскад по userId гасит их сессии и учётные данные).
+  await prisma.studentUser.deleteMany({
+    where: { username: { startsWith: DEMO_STUDENT_LOGIN_PREFIX } },
+  })
 
   // 2. Организация ──────────────────────────────────────────────────────
   const org = await prisma.organization.create({
@@ -449,6 +459,39 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     select: { id: true, studentId: true },
   })
   const walletByStudent = new Map(wallets.map((w) => [w.studentId, w.id]))
+
+  // Учётки для входа в шоп (`apps/shop`). Без них демо-школа показывала бы
+  // магазин только со стороны платформы. Хеш считается один раз на общий пароль:
+  // scrypt на каждого ученика не укладывается в лимит времени роута сброса.
+  const studentHash = await hashStudentPassword(DEMO_STUDENT_PASSWORD)
+  const studentUsers = await prisma.studentUser.createManyAndReturn({
+    data: students.map((_, i) => ({
+      name: `${seeds[i]!.lastName} ${seeds[i]!.firstName}`,
+      email: studentEmail(demoStudentLogin(i)),
+      emailVerified: true,
+      username: demoStudentLogin(i),
+      displayUsername: demoStudentLogin(i),
+    })),
+    select: { id: true },
+  })
+  await prisma.studentCredential.createMany({
+    data: studentUsers.map((u) => ({
+      userId: u.id,
+      providerId: 'credential',
+      accountId: String(u.id),
+      password: studentHash,
+    })),
+  })
+  await prisma.studentAccount.createMany({
+    data: students.map((st, i) => ({
+      organizationId: orgId,
+      studentId: st.id,
+      login: demoStudentLogin(i),
+      passwordEnc: encryptStudentPassword(DEMO_STUDENT_PASSWORD),
+      studentUserId: studentUsers[i]!.id,
+      coins: int(0, 300),
+    })),
+  })
 
   // studentsByGroup[i] — id активных/пробных учеников группы i (для посещаемости).
   const studentsByGroup: number[][] = createdGroups.map(() => [])

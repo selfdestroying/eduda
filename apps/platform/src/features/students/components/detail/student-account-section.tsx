@@ -1,14 +1,18 @@
 'use client'
 
 import { StudentAccount } from '@repo/db'
+import { Button } from '@repo/ui/components/button'
 import { StatCard } from '@repo/ui/components/stat-card'
-import { KeyRound, Lock, User } from 'lucide-react'
+import { Eye, KeyRound, Loader2, Lock, User } from 'lucide-react'
+import { useRevealStudentPasswordMutation } from '../../queries'
 
 interface StudentAccountSectionProps {
   account: StudentAccount | null
 }
 
 export default function StudentAccountSection({ account }: StudentAccountSectionProps) {
+  const reveal = useRevealStudentPasswordMutation()
+
   if (!account) {
     return (
       <div className="space-y-3">
@@ -21,6 +25,10 @@ export default function StudentAccountSection({ account }: StudentAccountSection
     )
   }
 
+  // Пароль в БД зашифрован, а не лежит открытым текстом, поэтому его не может
+  // отрисовать сервер — только запрос по кнопке (и он же пишется в аудит).
+  const password = reveal.data
+
   return (
     <div className="space-y-3">
       <h3 className="text-muted-foreground flex items-center gap-2 text-lg font-semibold">
@@ -29,7 +37,24 @@ export default function StudentAccountSection({ account }: StudentAccountSection
       </h3>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Логин" value={account.login} icon={User} />
-        <StatCard label="Пароль" value={account.password} icon={KeyRound} />
+        <StatCard
+          label="Пароль"
+          icon={KeyRound}
+          value={
+            password ?? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="-ml-2 h-7 px-2"
+                disabled={reveal.isPending}
+                onClick={() => reveal.mutate({ studentId: account.studentId })}
+              >
+                {reveal.isPending ? <Loader2 className="animate-spin" /> : <Eye />}
+                Показать
+              </Button>
+            )
+          }
+        />
       </div>
     </div>
   )
