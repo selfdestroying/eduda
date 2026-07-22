@@ -25,10 +25,10 @@ export const UpdateProductSchema = ProductBaseSchema.partial().extend({
   image: ProductImageSchema.optional(),
 })
 
-export const DeleteProductSchema = z.object({
+export const ArchiveProductSchema = z.object({
   id: z.int('Выберите продукт').positive('Выберите корректный продукт'),
 })
 
 export type CreateProductSchemaType = z.infer<typeof CreateProductSchema>
 export type UpdateProductSchemaType = z.infer<typeof UpdateProductSchema>
-export type DeleteProductSchemaType = z.infer<typeof DeleteProductSchema>
+export type ArchiveProductSchemaType = z.infer<typeof ArchiveProductSchema>

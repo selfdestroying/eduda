@@ -28,11 +28,15 @@ import {
   DropdownMenuTrigger,
 } from '@repo/ui/components/dropdown-menu'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader, MoreVertical, Pen, Trash } from 'lucide-react'
+import { Archive, ArchiveRestore, Loader, MoreVertical, Pen } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useMappedCategoryListQuery } from '../../categories/queries'
-import { useProductDeleteMutation, useProductUpdateMutation } from '../queries'
+import {
+  useProductArchiveMutation,
+  useProductRestoreMutation,
+  useProductUpdateMutation,
+} from '../queries'
 import { UpdateProductSchema, UpdateProductSchemaType } from '../schemas'
 import { ProductWithCategory } from '../types'
 import ProductForm from './product-form'
@@ -49,7 +53,9 @@ export default function ProductActions({ product }: ProductActionsProps) {
   const { data: categories = [] } = useMappedCategoryListQuery()
 
   const updateMutation = useProductUpdateMutation()
-  const deleteMutation = useProductDeleteMutation()
+  const archiveMutation = useProductArchiveMutation()
+  const restoreMutation = useProductRestoreMutation()
+  const isArchived = product.archivedAt !== null
 
   const form = useForm<UpdateProductSchemaType>({
     resolver: zodResolver(UpdateProductSchema),
@@ -64,13 +70,8 @@ export default function ProductActions({ product }: ProductActionsProps) {
     },
   })
 
-  const handleDelete = () => {
-    deleteMutation.mutate(
-      { id: product.id },
-      {
-        onSuccess: () => setConfirmOpen(false),
-      },
-    )
+  const handleArchive = () => {
+    archiveMutation.mutate({ id: product.id }, { onSuccess: () => setConfirmOpen(false) })
   }
 
   const onSubmit = (values: UpdateProductSchemaType) => {
@@ -102,36 +103,45 @@ export default function ProductActions({ product }: ProductActionsProps) {
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => {
-              setConfirmOpen(true)
-              setOpen(false)
-            }}
-          >
-            <Trash />
-            Удалить
-          </DropdownMenuItem>
+          {isArchived ? (
+            <DropdownMenuItem
+              disabled={restoreMutation.isPending}
+              onClick={() => {
+                restoreMutation.mutate({ id: product.id })
+                setOpen(false)
+              }}
+            >
+              <ArchiveRestore />
+              Вернуть в каталог
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              onClick={() => {
+                setConfirmOpen(true)
+                setOpen(false)
+              }}
+            >
+              <Archive />
+              Архивировать
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Вы уверены, что хотите удалить продукт?</AlertDialogTitle>
+            <AlertDialogTitle>Убрать товар из каталога?</AlertDialogTitle>
             <AlertDialogDescription>
-              Это действие удалит продукт и не может быть отменено.
+              Ученики перестанут его видеть, но он останется в истории заказов — коины за него уже
+              списаны. Товар можно вернуть в каталог в любой момент.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <Button
-              variant="destructive"
-              disabled={deleteMutation.isPending}
-              onClick={handleDelete}
-            >
-              {deleteMutation.isPending ? <Loader className="animate-spin" /> : 'Удалить'}
+            <Button disabled={archiveMutation.isPending} onClick={handleArchive}>
+              {archiveMutation.isPending ? <Loader className="animate-spin" /> : 'Архивировать'}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

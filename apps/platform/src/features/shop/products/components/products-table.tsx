@@ -11,6 +11,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 
+import { Badge } from '@repo/ui/components/badge'
 import DataTable from '@repo/ui/components/data-table'
 import { Input } from '@repo/ui/components/input'
 import { Skeleton } from '@repo/ui/components/skeleton'
@@ -62,6 +63,12 @@ export default function ProductsTable() {
       {
         header: 'Название',
         accessorKey: 'name',
+        cell: ({ row }) => (
+          <span className="flex items-center gap-2">
+            {row.original.name}
+            {row.original.archivedAt && <Badge variant="secondary">в архиве</Badge>}
+          </span>
+        ),
       },
       {
         header: 'Описание',

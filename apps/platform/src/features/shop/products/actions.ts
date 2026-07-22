@@ -4,7 +4,7 @@ import { prisma } from '@repo/db'
 import { randomUUID } from 'crypto'
 import fs from 'fs/promises'
 import path from 'path'
-import { CreateProductSchema, DeleteProductSchema, UpdateProductSchema } from './schemas'
+import { ArchiveProductSchema, CreateProductSchema, UpdateProductSchema } from './schemas'
 import { featureAction } from '@/src/lib/safe-action'
 
 const IMAGE_URL = process.env.IMAGE_URL ?? ''
@@ -91,20 +91,27 @@ export const updateProduct = featureAction('shop')
     })
   })
 
-export const deleteProduct = featureAction('shop')
-  .metadata({ actionName: 'deleteProduct' })
-  .inputSchema(DeleteProductSchema)
+/**
+ * Архивация вместо удаления: товар пропадает из каталога ученика, но остаётся в
+ * его истории заказов — коины за него уже списаны, и стирать это нельзя.
+ * Картинку тоже не трогаем: она нужна той самой истории.
+ */
+export const archiveProduct = featureAction('shop')
+  .metadata({ actionName: 'archiveProduct' })
+  .inputSchema(ArchiveProductSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { id } = parsedInput
-
-    const product = await prisma.product.findUnique({
-      where: { id, organizationId: ctx.session.organizationId! },
-      select: { imageUrl: true },
+    await prisma.product.update({
+      where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
+      data: { archivedAt: new Date() },
     })
+  })
 
-    await prisma.product.delete({ where: { id, organizationId: ctx.session.organizationId! } })
-
-    if (product?.imageUrl) {
-      await deleteImageFile(product.imageUrl)
-    }
+export const restoreProduct = featureAction('shop')
+  .metadata({ actionName: 'restoreProduct' })
+  .inputSchema(ArchiveProductSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    await prisma.product.update({
+      where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
+      data: { archivedAt: null },
+    })
   })

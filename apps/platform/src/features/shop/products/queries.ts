@@ -1,9 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { createProduct, deleteProduct, getProducts, updateProduct } from './actions'
 import {
+  archiveProduct,
+  createProduct,
+  getProducts,
+  restoreProduct,
+  updateProduct,
+} from './actions'
+import {
+  ArchiveProductSchemaType,
   CreateProductSchemaType,
-  DeleteProductSchemaType,
   UpdateProductSchemaType,
 } from './schemas'
 
@@ -46,22 +52,45 @@ export const useProductCreateMutation = () => {
   })
 }
 
-export const useProductDeleteMutation = () => {
+export const useProductArchiveMutation = () => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (deletedProduct: DeleteProductSchemaType) => {
-      const { data, serverError } = await deleteProduct(deletedProduct)
+    mutationFn: async (product: ArchiveProductSchemaType) => {
+      const { data, serverError } = await archiveProduct(product)
       if (serverError) {
         throw serverError
       }
       return data
     },
     onError: () => {
-      toast.error('Не удалось удалить продукт')
+      toast.error('Не удалось архивировать товар')
     },
     onSuccess: () => {
-      toast.success('Продукт успешно удален')
+      toast.success('Товар перемещён в архив')
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: productKeys.all })
+    },
+  })
+}
+
+export const useProductRestoreMutation = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (product: ArchiveProductSchemaType) => {
+      const { data, serverError } = await restoreProduct(product)
+      if (serverError) {
+        throw serverError
+      }
+      return data
+    },
+    onError: () => {
+      toast.error('Не удалось вернуть товар из архива')
+    },
+    onSuccess: () => {
+      toast.success('Товар возвращён в каталог')
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: productKeys.all })
