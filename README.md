@@ -1,4 +1,4 @@
-ЕДУДА — a multi-tenant SaaS dashboard for educational centers. **pnpm + Turborepo monorepo**: the Next.js app lives in `apps/platform`, Prisma in `packages/db` (`@repo/db`), the shared design system in `packages/ui` (`@repo/ui`).
+ЕДУДА — a multi-tenant SaaS dashboard for educational centers. **pnpm + Turborepo monorepo**: the dashboard lives in `apps/platform`, the public documentation in `apps/docs` (fumadocs), Prisma in `packages/db` (`@repo/db`), the shared design system in `packages/ui` (`@repo/ui`).
 
 ## Getting Started
 
@@ -6,12 +6,12 @@ Requires Node (see `.nvmrc`) and pnpm (`corepack enable pnpm`). From the repo ro
 
 ```bash
 pnpm install     # installs all packages, generates the Prisma client
-pnpm dev         # starts the platform dev server
+pnpm dev         # starts both dev servers
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser. The app uses subdomains for tenants (`slug.localhost:3000`) — see `apps/platform/.env.example`.
+The dashboard is on [http://localhost:3000](http://localhost:3000), the documentation on [http://localhost:3001](http://localhost:3001). The dashboard uses subdomains for tenants (`slug.localhost:3000`) — see `apps/platform/.env.example` and `apps/docs/.env.example`.
 
-The dev server auto-updates as you edit files under `apps/platform/src/`.
+The dev servers auto-update as you edit files under `apps/platform/src/` and `apps/docs/`.
 
 ## Learn More
 

@@ -10,9 +10,10 @@ Stack: Next.js 16 (App Router, React 19, React Compiler), Prisma 7 (PostgreSQL v
 
 ## Monorepo layout (pnpm + Turborepo)
 
-The repo is a **pnpm workspace** driven by **Turborepo** (`turbo.json`). Three packages today:
+The repo is a **pnpm workspace** driven by **Turborepo** (`turbo.json`). Four packages today:
 
-- **`apps/platform`** — the Next.js app (everything that used to be at the repo root: `src/`, `content/docs`, `public/`, `next.config.ts`, etc.). Its `.env` lives here and is the **single source of truth** for environment vars. **All `src/...`, `content/...` paths mentioned elsewhere in this file now live under `apps/platform/`.**
+- **`apps/platform`** — the Next.js dashboard, port 3000 (everything that used to be at the repo root: `src/`, `public/`, `next.config.ts`, etc.). Its `.env` holds every var the dashboard needs. **All `src/...` paths mentioned elsewhere in this file live under `apps/platform/`.**
+- **`apps/docs`** (`docs`) — the public documentation, port 3001: fumadocs + the MDX content in `apps/docs/content/docs/` (`user/`, `dev/`). No auth, no DB, its own tiny `.env` (`NEXT_PUBLIC_ROOT_DOMAIN`, `PORT`). See «Documentation».
 - **`packages/db`** (`@repo/db`) — Prisma: schema (`packages/db/prisma/schema/`), migrations, `prisma.config.ts`, the generated client (`packages/db/generated/`, gitignored) and the `prisma` singleton. Ships raw TS via `exports` (no build step); the app transpiles it (`transpilePackages: ['@repo/db']`).
 - **`packages/ui`** (`@repo/ui`) — the design system: shadcn primitives + app-agnostic composites (`packages/ui/src/components/`, flat), `use-mobile` (`src/hooks/`), `cn` (`src/lib/utils.ts`), design tokens and the base layer (`src/styles/globals.css`), plus the shared `postcss.config.mjs`. Same shape as `@repo/db`: raw TS via `exports`, no build step, transpiled by the app.
 
@@ -23,7 +24,7 @@ The repo is a **pnpm workspace** driven by **Turborepo** (`turbo.json`). Three p
 Run from the **repo root** (Turborepo fans out to packages):
 
 ```bash
-pnpm dev               # turbo dev — platform dev server (port 3000)
+pnpm dev               # turbo dev — platform (3000) + docs (3001)
 pnpm build             # turbo build (runs @repo/db generate + typegen first)
 pnpm check             # turbo check (format+lint+tsc) — run before committing
 pnpm ts:check          # turbo ts:check
@@ -40,7 +41,7 @@ shadcn components are added **from the app**, not from the package — the CLI r
 pnpm --filter platform exec shadcn add <component>
 ```
 
-`pnpm install` at the root generates the Prisma client (`@repo/db` postinstall) and fumadocs (`platform` postinstall). Native build scripts are gated by pnpm — approvals live in `pnpm-workspace.yaml` (`allowBuilds`).
+`pnpm install` at the root generates the Prisma client (`@repo/db` postinstall) and the fumadocs `.source` collection (`docs` postinstall). Native build scripts are gated by pnpm — approvals live in `pnpm-workspace.yaml` (`allowBuilds`).
 
 There is **no test suite**. Verification = `pnpm check` + running the app. `prisma.config.ts` references a `prisma/seed.ts` that does not exist.
 
@@ -52,7 +53,7 @@ There is **no test suite**. Verification = `pnpm check` + running the app. `pris
 
 ## Path aliases
 
-`@/*` maps to the **`apps/platform` package root** (its own `tsconfig.json`), so in-app imports are `@/src/lib/...`, `@/src/components/...`, etc. The Prisma client, enums and singleton come from the workspace package **`@repo/db`**: `import { prisma } from '@repo/db'`, types/enums via `@repo/db` or the `@repo/db/enums` / `@repo/db/browser` subpaths (`browser` is the server-free build for client components).
+`@/*` maps to **the app's own package root** (each app's `tsconfig.json`), so in-app imports are `@/src/lib/...`, `@/src/components/...`, etc. The Prisma client, enums and singleton come from the workspace package **`@repo/db`**: `import { prisma } from '@repo/db'`, types/enums via `@repo/db` or the `@repo/db/enums` / `@repo/db/browser` subpaths (`browser` is the server-free build for client components).
 
 UI comes from **`@repo/ui`**: `@repo/ui/components/<name>` (no `ui/` segment — the folder is flat), `@repo/ui/hooks/use-mobile`, `@repo/ui/lib/utils`. Neither package is in `tsconfig.json#paths` — both resolve through the package `exports` map. `cn` is re-exported from `@/src/lib/utils` for convenience, so existing call sites keep working; the implementation lives only in `@repo/ui/lib/utils`.
 
@@ -61,7 +62,7 @@ UI comes from **`@repo/ui`**: `@repo/ui/components/<name>` (no `ui/` segment —
 Tenancy is by **subdomain = organization slug**, resolved in `src/proxy.ts` (Next 16 renamed `middleware` → `proxy`):
 
 - `{slug}.{rootDomain}/path` is rewritten to the `/[slug]/path` route segment; an `x-organization` header is set. All tenant pages live under `src/app/[slug]/`.
-- Reserved subdomains `auth`, `admin`, `shop` rewrite to `/auth`, `/admin`, `/shop` instead.
+- Reserved subdomains `auth`, `admin`, `shop` rewrite to `/auth`, `/admin`, `/shop` instead. `docs` is **not** among them any more — it's a separate app (`apps/docs`) that DNS/the reverse proxy routes to directly, so `docs.{rootDomain}` never reaches this proxy. It stays in `RESERVED_SUBDOMAINS` only so no school can claim the slug.
 - The proxy verifies the session's `organization.slug` matches the subdomain (else redirect to root) and enforces **feature flags** (`isRouteDisabled`).
 - Local dev uses subdomains like `slug.localhost:3000` / a `.test` domain — see `.env.example` (`NEXT_PUBLIC_ROOT_DOMAIN`, `BETTER_AUTH_URL`). Cross-subdomain cookies are enabled.
 
@@ -112,10 +113,22 @@ Genuine timestamp fields (`createdAt`, `updatedAt`, `snoozedUntil`, …) are rea
 Everything reusable across apps lives in `packages/ui/` — shadcn base-mira primitives _and_ app-agnostic composites (`data-table`, `hint`, `stat-card`, `number-field`/`number-input`, `password-input`, `table-filter`, `custom-combobox`, `drag-scroll-area`, `switch-theme-button`, `logo`). All of them sit **flat** in `packages/ui/src/components/`, imported as `@repo/ui/components/<name>`.
 
 - **Inside the package** use the same alias form (`@repo/ui/components/button`, `@repo/ui/lib/utils`) — that's what `shadcn add` writes, and `packages/ui/tsconfig.json#paths` makes it self-resolve.
-- **Anything touching `src/features/*`, the feature registry, fumadocs or platform routes stays in `apps/platform/src/components/`** (`sidebar/`, `landing/`, `assistant-ui/`, `feature-gate.tsx`, `mdx.tsx`, `course-location-teacher-filters.tsx`). Don't move app-coupled UI into the package.
-- **CSS.** `packages/ui/src/styles/globals.css` owns tailwind/tw-animate/shadcn imports, `@theme inline`, the `:root`/`.dark` palette, the base layer and custom utilities (`thin-scrollbar`, `animate-landing-*`, `animate-tab-enter` + `--ease-tab`/`--duration-tab`). It carries its own `@source '../'` so consumers pick up the package's classes — Tailwind's auto-detection is rooted at the app's cwd and skips `node_modules`. `apps/platform/src/styles/globals.css` only adds the fumadocs imports and the `--color-fd-*` mapping on top.
+- **Anything touching `src/features/*`, the feature registry or platform routes stays in `apps/platform/src/components/`** (`sidebar/`, `landing/`, `assistant-ui/`, `feature-gate.tsx`, `course-location-teacher-filters.tsx`). Don't move app-coupled UI into the package.
+- **CSS.** `packages/ui/src/styles/globals.css` owns tailwind/tw-animate/shadcn imports, `@theme inline`, the `:root`/`.dark` palette, the base layer and custom utilities (`thin-scrollbar`, `animate-landing-*`, `animate-tab-enter` + `--ease-tab`/`--duration-tab`). It carries its own `@source '../'` so consumers pick up the package's classes — Tailwind's auto-detection is rooted at the app's cwd and skips `node_modules`. Each app still needs its **own** entry file (`src/styles/globals.css`) for exactly that reason: `apps/platform`'s is a bare re-import, `apps/docs`' adds the fumadocs presets on top.
 - **`shadcn add` runs from the app** (`apps/platform`) — the CLI reads its `components.json`, sees `"ui": "@repo/ui/components"` and writes into the package. `style`/`baseColor`/`iconLibrary` must stay identical in both `components.json` files.
 - Deps the package owns (`@base-ui/react`, `cmdk`, `vaul`, `clsx`, `tailwind-merge`, `tw-animate-css`, …) were removed from `apps/platform/package.json` — pnpm doesn't forgive phantom deps, so add back explicitly if the app starts importing one directly.
+
+## Documentation (`apps/docs`)
+
+Public docs live in their **own Next app** (fumadocs, port 3001) — no auth, no DB, no `@repo/db`.
+
+- Content: `apps/docs/content/docs/{user,dev}/*.mdx` + `meta.json` (order, lucide icons, extra links). Plain markdown — no custom MDX components are in use.
+- `source.config.ts` (`defineDocs` + the `lastModified` plugin) generates `.source/`, reachable via the `collections/*` tsconfig alias; the `fumadocs-mdx` postinstall regenerates it. **Move MDX files with `git mv`** — `lastModified` reads git history.
+- **Stop the docs dev server before `pnpm check`.** While `next dev` runs, fumadocs-mdx blanks `.source/server.ts` (dev serves content through the Turbopack loader instead), and `tsc` then fails with `File '.source/server.ts' is not a module`. Recover with `pnpm --filter docs exec fumadocs-mdx`.
+- `loader({ baseUrl: '/' })` — docs sit at the app root (`/user/...`), so the routes are `src/app/[[...slug]]/page.tsx` and a single `src/app/layout.tsx` that carries html/fonts, `RootProvider` (ru translations, search off, dark default) **and** `DocsLayout`. `RootProvider` already provides `next-themes`, so there's no separate `ThemeProvider`.
+- **Same design as the dashboard** via `@repo/ui/globals.css` + `fumadocs-ui/css/shadcn.css`, which makes fumadocs read the project's shadcn tokens. Don't restyle fumadocs by hand.
+- Text endpoints: `/llms.txt`, `/llms-full.txt`, and `/llms-user.txt` (the `user/` section only). The last one is **consumed by the platform**: `apps/platform/src/features/assistant/system-prompt.ts` fetches it once, caches it in process memory and falls back to a built-in blurb when docs are unreachable. Adding user docs therefore improves the AI assistant for free.
+- The dashboard links to docs via `docsUrl` (`apps/platform/src/lib/utils.ts`) — `NEXT_PUBLIC_DOCS_URL`, defaulting to `docs.{rootDomain}`. Set it to `http://localhost:3001` in local dev.
 
 ## Popovers/dropdowns inside drawers
 

@@ -29,7 +29,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      # install runs prisma generate (@repo/db) + fumadocs-mdx (platform) via
+      # install runs prisma generate (@repo/db) + fumadocs-mdx (docs) via
       # postinstall; typegen is wired into the turbo tasks below.
       - run: pnpm install --frozen-lockfile
 
@@ -54,8 +54,10 @@ jobs:
       - name: Cache Next.js build
         uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}/apps/platform/.next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/platform/src/**/*.[jt]s', 'apps/platform/src/**/*.[jt]sx', 'packages/ui/src/**/*.[jt]s', 'packages/ui/src/**/*.[jt]sx') }}
+          path: |
+            ${{ github.workspace }}/apps/platform/.next/cache
+            ${{ github.workspace }}/apps/docs/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/platform/src/**/*.[jt]s', 'apps/platform/src/**/*.[jt]sx', 'apps/docs/src/**/*.[jt]s', 'apps/docs/src/**/*.[jt]sx', 'packages/ui/src/**/*.[jt]s', 'packages/ui/src/**/*.[jt]sx') }}
           restore-keys: |
             nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
 
