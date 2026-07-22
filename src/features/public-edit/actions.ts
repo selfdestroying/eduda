@@ -281,6 +281,7 @@ export const createPublicParent = publicAction
         data: {
           studentId,
           parentId: created.id,
+          organizationId,
         },
       })
 

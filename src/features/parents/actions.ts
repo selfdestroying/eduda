@@ -68,11 +68,12 @@ export const deleteParent = authAction
 export const linkParentToStudent = authAction
   .metadata({ actionName: 'linkParentToStudent' })
   .inputSchema(LinkParentSchema)
-  .action(async ({ parsedInput }) => {
+  .action(async ({ ctx, parsedInput }) => {
     await prisma.studentParent.create({
       data: {
         studentId: parsedInput.studentId,
         parentId: parsedInput.parentId,
+        organizationId: ctx.session.organizationId!,
       },
     })
   })

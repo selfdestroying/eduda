@@ -124,6 +124,9 @@ model Organization {
     managerSalaries                ManagerSalary[]
     organizationroles              OrganizationRole[]
     assistantThreads               AssistantThread[]
+    assistantMessages              AssistantMessage[]
+    studentParents                 StudentParent[]
+    studentAccounts                StudentAccount[]
 
     @@unique([slug])
     @@map("Organization")

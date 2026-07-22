@@ -55,6 +55,8 @@ model StudentParent {
     createdAt DateTime @default(now())
 
     // Relations
+    organizationId Int
+    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     studentId Int
     parentId  Int
     student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -62,6 +64,7 @@ model StudentParent {
 
     @@id([studentId, parentId])
     @@index([parentId])
+    @@index([organizationId])
 }
 
 model StudentAccount {
@@ -70,8 +73,12 @@ model StudentAccount {
     password String
     coins    Int    @default(0)
 
+    organizationId Int
+    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     studentId Int     @unique
     student   Student @relation(fields: [studentId], references: [id])
+
+    @@index([organizationId])
 }
 
 model Wallet {

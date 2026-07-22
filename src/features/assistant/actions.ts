@@ -183,6 +183,7 @@ export const appendMessage = authAction
           parentId: parsedInput.parentId,
           format: parsedInput.format,
           content,
+          organizationId: ctx.session.organizationId!,
         },
         update: {
           parentId: parsedInput.parentId,

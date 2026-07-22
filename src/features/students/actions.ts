@@ -194,7 +194,7 @@ export const createStudent = authAction
           url,
           organizationId,
           cart: { create: {} },
-          account: { create: { login, password } },
+          account: { create: { login, password, organizationId } },
         },
       })
 
@@ -203,11 +203,11 @@ export const createStudent = authAction
           data: { ...newParent, organizationId },
         })
         await tx.studentParent.create({
-          data: { studentId: student.id, parentId: parent.id },
+          data: { studentId: student.id, parentId: parent.id, organizationId },
         })
       } else if (parentMode === 'existing' && existingParentId) {
         await tx.studentParent.create({
-          data: { studentId: student.id, parentId: existingParentId },
+          data: { studentId: student.id, parentId: existingParentId, organizationId },
         })
       }
     })

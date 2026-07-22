@@ -524,6 +524,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       data: parents.map((par, k) => ({
         studentId: students[parentStudentIdx[k]!]!.id,
         parentId: par.id,
+        organizationId: orgId,
       })),
     })
   }
