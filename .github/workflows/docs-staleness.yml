@@ -30,8 +30,8 @@ jobs:
 
           # Code paths whose changes usually require a user-doc update
           FEATURE_CHANGED=$(echo "$CHANGED" | grep -E \
-            '^(src/features/|src/lib/features/registry\.ts|src/lib/features/route-feature-map\.ts|src/lib/permissions/)' || true)
-          DOCS_CHANGED=$(echo "$CHANGED" | grep -E '^content/docs/' || true)
+            '^apps/platform/(src/features/|src/lib/features/registry\.ts|src/lib/features/route-feature-map\.ts|src/lib/permissions/)' || true)
+          DOCS_CHANGED=$(echo "$CHANGED" | grep -E '^apps/platform/content/docs/' || true)
 
           if [ -n "$FEATURE_CHANGED" ] && [ -z "$DOCS_CHANGED" ]; then
             echo "stale=true" >> "$GITHUB_OUTPUT"

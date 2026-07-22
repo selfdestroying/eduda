@@ -8,31 +8,44 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Stack: Next.js 16 (App Router, React 19, React Compiler), Prisma 7 (PostgreSQL via `pg` adapter), better-auth, next-safe-action, TanStack Query + Table, Tailwind v4 + shadcn (`base-mira` style), Zod v4, nuqs.
 
+## Monorepo layout (pnpm + Turborepo)
+
+The repo is a **pnpm workspace** driven by **Turborepo** (`turbo.json`). Two packages today:
+
+- **`apps/platform`** — the Next.js app (everything that used to be at the repo root: `src/`, `content/docs`, `public/`, `next.config.ts`, etc.). Its `.env` lives here and is the **single source of truth** for environment vars. **All `src/...`, `content/...` paths mentioned elsewhere in this file now live under `apps/platform/`.**
+- **`packages/db`** (`@repo/db`) — Prisma: schema (`packages/db/prisma/schema/`), migrations, `prisma.config.ts`, the generated client (`packages/db/generated/`, gitignored) and the `prisma` singleton. Ships raw TS via `exports` (no build step); the app transpiles it (`transpilePackages: ['@repo/db']`).
+
+`apps/shop` and shared UI/config packages are **planned, not present** — don't scaffold them until needed.
+
 ## Commands
 
-```bash
-npm run dev            # dev server (port 3000)
-npm run build          # production build
-npm run check          # format check + lint + tsc --noEmit  (run before committing)
-npm run check:fix      # format + lint --fix
-npm run ts:check       # tsc --noEmit only
-npm run lint           # eslint
+Run from the **repo root** (Turborepo fans out to packages):
 
-npx prisma generate    # regenerate client into prisma/generated (gitignored — run after schema changes / fresh clone)
-npx prisma migrate dev # create + apply a migration (schema lives in prisma/schema/*.prisma, multi-file)
+```bash
+pnpm dev               # turbo dev — platform dev server (port 3000)
+pnpm build             # turbo build (runs @repo/db generate + typegen first)
+pnpm check             # turbo check (format+lint+tsc) — run before committing
+pnpm ts:check          # turbo ts:check
+pnpm lint              # turbo lint
+pnpm format            # prettier --write . (whole repo, root-level)
+
+pnpm --filter @repo/db generate   # regenerate Prisma client (also runs on install via postinstall)
+pnpm --filter @repo/db migrate    # prisma migrate dev (schema: packages/db/prisma/schema/*.prisma, multi-file)
 ```
 
-There is **no test suite**. Verification = `npm run check` + running the app. `prisma.config.ts` references a `prisma/seed.ts` that does not exist.
+`pnpm install` at the root generates the Prisma client (`@repo/db` postinstall) and fumadocs (`platform` postinstall). Native build scripts are gated by pnpm — approvals live in `pnpm-workspace.yaml` (`allowBuilds`).
+
+There is **no test suite**. Verification = `pnpm check` + running the app. `prisma.config.ts` references a `prisma/seed.ts` that does not exist.
 
 ## Git / commits
 
-- Run `npm run check` before committing.
+- Run `pnpm check` before committing.
 - **Do NOT add `Co-Authored-By` trailers** (or any AI/tool attribution) to commit messages.
 - Follow Conventional Commits (`feat(...)`, `fix(...)`, `style(...)`, `ci:`, …) — match the existing history.
 
 ## Path aliases
 
-`@/*` maps to the **repo root** (not `src/`). So imports are `@/src/lib/...`, `@/prisma/generated/client`, etc. The Prisma client is imported from `@/prisma/generated/client`.
+`@/*` maps to the **`apps/platform` package root** (its own `tsconfig.json`), so in-app imports are `@/src/lib/...`, `@/src/components/...`, etc. The Prisma client, enums and singleton come from the workspace package **`@repo/db`**: `import { prisma } from '@repo/db'`, types/enums via `@repo/db` or the `@repo/db/enums` / `@repo/db/browser` subpaths (`browser` is the server-free build for client components).
 
 ## Multi-tenancy & request routing (critical)
 
@@ -95,4 +108,4 @@ Genuine timestamp fields (`createdAt`, `updatedAt`, `snoozedUntil`, …) are rea
 
 ## Prisma
 
-Multi-file schema under `prisma/schema/` (`auth`, `students`, `groups`, `lessons`, `finance`, `shop`, `enums`, ...). Client output → `prisma/generated/` (gitignored). Singleton in `src/lib/db/prisma.ts` uses the `PrismaPg` adapter. Most models carry `organizationId`.
+Lives in the **`@repo/db`** package (`packages/db/`). Multi-file schema under `packages/db/prisma/schema/` (`auth`, `students`, `groups`, `lessons`, `finance`, `shop`, `enums`, ...). Client output → `packages/db/generated/` (gitignored). Singleton in `packages/db/src/prisma.ts` uses the `PrismaPg` adapter and is re-exported as `{ prisma }` from `@repo/db`. `prisma.config.ts` loads env from `apps/platform/.env`. Run Prisma CLI via `pnpm --filter @repo/db <script>`. Most models carry `organizationId`.

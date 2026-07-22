@@ -22,18 +22,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
+          cache: pnpm
 
-      - run: npm ci
-      - run: npx prisma generate
-      - run: npx next typegen
+      # install runs prisma generate (@repo/db) + fumadocs-mdx (platform) via
+      # postinstall; typegen is wired into the turbo tasks below.
+      - run: pnpm install --frozen-lockfile
 
-      - run: npm run format:check
-      - run: npm run lint
-      - run: npm run ts:check
+      - run: pnpm format:check
+      - run: pnpm turbo ts:check lint
 
   build:
     name: Build
@@ -43,22 +44,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
+          cache: pnpm
 
       - name: Cache Next.js build
         uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}/.next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**/*.[jt]s', 'src/**/*.[jt]sx') }}
+          path: ${{ github.workspace }}/apps/platform/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/platform/src/**/*.[jt]s', 'apps/platform/src/**/*.[jt]sx') }}
           restore-keys: |
-            nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+            nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
 
-      - run: npm ci
-      - run: npx prisma generate
-      - run: npm run build
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo build
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
