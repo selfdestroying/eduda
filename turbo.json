@@ -1,0 +1,37 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "typegen": {
+      "outputs": [".next/types/**"]
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "start": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["typegen"]
+    },
+    "lint:fix": {
+      "dependsOn": ["typegen"],
+      "cache": false
+    },
+    "ts:check": {
+      "dependsOn": ["typegen"]
+    },
+    "check": {
+      "dependsOn": ["typegen"]
+    },
+    "check:fix": {
+      "dependsOn": ["typegen"],
+      "cache": false
+    }
+  }
+}
