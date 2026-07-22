@@ -61,6 +61,33 @@ model Product {
     @@index([organizationId])
 }
 
+/// История изменений баланса астрокоинов — по образцу StudentLessonsBalanceHistory.
+/// `StudentAccount.coins` остаётся денормализованным кешем, а инвариант такой:
+/// сумма `amount` по ученику равна его `coins`.
+///
+/// Пишут оба приложения: платформа (начисления, ручные правки, отмена заказа) и
+/// шоп (покупка). Каждая запись обязана лежать в той же транзакции, что и
+/// изменение `coins`, иначе инвариант разъедется.
+model CoinTransaction {
+    id             Int          @id @default(autoincrement())
+    organizationId Int
+    studentId      Int
+    amount         Int
+    reason         CoinTxReason
+    /// Ссылки на источник — намеренно БЕЗ внешних ключей: леджер обязан пережить
+    /// удаление заказа или записи посещаемости. Тот же приём, что `meta` у
+    /// StudentLessonsBalanceHistory.
+    orderId        Int?
+    attendanceId   Int?
+    createdAt      DateTime     @default(now())
+
+    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+    @@index([studentId, createdAt])
+    @@index([organizationId])
+}
+
 model Order {
     id             Int          @id @default(autoincrement())
     organizationId Int          @default(1)

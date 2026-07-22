@@ -27,6 +27,7 @@ model Student {
     groups                StudentGroup[]
     unprocessedPayments   UnprocessedPayment[]
     lessonsBalanceHistory StudentLessonsBalanceHistory[]
+    coinTransactions      CoinTransaction[]
     wallets               Wallet[]
     parents               StudentParent[]
 

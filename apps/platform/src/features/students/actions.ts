@@ -1,9 +1,14 @@
 'use server'
 
 import { Prisma } from '@repo/db'
-import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@repo/db/enums'
+import {
+  CoinTxReason,
+  StudentFinancialField,
+  StudentLessonsBalanceChangeReason,
+} from '@repo/db/enums'
 
 import { prisma } from '@repo/db'
+import { recordCoins } from '@/src/lib/coins'
 import {
   type StudentFinancialAudit,
   FINANCIAL_FIELD_KEY,
@@ -406,26 +411,34 @@ export const updateStudentCoins = authAction
   .inputSchema(UpdateStudentCoinsSchema)
   .action(async ({ ctx, parsedInput }) => {
     const organizationId = ctx.session.organizationId!
+    const { studentId, coins } = parsedInput
 
-    if (parsedInput.coins < 0) {
-      const account = await prisma.studentAccount.findFirst({
-        where: { studentId: parsedInput.studentId, student: { organizationId } },
-        select: { coins: true },
-      })
-      if (!account || account.coins + parsedInput.coins < 0) {
-        throw new Error('Недостаточно монет для списания')
-      }
-    }
-
-    await prisma.student.update({
-      where: { id: parsedInput.studentId, organizationId },
-      data: {
-        account: {
-          update: {
-            coins: { increment: parsedInput.coins },
-          },
+    // Всё одной транзакцией: строка леджера обязана появиться вместе с
+    // изменением баланса, иначе инвариант «сумма леджера = coins» разъедется.
+    await prisma.$transaction(async (tx) => {
+      // Условный `updateMany` заодно закрывает гонку двух списаний: при
+      // недостатке монет он просто не найдёт строку.
+      const { count } = await tx.studentAccount.updateMany({
+        where: {
+          studentId,
+          organizationId,
+          ...(coins < 0 ? { coins: { gte: -coins } } : {}),
         },
-      },
+        data: { coins: { increment: coins } },
+      })
+
+      if (count === 0) {
+        throw new ConflictError(
+          coins < 0 ? 'Недостаточно монет для списания' : 'Аккаунт ученика не найден',
+        )
+      }
+
+      await recordCoins(tx, {
+        organizationId,
+        studentId,
+        amount: coins,
+        reason: coins > 0 ? CoinTxReason.MANUAL_GRANT : CoinTxReason.MANUAL_DEDUCT,
+      })
     })
   })
 

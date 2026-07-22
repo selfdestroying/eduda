@@ -482,6 +482,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       password: studentHash,
     })),
   })
+  const studentCoins = students.map(() => int(0, 300))
   await prisma.studentAccount.createMany({
     data: students.map((st, i) => ({
       organizationId: orgId,
@@ -489,8 +490,20 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       login: demoStudentLogin(i),
       passwordEnc: encryptStudentPassword(DEMO_STUDENT_PASSWORD),
       studentUserId: studentUsers[i]!.id,
-      coins: int(0, 300),
+      coins: studentCoins[i]!,
     })),
+  })
+  // Инвариант леджера «сумма CoinTransaction = StudentAccount.coins» держится и
+  // в демо: стартовый остаток объявляется одной строкой INITIAL_BALANCE.
+  await prisma.coinTransaction.createMany({
+    data: students
+      .map((st, i) => ({
+        organizationId: orgId,
+        studentId: st.id,
+        amount: studentCoins[i]!,
+        reason: 'INITIAL_BALANCE' as const,
+      }))
+      .filter((row) => row.amount !== 0),
   })
 
   // studentsByGroup[i] — id активных/пробных учеников группы i (для посещаемости).

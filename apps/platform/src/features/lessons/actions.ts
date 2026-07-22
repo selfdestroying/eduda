@@ -1,8 +1,9 @@
 'use server'
 
 import { Prisma } from '@repo/db'
-import { AttendanceStatus, StudentLessonsBalanceChangeReason } from '@repo/db/enums'
+import { AttendanceStatus, CoinTxReason, StudentLessonsBalanceChangeReason } from '@repo/db/enums'
 import { prisma } from '@repo/db'
+import { ATTENDANCE_COINS, recordCoins } from '@/src/lib/coins'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
 import { isLessonCharged, writeLessonsBalanceHistoryTx } from '@/src/lib/lessons-balance'
 import { authAction } from '@/src/lib/safe-action'
@@ -151,23 +152,38 @@ export const createAttendance = authAction
 
 // ─── Update Attendance Status ────────────────────────────────────────────────
 
+/**
+ * Начисление/снятие награды за посещение. Каждое изменение баланса обязано
+ * оставить строку леджера, иначе инвариант «сумма леджера = coins» разъедется.
+ * `updateMany` — потому что `StudentAccount` у ученика может и не быть; строку
+ * леджера пишем только когда баланс реально изменился.
+ */
 const updateCoins = async (
   tx: Prisma.TransactionClient,
   newStatus: AttendanceStatus,
   oldStatus: AttendanceStatus,
   studentId: number,
+  organizationId: number,
+  attendanceId: number,
 ) => {
-  if (newStatus === AttendanceStatus.PRESENT && oldStatus !== AttendanceStatus.PRESENT) {
-    await tx.studentAccount.updateMany({
-      where: { studentId },
-      data: { coins: { increment: 10 } },
-    })
-  } else if (newStatus !== AttendanceStatus.PRESENT && oldStatus === AttendanceStatus.PRESENT) {
-    await tx.studentAccount.updateMany({
-      where: { studentId },
-      data: { coins: { decrement: 10 } },
-    })
-  }
+  const granted = newStatus === AttendanceStatus.PRESENT && oldStatus !== AttendanceStatus.PRESENT
+  const reverted = newStatus !== AttendanceStatus.PRESENT && oldStatus === AttendanceStatus.PRESENT
+  if (!granted && !reverted) return
+
+  const amount = granted ? ATTENDANCE_COINS : -ATTENDANCE_COINS
+  const { count } = await tx.studentAccount.updateMany({
+    where: { studentId, organizationId },
+    data: { coins: { increment: amount } },
+  })
+  if (count === 0) return
+
+  await recordCoins(tx, {
+    organizationId,
+    studentId,
+    amount,
+    reason: granted ? CoinTxReason.ATTENDANCE_PRESENT : CoinTxReason.ATTENDANCE_REVERTED,
+    attendanceId,
+  })
 }
 
 const getLessonsBalanceDelta = (
@@ -225,6 +241,8 @@ export const updateAttendanceStatus = authAction
           status as AttendanceStatus,
           oldAttendance.status,
           oldAttendance.studentId,
+          ctx.session.organizationId!,
+          oldAttendance.id,
         )
 
         const delta = getLessonsBalanceDelta(
