@@ -5,7 +5,7 @@ import { cn } from '@/src/lib/utils'
 import { Button } from '@repo/ui/components/button'
 import { Logo } from '@repo/ui/components/logo'
 import { SwitchThemeButton } from '@repo/ui/components/switch-theme-button'
-import { LogOut, User } from 'lucide-react'
+import { CalendarCheck, LogOut, User } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -13,8 +13,11 @@ import { useTransition } from 'react'
 
 type NavItem = { href: string; label: string; icon: LucideIcon }
 
-// Растёт по мере слайсов: посещаемость, коины, магазин, заказы.
-const ITEMS: NavItem[] = [{ href: '/', label: 'Профиль', icon: User }]
+// Растёт по мере слайсов: коины, магазин, заказы.
+const ITEMS: NavItem[] = [
+  { href: '/', label: 'Профиль', icon: User },
+  { href: '/attendance', label: 'Посещаемость', icon: CalendarCheck },
+]
 
 export function StudentNav() {
   const pathname = usePathname()
