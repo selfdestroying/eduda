@@ -121,9 +121,6 @@ function handleReservedSubdomain(
     case 'shop':
       return NextResponse.rewrite(new URL(`/shop${pathname}${search}`, request.url))
 
-    case 'docs':
-      return NextResponse.rewrite(new URL(`/docs${pathname}${search}`, request.url))
-
     default:
       return NextResponse.next()
   }

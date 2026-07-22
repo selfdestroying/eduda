@@ -4,7 +4,6 @@ import { ReactNode } from 'react'
 import { Toaster } from '@repo/ui/components/sonner'
 import { QueryProvider } from './query-provider'
 import { ThemeProvider } from './theme-provider'
-import { FumadocsProvider } from './fumadocs-provider'
 
 type Props = {
   children: ReactNode
@@ -14,7 +13,7 @@ const Providers = ({ children }: Props) => {
   return (
     <ThemeProvider>
       <QueryProvider>
-        <FumadocsProvider>{children}</FumadocsProvider>
+        {children}
         <Toaster richColors closeButton={false} duration={2000} position="top-center" />
       </QueryProvider>
     </ThemeProvider>

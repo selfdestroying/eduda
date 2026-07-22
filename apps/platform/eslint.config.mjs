@@ -43,7 +43,6 @@ const eslintConfig = defineConfig([
     'prisma/generated/**',
     '.DS_Store',
     '*.log',
-    '.source',
   ]),
 ])
 

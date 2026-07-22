@@ -1,4 +1,4 @@
-import { source } from '@/src/lib/docs/source'
+import { source } from '@/src/lib/source'
 import { llms } from 'fumadocs-core/source'
 
 // cached forever

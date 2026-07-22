@@ -14,9 +14,17 @@ export const signInUrl = `${protocol}://auth.${rootDomain}`
 export const onboardingUrl = `${signInUrl}/onboarding`
 
 /**
+ * Публичная документация — отдельное приложение (`apps/docs`), поэтому адрес
+ * задаётся снаружи. Дефолт верен в проде, где `docs.` резолвится DNS прямо в
+ * docs-приложение; локально это другой порт, отсюда переменная.
+ */
+export const docsUrl = process.env.NEXT_PUBLIC_DOCS_URL || `${protocol}://docs.${rootDomain}`
+
+/**
  * Служебные поддомены: организациями не являются. Читаются в `proxy`
  * (маршрутизация) и в `customSession` (резолв организации по хосту), поэтому
- * живут здесь, а не в `proxy.ts`.
+ * живут здесь, а не в `proxy.ts`. `docs` сюда входит, хотя прокси его больше не
+ * обрабатывает: поддомен занят отдельным приложением и не должен стать slug'ом школы.
  */
 export const RESERVED_SUBDOMAINS = new Set(['auth', 'admin', 'shop', 'docs', 'www'])
 

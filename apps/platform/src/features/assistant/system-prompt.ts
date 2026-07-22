@@ -1,5 +1,4 @@
-import { getLLMText } from '@/src/lib/docs/get-llm-text'
-import { source } from '@/src/lib/docs/source'
+import { docsUrl } from '@/src/lib/utils'
 
 const PROMPT_INSTRUCTIONS = `Ты AI-помощник платформы ЕДУДА. Твоя задача кратко и понятно объяснять пользователю, как пользоваться платформой.
 
@@ -24,29 +23,32 @@ const FALLBACK_USER_GUIDE = `ЕДУДА — дашборд для образов
 
 Если пользователь спрашивает, как выполнить действие, дай короткую пошаговую подсказку. Если точного пути по интерфейсу нет в документации, честно скажи, что не знаешь точное расположение, и предложи искать соответствующий раздел в боковом меню.`
 
-// Документация статична на рантайме — собираем один раз и кешируем в памяти процесса.
+// Документация статична на рантайме — забираем один раз и кешируем в памяти процесса.
 let cachedUserGuide: string | null = null
 
+/**
+ * Документация живёт в отдельном приложении (`apps/docs`), поэтому текст берём
+ * по HTTP: роут отдаёт только раздел «Для пользователей», без dev-документации.
+ */
 async function buildUserGuide() {
-  // Берём только пользовательские страницы (раздел "Для пользователей"), без dev-документации.
-  const pages = source.getPages().filter((page) => page.url.startsWith('/user'))
-
-  if (pages.length === 0) {
-    return FALLBACK_USER_GUIDE
+  const res = await fetch(`${docsUrl}/llms-user.txt`, { cache: 'force-cache' })
+  if (!res.ok) {
+    throw new Error(`docs: ${res.status}`)
   }
 
-  const sections = await Promise.all(pages.map(getLLMText))
-
-  return sections.join('\n\n')
+  return (await res.text()).trim() || FALLBACK_USER_GUIDE
 }
 
 export default async function getSystemPrompt() {
-  if (cachedUserGuide === null) {
-    cachedUserGuide = await buildUserGuide().catch(() => FALLBACK_USER_GUIDE)
+  // Кешируем только удачную загрузку: сбой здесь сетевой и временный, и запомнить
+  // фолбэк значило бы оставить процесс с урезанным промптом до перезапуска.
+  const guide = cachedUserGuide ?? (await buildUserGuide().catch(() => null))
+  if (guide) {
+    cachedUserGuide = guide
   }
 
   return `${PROMPT_INSTRUCTIONS}
 
 === USER GUIDE ===
-${cachedUserGuide}`
+${guide ?? FALLBACK_USER_GUIDE}`
 }

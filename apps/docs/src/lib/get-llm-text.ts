@@ -1,4 +1,4 @@
-import { source } from '@/src/lib/docs/source'
+import { source } from '@/src/lib/source'
 
 export async function getLLMText(page: (typeof source)['$inferPage']) {
   const processed = await page.data.getText('processed')

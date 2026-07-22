@@ -1,4 +1,4 @@
-import { source } from '@/src/lib/docs/source'
+import { source } from '@/src/lib/source'
 import {
   DocsBody,
   DocsDescription,
@@ -6,13 +6,17 @@ import {
   DocsTitle,
   PageLastUpdate,
 } from 'fumadocs-ui/layouts/notebook/page'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { getMDXComponents } from '@/src/components/mdx'
 import type { Metadata } from 'next'
 import { createRelativeLink } from 'fumadocs-ui/mdx'
 
-export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
+export default async function Page(props: PageProps<'/[[...slug]]'>) {
   const params = await props.params
+  // Корня у дерева нет (разделы — `user` и `dev`), а `/` теперь входная страница
+  // сайта документации, а не внутренний адрес под поддоменом.
+  if (!params.slug?.length) redirect('/user')
+
   const page = source.getPage(params.slug)
   if (!page) notFound()
 
@@ -41,7 +45,7 @@ export async function generateStaticParams() {
   return source.generateParams()
 }
 
-export async function generateMetadata(props: PageProps<'/docs/[[...slug]]'>): Promise<Metadata> {
+export async function generateMetadata(props: PageProps<'/[[...slug]]'>): Promise<Metadata> {
   const params = await props.params
   const page = source.getPage(params.slug)
   if (!page) notFound()

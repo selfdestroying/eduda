@@ -1,12 +1,12 @@
 'use client'
 
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@repo/ui/components/sidebar'
-import { protocol, rootDomain } from '@/src/lib/utils'
+import { docsUrl } from '@/src/lib/utils'
 import { BookOpen } from 'lucide-react'
 
-/** Ссылка на пользовательскую документацию (поддомен docs). */
+/** Ссылка на пользовательскую документацию (отдельное приложение `apps/docs`). */
 export default function NavDocs() {
-  const href = `${protocol}://docs.${rootDomain}/user`
+  const href = `${docsUrl}/user`
 
   return (
     <SidebarMenu>

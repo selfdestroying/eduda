@@ -1,0 +1,11 @@
+/* Дизайн-система (токены, base-слой, утилиты) — единый источник правды в @repo/ui */
+@import '@repo/ui/globals.css';
+@import 'fumadocs-ui/css/shadcn.css';
+@import 'fumadocs-ui/css/preset.css';
+
+/* Align fumadocs semantic/callout colors with the project palette */
+@theme inline {
+  --color-fd-info: var(--info);
+  --color-fd-warning: var(--warning);
+  --color-fd-success: var(--success);
+}
