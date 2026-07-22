@@ -1,6 +1,6 @@
 'use server'
 
-import prisma from '@/src/lib/db/prisma'
+import { prisma } from '@repo/db'
 import { CreateCategorySchema, DeleteCategorySchema, UpdateCategorySchema } from './schemas'
 import { featureAction } from '@/src/lib/safe-action'
 

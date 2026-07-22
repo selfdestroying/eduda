@@ -1,6 +1,6 @@
 'use client'
 
-import { LessonStatus } from '@/prisma/generated/client'
+import { LessonStatus } from '@repo/db'
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'

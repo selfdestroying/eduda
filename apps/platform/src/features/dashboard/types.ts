@@ -1,4 +1,4 @@
-import type { AttendanceStatus, LessonStatus, Prisma } from '@/prisma/generated/client'
+import type { AttendanceStatus, LessonStatus, Prisma } from '@repo/db'
 
 export type DashboardLessonRecord = Prisma.LessonGetPayload<{
   include: {

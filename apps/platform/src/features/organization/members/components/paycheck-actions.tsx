@@ -1,6 +1,6 @@
 'use client'
 
-import { PayCheck } from '@/prisma/generated/client'
+import { PayCheck } from '@repo/db'
 import { NumberInput } from '@/src/components/number-input'
 import {
   AlertDialog,

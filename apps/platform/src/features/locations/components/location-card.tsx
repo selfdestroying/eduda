@@ -1,6 +1,6 @@
 'use client'
 
-import { Location } from '@/prisma/generated/client'
+import { Location } from '@repo/db'
 import { Hint } from '@/src/components/hint'
 import { Badge } from '@/src/components/ui/badge'
 import { Button } from '@/src/components/ui/button'

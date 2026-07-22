@@ -1,4 +1,4 @@
-import { Prisma } from '@/prisma/generated/client'
+import { Prisma } from '@repo/db'
 
 /** Full lesson detail with group, teachers, and attendance */
 export type LessonDetail = Prisma.LessonGetPayload<{

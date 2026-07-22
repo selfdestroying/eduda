@@ -1,9 +1,9 @@
 'use server'
 
-import prisma from '@/src/lib/db/prisma'
+import { prisma } from '@repo/db'
 import { NotFoundError } from '@/src/lib/error'
 import { authAction } from '@/src/lib/safe-action'
-import type { Prisma } from '@/prisma/generated/client'
+import type { Prisma } from '@repo/db'
 import {
   AppendMessageSchema,
   InitializeThreadSchema,

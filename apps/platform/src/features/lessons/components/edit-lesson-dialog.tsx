@@ -1,6 +1,6 @@
 'use client'
 
-import { Lesson } from '@/prisma/generated/client'
+import { Lesson } from '@repo/db'
 import { Button } from '@/src/components/ui/button'
 import { Calendar, CalendarDayButton } from '@/src/components/ui/calendar'
 import {

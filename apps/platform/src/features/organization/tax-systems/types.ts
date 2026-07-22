@@ -1,3 +1,3 @@
-import type { TaxConfig } from '@/prisma/generated/client'
+import type { TaxConfig } from '@repo/db'
 
 export type TaxConfigRecord = TaxConfig

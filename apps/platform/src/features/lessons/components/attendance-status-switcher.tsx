@@ -1,7 +1,7 @@
 'use client'
 
-import type { Attendance } from '@/prisma/generated/client'
-import { AttendanceStatus } from '@/prisma/generated/enums'
+import type { Attendance } from '@repo/db'
+import { AttendanceStatus } from '@repo/db/enums'
 import { Button } from '@/src/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
 import { Toggle } from '@/src/components/ui/toggle'

@@ -1,6 +1,6 @@
 import ParentCabinetClient from '@/src/features/public-edit/components/parent-cabinet-client'
 import { TokenSchema } from '@/src/features/public-edit/schemas'
-import prisma from '@/src/lib/db/prisma'
+import { prisma } from '@repo/db'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 

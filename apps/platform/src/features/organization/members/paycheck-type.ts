@@ -1,4 +1,4 @@
-import { PayCheckType } from '@/prisma/generated/client'
+import { PayCheckType } from '@repo/db'
 
 export const payCheckTypeLabels: Record<PayCheckType, string> = {
   SALARY: 'Зарплата',

@@ -1,6 +1,6 @@
 'use client'
 
-import { OrderStatus } from '@/prisma/generated/enums'
+import { OrderStatus } from '@repo/db/enums'
 import DataTable from '@/src/components/data-table'
 import TableFilter, { TableFilterItem } from '@/src/components/table-filter'
 import { Skeleton } from '@/src/components/ui/skeleton'

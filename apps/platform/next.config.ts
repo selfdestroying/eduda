@@ -2,6 +2,7 @@ import type { NextConfig } from 'next'
 import { createMDX } from 'fumadocs-mdx/next'
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['@repo/db'],
   allowedDevOrigins: [
     process.env.NEXT_PUBLIC_ROOT_DOMAIN?.split(':')[0] || '',
     `*.${process.env.NEXT_PUBLIC_ROOT_DOMAIN?.split(':')[0] || ''}`,

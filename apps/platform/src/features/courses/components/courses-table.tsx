@@ -1,6 +1,6 @@
 'use client'
 
-import { Course } from '@/prisma/generated/client'
+import { Course } from '@repo/db'
 import DataTable from '@/src/components/data-table'
 import { Input } from '@/src/components/ui/input'
 import { Skeleton } from '@/src/components/ui/skeleton'

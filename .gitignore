@@ -46,7 +46,7 @@ next-env.d.ts
 
 
 
-/apps/platform/prisma/generated
+/packages/db/generated
 .vscode/
 .agents/
 certificates

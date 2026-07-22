@@ -1,6 +1,6 @@
 'use client'
 
-import type { OrderStatus } from '@/prisma/generated/enums'
+import type { OrderStatus } from '@repo/db/enums'
 import { StatCard } from '@/src/components/stat-card'
 import { Badge } from '@/src/components/ui/badge'
 import { Skeleton } from '@/src/components/ui/skeleton'

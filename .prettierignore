@@ -11,8 +11,8 @@ build
 next-env.d.ts
 
 # Database
-prisma/migrations
-prisma/generated
+packages/db/prisma/migrations
+packages/db/generated
 
 # IDE
 .vscode

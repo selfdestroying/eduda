@@ -1,6 +1,6 @@
 'use client'
 
-import { Prisma } from '@/prisma/generated/client'
+import { Prisma } from '@repo/db'
 import { StatCard } from '@/src/components/stat-card'
 import { Badge } from '@/src/components/ui/badge'
 import { Separator } from '@/src/components/ui/separator'

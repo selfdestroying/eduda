@@ -1,8 +1,8 @@
 'use server'
 
-import { Prisma } from '@/prisma/generated/client'
-import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@/prisma/generated/enums'
-import prisma from '@/src/lib/db/prisma'
+import { Prisma } from '@repo/db'
+import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@repo/db/enums'
+import { prisma } from '@repo/db'
 import {
   type StudentFinancialAudit,
   FINANCIAL_FIELD_KEY,

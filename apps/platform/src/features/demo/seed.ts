@@ -14,8 +14,8 @@
  * колонках как строки `YYYY-MM-DD`. Внутри сида арифметика идёт по UTC-полуночи
  * (`getUTC*`), а на границе записи в БД дата приводится к строке через `ymd()`.
  */
-import { Prisma } from '@/prisma/generated/client'
-import prisma from '@/src/lib/db/prisma'
+import { Prisma } from '@repo/db'
+import { prisma } from '@repo/db'
 import { DEFAULT_TZ, todayYmdInTz } from '@/src/lib/timezone'
 import { auth } from '@/src/lib/auth/server'
 import {

@@ -1,6 +1,6 @@
 'use server'
 
-import prisma from '@/src/lib/db/prisma'
+import { prisma } from '@repo/db'
 import { authAction } from '@/src/lib/safe-action'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import { CreateRateSchema, DeleteRateSchema, UpdateRateSchema } from './schemas'

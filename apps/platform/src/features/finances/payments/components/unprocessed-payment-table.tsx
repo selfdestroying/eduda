@@ -1,6 +1,6 @@
 'use client'
 
-import { UnprocessedPayment } from '@/prisma/generated/client'
+import { UnprocessedPayment } from '@repo/db'
 import DataTable from '@/src/components/data-table'
 import TableFilter, { TableFilterItem } from '@/src/components/table-filter'
 import { Button } from '@/src/components/ui/button'

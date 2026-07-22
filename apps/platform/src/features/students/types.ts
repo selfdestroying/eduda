@@ -1,4 +1,4 @@
-import { Prisma } from '@/prisma/generated/client'
+import { Prisma } from '@repo/db'
 
 /** Students list - includes groups, wallets, parents */
 export type StudentWithGroups = Prisma.StudentGetPayload<{

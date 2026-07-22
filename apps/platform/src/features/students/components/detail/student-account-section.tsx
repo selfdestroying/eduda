@@ -1,6 +1,6 @@
 'use client'
 
-import { StudentAccount } from '@/prisma/generated/client'
+import { StudentAccount } from '@repo/db'
 import { StatCard } from '@/src/components/stat-card'
 import { KeyRound, Lock, User } from 'lucide-react'
 

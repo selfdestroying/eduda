@@ -1,6 +1,6 @@
 import 'server-only'
 
-import prisma from '../db/prisma'
+import { prisma } from '@repo/db'
 
 /**
  * Единственная точка резолва эффективного набора фич организации.

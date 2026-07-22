@@ -1,4 +1,4 @@
-import { Prisma } from '@/prisma/generated/client'
+import { Prisma } from '@repo/db'
 
 export type ActiveStudent = Prisma.StudentGroupGetPayload<{
   include: {

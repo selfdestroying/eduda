@@ -1,8 +1,8 @@
 'use server'
 
-import { Prisma } from '@/prisma/generated/client'
-import { AttendanceStatus, StudentLessonsBalanceChangeReason } from '@/prisma/generated/enums'
-import prisma from '@/src/lib/db/prisma'
+import { Prisma } from '@repo/db'
+import { AttendanceStatus, StudentLessonsBalanceChangeReason } from '@repo/db/enums'
+import { prisma } from '@repo/db'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
 import { isLessonCharged, writeLessonsBalanceHistoryTx } from '@/src/lib/lessons-balance'
 import { authAction } from '@/src/lib/safe-action'

@@ -1,7 +1,7 @@
 'use server'
 
-import type { Prisma } from '@/prisma/generated/client'
-import prisma from '@/src/lib/db/prisma'
+import type { Prisma } from '@repo/db'
+import { prisma } from '@repo/db'
 import { authAction } from '@/src/lib/safe-action'
 import { DEFAULT_TAX_SYSTEM, TAX_SYSTEM_CONFIG_SCHEMAS, UpsertTaxConfigSchema } from './schemas'
 

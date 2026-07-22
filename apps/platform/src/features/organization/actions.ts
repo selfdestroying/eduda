@@ -1,8 +1,8 @@
 'use server'
 
-import { Prisma } from '@/prisma/generated/client'
+import { Prisma } from '@repo/db'
 import { auth } from '@/src/lib/auth/server'
-import prisma from '@/src/lib/db/prisma'
+import { prisma } from '@repo/db'
 import { ConflictError, UnauthorizedError } from '@/src/lib/error'
 import { publicAction } from '@/src/lib/safe-action'
 import { isValidTimeZone } from '@/src/lib/timezone'

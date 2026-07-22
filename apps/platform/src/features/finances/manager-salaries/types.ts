@@ -1,4 +1,4 @@
-import { Prisma } from '@/prisma/generated/client'
+import { Prisma } from '@repo/db'
 
 export type ManagerSalaryWithUser = Prisma.ManagerSalaryGetPayload<{
   include: { user: true }

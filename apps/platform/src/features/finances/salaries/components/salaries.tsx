@@ -1,7 +1,7 @@
 'use client'
 
-import { PayCheck } from '@/prisma/generated/browser'
-import { LessonStatus } from '@/prisma/generated/client'
+import { PayCheck } from '@repo/db/browser'
+import { LessonStatus } from '@repo/db'
 import { Hint } from '@/src/components/hint'
 import TableFilter, { TableFilterItem } from '@/src/components/table-filter'
 import { Badge } from '@/src/components/ui/badge'

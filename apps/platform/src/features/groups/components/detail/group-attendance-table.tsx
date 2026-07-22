@@ -1,7 +1,7 @@
 'use client'
 
-import { Student } from '@/prisma/generated/client'
-import { AttendanceStatus } from '@/prisma/generated/enums'
+import { Student } from '@repo/db'
+import { AttendanceStatus } from '@repo/db/enums'
 import DragScrollArea from '@/src/components/drag-scroll-area'
 import { Badge } from '@/src/components/ui/badge'
 import { Button } from '@/src/components/ui/button'

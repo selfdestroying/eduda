@@ -1,6 +1,6 @@
 'use client'
 
-import { Expense } from '@/prisma/generated/client'
+import { Expense } from '@repo/db'
 import {
   AlertDialog,
   AlertDialogCancel,

@@ -1,6 +1,6 @@
 'use server'
 
-import prisma from '@/src/lib/db/prisma'
+import { prisma } from '@repo/db'
 import { authAction } from '@/src/lib/safe-action'
 import { CreateLocationSchema, DeleteLocationSchema, UpdateLocationSchema } from './schemas'
 

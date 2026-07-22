@@ -1,6 +1,6 @@
 'use client'
 
-import { Course } from '@/prisma/generated/client'
+import { Course } from '@repo/db'
 import {
   AlertDialog,
   AlertDialogCancel,

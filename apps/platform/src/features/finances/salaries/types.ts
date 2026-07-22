@@ -1,5 +1,5 @@
-import { Prisma } from '@/prisma/generated/browser'
-import { User } from '@/prisma/generated/client'
+import { Prisma } from '@repo/db/browser'
+import { User } from '@repo/db'
 
 export type LessonWithPrice = Prisma.LessonGetPayload<{
   include: {

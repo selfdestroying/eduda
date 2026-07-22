@@ -1,7 +1,7 @@
 'use server'
 
-import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@/prisma/generated/enums'
-import prisma from '@/src/lib/db/prisma'
+import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@repo/db/enums'
+import { prisma } from '@repo/db'
 import { writeFinancialHistoryTx } from '@/src/lib/lessons-balance'
 import { authAction } from '@/src/lib/safe-action'
 import {

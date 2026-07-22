@@ -1,6 +1,6 @@
 'use server'
 
-import prisma from '@/src/lib/db/prisma'
+import { prisma } from '@repo/db'
 import { randomUUID } from 'crypto'
 import fs from 'fs/promises'
 import path from 'path'

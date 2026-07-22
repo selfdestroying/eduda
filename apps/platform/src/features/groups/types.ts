@@ -1,4 +1,4 @@
-import { Prisma } from '@/prisma/generated/client'
+import { Prisma } from '@repo/db'
 
 /** Groups list - includes relations needed for the table */
 export type GroupWithRelations = Prisma.GroupGetPayload<{

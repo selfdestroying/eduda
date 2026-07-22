@@ -1,6 +1,6 @@
 'use client'
 
-import type { Attendance } from '@/prisma/generated/client'
+import type { Attendance } from '@repo/db'
 import { Button } from '@/src/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
 import { Textarea } from '@/src/components/ui/textarea'

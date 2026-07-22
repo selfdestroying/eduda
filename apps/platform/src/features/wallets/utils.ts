@@ -1,4 +1,4 @@
-import type { StudentStatus } from '@/prisma/generated/enums'
+import type { StudentStatus } from '@repo/db/enums'
 import { getGroupName } from '@/src/lib/utils'
 
 export type BalanceVariant = 'success' | 'warning' | 'danger'

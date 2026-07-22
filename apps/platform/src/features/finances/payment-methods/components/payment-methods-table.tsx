@@ -1,6 +1,6 @@
 'use client'
 
-import { PaymentMethod } from '@/prisma/generated/client'
+import { PaymentMethod } from '@repo/db'
 import DataTable from '@/src/components/data-table'
 import { Badge } from '@/src/components/ui/badge'
 import { Input } from '@/src/components/ui/input'

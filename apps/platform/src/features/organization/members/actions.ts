@@ -1,7 +1,7 @@
 'use server'
 
 import { auth } from '@/src/lib/auth/server'
-import prisma from '@/src/lib/db/prisma'
+import { prisma } from '@repo/db'
 import { authAction } from '@/src/lib/safe-action'
 import { headers } from 'next/headers'
 import { z } from 'zod'

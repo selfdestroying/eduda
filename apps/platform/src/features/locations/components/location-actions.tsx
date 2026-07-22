@@ -1,6 +1,6 @@
 'use client'
 
-import { Location } from '@/prisma/generated/client'
+import { Location } from '@repo/db'
 import {
   AlertDialog,
   AlertDialogCancel,

@@ -1,4 +1,4 @@
-import type { WalletStatus } from '@/prisma/generated/enums'
+import type { WalletStatus } from '@repo/db/enums'
 import { Badge } from '@/src/components/ui/badge'
 import { Progress } from '@/src/components/ui/progress'
 import { cn } from '@/src/lib/utils'

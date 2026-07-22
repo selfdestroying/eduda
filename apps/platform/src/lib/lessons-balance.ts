@@ -1,11 +1,11 @@
 import 'server-only'
 
-import { Prisma } from '@/prisma/generated/client'
+import { Prisma } from '@repo/db'
 import {
   AttendanceStatus,
   StudentFinancialField,
   StudentLessonsBalanceChangeReason,
-} from '@/prisma/generated/enums'
+} from '@repo/db/enums'
 
 /**
  * Whether a given attendance status+warned combination results in a wallet charge (-1 lesson).

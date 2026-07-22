@@ -1,6 +1,6 @@
 'use client'
 
-import { PayCheck } from '@/prisma/generated/client'
+import { PayCheck } from '@repo/db'
 import DataTable from '@/src/components/data-table'
 import { Skeleton } from '@/src/components/ui/skeleton'
 import { formatDateOnly } from '@/src/lib/timezone'

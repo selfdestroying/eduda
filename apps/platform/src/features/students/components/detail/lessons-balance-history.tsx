@@ -4,7 +4,7 @@ import {
   StudentFinancialField,
   StudentLessonsBalanceChangeReason,
   User,
-} from '@/prisma/generated/client'
+} from '@repo/db'
 import DataTable from '@/src/components/data-table'
 import { Hint } from '@/src/components/hint'
 import { Button } from '@/src/components/ui/button'

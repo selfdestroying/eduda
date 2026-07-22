@@ -1,6 +1,6 @@
 'use server'
 
-import prisma from '@/src/lib/db/prisma'
+import { prisma } from '@repo/db'
 import { ConflictError, ForbiddenError, NotFoundError } from '@/src/lib/error'
 import { modulesToPermission } from '@/src/lib/permissions/modules'
 import {

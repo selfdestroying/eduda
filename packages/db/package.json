@@ -1,0 +1,26 @@
+{
+  "name": "@repo/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./enums": "./generated/enums.ts",
+    "./browser": "./generated/browser.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "studio": "prisma studio",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.3.0",
+    "@prisma/client": "^7.3.0"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.2",
+    "prisma": "^7.3.0"
+  }
+}

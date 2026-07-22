@@ -1,6 +1,6 @@
 'use server'
 
-import prisma from '@/src/lib/db/prisma'
+import { prisma } from '@repo/db'
 import { publicAction } from '@/src/lib/safe-action'
 import { DEFAULT_TZ } from '@/src/lib/timezone'
 import { getAgeFromBirthDate } from '@/src/lib/utils'

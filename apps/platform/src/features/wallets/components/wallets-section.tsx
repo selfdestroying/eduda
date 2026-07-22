@@ -1,6 +1,6 @@
 'use client'
 
-import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@/prisma/generated/enums'
+import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@repo/db/enums'
 import { CustomCombobox } from '@/src/components/custom-combobox'
 import { Hint } from '@/src/components/hint'
 import { NumberInput } from '@/src/components/number-input'

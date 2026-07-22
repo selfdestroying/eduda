@@ -1,6 +1,6 @@
 'use server'
 
-import prisma from '@/src/lib/db/prisma'
+import { prisma } from '@repo/db'
 import { ConflictError } from '@/src/lib/error'
 import { authAction } from '@/src/lib/safe-action'
 import { CreateGroupTypeSchema, DeleteGroupTypeSchema, UpdateGroupTypeSchema } from './schemas'

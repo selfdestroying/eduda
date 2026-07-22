@@ -1,6 +1,6 @@
 'use client'
 
-import { PaymentMethod } from '@/prisma/generated/client'
+import { PaymentMethod } from '@repo/db'
 import {
   AlertDialog,
   AlertDialogCancel,

@@ -6,7 +6,7 @@ import {
   type TaxSystemKey,
   type UsnIncomeConfig,
 } from '@/src/features/organization/tax-systems/schemas'
-import prisma from '@/src/lib/db/prisma'
+import { prisma } from '@repo/db'
 import { authAction } from '@/src/lib/safe-action'
 import { nowInTz } from '@/src/lib/timezone'
 import { endOfMonth, startOfMonth } from 'date-fns'

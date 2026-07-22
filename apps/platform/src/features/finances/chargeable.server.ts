@@ -1,4 +1,4 @@
-import prisma from '@/src/lib/db/prisma'
+import { prisma } from '@repo/db'
 
 import { type ChargeableStatus, isChargeable, type StudentRevenueEntry } from './chargeable'
 

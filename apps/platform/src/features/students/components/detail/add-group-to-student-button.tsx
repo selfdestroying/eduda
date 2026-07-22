@@ -1,6 +1,6 @@
 'use client'
 
-import { Student } from '@/prisma/generated/client'
+import { Student } from '@repo/db'
 import { CustomCombobox } from '@/src/components/custom-combobox'
 import { Button } from '@/src/components/ui/button'
 import {
