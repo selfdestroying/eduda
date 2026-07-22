@@ -1,0 +1,4 @@
+# Prettier ищет ignore-файл относительно cwd, а корневой .prettierignore
+# при запуске `pnpm --filter shop ...` не подхватывается — дублируем нужное.
+.next
+out

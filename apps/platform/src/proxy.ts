@@ -118,9 +118,9 @@ function handleReservedSubdomain(
       return NextResponse.redirect(ROOT_URL)
     }
 
-    case 'shop':
-      return NextResponse.rewrite(new URL(`/shop${pathname}${search}`, request.url))
-
+    // `shop` сюда больше не приходит: кабинет ученика — отдельное приложение
+    // (`apps/shop`), DNS/реверс-прокси ведёт `shop.{rootDomain}` прямо в него.
+    // В `RESERVED_SUBDOMAINS` он остаётся, чтобы школа не заняла этот slug.
     default:
       return NextResponse.next()
   }
