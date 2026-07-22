@@ -1,7 +1,7 @@
 'use client'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { Hint } from '@/src/components/hint'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { Hint } from '@repo/ui/components/hint'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -10,10 +10,10 @@ import {
   AlertDialogHeader,
   AlertDialogMedia,
   AlertDialogTitle,
-} from '@/src/components/ui/alert-dialog'
-import { Button } from '@/src/components/ui/button'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
+} from '@repo/ui/components/alert-dialog'
+import { Button } from '@repo/ui/components/button'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
 import {
   Sheet,
   SheetClose,
@@ -22,8 +22,8 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-} from '@/src/components/ui/sheet'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+} from '@repo/ui/components/sheet'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/tabs'
 import {
   useLinkParentMutation,
   useParentCreateMutation,

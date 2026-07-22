@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import {
   Command,
   CommandDialog,
@@ -10,9 +10,9 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from '@/src/components/ui/command'
-import { Item, ItemContent, ItemDescription, ItemTitle } from '@/src/components/ui/item'
-import { Kbd } from '@/src/components/ui/kbd'
+} from '@repo/ui/components/command'
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
+import { Kbd } from '@repo/ui/components/kbd'
 import { cn, getFullName, getGroupName } from '@/src/lib/utils'
 import { Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'

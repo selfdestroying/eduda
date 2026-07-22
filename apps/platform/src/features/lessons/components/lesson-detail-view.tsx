@@ -1,6 +1,6 @@
 'use client'
 
-import { Skeleton } from '@/src/components/ui/skeleton'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useLessonDetailQuery } from '../queries'
 import AttendanceSection from './attendance-section'
 import InfoSection from './info-section'

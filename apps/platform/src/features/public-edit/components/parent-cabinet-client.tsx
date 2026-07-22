@@ -1,16 +1,16 @@
 'use client'
 
-import { Logo } from '@/src/components/logo'
-import { Card, CardContent } from '@/src/components/ui/card'
+import { Logo } from '@repo/ui/components/logo'
+import { Card, CardContent } from '@repo/ui/components/card'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/src/components/ui/select'
-import { Skeleton } from '@/src/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+} from '@repo/ui/components/select'
+import { Skeleton } from '@repo/ui/components/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/tabs'
 import { getFullName } from '@/src/lib/utils'
 import { useState } from 'react'
 import { useCabinetDataQuery } from '../queries'

@@ -5,7 +5,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from '@/src/components/ui/sidebar'
+} from '@repo/ui/components/sidebar'
 import { cn } from '@/src/lib/utils'
 import { Briefcase, Crown, GraduationCap, type LucideIcon } from 'lucide-react'
 import { useState, useTransition } from 'react'

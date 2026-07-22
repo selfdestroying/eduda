@@ -9,8 +9,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/src/components/ui/alert-dialog'
-import { Button } from '@/src/components/ui/button'
+} from '@repo/ui/components/alert-dialog'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogClose,
@@ -19,14 +19,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/src/components/ui/dialog'
+} from '@repo/ui/components/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
+} from '@repo/ui/components/dropdown-menu'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, MoreVertical, Pen, Trash } from 'lucide-react'
 import { useState } from 'react'

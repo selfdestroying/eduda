@@ -1,13 +1,13 @@
 'use client'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { NumberInput } from '@/src/components/number-input'
-import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert'
-import { Button } from '@/src/components/ui/button'
-import { Calendar } from '@/src/components/ui/calendar'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { NumberInput } from '@repo/ui/components/number-input'
+import { Alert, AlertDescription, AlertTitle } from '@repo/ui/components/alert'
+import { Button } from '@repo/ui/components/button'
+import { Calendar } from '@repo/ui/components/calendar'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
 import {
   Select,
   SelectContent,
@@ -15,8 +15,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/src/components/ui/select'
-import { Tabs, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+} from '@repo/ui/components/select'
+import { Tabs, TabsList, TabsTrigger } from '@repo/ui/components/tabs'
 import { useMappedLocationListQuery } from '@/src/features/locations/queries'
 import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
 import { format } from 'date-fns'

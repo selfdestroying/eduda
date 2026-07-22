@@ -1,6 +1,6 @@
 'use client'
 
-import { Tabs, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@repo/ui/components/tabs'
 import { cn } from '@/src/lib/utils'
 import type { CalendarView } from '../types'
 

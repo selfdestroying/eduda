@@ -1,10 +1,10 @@
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
+} from '@repo/ui/components/dropdown-menu'
 import { useDismissedReturnMutation } from '@/src/features/students/dismissed/queries'
 import { Loader, MoreVertical, Undo } from 'lucide-react'
 import { useState } from 'react'

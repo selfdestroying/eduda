@@ -1,9 +1,9 @@
 'use client'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { NumberInput } from '@/src/components/number-input'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { NumberInput } from '@repo/ui/components/number-input'
 import { memberRoleLabels } from '@/src/components/sidebar/nav-user'
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogContent,
@@ -11,10 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/src/components/ui/dialog'
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Item, ItemContent, ItemDescription, ItemTitle } from '@/src/components/ui/item'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/dialog'
+import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useMemberListQuery } from '@/src/features/organization/members/queries'
 import { OrganizationRole } from '@/src/lib/auth/server'
 import { zodResolver } from '@hookform/resolvers/zod'

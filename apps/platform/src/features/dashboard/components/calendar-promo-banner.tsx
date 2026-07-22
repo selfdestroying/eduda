@@ -1,7 +1,7 @@
 'use client'
 
-import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/src/components/ui/alert'
-import { Button } from '@/src/components/ui/button'
+import { Alert, AlertAction, AlertDescription, AlertTitle } from '@repo/ui/components/alert'
+import { Button } from '@repo/ui/components/button'
 import { enableCalendarHomeView } from '@/src/features/calendar/lib/view-preference'
 import { ArrowUpRight, CalendarDays, X } from 'lucide-react'
 import Link from 'next/link'

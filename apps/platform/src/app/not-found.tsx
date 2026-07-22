@@ -1,4 +1,4 @@
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import { House, SearchX } from 'lucide-react'
 import Link from 'next/link'
 

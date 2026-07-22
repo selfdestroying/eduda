@@ -1,8 +1,8 @@
 'use client'
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/src/components/ui/avatar'
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/src/components/ui/sidebar'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import { Avatar, AvatarFallback, AvatarImage } from '@repo/ui/components/avatar'
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@repo/ui/components/sidebar'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useSessionQuery } from '@/src/features/users/me/queries'
 import type { OrganizationRole } from '@/src/lib/auth/server'
 import { isFeatureDisabled } from '@/src/lib/features/registry'
@@ -30,7 +30,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
+} from '@repo/ui/components/dropdown-menu'
 
 type OrgMenuItem = {
   title: string

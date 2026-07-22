@@ -24,7 +24,7 @@ import {
 import { useTheme } from 'next-themes'
 import Link from 'next/link'
 import { useEffect, useState, type CSSProperties } from 'react'
-import { Logo } from '@/src/components/logo'
+import { Logo } from '@repo/ui/components/logo'
 import { DemoLaunchButton } from '@/src/features/demo/components/demo-launch-button'
 import { authClient } from '@/src/lib/auth/client'
 import { protocol, rootDomain } from '@/src/lib/utils'

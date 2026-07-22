@@ -2,10 +2,10 @@
 
 import { useMemo } from 'react'
 
-import DataTable from '@/src/components/data-table'
-import { Hint } from '@/src/components/hint'
-import { Badge } from '@/src/components/ui/badge'
-import { Input } from '@/src/components/ui/input'
+import DataTable from '@repo/ui/components/data-table'
+import { Hint } from '@repo/ui/components/hint'
+import { Badge } from '@repo/ui/components/badge'
+import { Input } from '@repo/ui/components/input'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'

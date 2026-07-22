@@ -5,8 +5,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
-import { Hint } from '@/src/components/hint'
+} from '@repo/ui/components/card'
+import { Hint } from '@repo/ui/components/hint'
 import CreateGroupTypeDialog from '@/src/features/group-types/components/create-group-type-dialog'
 import GroupTypesTable from '@/src/features/group-types/components/group-types-table'
 

@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
 import TaxSystemConfig from '@/src/features/organization/tax-systems/components/tax-system-config'
 
 export const metadata = { title: 'Системы налогообложения' }

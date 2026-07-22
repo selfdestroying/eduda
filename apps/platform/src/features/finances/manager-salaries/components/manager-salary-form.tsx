@@ -1,9 +1,9 @@
 'use client'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { NumberInput } from '@/src/components/number-input'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { NumberInput } from '@repo/ui/components/number-input'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
 import {
   Select,
   SelectContent,
@@ -11,7 +11,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/src/components/ui/select'
+} from '@repo/ui/components/select'
 import { useMemberListQuery } from '@/src/features/organization/members/queries'
 import { useMemo } from 'react'
 import { Controller, FieldValues, Path, UseFormReturn } from 'react-hook-form'

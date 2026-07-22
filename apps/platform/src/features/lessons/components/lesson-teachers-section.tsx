@@ -1,6 +1,6 @@
 'use client'
 
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import AddTeacherToLessonButton from './add-teacher-to-lesson-button'
 import { useLessonDetail } from './lesson-detail-context'

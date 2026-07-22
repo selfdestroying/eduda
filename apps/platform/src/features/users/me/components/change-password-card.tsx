@@ -1,6 +1,6 @@
 'use client'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
 import { ChangePasswordForm } from './change-password-form'
 
 export default function ChangePasswordCard() {

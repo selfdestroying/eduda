@@ -1,6 +1,6 @@
-import { Hint } from '@/src/components/hint'
-import { Badge } from '@/src/components/ui/badge'
-import { Button } from '@/src/components/ui/button'
+import { Hint } from '@repo/ui/components/hint'
+import { Badge } from '@repo/ui/components/badge'
+import { Button } from '@repo/ui/components/button'
 import {
   Card,
   CardAction,
@@ -9,13 +9,13 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/src/components/ui/collapsible'
-import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/src/components/ui/table'
+} from '@repo/ui/components/collapsible'
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@repo/ui/components/table'
 import { ymdToLocalDate } from '@/src/lib/timezone'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'

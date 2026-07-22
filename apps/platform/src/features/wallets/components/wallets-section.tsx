@@ -1,9 +1,9 @@
 'use client'
 
 import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@repo/db/enums'
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { Hint } from '@/src/components/hint'
-import { NumberInput } from '@/src/components/number-input'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { Hint } from '@repo/ui/components/hint'
+import { NumberInput } from '@repo/ui/components/number-input'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -12,17 +12,17 @@ import {
   AlertDialogHeader,
   AlertDialogMedia,
   AlertDialogTitle,
-} from '@/src/components/ui/alert-dialog'
-import { Badge } from '@/src/components/ui/badge'
-import { Button } from '@/src/components/ui/button'
+} from '@repo/ui/components/alert-dialog'
+import { Badge } from '@repo/ui/components/badge'
+import { Button } from '@repo/ui/components/button'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/src/components/ui/collapsible'
-import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import { Label } from '@/src/components/ui/label'
+} from '@repo/ui/components/collapsible'
+import { Field, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
+import { Label } from '@repo/ui/components/label'
 import {
   Sheet,
   SheetClose,
@@ -31,7 +31,7 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-} from '@/src/components/ui/sheet'
+} from '@repo/ui/components/sheet'
 import { redistributeBalance } from '@/src/features/students/actions'
 import {
   computeGroupStats,

@@ -1,9 +1,9 @@
 'use client'
 
-import DataTable from '@/src/components/data-table'
-import { Badge } from '@/src/components/ui/badge'
-import { Skeleton } from '@/src/components/ui/skeleton'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip'
+import DataTable from '@repo/ui/components/data-table'
+import { Badge } from '@repo/ui/components/badge'
+import { Skeleton } from '@repo/ui/components/skeleton'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@repo/ui/components/tooltip'
 import type { StudentGroupHistoryEntry } from '@/src/features/students/actions'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { ColumnDef, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table'

@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import {
   Drawer,
   DrawerClose,
@@ -10,8 +10,8 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from '@/src/components/ui/drawer'
-import { useIsMobile } from '@/src/hooks/use-mobile'
+} from '@repo/ui/components/drawer'
+import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { Filter } from 'lucide-react'
 import type { CalendarController } from '../hooks/use-calendar'
 import { CalendarFilters } from './calendar-filters'

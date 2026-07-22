@@ -1,15 +1,15 @@
 'use client'
 
-import { Hint } from '@/src/components/hint'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Hint } from '@repo/ui/components/hint'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '@/src/components/ui/empty'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/empty'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import {
   Table,
   TableBody,
@@ -18,7 +18,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/src/components/ui/table'
+} from '@repo/ui/components/table'
 import { DEFAULT_CHARGEABLE_STATUSES } from '@/src/features/finances/chargeable'
 import { dateToYmd } from '@/src/lib/timezone'
 import {

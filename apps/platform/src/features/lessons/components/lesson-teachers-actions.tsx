@@ -1,6 +1,6 @@
 'use client'
 
-import { NumberInput } from '@/src/components/number-input'
+import { NumberInput } from '@repo/ui/components/number-input'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -8,8 +8,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/src/components/ui/alert-dialog'
-import { Button } from '@/src/components/ui/button'
+} from '@repo/ui/components/alert-dialog'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogClose,
@@ -18,15 +18,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/src/components/ui/dialog'
+} from '@repo/ui/components/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
+} from '@repo/ui/components/dropdown-menu'
+import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, MoreVertical, Pen, Trash } from 'lucide-react'
 import { useEffect, useState } from 'react'

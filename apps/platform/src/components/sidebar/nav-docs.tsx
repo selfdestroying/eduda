@@ -1,6 +1,6 @@
 'use client'
 
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/src/components/ui/sidebar'
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@repo/ui/components/sidebar'
 import { protocol, rootDomain } from '@/src/lib/utils'
 import { BookOpen } from 'lucide-react'
 

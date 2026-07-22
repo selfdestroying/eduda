@@ -1,6 +1,6 @@
 'use client'
 
-import { Avatar, AvatarFallback } from '@/src/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@repo/ui/components/avatar'
 import {
   Card,
   CardAction,
@@ -8,9 +8,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
-import { ItemGroup } from '@/src/components/ui/item'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/card'
+import { ItemGroup } from '@repo/ui/components/item'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useSessionQuery } from '@/src/features/users/me/queries'
 import MemberManagerSalarySection from '@/src/features/finances/manager-salaries/components/member-manager-salary-section'
 import { OrganizationRole } from '@/src/lib/auth/server'

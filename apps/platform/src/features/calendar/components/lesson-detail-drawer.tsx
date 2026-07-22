@@ -1,16 +1,16 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import {
   Drawer,
   DrawerClose,
   DrawerContent,
   DrawerFooter,
   DrawerTitle,
-} from '@/src/components/ui/drawer'
+} from '@repo/ui/components/drawer'
 import { useLessonDetailQuery } from '@/src/features/lessons/queries'
 import type { AttendanceWithStudents } from '@/src/features/lessons/types'
-import { useIsMobile } from '@/src/hooks/use-mobile'
+import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { cn, getGroupName } from '@/src/lib/utils'
 import {
@@ -34,7 +34,7 @@ import { fmtTime, hexA, parseYmd } from '../lib/date-utils'
 import type { CalendarEvent } from '../types'
 import { AttendanceStatusSwitcher } from '../../lessons/components/attendance-status-switcher'
 import { AttendanceCommentPopover } from '../../lessons/components/attendance-comment-popover'
-import { Badge } from '@/src/components/ui/badge'
+import { Badge } from '@repo/ui/components/badge'
 
 // ─── Форматирование ──────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogClose,
@@ -10,9 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/src/components/ui/dialog'
-import { Field, FieldDescription, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
+} from '@repo/ui/components/dialog'
+import { Field, FieldDescription, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
 import { Loader, Pen } from 'lucide-react'
 import { useState } from 'react'
 import { useRoleInfoUpdateMutation } from '../queries'

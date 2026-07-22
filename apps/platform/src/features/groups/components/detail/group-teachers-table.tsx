@@ -1,7 +1,7 @@
 'use client'
 
-import DataTable from '@/src/components/data-table'
-import { Hint } from '@/src/components/hint'
+import DataTable from '@repo/ui/components/data-table'
+import { Hint } from '@repo/ui/components/hint'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import BalanceBadge from '@/src/features/lessons/components/balance-badge'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'

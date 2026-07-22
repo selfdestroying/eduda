@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
 import CompletedStudentsTable from '@/src/features/students/completed/components/completed-students-table'
 import { Metadata } from 'next'
 

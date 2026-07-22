@@ -1,7 +1,7 @@
 'use client'
 
-import { Badge } from '@/src/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Badge } from '@repo/ui/components/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
 import {
   Popover,
   PopoverContent,
@@ -9,9 +9,9 @@ import {
   PopoverHeader,
   PopoverTitle,
   PopoverTrigger,
-} from '@/src/components/ui/popover'
-import { Separator } from '@/src/components/ui/separator'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/popover'
+import { Separator } from '@repo/ui/components/separator'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { cn, getGroupName } from '@/src/lib/utils'
 import { AlertTriangle, CheckCircle2, MapPin, Minus, XCircle } from 'lucide-react'

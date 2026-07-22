@@ -1,8 +1,8 @@
 'use client'
 
 import { PayCheck } from '@repo/db'
-import DataTable from '@/src/components/data-table'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import DataTable from '@repo/ui/components/data-table'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { formatDateOnly } from '@/src/lib/timezone'
 import {
   ColumnDef,

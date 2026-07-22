@@ -5,7 +5,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import AddStudentButton from '@/src/features/students/components/add-student-button'
 import StudentsTable from '@/src/features/students/components/students-table'
 import { Metadata } from 'next'

@@ -1,8 +1,8 @@
 'use client'
 
-import { Logo } from '@/src/components/logo'
-import { SwitchThemeButton } from '@/src/components/switch-theme-button'
-import { Tabs, TabsContent, TabsIndicator, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+import { Logo } from '@repo/ui/components/logo'
+import { SwitchThemeButton } from '@repo/ui/components/switch-theme-button'
+import { Tabs, TabsContent, TabsIndicator, TabsList, TabsTrigger } from '@repo/ui/components/tabs'
 import { authClient } from '@/src/lib/auth/client'
 import { protocol, rootDomain } from '@/src/lib/utils'
 import { useEffect, useRef, useState } from 'react'

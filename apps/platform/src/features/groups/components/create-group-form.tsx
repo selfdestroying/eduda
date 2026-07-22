@@ -2,27 +2,27 @@
 
 import { Controller, useFieldArray, useForm } from 'react-hook-form'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { NumberInput } from '@/src/components/number-input'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { NumberInput } from '@repo/ui/components/number-input'
 import {
   NumberField,
   NumberFieldDecrement,
   NumberFieldGroup,
   NumberFieldIncrement,
   NumberFieldInput,
-} from '@/src/components/number-field'
+} from '@repo/ui/components/number-field'
 import { memberRoleLabels } from '@/src/components/sidebar/nav-user'
-import { Button } from '@/src/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Button } from '@repo/ui/components/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
 import {
   Field,
   FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
-} from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import { Item, ItemContent, ItemDescription, ItemTitle } from '@/src/components/ui/item'
+} from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
 import {
   Select,
   SelectContent,
@@ -30,7 +30,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/src/components/ui/select'
+} from '@repo/ui/components/select'
 import { EnrolledStudentRow } from '@/src/features/groups/components/enrolled-student-row'
 import { useCourseListQuery } from '@/src/features/courses/queries'
 import { useGroupTypeListQuery } from '@/src/features/group-types/queries'

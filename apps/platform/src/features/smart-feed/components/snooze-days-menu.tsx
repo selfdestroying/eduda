@@ -5,7 +5,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
+} from '@repo/ui/components/dropdown-menu'
 import * as React from 'react'
 
 export const SNOOZE_DAYS_OPTIONS = [1, 2, 7, 14] as const

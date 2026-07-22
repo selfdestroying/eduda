@@ -1,5 +1,5 @@
 import { Loader } from 'lucide-react'
-import { Logo } from '../components/logo'
+import { Logo } from '@repo/ui/components/logo'
 
 export default function Loading() {
   return (

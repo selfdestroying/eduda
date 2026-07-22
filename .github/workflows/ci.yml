@@ -55,7 +55,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/apps/platform/.next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/platform/src/**/*.[jt]s', 'apps/platform/src/**/*.[jt]sx') }}
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/platform/src/**/*.[jt]s', 'apps/platform/src/**/*.[jt]sx', 'packages/ui/src/**/*.[jt]s', 'packages/ui/src/**/*.[jt]sx') }}
           restore-keys: |
             nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
 

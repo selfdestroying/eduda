@@ -7,16 +7,16 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/src/components/ui/collapsible'
+} from '@repo/ui/components/collapsible'
 import { DayGroup } from '../types'
 
-import { Badge } from '@/src/components/ui/badge'
-import { Button } from '@/src/components/ui/button'
+import { Badge } from '@repo/ui/components/badge'
+import { Button } from '@repo/ui/components/button'
 import { formatDate } from '@/src/lib/timezone'
 import { Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'

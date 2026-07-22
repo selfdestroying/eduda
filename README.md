@@ -1,4 +1,4 @@
-ЕДУДА — a multi-tenant SaaS dashboard for educational centers. **pnpm + Turborepo monorepo**: the Next.js app lives in `apps/platform`, Prisma in `packages/db` (`@repo/db`).
+ЕДУДА — a multi-tenant SaaS dashboard for educational centers. **pnpm + Turborepo monorepo**: the Next.js app lives in `apps/platform`, Prisma in `packages/db` (`@repo/db`), the shared design system in `packages/ui` (`@repo/ui`).
 
 ## Getting Started
 

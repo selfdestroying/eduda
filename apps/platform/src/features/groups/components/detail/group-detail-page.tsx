@@ -1,8 +1,8 @@
 'use client'
 
-import { Hint } from '@/src/components/hint'
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import { Hint } from '@repo/ui/components/hint'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { useGroupDetailPageQuery } from '../../queries'
 import AddLessonButton from './add-lesson-button'

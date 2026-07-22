@@ -10,9 +10,9 @@ import {
   useAui,
 } from '@assistant-ui/react'
 import { useShallow } from 'zustand/shallow'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip'
-import { Dialog, DialogTitle, DialogContent, DialogTrigger } from '@/src/components/ui/dialog'
-import { Avatar, AvatarImage, AvatarFallback } from '@/src/components/ui/avatar'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@repo/ui/components/tooltip'
+import { Dialog, DialogTitle, DialogContent, DialogTrigger } from '@repo/ui/components/dialog'
+import { Avatar, AvatarImage, AvatarFallback } from '@repo/ui/components/avatar'
 import { TooltipIconButton } from '@/src/components/assistant-ui/tooltip-icon-button'
 import { cn } from '@/src/lib/utils'
 import Image from 'next/image'

@@ -5,7 +5,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import OrdersTable from '@/src/features/shop/orders/components/orders-table'
 
 export const metadata = { title: 'Заказы' }

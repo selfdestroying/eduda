@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
 import { cn } from '@/src/lib/utils'
 import type { CalendarController } from '../../hooks/use-calendar'
 import type { CalendarEvent } from '../../types'

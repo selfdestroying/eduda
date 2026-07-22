@@ -1,7 +1,7 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
-import { Calendar } from '@/src/components/ui/calendar'
+import { Button } from '@repo/ui/components/button'
+import { Calendar } from '@repo/ui/components/calendar'
 import {
   Dialog,
   DialogClose,
@@ -11,10 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/src/components/ui/dialog'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
+} from '@repo/ui/components/dialog'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
 import { dateToYmd, formatDateOnly, ymdToLocalDate } from '@/src/lib/timezone'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'

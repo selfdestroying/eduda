@@ -1,8 +1,8 @@
 'use client'
 
-import DataTable from '@/src/components/data-table'
-import { Hint } from '@/src/components/hint'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import DataTable from '@repo/ui/components/data-table'
+import { Hint } from '@repo/ui/components/hint'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { useRateListQuery } from '../queries'

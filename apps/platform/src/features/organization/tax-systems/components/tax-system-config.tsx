@@ -1,10 +1,10 @@
 'use client'
 
-import { Badge } from '@/src/components/ui/badge'
-import { Button } from '@/src/components/ui/button'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import { Separator } from '@/src/components/ui/separator'
+import { Badge } from '@repo/ui/components/badge'
+import { Button } from '@repo/ui/components/button'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
+import { Separator } from '@repo/ui/components/separator'
 import {
   Sheet,
   SheetClose,
@@ -13,8 +13,8 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-} from '@/src/components/ui/sheet'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/sheet'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { cn } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Pencil } from 'lucide-react'

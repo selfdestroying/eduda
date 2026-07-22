@@ -7,9 +7,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
-import { ItemGroup } from '@/src/components/ui/item'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/card'
+import { ItemGroup } from '@repo/ui/components/item'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useSessionQuery } from '@/src/features/users/me/queries'
 import AddCheckButton from '@/src/features/organization/members/components/add-check-button'
 import PayChecksTable from '@/src/features/organization/members/components/paychecks-table'

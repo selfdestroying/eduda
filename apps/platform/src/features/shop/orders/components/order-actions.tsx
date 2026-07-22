@@ -1,8 +1,8 @@
 'use client'
 
 import { Order } from '@repo/db'
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { Button } from '@/src/components/ui/button'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogClose,
@@ -11,15 +11,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/src/components/ui/dialog'
+} from '@repo/ui/components/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
-import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field'
+} from '@repo/ui/components/dropdown-menu'
+import { Field, FieldGroup, FieldLabel } from '@repo/ui/components/field'
 import { Loader, MoreVertical, Pen } from 'lucide-react'
 import { useState } from 'react'
 import { useChangeOrderStatusMutation } from '../queries'

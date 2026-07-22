@@ -1,9 +1,9 @@
 'use client'
 
 import type { OrderStatus } from '@repo/db/enums'
-import { StatCard } from '@/src/components/stat-card'
-import { Badge } from '@/src/components/ui/badge'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import { StatCard } from '@repo/ui/components/stat-card'
+import { Badge } from '@repo/ui/components/badge'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { OrderStatusMap } from '@/src/features/shop/orders/components/orders-table'
 import { cn } from '@/src/lib/utils'
 import { format } from 'date-fns'

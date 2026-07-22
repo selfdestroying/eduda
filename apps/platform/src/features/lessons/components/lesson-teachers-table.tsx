@@ -1,6 +1,6 @@
 'use client'
 
-import DataTable from '@/src/components/data-table'
+import DataTable from '@repo/ui/components/data-table'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import Link from 'next/link'

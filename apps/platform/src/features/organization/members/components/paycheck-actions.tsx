@@ -1,7 +1,7 @@
 'use client'
 
 import { PayCheck } from '@repo/db'
-import { NumberInput } from '@/src/components/number-input'
+import { NumberInput } from '@repo/ui/components/number-input'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -9,9 +9,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/src/components/ui/alert-dialog'
-import { Button } from '@/src/components/ui/button'
-import { Calendar, CalendarDayButton } from '@/src/components/ui/calendar'
+} from '@repo/ui/components/alert-dialog'
+import { Button } from '@repo/ui/components/button'
+import { Calendar, CalendarDayButton } from '@repo/ui/components/calendar'
 import {
   Dialog,
   DialogContent,
@@ -19,23 +19,23 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/src/components/ui/dialog'
+} from '@repo/ui/components/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
+} from '@repo/ui/components/dropdown-menu'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/src/components/ui/select'
+} from '@repo/ui/components/select'
 import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'

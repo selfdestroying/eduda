@@ -1,8 +1,8 @@
 'use client'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { Button } from '@/src/components/ui/button'
-import { Calendar } from '@/src/components/ui/calendar'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { Button } from '@repo/ui/components/button'
+import { Calendar } from '@repo/ui/components/calendar'
 import {
   Field,
   FieldDescription,
@@ -10,10 +10,10 @@ import {
   FieldGroup,
   FieldLabel,
   FieldSeparator,
-} from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import { Item, ItemContent, ItemDescription, ItemTitle } from '@/src/components/ui/item'
-import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
+} from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
 import {
   Sheet,
   SheetClose,
@@ -23,8 +23,8 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from '@/src/components/ui/sheet'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+} from '@repo/ui/components/sheet'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/tabs'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { dateToYmd, formatDateOnly, ymdToLocalDate } from '@/src/lib/timezone'

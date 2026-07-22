@@ -1,6 +1,6 @@
 'use client'
 
-import { useIsMobile } from '@/src/hooks/use-mobile'
+import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { cn } from '@/src/lib/utils'
 import { useCalendar, type UseCalendarOptions } from '../hooks/use-calendar'
 import { DesktopCalendar } from './desktop/desktop-calendar'

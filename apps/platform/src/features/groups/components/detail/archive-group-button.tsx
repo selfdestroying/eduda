@@ -1,8 +1,8 @@
 'use client'
 
-import { Alert, AlertDescription } from '@/src/components/ui/alert'
-import { Button } from '@/src/components/ui/button'
-import { Calendar } from '@/src/components/ui/calendar'
+import { Alert, AlertDescription } from '@repo/ui/components/alert'
+import { Button } from '@repo/ui/components/button'
+import { Calendar } from '@repo/ui/components/calendar'
 import {
   Dialog,
   DialogClose,
@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/src/components/ui/dialog'
+} from '@repo/ui/components/dialog'
 import {
   Field,
   FieldContent,
@@ -19,10 +19,10 @@ import {
   FieldGroup,
   FieldLabel,
   FieldTitle,
-} from '@/src/components/ui/field'
-import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
-import { Switch } from '@/src/components/ui/switch'
-import { Textarea } from '@/src/components/ui/textarea'
+} from '@repo/ui/components/field'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
+import { Switch } from '@repo/ui/components/switch'
+import { Textarea } from '@repo/ui/components/textarea'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import { ru } from 'date-fns/locale'

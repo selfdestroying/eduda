@@ -1,7 +1,7 @@
 'use client'
 
-import { FieldDescription, FieldLegend, FieldSet } from '@/src/components/ui/field'
-import { RadioGroup, RadioGroupItem } from '@/src/components/ui/radio-group'
+import { FieldDescription, FieldLegend, FieldSet } from '@repo/ui/components/field'
+import { RadioGroup, RadioGroupItem } from '@repo/ui/components/radio-group'
 import {
   PERMISSION_MODULE_KEYS,
   PERMISSION_MODULES,

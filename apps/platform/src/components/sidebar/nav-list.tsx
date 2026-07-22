@@ -4,7 +4,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/src/components/ui/collapsible'
+} from '@repo/ui/components/collapsible'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +13,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
+} from '@repo/ui/components/dropdown-menu'
 import {
   SidebarGroup,
   SidebarMenu,
@@ -24,8 +24,8 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   useSidebar,
-} from '@/src/components/ui/sidebar'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/sidebar'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { ChevronRight, LayoutDashboard } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'

@@ -1,9 +1,9 @@
 'use client'
 
 import { OrderStatus } from '@repo/db/enums'
-import DataTable from '@/src/components/data-table'
-import TableFilter, { TableFilterItem } from '@/src/components/table-filter'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import DataTable from '@repo/ui/components/data-table'
+import TableFilter, { TableFilterItem } from '@repo/ui/components/table-filter'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
 import { formatDateTimeInTz } from '@/src/lib/timezone'

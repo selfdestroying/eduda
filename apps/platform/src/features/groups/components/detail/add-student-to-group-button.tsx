@@ -1,7 +1,7 @@
 'use client'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { Button } from '@/src/components/ui/button'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { Button } from '@repo/ui/components/button'
 import {
   Combobox,
   ComboboxContent,
@@ -9,7 +9,7 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-} from '@/src/components/ui/combobox'
+} from '@repo/ui/components/combobox'
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/src/components/ui/dialog'
+} from '@repo/ui/components/dialog'
 import {
   Field,
   FieldContent,
@@ -26,9 +26,9 @@ import {
   FieldGroup,
   FieldLabel,
   FieldTitle,
-} from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import { Switch } from '@/src/components/ui/switch'
+} from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
+import { Switch } from '@repo/ui/components/switch'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { useStudentListQuery } from '@/src/features/students/queries'
 import { useStudentWalletsQuery } from '@/src/features/wallets/queries'

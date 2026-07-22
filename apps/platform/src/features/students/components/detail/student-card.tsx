@@ -1,7 +1,7 @@
 'use client'
 
-import { StatCard } from '@/src/components/stat-card'
-import { Separator } from '@/src/components/ui/separator'
+import { StatCard } from '@repo/ui/components/stat-card'
+import { Separator } from '@repo/ui/components/separator'
 import {
   Cake,
   CheckCircle2,

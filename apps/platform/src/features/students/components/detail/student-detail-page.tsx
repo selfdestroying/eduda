@@ -1,9 +1,9 @@
 'use client'
 
 import { FeatureGate } from '@/src/components/feature-gate'
-import { Avatar, AvatarFallback } from '@/src/components/ui/avatar'
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import { Avatar, AvatarFallback } from '@repo/ui/components/avatar'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import WalletsSection from '@/src/features/wallets/components/wallets-section'
 import { getFullName } from '@/src/lib/utils'

@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
 import DismissedStatistics from '@/src/features/statistics/components/dismissed/dismissed-statistics'
 import DismissedStudentsTable from '@/src/features/students/dismissed/components/dismissed-table'
 

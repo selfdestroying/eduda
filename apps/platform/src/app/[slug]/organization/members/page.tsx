@@ -5,7 +5,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import CreateMemberDialog from '@/src/features/organization/members/components/create-member-dialog'
 import MembersTable from '@/src/features/organization/members/components/members-table'
 

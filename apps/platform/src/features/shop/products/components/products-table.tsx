@@ -11,13 +11,13 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 
-import DataTable from '@/src/components/data-table'
-import { Input } from '@/src/components/ui/input'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import DataTable from '@repo/ui/components/data-table'
+import { Input } from '@repo/ui/components/input'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
 import { useMemo } from 'react'
 
-import TableFilter, { TableFilterItem } from '@/src/components/table-filter'
+import TableFilter, { TableFilterItem } from '@repo/ui/components/table-filter'
 import { Coins } from 'lucide-react'
 import Image from 'next/image'
 import { useCategoryListQuery } from '../../categories/queries'

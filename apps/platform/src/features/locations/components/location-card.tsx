@@ -1,22 +1,22 @@
 'use client'
 
 import { Location } from '@repo/db'
-import { Hint } from '@/src/components/hint'
-import { Badge } from '@/src/components/ui/badge'
-import { Button } from '@/src/components/ui/button'
+import { Hint } from '@repo/ui/components/hint'
+import { Badge } from '@repo/ui/components/badge'
+import { Button } from '@repo/ui/components/button'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/src/components/ui/collapsible'
-import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty'
+} from '@repo/ui/components/collapsible'
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from '@repo/ui/components/empty'
 import {
   Item,
   ItemActions,
   ItemContent,
   ItemDescription,
   ItemTitle,
-} from '@/src/components/ui/item'
+} from '@repo/ui/components/item'
 import AddRentButton from '@/src/features/finances/rent/components/add-rent-button'
 import RentActions from '@/src/features/finances/rent/components/rent-actions'
 import { useRentListQuery } from '@/src/features/finances/rent/queries'

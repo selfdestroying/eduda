@@ -1,8 +1,8 @@
 'use client'
 
-import TableFilter, { TableFilterItem } from '@/src/components/table-filter'
-import { FieldGroup } from '@/src/components/ui/field'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import TableFilter, { TableFilterItem } from '@repo/ui/components/table-filter'
+import { FieldGroup } from '@repo/ui/components/field'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useMappedCourseListQuery } from '@/src/features/courses/queries'
 import { useMappedLocationListQuery } from '@/src/features/locations/queries'
 import { useMappedMemberListQuery } from '@/src/features/organization/members/queries'

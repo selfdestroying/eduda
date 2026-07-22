@@ -1,14 +1,14 @@
 'use client'
 
-import { Hint } from '@/src/components/hint'
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Hint } from '@repo/ui/components/hint'
+import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from '@/src/components/ui/chart'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/chart'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useDismissedStatisticsQuery } from '@/src/features/statistics/queries'
 import { GraduationCap, Percent, TrendingDown, TrendingUp, UserMinus } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts'

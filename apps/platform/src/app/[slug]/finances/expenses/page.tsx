@@ -5,7 +5,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import AddExpenseButton from '@/src/features/finances/expenses/components/add-expense-button'
 import ExpenseTable from '@/src/features/finances/expenses/components/expense-table'
 

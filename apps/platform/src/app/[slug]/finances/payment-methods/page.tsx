@@ -5,7 +5,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import AddPaymentMethodButton from '@/src/features/finances/payment-methods/components/add-payment-method-button'
 import PaymentMethodsTable from '@/src/features/finances/payment-methods/components/payment-methods-table'
 

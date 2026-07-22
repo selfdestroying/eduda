@@ -1,19 +1,19 @@
 'use client'
 
-import { Logo } from '@/src/components/logo'
-import { SwitchThemeButton } from '@/src/components/switch-theme-button'
-import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert'
-import { Badge } from '@/src/components/ui/badge'
-import { Button } from '@/src/components/ui/button'
-import { Field, FieldDescription, FieldError, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
+import { Logo } from '@repo/ui/components/logo'
+import { SwitchThemeButton } from '@repo/ui/components/switch-theme-button'
+import { Alert, AlertDescription, AlertTitle } from '@repo/ui/components/alert'
+import { Badge } from '@repo/ui/components/badge'
+import { Button } from '@repo/ui/components/button'
+import { Field, FieldDescription, FieldError, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
   InputGroupText,
-} from '@/src/components/ui/input-group'
-import { Progress } from '@/src/components/ui/progress'
+} from '@repo/ui/components/input-group'
+import { Progress } from '@repo/ui/components/progress'
 import { createSchool } from '@/src/features/organization/actions'
 import { TAX_SYSTEMS } from '@/src/features/organization/tax-systems/schemas'
 import { signOut } from '@/src/features/users/me/queries'

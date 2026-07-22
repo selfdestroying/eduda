@@ -1,7 +1,7 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
-import { Label } from '@/src/components/ui/label'
+import { Button } from '@repo/ui/components/button'
+import { Label } from '@repo/ui/components/label'
 import { formatDate } from '@/src/lib/timezone'
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader } from 'lucide-react'
 import { useMemo, useState, useTransition } from 'react'

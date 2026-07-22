@@ -1,5 +1,5 @@
 'use client'
-import { Calendar } from '@/src/components/ui/calendar'
+import { Calendar } from '@repo/ui/components/calendar'
 import { ru } from 'date-fns/locale'
 import type { DashboardCalendarDaySummaryMap } from '../types'
 import { LessonDayButton } from './calendar-day-button'

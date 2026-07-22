@@ -1,7 +1,7 @@
 'use client'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { Button } from '@/src/components/ui/button'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogClose,
@@ -11,10 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/src/components/ui/dialog'
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import { Item, ItemContent, ItemDescription, ItemTitle } from '@/src/components/ui/item'
+} from '@repo/ui/components/dialog'
+import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'

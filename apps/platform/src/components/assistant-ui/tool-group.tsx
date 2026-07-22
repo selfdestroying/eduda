@@ -8,7 +8,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/src/components/ui/collapsible'
+} from '@repo/ui/components/collapsible'
 import { cn } from '@/src/lib/utils'
 
 const ANIMATION_DURATION = 200

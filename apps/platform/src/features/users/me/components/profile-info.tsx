@@ -1,9 +1,9 @@
 'use client'
 
 import { memberRoleLabels } from '@/src/components/sidebar/nav-user'
-import { Avatar, AvatarFallback, AvatarImage } from '@/src/components/ui/avatar'
-import { Card, CardContent } from '@/src/components/ui/card'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import { Avatar, AvatarFallback, AvatarImage } from '@repo/ui/components/avatar'
+import { Card, CardContent } from '@repo/ui/components/card'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useSessionQuery } from '@/src/features/users/me/queries'
 import type { OrganizationRole } from '@/src/lib/auth/server'
 import { Building2, Mail, Shield } from 'lucide-react'

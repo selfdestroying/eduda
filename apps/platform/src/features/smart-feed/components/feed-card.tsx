@@ -1,13 +1,13 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import {
   Item,
   ItemActions,
   ItemContent,
   ItemDescription,
   ItemTitle,
-} from '@/src/components/ui/item'
+} from '@repo/ui/components/item'
 import { ymdToLocalDate } from '@/src/lib/timezone'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'

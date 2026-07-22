@@ -1,9 +1,9 @@
 'use client'
 
 import { UnprocessedPayment } from '@repo/db'
-import DataTable from '@/src/components/data-table'
-import TableFilter, { TableFilterItem } from '@/src/components/table-filter'
-import { Button } from '@/src/components/ui/button'
+import DataTable from '@repo/ui/components/data-table'
+import TableFilter, { TableFilterItem } from '@repo/ui/components/table-filter'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogContent,
@@ -11,8 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/src/components/ui/dialog'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/dialog'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { formatDateTimeInTz } from '@/src/lib/timezone'
 import {

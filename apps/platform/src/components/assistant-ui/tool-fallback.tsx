@@ -15,9 +15,9 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/src/components/ui/collapsible'
+} from '@repo/ui/components/collapsible'
 import { cn } from '@/src/lib/utils'
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 
 const ANIMATION_DURATION = 200
 

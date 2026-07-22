@@ -10,10 +10,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/src/components/ui/alert-dialog'
-import { Badge } from '@/src/components/ui/badge'
-import { Button } from '@/src/components/ui/button'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/alert-dialog'
+import { Badge } from '@repo/ui/components/badge'
+import { Button } from '@repo/ui/components/button'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import {
   PERMISSION_MODULE_KEYS,
   permissionToModules,

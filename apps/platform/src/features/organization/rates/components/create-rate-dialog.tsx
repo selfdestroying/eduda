@@ -1,7 +1,7 @@
 'use client'
 
-import { NumberInput } from '@/src/components/number-input'
-import { Button } from '@/src/components/ui/button'
+import { NumberInput } from '@repo/ui/components/number-input'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogClose,
@@ -11,9 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/src/components/ui/dialog'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
+} from '@repo/ui/components/dialog'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'

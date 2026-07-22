@@ -1,6 +1,6 @@
 import { AssistantWidget } from '@/src/components/assistant-ui/assistant-widget'
 import { AppSidebar } from '@/src/components/sidebar/app-sidebar'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { auth } from '@/src/lib/auth/server'
 import type { Metadata } from 'next'
 import { cookies, headers } from 'next/headers'

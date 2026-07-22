@@ -8,8 +8,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/src/components/ui/alert-dialog'
-import { Button } from '@/src/components/ui/button'
+} from '@repo/ui/components/alert-dialog'
+import { Button } from '@repo/ui/components/button'
 import { useCancelLessonMutation, useRestoreLessonMutation } from '../queries'
 import { useLessonDetail } from './lesson-detail-context'
 

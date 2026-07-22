@@ -1,9 +1,9 @@
 'use client'
 
 import type { Attendance } from '@repo/db'
-import { Button } from '@/src/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
-import { Textarea } from '@/src/components/ui/textarea'
+import { Button } from '@repo/ui/components/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
+import { Textarea } from '@repo/ui/components/textarea'
 import { ArrowRight, Loader, MessageCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'

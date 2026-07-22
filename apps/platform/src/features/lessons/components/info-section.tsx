@@ -1,8 +1,8 @@
 'use client'
 
 import { LessonStatus } from '@repo/db'
-import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert'
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Alert, AlertDescription, AlertTitle } from '@repo/ui/components/alert'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { getGroupName } from '@/src/lib/utils'

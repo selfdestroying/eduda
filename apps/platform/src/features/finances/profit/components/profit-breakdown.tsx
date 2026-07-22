@@ -1,14 +1,14 @@
 'use client'
 
-import { Hint } from '@/src/components/hint'
+import { Hint } from '@repo/ui/components/hint'
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from '@/src/components/ui/accordion'
-import { Badge } from '@/src/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
+} from '@repo/ui/components/accordion'
+import { Badge } from '@repo/ui/components/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
 import { Building2, CreditCard, Landmark, Receipt, Users } from 'lucide-react'
 import type { ProfitData } from '../types'
 import { formatCurrency } from '@/src/lib/utils'

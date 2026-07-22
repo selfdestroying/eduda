@@ -1,18 +1,18 @@
 'use client'
 
-import { Badge } from '@/src/components/ui/badge'
-import { Button } from '@/src/components/ui/button'
+import { Badge } from '@repo/ui/components/badge'
+import { Button } from '@repo/ui/components/button'
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '@/src/components/ui/empty'
-import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
-import { useSidebar } from '@/src/components/ui/sidebar'
+} from '@repo/ui/components/empty'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
+import { useSidebar } from '@repo/ui/components/sidebar'
 import { formatDateOnly } from '@/src/lib/timezone'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { GlobalSearch } from '@/src/features/search/components/global-search'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { nowInTz } from '@/src/lib/timezone'

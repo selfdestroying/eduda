@@ -1,11 +1,11 @@
 'use client'
 
 import CourseLocationTeacherFilters from '@/src/components/course-location-teacher-filters'
-import DataTable from '@/src/components/data-table'
-import { NumberInput } from '@/src/components/number-input'
-import { Badge } from '@/src/components/ui/badge'
-import { Field, FieldGroup } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
+import DataTable from '@repo/ui/components/data-table'
+import { NumberInput } from '@repo/ui/components/number-input'
+import { Badge } from '@repo/ui/components/badge'
+import { Field, FieldGroup } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
 import { DaysOfWeek, getGroupName } from '@/src/lib/utils'
 import {

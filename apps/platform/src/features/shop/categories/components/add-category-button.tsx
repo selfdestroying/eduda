@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogClose,
@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/src/components/ui/dialog'
+} from '@repo/ui/components/dialog'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, Plus } from 'lucide-react'
 import { useState } from 'react'

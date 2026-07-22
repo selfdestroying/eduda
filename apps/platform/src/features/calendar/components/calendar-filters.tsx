@@ -1,6 +1,6 @@
 'use client'
 
-import { Checkbox } from '@/src/components/ui/checkbox'
+import { Checkbox } from '@repo/ui/components/checkbox'
 import { cn } from '@/src/lib/utils'
 import type { CalendarController } from '../hooks/use-calendar'
 import type { CalendarCategory, FilterDimension } from '../types'

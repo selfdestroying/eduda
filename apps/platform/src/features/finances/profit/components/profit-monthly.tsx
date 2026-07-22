@@ -1,16 +1,16 @@
 'use client'
 
-import { Hint } from '@/src/components/hint'
-import { StatCard } from '@/src/components/stat-card'
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Hint } from '@repo/ui/components/hint'
+import { StatCard } from '@repo/ui/components/stat-card'
+import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
 import {
   ChartContainer,
   ChartLegend,
   ChartLegendContent,
   ChartTooltip,
   type ChartConfig,
-} from '@/src/components/ui/chart'
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/src/components/ui/empty'
+} from '@repo/ui/components/chart'
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@repo/ui/components/empty'
 import {
   Select,
   SelectContent,
@@ -18,9 +18,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/src/components/ui/select'
-import { Skeleton } from '@/src/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+} from '@repo/ui/components/select'
+import { Skeleton } from '@repo/ui/components/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/tabs'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { nowInTz } from '@/src/lib/timezone'
 import {

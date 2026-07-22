@@ -5,10 +5,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from '@/src/components/ui/sidebar'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip'
+} from '@repo/ui/components/sidebar'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@repo/ui/components/tooltip'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
-import { Kbd, KbdGroup } from '../ui/kbd'
+import { Kbd, KbdGroup } from '@repo/ui/components/kbd'
 
 /**
  * Compact icon-only sidebar collapse toggle for desktop.

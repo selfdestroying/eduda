@@ -1,7 +1,7 @@
 'use client'
 
-import { PasswordInput } from '@/src/components/password-input'
-import { Button } from '@/src/components/ui/button'
+import { PasswordInput } from '@repo/ui/components/password-input'
+import { Button } from '@repo/ui/components/button'
 import {
   Field,
   FieldContent,
@@ -9,8 +9,8 @@ import {
   FieldGroup,
   FieldLabel,
   FieldTitle,
-} from '@/src/components/ui/field'
-import { Switch } from '@/src/components/ui/switch'
+} from '@repo/ui/components/field'
+import { Switch } from '@repo/ui/components/switch'
 import { useChangePasswordMutation } from '@/src/features/users/me/queries'
 
 import { zodResolver } from '@hookform/resolvers/zod'

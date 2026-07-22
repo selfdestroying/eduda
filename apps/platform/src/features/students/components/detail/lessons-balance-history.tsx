@@ -5,9 +5,9 @@ import {
   StudentLessonsBalanceChangeReason,
   User,
 } from '@repo/db'
-import DataTable from '@/src/components/data-table'
-import { Hint } from '@/src/components/hint'
-import { Button } from '@/src/components/ui/button'
+import DataTable from '@repo/ui/components/data-table'
+import { Hint } from '@repo/ui/components/hint'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogClose,
@@ -16,16 +16,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/src/components/ui/dialog'
+} from '@repo/ui/components/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
-import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/dropdown-menu'
+import { Field, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { formatDateTimeInTz } from '@/src/lib/timezone'
 import { JsonValue } from '@prisma/client/runtime/client'

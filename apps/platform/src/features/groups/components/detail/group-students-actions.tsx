@@ -1,7 +1,7 @@
 'use client'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { Alert, AlertDescription, AlertTitle } from '@repo/ui/components/alert'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -9,9 +9,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/src/components/ui/alert-dialog'
-import { Button } from '@/src/components/ui/button'
-import { Calendar } from '@/src/components/ui/calendar'
+} from '@repo/ui/components/alert-dialog'
+import { Button } from '@repo/ui/components/button'
+import { Calendar } from '@repo/ui/components/calendar'
 import {
   Dialog,
   DialogClose,
@@ -20,17 +20,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/src/components/ui/dialog'
+} from '@repo/ui/components/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import { Item, ItemContent, ItemDescription, ItemTitle } from '@/src/components/ui/item'
-import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
+} from '@repo/ui/components/dropdown-menu'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
 import { cn, getGroupName } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'

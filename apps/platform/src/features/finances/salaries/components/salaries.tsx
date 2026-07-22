@@ -2,28 +2,28 @@
 
 import { PayCheck } from '@repo/db/browser'
 import { LessonStatus } from '@repo/db'
-import { Hint } from '@/src/components/hint'
-import TableFilter, { TableFilterItem } from '@/src/components/table-filter'
-import { Badge } from '@/src/components/ui/badge'
-import { Button } from '@/src/components/ui/button'
-import { Calendar } from '@/src/components/ui/calendar'
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Hint } from '@repo/ui/components/hint'
+import TableFilter, { TableFilterItem } from '@repo/ui/components/table-filter'
+import { Badge } from '@repo/ui/components/badge'
+import { Button } from '@repo/ui/components/button'
+import { Calendar } from '@repo/ui/components/calendar'
+import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/src/components/ui/collapsible'
+} from '@repo/ui/components/collapsible'
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '@/src/components/ui/empty'
-import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
-import { Skeleton } from '@/src/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip'
+} from '@repo/ui/components/empty'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
+import { Skeleton } from '@repo/ui/components/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/tabs'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@repo/ui/components/tooltip'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { useMappedCourseListQuery } from '@/src/features/courses/queries'
 import { useMappedLocationListQuery } from '@/src/features/locations/queries'

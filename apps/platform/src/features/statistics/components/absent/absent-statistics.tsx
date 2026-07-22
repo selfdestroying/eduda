@@ -3,8 +3,8 @@
 import * as React from 'react'
 import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts'
 
-import { Hint } from '@/src/components/hint'
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Hint } from '@repo/ui/components/hint'
+import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
 import {
   ChartConfig,
   ChartContainer,
@@ -12,9 +12,9 @@ import {
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
-} from '@/src/components/ui/chart'
-import { Skeleton } from '@/src/components/ui/skeleton'
-import { Tabs, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+} from '@repo/ui/components/chart'
+import { Skeleton } from '@repo/ui/components/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@repo/ui/components/tabs'
 import { useAbsentStatisticsQuery } from '@/src/features/statistics/queries'
 import { Ban, CircleDollarSign, ShieldCheck, TrendingDown } from 'lucide-react'
 

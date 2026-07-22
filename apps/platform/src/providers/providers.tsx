@@ -1,7 +1,7 @@
 'use client'
 
 import { ReactNode } from 'react'
-import { Toaster } from '../components/ui/sonner'
+import { Toaster } from '@repo/ui/components/sonner'
 import { QueryProvider } from './query-provider'
 import { ThemeProvider } from './theme-provider'
 import { FumadocsProvider } from './fumadocs-provider'

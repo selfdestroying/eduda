@@ -1,12 +1,12 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
+} from '@repo/ui/components/dropdown-menu'
 import { Archive, CalendarCog, CheckCircle2, MoreVertical, Pen } from 'lucide-react'
 import { useState } from 'react'
 import type { GroupDetailFull } from '../../types'

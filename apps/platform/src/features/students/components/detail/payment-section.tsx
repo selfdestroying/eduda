@@ -1,6 +1,6 @@
 'use client'
 
-import { StatCard } from '@/src/components/stat-card'
+import { StatCard } from '@repo/ui/components/stat-card'
 import { getBalanceLabel, getBalanceVariant } from '@/src/features/wallets/utils'
 import { BookOpen, Calculator, ReceiptRussianRuble, Wallet } from 'lucide-react'
 import type { StudentDetail } from '../../types'

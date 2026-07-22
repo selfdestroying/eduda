@@ -1,7 +1,7 @@
 'use client'
 
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
 import { Controller, FieldValues, Path, UseFormReturn } from 'react-hook-form'
 
 interface CategoryFormProps<T extends FieldValues> {

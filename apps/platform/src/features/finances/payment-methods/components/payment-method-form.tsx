@@ -1,9 +1,9 @@
 'use client'
 
-import { NumberInput } from '@/src/components/number-input'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import { Switch } from '@/src/components/ui/switch'
+import { NumberInput } from '@repo/ui/components/number-input'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
+import { Switch } from '@repo/ui/components/switch'
 import { Controller, type FieldValues, type Path, type UseFormReturn } from 'react-hook-form'
 
 interface PaymentMethodFormProps<T extends FieldValues> {

@@ -17,7 +17,7 @@ import {
   ToolGroupTrigger,
 } from '@/src/components/assistant-ui/tool-group'
 import { TooltipIconButton } from '@/src/components/assistant-ui/tooltip-icon-button'
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import { cn } from '@/src/lib/utils'
 import {
   ActionBarMorePrimitive,

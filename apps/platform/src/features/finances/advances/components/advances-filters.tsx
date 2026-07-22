@@ -1,10 +1,10 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
-import { Calendar } from '@/src/components/ui/calendar'
-import { Card, CardContent } from '@/src/components/ui/card'
-import { Checkbox } from '@/src/components/ui/checkbox'
-import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
+import { Button } from '@repo/ui/components/button'
+import { Calendar } from '@repo/ui/components/calendar'
+import { Card, CardContent } from '@repo/ui/components/card'
+import { Checkbox } from '@repo/ui/components/checkbox'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
 import {
   type ChargeableStatus,
   CHARGEABLE_STATUS_OPTIONS,

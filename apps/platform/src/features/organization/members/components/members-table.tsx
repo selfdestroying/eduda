@@ -1,12 +1,12 @@
 'use client'
 
-import DataTable from '@/src/components/data-table'
-import TableFilter from '@/src/components/table-filter'
+import DataTable from '@repo/ui/components/data-table'
+import TableFilter from '@repo/ui/components/table-filter'
 import { ColumnDef } from '@tanstack/react-table'
 
 import { memberRoleLabels } from '@/src/components/sidebar/nav-user'
-import { Input } from '@/src/components/ui/input'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import { Input } from '@repo/ui/components/input'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
 import { OrganizationRole } from '@/src/lib/auth/server'
 import {

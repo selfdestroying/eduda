@@ -1,4 +1,4 @@
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
 import AddPaymentButton from '@/src/features/finances/payments/components/add-payment-button'
 import PaymentsTable from '@/src/features/finances/payments/components/payments-table'
 

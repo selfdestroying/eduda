@@ -1,8 +1,8 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import { Button } from '@repo/ui/components/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useSessionQuery } from '@/src/features/users/me/queries'
 import { useSessionRevokeMutation } from '@/src/features/users/me/queries'
 import { Laptop, Loader, Smartphone } from 'lucide-react'

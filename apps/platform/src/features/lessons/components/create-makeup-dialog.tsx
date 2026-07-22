@@ -1,8 +1,8 @@
 'use client'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { Button } from '@/src/components/ui/button'
-import { Calendar } from '@/src/components/ui/calendar'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { Button } from '@repo/ui/components/button'
+import { Calendar } from '@repo/ui/components/calendar'
 import {
   Dialog,
   DialogClose,
@@ -11,11 +11,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/src/components/ui/dialog'
-import { Field, FieldContent, FieldLabel, FieldTitle } from '@/src/components/ui/field'
-import { Item, ItemContent, ItemDescription, ItemTitle } from '@/src/components/ui/item'
-import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
-import { Switch } from '@/src/components/ui/switch'
+} from '@repo/ui/components/dialog'
+import { Field, FieldContent, FieldLabel, FieldTitle } from '@repo/ui/components/field'
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
+import { Switch } from '@repo/ui/components/switch'
 import { cn, getFullName, getGroupName } from '@/src/lib/utils'
 import { startOfDay } from 'date-fns'
 import { ru } from 'date-fns/locale/ru'

@@ -1,6 +1,6 @@
 'use client'
 
-import { StatCard } from '@/src/components/stat-card'
+import { StatCard } from '@repo/ui/components/stat-card'
 import {
   Card,
   CardAction,
@@ -8,9 +8,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
-import { Input } from '@/src/components/ui/input'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/card'
+import { Input } from '@repo/ui/components/input'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useSessionQuery } from '@/src/features/users/me/queries'
 import { useRentListQuery } from '@/src/features/finances/rent/queries'
 import { useFeatureEnabled } from '@/src/hooks/use-feature-enabled'

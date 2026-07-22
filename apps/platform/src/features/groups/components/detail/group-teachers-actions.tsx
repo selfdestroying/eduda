@@ -1,6 +1,6 @@
 'use client'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -8,8 +8,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/src/components/ui/alert-dialog'
-import { Button } from '@/src/components/ui/button'
+} from '@repo/ui/components/alert-dialog'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogClose,
@@ -18,14 +18,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/src/components/ui/dialog'
+} from '@repo/ui/components/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
+} from '@repo/ui/components/dropdown-menu'
 import {
   Field,
   FieldContent,
@@ -34,10 +34,10 @@ import {
   FieldGroup,
   FieldLabel,
   FieldTitle,
-} from '@/src/components/ui/field'
-import { Item, ItemContent, ItemDescription, ItemTitle } from '@/src/components/ui/item'
-import { Skeleton } from '@/src/components/ui/skeleton'
-import { Switch } from '@/src/components/ui/switch'
+} from '@repo/ui/components/field'
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
+import { Skeleton } from '@repo/ui/components/skeleton'
+import { Switch } from '@repo/ui/components/switch'
 import { useRateListQuery } from '@/src/features/organization/rates/queries'
 import { Loader, MoreVertical, Pen, Trash } from 'lucide-react'
 import { useEffect, useState } from 'react'

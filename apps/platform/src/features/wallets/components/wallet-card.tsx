@@ -1,6 +1,6 @@
 import type { WalletStatus } from '@repo/db/enums'
-import { Badge } from '@/src/components/ui/badge'
-import { Progress } from '@/src/components/ui/progress'
+import { Badge } from '@repo/ui/components/badge'
+import { Progress } from '@repo/ui/components/progress'
 import { cn } from '@/src/lib/utils'
 import { Wallet } from 'lucide-react'
 import type { ReactNode } from 'react'

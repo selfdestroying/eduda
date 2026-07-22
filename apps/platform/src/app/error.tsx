@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import { AlertTriangle, RotateCcw } from 'lucide-react'
 
 export default function Error({

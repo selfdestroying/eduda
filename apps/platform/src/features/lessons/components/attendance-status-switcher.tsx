@@ -2,21 +2,21 @@
 
 import type { Attendance } from '@repo/db'
 import { AttendanceStatus } from '@repo/db/enums'
-import { Button } from '@/src/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
-import { Toggle } from '@/src/components/ui/toggle'
+import { Button } from '@repo/ui/components/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
+import { Toggle } from '@repo/ui/components/toggle'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/src/components/ui/tooltip'
+} from '@repo/ui/components/tooltip'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { cva } from 'class-variance-authority'
 import { BellRing, Check, Loader, Minus, X } from 'lucide-react'
 import { useState } from 'react'
 import { useUpdateAttendanceStatusMutation } from '../queries'
-import { Separator } from '@/src/components/ui/separator'
+import { Separator } from '@repo/ui/components/separator'
 
 export type AttendanceForStatusSwitcher = Pick<
   Attendance,

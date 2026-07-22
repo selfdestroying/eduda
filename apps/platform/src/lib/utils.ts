@@ -1,7 +1,8 @@
-import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
 import { DEMO_SLUG } from '../features/demo/constants'
 import { nowInTz, ymdToLocalDate } from './timezone'
+
+/** Живёт в дизайн-системе; ре-экспорт, чтобы `@/src/lib/utils` остался одной точкой входа. */
+export { cn } from '@repo/ui/lib/utils'
 
 export const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
 export const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || ''
@@ -63,10 +64,6 @@ export function extractSubdomain(host: string | null | undefined): string | null
   }
 
   return null
-}
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
 }
 
 /**

@@ -1,5 +1,5 @@
 'use client'
-import { CalendarDayButton } from '@/src/components/ui/calendar'
+import { CalendarDayButton } from '@repo/ui/components/calendar'
 import { cn } from '@/src/lib/utils'
 import type { CalendarDay } from 'react-day-picker'
 import type { DashboardCalendarDaySummaryMap } from '../types'

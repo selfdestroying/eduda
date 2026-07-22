@@ -1,7 +1,7 @@
 'use client'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { Button } from '@/src/components/ui/button'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogClose,
@@ -10,9 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/src/components/ui/dialog'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/dialog'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useStudentListQuery } from '@/src/features/students/queries'
 import { useStudentWalletsQuery } from '@/src/features/wallets/queries'
 import { getFullName } from '@/src/lib/utils'

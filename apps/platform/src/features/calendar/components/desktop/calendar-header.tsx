@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { CalendarController } from '../../hooks/use-calendar'
 import { getDesktopPeriod } from '../../lib/period'

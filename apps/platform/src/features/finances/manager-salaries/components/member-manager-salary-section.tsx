@@ -7,8 +7,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/card'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import {
   Table,
   TableBody,
@@ -16,7 +16,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/src/components/ui/table'
+} from '@repo/ui/components/table'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { useMemo } from 'react'
 import { useManagerSalaryListQuery } from '../queries'

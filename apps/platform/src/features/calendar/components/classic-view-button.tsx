@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import { Undo2 } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'

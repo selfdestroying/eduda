@@ -1,11 +1,11 @@
 'use client'
 
-import { Input } from '@/src/components/ui/input'
+import { Input } from '@repo/ui/components/input'
 import { Controller, useForm } from 'react-hook-form'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { Button } from '@/src/components/ui/button'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { Button } from '@repo/ui/components/button'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
 import {
   Sheet,
   SheetClose,
@@ -15,8 +15,8 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from '@/src/components/ui/sheet'
-import { useIsMobile } from '@/src/hooks/use-mobile'
+} from '@repo/ui/components/sheet'
+import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { useAssignableRolesQuery } from '@/src/features/organization/roles/queries'
 import { systemRoleLabels } from '@/src/lib/permissions/organization'
 import { zodResolver } from '@hookform/resolvers/zod'

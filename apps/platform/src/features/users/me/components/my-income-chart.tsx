@@ -1,9 +1,9 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { ChartContainer, ChartTooltip, type ChartConfig } from '@/src/components/ui/chart'
-import { Skeleton } from '@/src/components/ui/skeleton'
-import { Tabs, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
+import { ChartContainer, ChartTooltip, type ChartConfig } from '@repo/ui/components/chart'
+import { Skeleton } from '@repo/ui/components/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@repo/ui/components/tabs'
 import { useMyIncomeHistoryQuery } from '@/src/features/users/me/queries'
 import { cn } from '@/src/lib/utils'
 import {

@@ -1,5 +1,5 @@
-import { Hint } from '@/src/components/hint'
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Hint } from '@repo/ui/components/hint'
+import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
 import UnprocessedPaymentTable from '@/src/features/finances/payments/components/unprocessed-payment-table'
 
 export default async function Page() {

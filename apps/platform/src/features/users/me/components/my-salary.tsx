@@ -1,19 +1,19 @@
 'use client'
 
-import { Badge } from '@/src/components/ui/badge'
-import { Button } from '@/src/components/ui/button'
-import { Calendar } from '@/src/components/ui/calendar'
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Badge } from '@repo/ui/components/badge'
+import { Button } from '@repo/ui/components/button'
+import { Calendar } from '@repo/ui/components/calendar'
+import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '@/src/components/ui/empty'
-import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
-import { Skeleton } from '@/src/components/ui/skeleton'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip'
+} from '@repo/ui/components/empty'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
+import { Skeleton } from '@repo/ui/components/skeleton'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@repo/ui/components/tooltip'
 import {
   useMySalaryDataQuery,
   useMySalaryPaychecksQuery,

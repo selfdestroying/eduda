@@ -1,9 +1,9 @@
 'use client'
 
-import { NumberInput } from '@/src/components/number-input'
-import { Alert, AlertDescription } from '@/src/components/ui/alert'
-import { Button } from '@/src/components/ui/button'
-import { Calendar, CalendarDayButton } from '@/src/components/ui/calendar'
+import { NumberInput } from '@repo/ui/components/number-input'
+import { Alert, AlertDescription } from '@repo/ui/components/alert'
+import { Button } from '@repo/ui/components/button'
+import { Calendar, CalendarDayButton } from '@repo/ui/components/calendar'
 import {
   Field,
   FieldContent,
@@ -11,19 +11,19 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
-} from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
-import { Separator } from '@/src/components/ui/separator'
+} from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
+import { Separator } from '@repo/ui/components/separator'
 import {
   Sheet,
   SheetContent,
   SheetFooter,
   SheetHeader,
   SheetTitle,
-} from '@/src/components/ui/sheet'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
-import { Toggle } from '@/src/components/ui/toggle'
+} from '@repo/ui/components/sheet'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/tabs'
+import { Toggle } from '@repo/ui/components/toggle'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
 import { DaysOfWeek } from '@/src/lib/utils'

@@ -1,8 +1,8 @@
 'use client'
 
 import { Lesson } from '@repo/db'
-import { Button } from '@/src/components/ui/button'
-import { Calendar, CalendarDayButton } from '@/src/components/ui/calendar'
+import { Button } from '@repo/ui/components/button'
+import { Calendar, CalendarDayButton } from '@repo/ui/components/calendar'
 import {
   Dialog,
   DialogClose,
@@ -11,9 +11,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/src/components/ui/dialog'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
+} from '@repo/ui/components/dialog'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
 import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ru } from 'date-fns/locale'

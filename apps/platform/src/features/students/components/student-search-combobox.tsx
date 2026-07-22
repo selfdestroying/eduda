@@ -7,8 +7,8 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-} from '@/src/components/ui/combobox'
-import { Item, ItemContent, ItemTitle } from '@/src/components/ui/item'
+} from '@repo/ui/components/combobox'
+import { Item, ItemContent, ItemTitle } from '@repo/ui/components/item'
 import { useStudentSearchQuery } from '@/src/features/students/queries'
 import { getFullName } from '@/src/lib/utils'
 import { debounce } from 'es-toolkit'

@@ -1,6 +1,6 @@
 'use client'
 
-import { Badge } from '@/src/components/ui/badge'
+import { Badge } from '@repo/ui/components/badge'
 import { Eye, EyeOff } from 'lucide-react'
 import { useState } from 'react'
 

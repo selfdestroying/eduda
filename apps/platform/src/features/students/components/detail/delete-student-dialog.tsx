@@ -8,10 +8,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/src/components/ui/alert-dialog'
-import { Button } from '@/src/components/ui/button'
-import { Field, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
+} from '@repo/ui/components/alert-dialog'
+import { Button } from '@repo/ui/components/button'
+import { Field, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
 import { getFullName } from '@/src/lib/utils'
 import { Loader, Trash } from 'lucide-react'
 import { useRouter } from 'next/navigation'

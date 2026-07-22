@@ -5,7 +5,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import AddRoleDialog from '@/src/features/organization/roles/components/add-role-dialog'
 import RolesList from '@/src/features/organization/roles/components/roles-list'
 import { Metadata } from 'next'

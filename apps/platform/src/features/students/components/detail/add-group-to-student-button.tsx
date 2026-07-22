@@ -1,8 +1,8 @@
 'use client'
 
 import { Student } from '@repo/db'
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { Button } from '@/src/components/ui/button'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { Button } from '@repo/ui/components/button'
 import {
   Combobox,
   ComboboxContent,
@@ -10,7 +10,7 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-} from '@/src/components/ui/combobox'
+} from '@repo/ui/components/combobox'
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/src/components/ui/dialog'
+} from '@repo/ui/components/dialog'
 import {
   Field,
   FieldContent,
@@ -27,10 +27,10 @@ import {
   FieldGroup,
   FieldLabel,
   FieldTitle,
-} from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import { Item, ItemContent, ItemDescription, ItemTitle } from '@/src/components/ui/item'
-import { Switch } from '@/src/components/ui/switch'
+} from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
+import { Switch } from '@repo/ui/components/switch'
 import { useAddStudentToGroupMutation } from '@/src/features/groups/queries'
 import type { GroupWithRelations } from '@/src/features/groups/types'
 import { studentKeys } from '@/src/features/students/queries'

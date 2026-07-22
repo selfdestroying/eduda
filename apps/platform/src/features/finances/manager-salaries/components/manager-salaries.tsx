@@ -7,7 +7,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import AddManagerSalaryButton from './add-manager-salary-button'
 import ManagerRatesTable from './manager-salaries-table'
 

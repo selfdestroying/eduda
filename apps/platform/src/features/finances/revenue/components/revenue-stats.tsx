@@ -1,8 +1,8 @@
 'use client'
 
-import { Hint } from '@/src/components/hint'
-import { Card, CardContent } from '@/src/components/ui/card'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import { Hint } from '@repo/ui/components/hint'
+import { Card, CardContent } from '@repo/ui/components/card'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { Banknote, TrendingUp } from 'lucide-react'
 import type { RevenueStats } from '../types'
 import { formatCurrency } from '@/src/lib/utils'

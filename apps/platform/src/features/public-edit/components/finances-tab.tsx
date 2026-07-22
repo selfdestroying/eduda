@@ -1,7 +1,7 @@
 'use client'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { WalletCard } from '@/src/features/wallets/components/wallet-card'
 import { usePublicStudentFinancesQuery } from '../queries'
 

@@ -5,7 +5,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import AddGroupButton from '@/src/features/groups/components/add-group-button'
 import GroupsTable from '@/src/features/groups/components/groups-table'
 

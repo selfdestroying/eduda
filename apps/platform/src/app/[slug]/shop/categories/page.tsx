@@ -5,7 +5,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import AddCategoryButton from '@/src/features/shop/categories/components/add-category-button'
 import CategoriesTable from '@/src/features/shop/categories/components/categories-table'
 

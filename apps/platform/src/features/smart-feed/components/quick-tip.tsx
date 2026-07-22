@@ -1,6 +1,6 @@
 'use client'
 
-import { Badge } from '@/src/components/ui/badge'
+import { Badge } from '@repo/ui/components/badge'
 import {
   Popover,
   PopoverContent,
@@ -8,8 +8,8 @@ import {
   PopoverHeader,
   PopoverTitle,
   PopoverTrigger,
-} from '@/src/components/ui/popover'
-import { Progress } from '@/src/components/ui/progress'
+} from '@repo/ui/components/popover'
+import { Progress } from '@repo/ui/components/progress'
 import { cn } from '@/src/lib/utils'
 import { Lightbulb } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'

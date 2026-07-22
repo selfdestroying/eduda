@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import {
   Select,
   SelectContent,
@@ -8,7 +8,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/src/components/ui/select'
+} from '@repo/ui/components/select'
 import { useStudentWalletsQuery } from '@/src/features/wallets/queries'
 import { X } from 'lucide-react'
 import { useEffect } from 'react'

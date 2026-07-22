@@ -1,9 +1,9 @@
 'use client'
 
-import { NumberInput } from '@/src/components/number-input'
-import { Button } from '@/src/components/ui/button'
-import { Card, CardContent } from '@/src/components/ui/card'
-import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group'
+import { NumberInput } from '@repo/ui/components/number-input'
+import { Button } from '@repo/ui/components/button'
+import { Card, CardContent } from '@repo/ui/components/card'
+import { ToggleGroup, ToggleGroupItem } from '@repo/ui/components/toggle-group'
 import { cn } from '@/src/lib/utils'
 import { Check, Coins, Loader, Minus, Plus } from 'lucide-react'
 import { useState } from 'react'

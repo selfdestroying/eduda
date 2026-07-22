@@ -1,4 +1,4 @@
-import { Hint } from '@/src/components/hint'
+import { Hint } from '@repo/ui/components/hint'
 import {
   Card,
   CardAction,
@@ -6,7 +6,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import CreateRateDialog from '@/src/features/organization/rates/components/create-rate-dialog'
 import RatesTable from '@/src/features/organization/rates/components/rates-table'
 

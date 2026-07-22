@@ -1,4 +1,4 @@
-import { Card, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Card, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
 import SmartFeedPage from '@/src/features/smart-feed/components/smart-feed-page'
 import { auth } from '@/src/lib/auth/server'
 import { signInUrl } from '@/src/lib/utils'

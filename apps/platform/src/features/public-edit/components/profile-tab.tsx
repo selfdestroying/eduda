@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import {
   Card,
   CardAction,
@@ -8,7 +8,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import {
   Dialog,
   DialogClose,
@@ -18,9 +18,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/src/components/ui/dialog'
-import { Input } from '@/src/components/ui/input'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/dialog'
+import { Input } from '@repo/ui/components/input'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { getFullName } from '@/src/lib/utils'
 import { Check, Loader } from 'lucide-react'
 import { FormEvent, useState } from 'react'

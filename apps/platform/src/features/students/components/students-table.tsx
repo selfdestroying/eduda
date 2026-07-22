@@ -1,8 +1,8 @@
 'use client'
 
-import DataTable from '@/src/components/data-table'
-import { Input } from '@/src/components/ui/input'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import DataTable from '@repo/ui/components/data-table'
+import { Input } from '@repo/ui/components/input'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'

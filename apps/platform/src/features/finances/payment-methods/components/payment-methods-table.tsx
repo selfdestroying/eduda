@@ -1,10 +1,10 @@
 'use client'
 
 import { PaymentMethod } from '@repo/db'
-import DataTable from '@/src/components/data-table'
-import { Badge } from '@/src/components/ui/badge'
-import { Input } from '@/src/components/ui/input'
-import { Skeleton } from '@/src/components/ui/skeleton'
+import DataTable from '@repo/ui/components/data-table'
+import { Badge } from '@repo/ui/components/badge'
+import { Input } from '@repo/ui/components/input'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
 import {
   type ColumnDef,

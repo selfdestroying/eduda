@@ -1,8 +1,8 @@
 'use client'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
 import { memberRoleLabels } from '@/src/components/sidebar/nav-user'
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/src/components/ui/dialog'
+} from '@repo/ui/components/dialog'
 import {
   Field,
   FieldContent,
@@ -19,10 +19,10 @@ import {
   FieldGroup,
   FieldLabel,
   FieldTitle,
-} from '@/src/components/ui/field'
-import { Item, ItemContent, ItemDescription, ItemTitle } from '@/src/components/ui/item'
-import { Skeleton } from '@/src/components/ui/skeleton'
-import { Switch } from '@/src/components/ui/switch'
+} from '@repo/ui/components/field'
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
+import { Skeleton } from '@repo/ui/components/skeleton'
+import { Switch } from '@repo/ui/components/switch'
 import { useMemberListQuery } from '@/src/features/organization/members/queries'
 import { useRateListQuery } from '@/src/features/organization/rates/queries'
 import { OrganizationRole } from '@/src/lib/auth/server'

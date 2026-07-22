@@ -6,7 +6,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '@/src/components/ui/empty'
+} from '@repo/ui/components/empty'
 import { Construction } from 'lucide-react'
 
 export default function SmartFeedPage() {

@@ -5,7 +5,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import AddCourseButton from '@/src/features/courses/components/add-course-button'
 import CoursesTable from '@/src/features/courses/components/courses-table'
 

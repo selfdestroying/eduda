@@ -6,8 +6,8 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '@/src/components/ui/empty'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/empty'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { dateToYmd } from '@/src/lib/timezone'
 import { CalendarSearch } from 'lucide-react'
 import { useMemo, useState } from 'react'

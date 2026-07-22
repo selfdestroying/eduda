@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
 import ActiveStatistics from '@/src/features/statistics/components/active/active-statistics'
 import ActiveStudentsTable from '@/src/features/students/active/components/active-students-table'
 

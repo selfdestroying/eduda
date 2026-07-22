@@ -7,11 +7,11 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { DaysOfWeek } from '@/src/lib/utils'
 
-import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/src/components/ui/item'
+import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@repo/ui/components/item'
 import {
   Archive,
   Book,

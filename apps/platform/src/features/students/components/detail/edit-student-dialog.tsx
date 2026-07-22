@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@/src/components/ui/button'
+import { Button } from '@repo/ui/components/button'
 import {
   Field,
   FieldDescription,
@@ -8,8 +8,8 @@ import {
   FieldGroup,
   FieldLabel,
   FieldSeparator,
-} from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
+} from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
 import {
   Sheet,
   SheetClose,
@@ -19,8 +19,8 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from '@/src/components/ui/sheet'
-import { useIsMobile } from '@/src/hooks/use-mobile'
+} from '@repo/ui/components/sheet'
+import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { getAgeFromBirthDate } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'

@@ -10,12 +10,13 @@ Stack: Next.js 16 (App Router, React 19, React Compiler), Prisma 7 (PostgreSQL v
 
 ## Monorepo layout (pnpm + Turborepo)
 
-The repo is a **pnpm workspace** driven by **Turborepo** (`turbo.json`). Two packages today:
+The repo is a **pnpm workspace** driven by **Turborepo** (`turbo.json`). Three packages today:
 
 - **`apps/platform`** — the Next.js app (everything that used to be at the repo root: `src/`, `content/docs`, `public/`, `next.config.ts`, etc.). Its `.env` lives here and is the **single source of truth** for environment vars. **All `src/...`, `content/...` paths mentioned elsewhere in this file now live under `apps/platform/`.**
 - **`packages/db`** (`@repo/db`) — Prisma: schema (`packages/db/prisma/schema/`), migrations, `prisma.config.ts`, the generated client (`packages/db/generated/`, gitignored) and the `prisma` singleton. Ships raw TS via `exports` (no build step); the app transpiles it (`transpilePackages: ['@repo/db']`).
+- **`packages/ui`** (`@repo/ui`) — the design system: shadcn primitives + app-agnostic composites (`packages/ui/src/components/`, flat), `use-mobile` (`src/hooks/`), `cn` (`src/lib/utils.ts`), design tokens and the base layer (`src/styles/globals.css`), plus the shared `postcss.config.mjs`. Same shape as `@repo/db`: raw TS via `exports`, no build step, transpiled by the app.
 
-`apps/shop` and shared UI/config packages are **planned, not present** — don't scaffold them until needed.
+`apps/shop` and shared config packages are **planned, not present** — don't scaffold them until needed.
 
 ## Commands
 
@@ -33,6 +34,12 @@ pnpm --filter @repo/db generate   # regenerate Prisma client (also runs on insta
 pnpm --filter @repo/db migrate    # prisma migrate dev (schema: packages/db/prisma/schema/*.prisma, multi-file)
 ```
 
+shadcn components are added **from the app**, not from the package — the CLI reads `apps/platform/components.json` and writes into `@repo/ui` (see «Design system»):
+
+```bash
+pnpm --filter platform exec shadcn add <component>
+```
+
 `pnpm install` at the root generates the Prisma client (`@repo/db` postinstall) and fumadocs (`platform` postinstall). Native build scripts are gated by pnpm — approvals live in `pnpm-workspace.yaml` (`allowBuilds`).
 
 There is **no test suite**. Verification = `pnpm check` + running the app. `prisma.config.ts` references a `prisma/seed.ts` that does not exist.
@@ -46,6 +53,8 @@ There is **no test suite**. Verification = `pnpm check` + running the app. `pris
 ## Path aliases
 
 `@/*` maps to the **`apps/platform` package root** (its own `tsconfig.json`), so in-app imports are `@/src/lib/...`, `@/src/components/...`, etc. The Prisma client, enums and singleton come from the workspace package **`@repo/db`**: `import { prisma } from '@repo/db'`, types/enums via `@repo/db` or the `@repo/db/enums` / `@repo/db/browser` subpaths (`browser` is the server-free build for client components).
+
+UI comes from **`@repo/ui`**: `@repo/ui/components/<name>` (no `ui/` segment — the folder is flat), `@repo/ui/hooks/use-mobile`, `@repo/ui/lib/utils`. Neither package is in `tsconfig.json#paths` — both resolve through the package `exports` map. `cn` is re-exported from `@/src/lib/utils` for convenience, so existing call sites keep working; the implementation lives only in `@repo/ui/lib/utils`.
 
 ## Multi-tenancy & request routing (critical)
 
@@ -97,6 +106,16 @@ Genuine timestamp fields (`createdAt`, `updatedAt`, `snoozedUntil`, …) are rea
 - **Colors** are deterministic by id (`lib/constants.ts` palette). Use `hexA(hex, a)` from `lib/date-utils.ts` to apply alpha; pass `1` when a swatch must stay fully opaque (event bar, filter checkbox legend).
 - **Teacher scoping**: `getCalendarLessons` shows a teacher only their own lessons unless they hold `lesson.readAll` — on top of the usual `organizationId` scope.
 - **Opt-in home view.** A `home_view=calendar` cookie (client-set via `lib/view-preference.ts`) makes `src/app/[slug]/page.tsx` render `<Calendar />` **in place at `/`** (no redirect — a server `redirect()` from the prefetched `/` route breaks RSC navigation). The `ClassicViewButton` clears the cookie and refreshes.
+
+## Design system (`@repo/ui`)
+
+Everything reusable across apps lives in `packages/ui/` — shadcn base-mira primitives _and_ app-agnostic composites (`data-table`, `hint`, `stat-card`, `number-field`/`number-input`, `password-input`, `table-filter`, `custom-combobox`, `drag-scroll-area`, `switch-theme-button`, `logo`). All of them sit **flat** in `packages/ui/src/components/`, imported as `@repo/ui/components/<name>`.
+
+- **Inside the package** use the same alias form (`@repo/ui/components/button`, `@repo/ui/lib/utils`) — that's what `shadcn add` writes, and `packages/ui/tsconfig.json#paths` makes it self-resolve.
+- **Anything touching `src/features/*`, the feature registry, fumadocs or platform routes stays in `apps/platform/src/components/`** (`sidebar/`, `landing/`, `assistant-ui/`, `feature-gate.tsx`, `mdx.tsx`, `course-location-teacher-filters.tsx`). Don't move app-coupled UI into the package.
+- **CSS.** `packages/ui/src/styles/globals.css` owns tailwind/tw-animate/shadcn imports, `@theme inline`, the `:root`/`.dark` palette, the base layer and custom utilities (`thin-scrollbar`, `animate-landing-*`, `animate-tab-enter` + `--ease-tab`/`--duration-tab`). It carries its own `@source '../'` so consumers pick up the package's classes — Tailwind's auto-detection is rooted at the app's cwd and skips `node_modules`. `apps/platform/src/styles/globals.css` only adds the fumadocs imports and the `--color-fd-*` mapping on top.
+- **`shadcn add` runs from the app** (`apps/platform`) — the CLI reads its `components.json`, sees `"ui": "@repo/ui/components"` and writes into the package. `style`/`baseColor`/`iconLibrary` must stay identical in both `components.json` files.
+- Deps the package owns (`@base-ui/react`, `cmdk`, `vaul`, `clsx`, `tailwind-merge`, `tw-animate-css`, …) were removed from `apps/platform/package.json` — pnpm doesn't forgive phantom deps, so add back explicitly if the app starts importing one directly.
 
 ## Popovers/dropdowns inside drawers
 

@@ -1,9 +1,9 @@
 'use client'
 
-import { Hint } from '@/src/components/hint'
-import { StatCard } from '@/src/components/stat-card'
-import { Badge } from '@/src/components/ui/badge'
-import { Button } from '@/src/components/ui/button'
+import { Hint } from '@repo/ui/components/hint'
+import { StatCard } from '@repo/ui/components/stat-card'
+import { Badge } from '@repo/ui/components/badge'
+import { Button } from '@repo/ui/components/button'
 import {
   Card,
   CardAction,
@@ -11,23 +11,23 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/src/components/ui/card'
+} from '@repo/ui/components/card'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
+} from '@repo/ui/components/dropdown-menu'
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '@/src/components/ui/empty'
-import { Input } from '@/src/components/ui/input'
-import { Skeleton } from '@/src/components/ui/skeleton'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip'
+} from '@repo/ui/components/empty'
+import { Input } from '@repo/ui/components/input'
+import { Skeleton } from '@repo/ui/components/skeleton'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@repo/ui/components/tooltip'
 import AttendanceActions from '@/src/features/lessons/components/attendance-actions'
 import { AttendanceStatusSwitcher } from '@/src/features/lessons/components/attendance-status-switcher'
 import { useUpdateAttendanceCommentMutation } from '@/src/features/lessons/queries'

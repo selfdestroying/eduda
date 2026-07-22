@@ -1,19 +1,19 @@
 'use client'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
-import { NumberInput } from '@/src/components/number-input'
-import { Button } from '@/src/components/ui/button'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import { NumberInput } from '@repo/ui/components/number-input'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/src/components/ui/dialog'
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field'
-import { Input } from '@/src/components/ui/input'
-import { Item, ItemContent, ItemDescription, ItemTitle } from '@/src/components/ui/item'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/dialog'
+import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Input } from '@repo/ui/components/input'
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useCourseListQuery } from '@/src/features/courses/queries'
 import { useGroupTypeListQuery } from '@/src/features/group-types/queries'
 import { useLocationListQuery } from '@/src/features/locations/queries'

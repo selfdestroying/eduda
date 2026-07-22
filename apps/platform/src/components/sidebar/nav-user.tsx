@@ -1,6 +1,6 @@
 'use client'
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/src/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@repo/ui/components/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,9 +13,9 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/src/components/ui/sidebar'
-import { Skeleton } from '@/src/components/ui/skeleton'
+} from '@repo/ui/components/dropdown-menu'
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@repo/ui/components/sidebar'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import { useSessionQuery } from '@/src/features/users/me/queries'
 import { useSignOutMutation } from '@/src/features/users/me/queries'
 import type { OrganizationRole } from '@/src/lib/auth/server'

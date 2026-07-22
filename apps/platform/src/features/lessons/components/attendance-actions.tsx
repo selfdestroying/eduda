@@ -1,6 +1,6 @@
 'use client'
 
-import { CustomCombobox } from '@/src/components/custom-combobox'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -9,8 +9,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/src/components/ui/alert-dialog'
-import { Button } from '@/src/components/ui/button'
+} from '@repo/ui/components/alert-dialog'
+import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogClose,
@@ -18,16 +18,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/src/components/ui/dialog'
+} from '@repo/ui/components/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu'
-import { Input } from '@/src/components/ui/input'
-import { Label } from '@/src/components/ui/label'
+} from '@repo/ui/components/dropdown-menu'
+import { Input } from '@repo/ui/components/input'
+import { Label } from '@repo/ui/components/label'
 import { CalendarCog, CalendarPlus, Loader, MoreVertical, Trash, UserPen } from 'lucide-react'
 import { useState } from 'react'
 import { useDeleteAttendanceMutation, useUpdateAttendanceTrialStatusMutation } from '../queries'
