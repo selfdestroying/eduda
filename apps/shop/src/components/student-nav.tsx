@@ -5,7 +5,7 @@ import { cn } from '@/src/lib/utils'
 import { Button } from '@repo/ui/components/button'
 import { Logo } from '@repo/ui/components/logo'
 import { SwitchThemeButton } from '@repo/ui/components/switch-theme-button'
-import { CalendarCheck, LogOut, User } from 'lucide-react'
+import { CalendarCheck, Coins, LogOut, Trophy, User } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -13,10 +13,12 @@ import { useTransition } from 'react'
 
 type NavItem = { href: string; label: string; icon: LucideIcon }
 
-// Растёт по мере слайсов: коины, магазин, заказы.
+// Растёт по мере слайсов: магазин, заказы.
 const ITEMS: NavItem[] = [
   { href: '/', label: 'Профиль', icon: User },
   { href: '/attendance', label: 'Посещаемость', icon: CalendarCheck },
+  { href: '/coins', label: 'Коины', icon: Coins },
+  { href: '/achievements', label: 'Достижения', icon: Trophy },
 ]
 
 export function StudentNav() {
