@@ -30,5 +30,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|manifest\\.json|api/).*)'],
+  // `icon.svg` обязан быть в исключениях: иначе фавиконку на странице входа
+  // (где сессии по определению нет) прокси уводит редиректом на саму себя.
+  matcher: ['/((?!_next/static|_next/image|icon\\.svg|favicon\\.ico|manifest\\.json|api/).*)'],
 }
