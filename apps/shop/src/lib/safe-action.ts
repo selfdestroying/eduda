@@ -1,4 +1,4 @@
-import { createSafeActionClient, DEFAULT_SERVER_ERROR_MESSAGE } from 'next-safe-action'
+import { createSafeActionClient } from 'next-safe-action'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
@@ -11,11 +11,20 @@ const metadataSchema = z.object({
 
 const baseClient = createSafeActionClient({
   defineMetadataSchema: () => metadataSchema,
-  handleServerError(error) {
+  /**
+   * Наружу уходит только то, что мы сами написали для ученика: `ActionError` —
+   * это и есть «сообщение, которое можно показать». Всё остальное (текст Prisma,
+   * крипто-ошибка, битый запрос) схлопывается в общее — иначе внутренности
+   * приложения утекают в кабинет. В лог пишем целиком: диагностика нужна,
+   * но на сервере.
+   */
+  handleServerError(error, { metadata }) {
     if (error instanceof ActionError) {
       return error.message
     }
-    return error.message || DEFAULT_SERVER_ERROR_MESSAGE
+    console.error(`[${metadata?.actionName ?? 'action'}]`, error)
+    // Своё, а не DEFAULT_SERVER_ERROR_MESSAGE: тот по-английски, а кабинет русский.
+    return 'Что-то пошло не так. Попробуйте ещё раз.'
   },
 })
 
