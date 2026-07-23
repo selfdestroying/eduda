@@ -45,6 +45,30 @@ type CartLine = {
  * `expectedPrice` передаёт чекаут: цены, которые клиент показал перед
  * подтверждением. В `getCart` сравнивать не с чем, снимка цены корзина не хранит.
  */
+function classifyLine(item: CartLine, expectedPrice?: number): CheckoutIssue | null {
+  if (item.archived) {
+    return { kind: 'UNAVAILABLE', productId: item.productId, name: item.name }
+  }
+  if (item.available < item.quantity) {
+    return {
+      kind: 'OUT_OF_STOCK',
+      productId: item.productId,
+      name: item.name,
+      available: item.available,
+    }
+  }
+  if (expectedPrice !== undefined && expectedPrice !== item.price) {
+    return {
+      kind: 'PRICE_CHANGED',
+      productId: item.productId,
+      name: item.name,
+      oldPrice: expectedPrice,
+      newPrice: item.price,
+    }
+  }
+  return null
+}
+
 function collectIssues(
   items: CartLine[],
   coins: number,
@@ -54,31 +78,12 @@ function collectIssues(
   let total = 0
 
   for (const item of items) {
-    if (item.archived) {
-      issues.push({ kind: 'UNAVAILABLE', productId: item.productId, name: item.name })
-      continue
-    }
-    if (item.available < item.quantity) {
-      issues.push({
-        kind: 'OUT_OF_STOCK',
-        productId: item.productId,
-        name: item.name,
-        available: item.available,
-      })
-      continue
-    }
-
-    total += item.price * item.quantity
-
-    const shown = expectedPrice?.get(item.productId)
-    if (shown !== undefined && shown !== item.price) {
-      issues.push({
-        kind: 'PRICE_CHANGED',
-        productId: item.productId,
-        name: item.name,
-        oldPrice: shown,
-        newPrice: item.price,
-      })
+    const issue = classifyLine(item, expectedPrice?.get(item.productId))
+    if (issue) issues.push(issue)
+    // Подорожавший товар купить всё ещё можно — по новой цене, поэтому он
+    // остаётся в сумме. Архивный и кончившийся — нет.
+    if (!issue || issue.kind === 'PRICE_CHANGED') {
+      total += item.price * item.quantity
     }
   }
 
@@ -292,52 +297,68 @@ export const checkout = shopAction
           throw new CheckoutBlocked(issues)
         }
 
-        for (const item of items) {
-          const { count } = await tx.product.updateMany({
-            where: {
-              id: item.productId,
-              organizationId,
-              quantity: { gte: item.quantity },
-              // Цена — часть условия, а не только остаток: под READ COMMITTED
-              // между чтением выше и этим апдейтом её могли поменять в платформе,
-              // и заказ ушёл бы по цене, которой уже нет.
-              price: item.price,
-            },
-            data: { quantity: { decrement: item.quantity } },
-          })
-          if (count !== 1) {
-            // Кто-то успел раньше. Перечитываем товар и возвращаем ТУ ЖЕ
-            // структурную проблему, что и предварительная проверка: ученику нужен
-            // конкретный повод («осталось только 1 шт.»), а не «что-то изменилось».
-            const fresh = await tx.product.findFirst({
-              where: { id: item.productId, organizationId },
-              select: { name: true, price: true, quantity: true, archivedAt: true },
-            })
-            const name = fresh?.name ?? item.name
+        // Списание остатков. Как только одна позиция не поддалась, заказ уже не
+        // состоится — склад дальше не трогаем, но остальные позиции всё равно
+        // перечитываем и классифицируем: ученик должен увидеть ВСЕ причины разом
+        // (§8 SPEC), а не возвращаться за ними по одной.
+        const failures: CheckoutIssue[] = []
+        let debiting = true
 
-            if (!fresh || fresh.archivedAt !== null) {
-              throw new CheckoutBlocked([{ kind: 'UNAVAILABLE', productId: item.productId, name }])
-            }
-            if (fresh.quantity < item.quantity) {
-              throw new CheckoutBlocked([
-                {
-                  kind: 'OUT_OF_STOCK',
-                  productId: item.productId,
-                  name,
-                  available: fresh.quantity,
-                },
-              ])
-            }
-            throw new CheckoutBlocked([
-              {
-                kind: 'PRICE_CHANGED',
-                productId: item.productId,
-                name,
-                oldPrice: item.price,
-                newPrice: fresh.price,
+        for (const item of items) {
+          let mustExplain = false
+
+          if (debiting) {
+            const { count } = await tx.product.updateMany({
+              where: {
+                id: item.productId,
+                organizationId,
+                quantity: { gte: item.quantity },
+                // Цена — часть условия, а не только остаток: под READ COMMITTED
+                // между чтением выше и этим апдейтом её могли поменять в платформе,
+                // и заказ ушёл бы по цене, которой уже нет.
+                price: item.price,
               },
-            ])
+              data: { quantity: { decrement: item.quantity } },
+            })
+            if (count === 1) continue
+            debiting = false
+            mustExplain = true
           }
+
+          const fresh = await tx.product.findFirst({
+            where: { id: item.productId, organizationId },
+            select: { name: true, price: true, quantity: true, archivedAt: true },
+          })
+          const line: CartLine = fresh
+            ? {
+                ...item,
+                name: fresh.name,
+                price: fresh.price,
+                available: fresh.quantity,
+                archived: fresh.archivedAt !== null,
+              }
+            : { ...item, available: 0, archived: true }
+
+          // Сравниваем с ценой, прочитанной в начале транзакции: так ловится
+          // подорожание, случившееся прямо под нами.
+          const issue = classifyLine(line, item.price)
+          if (issue) {
+            failures.push(issue)
+          } else if (mustExplain) {
+            // Списание не прошло, а перечитанные данные уже выглядят нормально:
+            // кто-то откатил своё изменение между двумя запросами. Заказ всё
+            // равно не проводим — остаток не списан.
+            failures.push({
+              kind: 'OUT_OF_STOCK',
+              productId: item.productId,
+              name: line.name,
+              available: line.available,
+            })
+          }
+        }
+
+        if (failures.length > 0) {
+          throw new CheckoutBlocked(failures)
         }
 
         const spent = await tx.studentAccount.updateMany({

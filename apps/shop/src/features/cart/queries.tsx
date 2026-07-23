@@ -99,10 +99,17 @@ export const useCheckoutMutation = () => {
         return
       }
 
-      toast.error(result.issues.map(issueMessage).join('\n'), {
+      toast.error(
+        // Списком, а не одной строкой: причин может быть несколько, а перевод
+        // строки в тосте схлопнулся бы в пробел.
+        <ul className="list-inside list-disc">
+          {result.issues.map((issue, i) => (
+            <li key={i}>{issueMessage(issue)}</li>
+          ))}
+        </ul>,
         // Дольше обычных 2 секунд: это список, его надо успеть прочитать.
-        duration: 6000,
-      })
+        { duration: 6000 },
+      )
       // Цена или остаток изменились — страница показывает их с сервера.
       router.refresh()
     },
