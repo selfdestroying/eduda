@@ -11,6 +11,23 @@ export type StudentSession = {
 /** Маркер в `/login?error=`: вход прошёл, но школы ученика больше нет (§8 SPEC). */
 export const ORG_UNAVAILABLE = 'org'
 
+/** Сессия better-auth сама по себе, без доменной обвязки. Кешируется на рендер. */
+const getAuthSession = cache(async (reqHeaders: Headers) =>
+  auth.api.getSession({ headers: reqHeaders }).catch((error: unknown) => {
+    console.error('getStudentSession: не удалось прочитать сессию', error)
+    return null
+  }),
+)
+
+/**
+ * Куда вести после неудачного резолва. Разводит два случая, которые снаружи
+ * выглядят одинаково: истёкшая сессия — это «войдите заново», а живая сессия без
+ * `StudentAccount` — «школа недоступна». Второму нужен текст из §8 SPEC.
+ */
+export async function loginRedirect(reqHeaders: Headers): Promise<string> {
+  return (await getAuthSession(reqHeaders)) ? `/login?error=${ORG_UNAVAILABLE}` : '/login'
+}
+
 /**
  * Единственный резолв «кто это и из какой школы».
  *
@@ -23,10 +40,9 @@ export const ORG_UNAVAILABLE = 'org'
  * если появится что-то читаемое по одной лишь better-auth-сессии.
  */
 async function resolve(reqHeaders: Headers): Promise<StudentSession | null> {
-  const session = await auth.api.getSession({ headers: reqHeaders }).catch((error: unknown) => {
-    console.error('getStudentSession: не удалось прочитать сессию', error)
-    return null
-  })
+  // Нет сессии — это просто «войдите», а не «школа недоступна»: сессия могла
+  // истечь на уже открытой странице. Разводит эти случаи `loginRedirect`.
+  const session = await getAuthSession(reqHeaders)
   if (!session) return null
 
   const account = await prisma.studentAccount.findUnique({

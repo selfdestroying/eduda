@@ -12,7 +12,7 @@ import { Loader, ShoppingCart } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { useAddToCartMutation } from '../queries'
+import { useAddToCartMutation, useCartQuery } from '../queries'
 
 export function AddToCartButton({
   productId,
@@ -25,6 +25,13 @@ export function AddToCartButton({
   const router = useRouter()
   const add = useAddToCartMutation()
 
+  // `addToCart` прибавляет к уже лежащему в корзине, поэтому потолок считается
+  // от остатка МИНУС то, что уже отложено. Иначе можно дважды добавить по 30 при
+  // остатке 35 и узнать об этом только в корзине.
+  const { data: cart } = useCartQuery()
+  const inCart = cart?.items.find((item) => item.productId === productId)?.quantity ?? 0
+  const remaining = Math.max(available - inCart, 0)
+
   if (available <= 0) {
     return (
       <Button disabled className="w-full">
@@ -33,9 +40,17 @@ export function AddToCartButton({
     )
   }
 
+  if (remaining <= 0) {
+    return (
+      <Button disabled className="w-full">
+        Весь остаток уже в корзине
+      </Button>
+    )
+  }
+
   const submit = () =>
     add.mutate(
-      { productId, quantity },
+      { productId, quantity: Math.min(quantity, remaining) },
       {
         onSuccess: () => {
           toast.success('Добавлено в корзину')
@@ -51,7 +66,7 @@ export function AddToCartButton({
         className="w-28"
         value={quantity}
         min={1}
-        max={Math.min(available, 999)}
+        max={Math.min(remaining, 999)}
         onValueChange={(value) => setQuantity(value ?? 1)}
       >
         <NumberFieldGroup>

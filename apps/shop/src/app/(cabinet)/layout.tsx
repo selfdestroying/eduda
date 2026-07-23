@@ -1,14 +1,15 @@
 import { StudentNav } from '@/src/components/student-nav'
-import { getStudentSession, ORG_UNAVAILABLE } from '@/src/lib/auth/student-session'
+import { getStudentSession, loginRedirect } from '@/src/lib/auth/student-session'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 export default async function CabinetLayout({ children }: { children: React.ReactNode }) {
-  // Сюда не попасть без better-auth-сессии (гейт 1 в proxy), поэтому пустой
-  // резолв означает ровно одно: школа ученика недоступна. Сообщаем об этом на
-  // форме входа, иначе ученик с верным паролем молча улетал бы на неё по кругу.
-  const session = await getStudentSession(await headers())
-  if (!session) redirect(`/login?error=${ORG_UNAVAILABLE}`)
+  // Живая сессия без `StudentAccount` означает недоступную школу — об этом надо
+  // сказать, иначе ученик с верным паролем молча улетал бы на форму по кругу.
+  // Истёкшая сессия — обычное «войдите», без пугающего текста.
+  const reqHeaders = await headers()
+  const session = await getStudentSession(reqHeaders)
+  if (!session) redirect(await loginRedirect(reqHeaders))
 
   return (
     <div className="min-h-svh">

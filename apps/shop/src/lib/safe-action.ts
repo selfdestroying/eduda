@@ -2,7 +2,7 @@ import { createSafeActionClient, DEFAULT_SERVER_ERROR_MESSAGE } from 'next-safe-
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
-import { getStudentSession, ORG_UNAVAILABLE } from './auth/student-session'
+import { getStudentSession, loginRedirect } from './auth/student-session'
 import { ActionError, ForbiddenError } from './error'
 
 const metadataSchema = z.object({
@@ -27,9 +27,10 @@ const baseClient = createSafeActionClient({
  * автоматической изоляции по организации в проекте нет.
  */
 export const studentAction = baseClient.use(async ({ next }) => {
-  const session = await getStudentSession(await headers())
+  const reqHeaders = await headers()
+  const session = await getStudentSession(reqHeaders)
   if (!session) {
-    redirect(`/login?error=${ORG_UNAVAILABLE}`)
+    redirect(await loginRedirect(reqHeaders))
   }
   return next({ ctx: session })
 })

@@ -82,7 +82,9 @@ function collectIssues(
     }
   }
 
-  if (total > coins) {
+  // `total > 0` обязателен: при отрицательном балансе (наследие данных) пустая
+  // или целиком архивная корзина иначе жаловалась бы на нехватку нуля коинов.
+  if (total > 0 && total > coins) {
     issues.push({ kind: 'INSUFFICIENT_COINS', needed: total, available: coins })
   }
 
@@ -292,11 +294,19 @@ export const checkout = shopAction
 
         for (const item of items) {
           const { count } = await tx.product.updateMany({
-            where: { id: item.productId, organizationId, quantity: { gte: item.quantity } },
+            where: {
+              id: item.productId,
+              organizationId,
+              quantity: { gte: item.quantity },
+              // Цена — часть условия, а не только остаток: под READ COMMITTED
+              // между чтением выше и этим апдейтом её могли поменять в платформе,
+              // и заказ ушёл бы по цене, которой уже нет.
+              price: item.price,
+            },
             data: { quantity: { decrement: item.quantity } },
           })
           if (count !== 1) {
-            throw new ConflictError(`«${item.name}» разобрали, пока вы оформляли заказ`)
+            throw new ConflictError(`«${item.name}» изменился, пока вы оформляли заказ`)
           }
         }
 
