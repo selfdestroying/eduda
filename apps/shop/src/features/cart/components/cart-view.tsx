@@ -7,9 +7,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@repo/ui/compo
 import { Separator } from '@repo/ui/components/separator'
 import { Skeleton } from '@repo/ui/components/skeleton'
 import Link from 'next/link'
-import { useState } from 'react'
 import { useCartQuery, useClearCartMutation } from '../queries'
-import type { CheckoutIssue } from '../types'
 import { CartItemRow } from './cart-item-row'
 import { CheckoutButton } from './checkout-button'
 import { CheckoutIssues } from './checkout-issues'
@@ -17,8 +15,6 @@ import { CheckoutIssues } from './checkout-issues'
 export function CartView() {
   const { data, isLoading, isError } = useCartQuery()
   const clear = useClearCartMutation()
-  // Проблемы, вернувшиеся с чекаута, важнее предварительных: они актуальнее.
-  const [checkoutIssues, setCheckoutIssues] = useState<CheckoutIssue[] | null>(null)
 
   if (isLoading) {
     return (
@@ -42,7 +38,9 @@ export function CartView() {
             Загляните в магазин — там есть на что потратить коины.
           </EmptyDescription>
         </EmptyHeader>
-        <Button render={<Link href="/shop" />}>В магазин</Button>
+        <Button nativeButton={false} render={<Link href="/shop" />}>
+          В магазин
+        </Button>
       </Empty>
     )
   }
@@ -57,7 +55,10 @@ export function CartView() {
         </CardContent>
       </Card>
 
-      <CheckoutIssues issues={checkoutIssues ?? data.issues} />
+      {/* Всегда описывает корзину в её нынешнем виде. Проблемы, всплывшие в
+          момент чекаута (цена изменилась), показываются тостом — они по природе
+          одноразовые и переживать исправление корзины не должны. */}
+      <CheckoutIssues issues={data.issues} />
 
       <Card>
         <CardContent className="space-y-3">
@@ -74,7 +75,6 @@ export function CartView() {
             items={data.items.map((item) => ({ productId: item.productId, price: item.price }))}
             total={data.total}
             blocked={data.issues.length > 0}
-            onIssues={setCheckoutIssues}
           />
         </CardContent>
       </Card>

@@ -28,7 +28,9 @@ export default function NotFound() {
             обычно.
           </EmptyDescription>
         </EmptyHeader>
-        <Button render={<Link href="/" />}>В кабинет</Button>
+        <Button nativeButton={false} render={<Link href="/" />}>
+          В кабинет
+        </Button>
       </Empty>
     </div>
   )

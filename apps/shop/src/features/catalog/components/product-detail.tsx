@@ -14,7 +14,13 @@ export function ProductDetail({ product, inCart }: { product: CatalogProduct; in
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" size="sm" className="-ml-2" render={<Link href="/shop" />}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="-ml-2"
+        nativeButton={false}
+        render={<Link href="/shop" />}
+      >
         <ChevronLeft />В магазин
       </Button>
 

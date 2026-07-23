@@ -14,21 +14,16 @@ import { Button } from '@repo/ui/components/button'
 import { Loader } from 'lucide-react'
 import { useState } from 'react'
 import { useCheckoutMutation } from '../queries'
-import type { CheckoutIssue } from '../types'
 
 interface CheckoutButtonProps {
   items: { productId: number; price: number }[]
   total: number
   blocked: boolean
-  onIssues: (issues: CheckoutIssue[]) => void
 }
 
-export function CheckoutButton({ items, total, blocked, onIssues }: CheckoutButtonProps) {
+export function CheckoutButton({ items, total, blocked }: CheckoutButtonProps) {
   const [open, setOpen] = useState(false)
-  const checkout = useCheckoutMutation((issues) => {
-    setOpen(false)
-    onIssues(issues)
-  })
+  const checkout = useCheckoutMutation()
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
@@ -50,7 +45,9 @@ export function CheckoutButton({ items, total, blocked, onIssues }: CheckoutButt
             disabled={checkout.isPending}
             // Цены отправляем те, что видит ученик: только так сервер поймёт,
             // что товар подорожал между открытием корзины и подтверждением.
-            onClick={() => checkout.mutate({ expected: items })}
+            onClick={() =>
+              checkout.mutate({ expected: items }, { onSettled: () => setOpen(false) })
+            }
           >
             {checkout.isPending ? <Loader className="animate-spin" /> : 'Подтвердить'}
           </Button>

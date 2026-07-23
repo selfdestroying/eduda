@@ -17,7 +17,7 @@ import type {
   RemoveCartItemSchemaType,
   SetCartItemQuantitySchemaType,
 } from './schemas'
-import type { CheckoutIssue } from './types'
+import { issueMessage } from './types'
 
 export const cartKeys = {
   all: ['cart'] as const,
@@ -72,8 +72,13 @@ export const useClearCartMutation = () =>
 /**
  * Чекаут. Проблемы возвращаются обычным результатом, а не ошибкой: их надо
  * показать списком, а канал ошибок в next-safe-action несёт только строку.
+ *
+ * Показываем их тостом, а не отдельным блоком на странице: блок пришлось бы
+ * гасить руками при каждой правке корзины, иначе он переживал бы саму проблему.
+ * Постоянную панель на странице рисует `getCart` — она всегда описывает корзину
+ * в её текущем виде.
  */
-export const useCheckoutMutation = (onIssues: (issues: CheckoutIssue[]) => void) => {
+export const useCheckoutMutation = () => {
   const queryClient = useQueryClient()
   const router = useRouter()
 
@@ -91,9 +96,15 @@ export const useCheckoutMutation = (onIssues: (issues: CheckoutIssue[]) => void)
         // Баланс и остатки нарисованы сервером — перерисовываем их вместе с корзиной.
         router.refresh()
         router.push('/orders')
-      } else {
-        onIssues(result.issues)
+        return
       }
+
+      toast.error(result.issues.map(issueMessage).join('\n'), {
+        // Дольше обычных 2 секунд: это список, его надо успеть прочитать.
+        duration: 6000,
+      })
+      // Цена или остаток изменились — страница показывает их с сервера.
+      router.refresh()
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : 'Не удалось оформить заказ'),

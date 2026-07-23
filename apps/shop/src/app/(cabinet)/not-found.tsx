@@ -28,7 +28,9 @@ export default function CabinetNotFound() {
           как обычно.
         </EmptyDescription>
       </EmptyHeader>
-      <Button render={<Link href="/" />}>В профиль</Button>
+      <Button nativeButton={false} render={<Link href="/" />}>
+        В профиль
+      </Button>
     </Empty>
   )
 }
