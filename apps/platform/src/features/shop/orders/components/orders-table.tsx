@@ -55,7 +55,11 @@ export default function OrdersTable() {
   const columns: ColumnDef<OrderWithItemsAndStudent>[] = useMemo(
     () => [
       {
+        id: 'items',
         header: 'Товары',
+        // accessorFn нужен не для отрисовки, а чтобы колонка осталась
+        // сортируемой: DataTable показывает сортировку только при getCanSort().
+        accessorFn: (order) => order.items[0]?.product.name ?? '',
         // Заказ теперь из нескольких позиций: в строке — первый товар и счётчик
         // остальных, полный состав виден в диалоге смены статуса.
         cell: ({ row }) => {

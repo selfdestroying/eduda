@@ -52,29 +52,32 @@ export const getProduct = shopAction
   .metadata({ actionName: 'getProduct' })
   .inputSchema(z.object({ id: z.number().int().positive() }))
   .action(async ({ ctx, parsedInput }) => {
-    const product = await prisma.product.findFirst({
-      where: {
-        id: parsedInput.id,
-        organizationId: ctx.student.organizationId,
-        archivedAt: null,
-      },
-      select: PRODUCT_FIELDS,
-    })
+    // Оба запроса зависят только от входа и сессии, поэтому идут параллельно.
+    // Второй считает, сколько этого товара уже в корзине: карточке это нужно,
+    // чтобы не дать добавить сверх остатка, и дешевле посчитать здесь, чем
+    // тянуть всю корзину запросом с клиента.
+    const [product, cartItem] = await Promise.all([
+      prisma.product.findFirst({
+        where: {
+          id: parsedInput.id,
+          organizationId: ctx.student.organizationId,
+          archivedAt: null,
+        },
+        select: PRODUCT_FIELDS,
+      }),
+      prisma.cartItem.findFirst({
+        where: {
+          productId: parsedInput.id,
+          organizationId: ctx.student.organizationId,
+          Cart: { studentId: ctx.student.id, organizationId: ctx.student.organizationId },
+        },
+        select: { quantity: true },
+      }),
+    ])
 
     if (!product) {
       throw new NotFoundError('Товар не найден')
     }
-
-    // Сколько этого товара уже в корзине — нужно карточке, чтобы не дать
-    // добавить сверх остатка. Считаем здесь, а не запросом с клиента.
-    const cartItem = await prisma.cartItem.findFirst({
-      where: {
-        productId: product.id,
-        organizationId: ctx.student.organizationId,
-        Cart: { studentId: ctx.student.id, organizationId: ctx.student.organizationId },
-      },
-      select: { quantity: true },
-    })
 
     return { ...product, inCart: cartItem?.quantity ?? 0 }
   })

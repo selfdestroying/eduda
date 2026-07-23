@@ -10,21 +10,22 @@ Stack: Next.js 16 (App Router, React 19, React Compiler), Prisma 7 (PostgreSQL v
 
 ## Monorepo layout (pnpm + Turborepo)
 
-The repo is a **pnpm workspace** driven by **Turborepo** (`turbo.json`). Four packages today:
+The repo is a **pnpm workspace** driven by **Turborepo** (`turbo.json`). Five packages today:
 
 - **`apps/platform`** — the Next.js dashboard, port 3000 (everything that used to be at the repo root: `src/`, `public/`, `next.config.ts`, etc.). Its `.env` holds every var the dashboard needs. **All `src/...` paths mentioned elsewhere in this file live under `apps/platform/`.**
 - **`apps/docs`** (`docs`) — the public documentation, port 3001: fumadocs + the MDX content in `apps/docs/content/docs/` (`user/`, `dev/`). No auth, no DB, its own tiny `.env` (`NEXT_PUBLIC_ROOT_DOMAIN`, `PORT`). See «Documentation».
+- **`apps/shop`** (`shop`) — личный кабинет ученика, port 3002: каталог, корзина, заказы за астрокоины, посещаемость и профиль. Свой инстанс better-auth на таблицах `Student*` с `cookiePrefix: 'edu_student'` — сессия ученика и сессия сотрудника не пересекаются. Живёт на едином домене `shop.{rootDomain}` (DNS/реверс-прокси ведёт туда напрямую, как в `apps/docs`), организация приходит **из сессии**, а не из поддомена. Своё `.env` (`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `DATABASE_URL`, `PORT`). См. «Кабинет ученика».
 - **`packages/db`** (`@repo/db`) — Prisma: schema (`packages/db/prisma/schema/`), migrations, `prisma.config.ts`, the generated client (`packages/db/generated/`, gitignored) and the `prisma` singleton. Ships raw TS via `exports` (no build step); the app transpiles it (`transpilePackages: ['@repo/db']`).
 - **`packages/ui`** (`@repo/ui`) — the design system: shadcn primitives + app-agnostic composites (`packages/ui/src/components/`, flat), `use-mobile` (`src/hooks/`), `cn` (`src/lib/utils.ts`), design tokens and the base layer (`src/styles/globals.css`), plus the shared `postcss.config.mjs`. Same shape as `@repo/db`: raw TS via `exports`, no build step, transpiled by the app.
 
-`apps/shop` and shared config packages are **planned, not present** — don't scaffold them until needed.
+Shared config packages (`@repo/config` и т.п.) — **planned, not present**: `apps/shop` копирует конфиги `apps/docs`. Третий потребитель будет поводом вернуться к вопросу.
 
 ## Commands
 
 Run from the **repo root** (Turborepo fans out to packages):
 
 ```bash
-pnpm dev               # turbo dev — platform (3000) + docs (3001)
+pnpm dev               # turbo dev — platform (3000) + docs (3001) + shop (3002)
 pnpm build             # turbo build (runs @repo/db generate + typegen first)
 pnpm check             # turbo check (format+lint+tsc) — run before committing
 pnpm ts:check          # turbo ts:check
@@ -44,6 +45,18 @@ pnpm --filter platform exec shadcn add <component>
 `pnpm install` at the root generates the Prisma client (`@repo/db` postinstall) and the fumadocs `.source` collection (`docs` postinstall). Native build scripts are gated by pnpm — approvals live in `pnpm-workspace.yaml` (`allowBuilds`).
 
 There is **no test suite**. Verification = `pnpm check` + running the app. `prisma.config.ts` references a `prisma/seed.ts` that does not exist.
+
+**Одноразовый шаг при накатывании миграций учеников.** Между `20260723120000_student_auth`
+и `20260723120100_drop_student_password` обязан отработать backfill: первая
+добавляет таблицы better-auth и `passwordEnc`, вторая удаляет колонку с открытым
+паролем, а посчитать хеш в SQL нельзя. Вторая миграция это проверяет и падает с
+`RAISE EXCEPTION`, если backfill пропущен, — данные при этом целы:
+
+```bash
+pnpm --filter platform exec tsx --env-file=.env scripts/backfill-student-auth.ts
+```
+
+На чистой БД (учеников ещё нет) шаг не нужен: проверка проходит на пустой таблице.
 
 ## Git / commits
 
@@ -137,6 +150,19 @@ Public docs live in their **own Next app** (fumadocs, port 3001) — no auth, no
 ## Feature flags
 
 `src/lib/features/registry.ts` is the source of truth for toggleable features (hierarchical keys like `finances.payments`). The DB stores only **disabled** overrides (`OrganizationFeature`, default = enabled). `route-feature-map.ts` maps URL patterns → feature keys; the proxy blocks disabled routes and the sidebar hides them.
+
+## Кабинет ученика (`apps/shop`)
+
+Отдельное приложение на порту 3002. Всё, что ниже, — инварианты, а не стиль.
+
+- **Организация — из сессии.** Домен единый, поддомена школы нет. Единственный резолв — `getStudentSession` (`src/lib/auth/student-session.ts`): он же гейт «школа недоступна» (живая кука без `StudentAccount` не открывает ничего) и он же кеширует сессию better-auth на рендер. Им пользуются `studentAction`, layout кабинета и страница входа — иначе получается цикл редиректов.
+- **Изоляция ручная.** В `where` каждого запроса обязан быть `ctx.student.organizationId`. Исключения ровно два и оба прокомментированы: резолв в `student-session.ts` (он организацию и определяет) и `cart.upsert` по `studentId` (ключ глобальный по схеме, `studentId` приходит из сессии).
+- **Кеша нет.** Каталог, остатки и коины пишет платформа — отдельный деплой, куда `revalidateTag` не достаёт. Все страницы `force-dynamic`; query-слой (TanStack) есть только у корзины, остальное — чистый RSC.
+- **Пароли учеников.** Вход идёт по хешу better-auth, а школа видит пароль из `StudentAccount.passwordEnc` (AES-256-GCM, ключ `STUDENT_PW_KEY` в `.env` платформы). Ученик пароль не меняет, поэтому копии не расходятся. Учётку заводит только платформа — `createStudentUserTx` (`apps/platform/src/lib/student-auth.ts`), и мимо него это делать нельзя: там живёт нормализация `username` в нижний регистр, без которой ученик с логином вида «Ivanov» не войдёт.
+- **Формат логина принадлежит платформе.** Плагин `username` в шопе запущен с выключенной валидацией: у школ уже раздали логины с дефисами, точками, заглавными и кириллицей, и дефолтный валидатор better-auth (`/^[a-zA-Z0-9_.]+$/`) отрезал бы этих учеников от входа.
+- **Чекаут — всё-или-ничего.** Одна транзакция: перечитать товары и коины → собрать `issues` целиком → непусто ⇒ rollback (корзина не тронута) → иначе условные `updateMany` с `quantity >= n`, `price = ...` и `coins >= total`. `count !== 1` означает, что кто-то успел раньше. Позиции сортируются по `productId`, чтобы одновременные чекауты брали блокировки в одном порядке.
+- **Фича `shop`.** Гейт продублирован: страницы отдают `notFound()`, а `shopAction` отказывает независимо от того, как до неё дошли. `/orders` намеренно **вне** гейта — коины уже списаны, история покупок остаётся видимой.
+- **`@repo/ui` не меняется.** Витринные `product-card`, `product-grid`, `coin-price` — локальные в `apps/shop/src/components/`, потребитель один.
 
 ## Prisma
 
