@@ -5,8 +5,10 @@ export const dynamic = 'force-dynamic'
 
 export const metadata = { title: 'Посещаемость' }
 
+const LIMIT = 100
+
 export default async function AttendancePage() {
-  const { data, serverError } = await getAttendance({ limit: 100 })
+  const { data, serverError } = await getAttendance({ limit: LIMIT })
 
   if (serverError || !data) {
     throw new Error(serverError || 'Не удалось загрузить посещаемость')
@@ -15,7 +17,7 @@ export default async function AttendancePage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Посещаемость</h1>
-      <AttendanceTable rows={data} />
+      <AttendanceTable rows={data} limit={LIMIT} />
     </div>
   )
 }

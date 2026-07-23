@@ -3,7 +3,7 @@
 import { StudentAccount } from '@repo/db'
 import { Button } from '@repo/ui/components/button'
 import { StatCard } from '@repo/ui/components/stat-card'
-import { Eye, KeyRound, Loader2, Lock, User } from 'lucide-react'
+import { Eye, EyeOff, KeyRound, Loader2, Lock, User } from 'lucide-react'
 import { useRevealStudentPasswordMutation } from '../../queries'
 
 interface StudentAccountSectionProps {
@@ -41,7 +41,22 @@ export default function StudentAccountSection({ account }: StudentAccountSection
           label="Пароль"
           icon={KeyRound}
           value={
-            password ?? (
+            password ? (
+              // Пароль убирается с экрана той же кнопкой: он остаётся видимым,
+              // пока карточка открыта, а её могут не закрыть и уйти.
+              <span className="flex items-center gap-2">
+                {password}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6"
+                  title="Скрыть пароль"
+                  onClick={() => reveal.reset()}
+                >
+                  <EyeOff />
+                </Button>
+              </span>
+            ) : (
               <Button
                 variant="ghost"
                 size="sm"

@@ -33,7 +33,7 @@ export interface AttendanceRow {
   status: AttendanceStatus
 }
 
-export function AttendanceTable({ rows }: { rows: AttendanceRow[] }) {
+export function AttendanceTable({ rows, limit }: { rows: AttendanceRow[]; limit: number }) {
   if (rows.length === 0) {
     return (
       <Empty>
@@ -49,13 +49,18 @@ export function AttendanceTable({ rows }: { rows: AttendanceRow[] }) {
   const marked = rows.filter((r) => r.status !== 'UNSPECIFIED')
   const present = marked.filter((r) => r.status === 'PRESENT').length
   const rate = marked.length > 0 ? Math.round((present / marked.length) * 100) : null
+  // Список обрезан лимитом, значит процент описывает не всю историю, а окно.
+  // Подписываем честно, иначе цифра выдаёт себя за общую посещаемость.
+  const truncated = rows.length >= limit
 
   return (
     <div className="space-y-4">
       {rate !== null && (
         <div className="space-y-1.5">
           <div className="flex items-baseline justify-between text-sm">
-            <span className="text-muted-foreground">Посещаемость</span>
+            <span className="text-muted-foreground">
+              {truncated ? `Посещаемость за последние ${rows.length} занятий` : 'Посещаемость'}
+            </span>
             <span className="font-semibold">
               {rate}% · {present} из {marked.length}
             </span>
