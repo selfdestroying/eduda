@@ -26,6 +26,69 @@ async function findCart(studentId: number, organizationId: number) {
   })
 }
 
+type CartLine = {
+  productId: number
+  name: string
+  price: number
+  quantity: number
+  available: number
+  archived: boolean
+}
+
+/**
+ * Единственное место, где решается, можно ли покупать. Им пользуются и
+ * предварительная проверка в `getCart`, и сама транзакция чекаута — иначе корзина
+ * показывала бы одни правила, а чекаут применял другие.
+ *
+ * `total` считается ТОЛЬКО по покупаемым позициям: архивный или кончившийся
+ * товар оплатить нельзя, и включать его в «нужно N коинов» — врать ученику.
+ * `expectedPrice` передаёт чекаут: цены, которые клиент показал перед
+ * подтверждением. В `getCart` сравнивать не с чем, снимка цены корзина не хранит.
+ */
+function collectIssues(
+  items: CartLine[],
+  coins: number,
+  expectedPrice?: Map<number, number>,
+): { issues: CheckoutIssue[]; total: number } {
+  const issues: CheckoutIssue[] = []
+  let total = 0
+
+  for (const item of items) {
+    if (item.archived) {
+      issues.push({ kind: 'UNAVAILABLE', productId: item.productId, name: item.name })
+      continue
+    }
+    if (item.available < item.quantity) {
+      issues.push({
+        kind: 'OUT_OF_STOCK',
+        productId: item.productId,
+        name: item.name,
+        available: item.available,
+      })
+      continue
+    }
+
+    total += item.price * item.quantity
+
+    const shown = expectedPrice?.get(item.productId)
+    if (shown !== undefined && shown !== item.price) {
+      issues.push({
+        kind: 'PRICE_CHANGED',
+        productId: item.productId,
+        name: item.name,
+        oldPrice: shown,
+        newPrice: item.price,
+      })
+    }
+  }
+
+  if (total > coins) {
+    issues.push({ kind: 'INSUFFICIENT_COINS', needed: total, available: coins })
+  }
+
+  return { issues, total }
+}
+
 export const getCart = shopAction.metadata({ actionName: 'getCart' }).action(async ({ ctx }) => {
   const [cart, account] = await Promise.all([
     prisma.cart.findFirst({
@@ -66,24 +129,7 @@ export const getCart = shopAction.metadata({ actionName: 'getCart' }).action(asy
     archived: item.Product.archivedAt !== null,
   }))
 
-  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-
-  const issues: CheckoutIssue[] = []
-  for (const item of items) {
-    if (item.archived) {
-      issues.push({ kind: 'UNAVAILABLE', productId: item.productId, name: item.name })
-    } else if (item.available < item.quantity) {
-      issues.push({
-        kind: 'OUT_OF_STOCK',
-        productId: item.productId,
-        name: item.name,
-        available: item.available,
-      })
-    }
-  }
-  if (items.length > 0 && total > coins) {
-    issues.push({ kind: 'INSUFFICIENT_COINS', needed: total, available: coins })
-  }
+  const { issues, total } = collectIssues(items, coins)
 
   return { items, total, coins, issues }
 })
@@ -215,10 +261,21 @@ export const checkout = shopAction
           },
         })
 
-        const items = cart?.CartItem ?? []
-        if (!cart || items.length === 0) {
+        if (!cart || cart.CartItem.length === 0) {
           throw new NotFoundError('Корзина пуста')
         }
+
+        // Позиции упорядочены по productId: блокировки строк товаров берутся в
+        // одном и том же порядке во всех транзакциях, иначе два одновременных
+        // чекаута с пересекающимися корзинами могут встать в дедлок.
+        const items = cart.CartItem.map(({ quantity, Product: product }) => ({
+          productId: product.id,
+          name: product.name,
+          price: product.price,
+          quantity,
+          available: product.quantity,
+          archived: product.archivedAt !== null,
+        })).sort((a, b) => a.productId - b.productId)
 
         const account = await tx.studentAccount.findFirst({
           where: { studentId, organizationId },
@@ -226,53 +283,20 @@ export const checkout = shopAction
         })
         const coins = account?.coins ?? 0
 
-        const issues: CheckoutIssue[] = []
-        let total = 0
-
-        for (const { quantity, Product: product } of items) {
-          total += product.price * quantity
-
-          if (product.archivedAt !== null) {
-            issues.push({ kind: 'UNAVAILABLE', productId: product.id, name: product.name })
-            continue
-          }
-          if (product.quantity < quantity) {
-            issues.push({
-              kind: 'OUT_OF_STOCK',
-              productId: product.id,
-              name: product.name,
-              available: product.quantity,
-            })
-            continue
-          }
-          const shown = expectedPrice.get(product.id)
-          if (shown !== undefined && shown !== product.price) {
-            issues.push({
-              kind: 'PRICE_CHANGED',
-              productId: product.id,
-              name: product.name,
-              oldPrice: shown,
-              newPrice: product.price,
-            })
-          }
-        }
-
-        if (total > coins) {
-          issues.push({ kind: 'INSUFFICIENT_COINS', needed: total, available: coins })
-        }
+        const { issues, total } = collectIssues(items, coins, expectedPrice)
 
         // Откат: заказ не создан, корзина не тронута, ученик видит все проблемы разом.
         if (issues.length > 0) {
           throw new CheckoutBlocked(issues)
         }
 
-        for (const { quantity, Product: product } of items) {
+        for (const item of items) {
           const { count } = await tx.product.updateMany({
-            where: { id: product.id, organizationId, quantity: { gte: quantity } },
-            data: { quantity: { decrement: quantity } },
+            where: { id: item.productId, organizationId, quantity: { gte: item.quantity } },
+            data: { quantity: { decrement: item.quantity } },
           })
           if (count !== 1) {
-            throw new ConflictError(`«${product.name}» разобрали, пока вы оформляли заказ`)
+            throw new ConflictError(`«${item.name}» разобрали, пока вы оформляли заказ`)
           }
         }
 
@@ -290,11 +314,11 @@ export const checkout = shopAction
             studentId,
             status: 'PENDING',
             items: {
-              create: items.map(({ quantity, Product: product }) => ({
+              create: items.map((item) => ({
                 organizationId,
-                productId: product.id,
-                quantity,
-                priceAtPurchase: product.price,
+                productId: item.productId,
+                quantity: item.quantity,
+                priceAtPurchase: item.price,
               })),
             },
           },

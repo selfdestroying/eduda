@@ -8,6 +8,9 @@ export type StudentSession = {
   disabledShop: boolean
 }
 
+/** Маркер в `/login?error=`: вход прошёл, но школы ученика больше нет (§8 SPEC). */
+export const ORG_UNAVAILABLE = 'org'
+
 /**
  * Единственный резолв «кто это и из какой школы».
  *

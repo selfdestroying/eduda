@@ -72,10 +72,25 @@ export const changeOrderStatus = featureAction('shop')
       }
 
       const { count } = await tx.studentAccount.updateMany({
-        where: { studentId: order.studentId, organizationId },
+        where: {
+          studentId: order.studentId,
+          organizationId,
+          // Возврат заказа из отмены снова списывает коины — условно, иначе
+          // потраченный возврат увёл бы баланс в минус.
+          ...(isCharged ? { coins: { gte: total } } : {}),
+        },
         data: { coins: { increment: sign * total } },
       })
-      if (count === 0) return
+      // Ноль строк — либо не хватило коинов, либо у ученика нет аккаунта. И то и
+      // другое означает, что остаток уже сдвинут, а списания нет: откатываем всё,
+      // чтобы склад не разъехался с леджером.
+      if (count === 0) {
+        throw new ConflictError(
+          isCharged
+            ? 'У ученика не хватает коинов, чтобы вернуть заказ в работу'
+            : 'Не удалось вернуть коины: у ученика нет учётной записи',
+        )
+      }
 
       await recordCoins(tx, {
         organizationId,

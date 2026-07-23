@@ -172,7 +172,13 @@ const updateCoins = async (
 
   const amount = granted ? ATTENDANCE_COINS : -ATTENDANCE_COINS
   const { count } = await tx.studentAccount.updateMany({
-    where: { studentId, organizationId },
+    where: {
+      studentId,
+      organizationId,
+      // Снятие награды не имеет права увести баланс в минус: ученик мог уже
+      // потратить эти коины. Если их не осталось — просто не снимаем.
+      ...(granted ? {} : { coins: { gte: ATTENDANCE_COINS } }),
+    },
     data: { coins: { increment: amount } },
   })
   if (count === 0) return

@@ -53,11 +53,18 @@ export function CartItemRow({ item }: { item: CartItem }) {
 
       <NumberField
         className="w-24"
-        value={item.quantity}
+        // Поле неуправляемое, на сервер уходит только коммит: набранное с
+        // клавиатуры «15» иначе отправилось бы двумя мутациями (сначала 1, потом
+        // 15). Коммит наступает по блюру и по отпусканию кнопок.
+        //
+        // `key` сбрасывает поле, когда количество пришло с сервера — это
+        // рекомендованный React способ переинициализировать состояние по пропу.
+        key={item.quantity}
+        defaultValue={item.quantity}
         min={1}
         max={999}
         disabled={busy || item.archived}
-        onValueChange={(value) => {
+        onValueCommitted={(value) => {
           if (value === null || value === item.quantity) return
           setQuantity.mutate({ productId: item.productId, quantity: value })
         }}

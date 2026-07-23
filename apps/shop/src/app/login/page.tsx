@@ -1,5 +1,5 @@
 import { LoginForm } from '@/src/features/auth/components/login-form'
-import { getStudentSession } from '@/src/lib/auth/student-session'
+import { getStudentSession, ORG_UNAVAILABLE } from '@/src/lib/auth/student-session'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
 import { Logo } from '@repo/ui/components/logo'
 import { headers } from 'next/headers'
@@ -9,13 +9,19 @@ export const dynamic = 'force-dynamic'
 
 export const metadata = { title: 'Вход' }
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
   // Тот же резолв, что и у `studentAction`: если школа ученика недоступна,
   // сессия здесь тоже «не считается» и цикла редиректов не возникает.
   const session = await getStudentSession(await headers())
   if (session) {
     redirect('/')
   }
+
+  const orgUnavailable = (await searchParams).error === ORG_UNAVAILABLE
 
   return (
     <div className="flex min-h-svh items-center justify-center px-4">
@@ -26,7 +32,7 @@ export default async function LoginPage() {
           <CardDescription>Логин и пароль выдаёт школа</CardDescription>
         </CardHeader>
         <CardContent>
-          <LoginForm />
+          <LoginForm orgUnavailable={orgUnavailable} />
         </CardContent>
       </Card>
     </div>

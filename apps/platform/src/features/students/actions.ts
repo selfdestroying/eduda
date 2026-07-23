@@ -236,7 +236,9 @@ export const createStudent = authAction
           age,
           url,
           organizationId,
-          cart: { create: {} },
+          // organizationId обязателен явно: в схеме у Cart стоит @default(1), и
+          // без него корзина ученика уезжает в чужую школу, а шоп её не находит.
+          cart: { create: { organizationId } },
           account: { create: { login, passwordEnc, studentUserId, organizationId } },
         },
       })

@@ -25,11 +25,14 @@ type LoginSchemaType = z.infer<typeof LoginSchema>
  * форма не работала перебором логинов (§8 SPEC).
  */
 const WRONG_CREDENTIALS = 'Неверный логин или пароль'
+const ORG_UNAVAILABLE = 'Школа недоступна. Обратитесь к администратору'
 
-export function LoginForm() {
+export function LoginForm({ orgUnavailable = false }: { orgUnavailable?: boolean }) {
   const router = useRouter()
   const [loading, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+  // Вход мог пройти успешно и всё равно вернуть сюда — если школа ученика
+  // недоступна. Без этого сообщения ученик видел бы пустую форму без причины.
+  const [error, setError] = useState<string | null>(orgUnavailable ? ORG_UNAVAILABLE : null)
 
   const form = useForm<LoginSchemaType>({
     resolver: zodResolver(LoginSchema),
