@@ -1,5 +1,4 @@
 import { formatDateOnly } from '@/src/lib/date'
-import { getFullName } from '@/src/lib/utils'
 import { StudentStatus } from '@repo/db/enums'
 import { Badge } from '@repo/ui/components/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
@@ -103,7 +102,11 @@ export function ProfileView({ student, groups, parents, coins }: ProfileViewProp
               {parents.map((parent, i) => (
                 <Item key={i}>
                   <ItemContent>
-                    <ItemTitle>{getFullName(parent.firstName, parent.lastName)}</ItemTitle>
+                    <ItemTitle>
+                      {parent.lastName
+                        ? `${parent.firstName} ${parent.lastName}`
+                        : parent.firstName}
+                    </ItemTitle>
                     <ItemDescription className="flex flex-wrap gap-3">
                       {parent.phone && (
                         <span className="inline-flex items-center gap-1">

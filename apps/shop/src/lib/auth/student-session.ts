@@ -4,7 +4,8 @@ import { auth } from './server'
 
 export type StudentSession = {
   student: { id: number; organizationId: number }
-  org: { id: number; slug: string; timezone: string }
+  /** Только пояс: id организации живёт в `student.organizationId`, а slug кабинету незачем — домен единый. */
+  org: { timezone: string }
   disabledShop: boolean
 }
 
@@ -52,8 +53,6 @@ async function resolve(reqHeaders: Headers): Promise<StudentSession | null> {
       organizationId: true,
       organization: {
         select: {
-          id: true,
-          slug: true,
           timezone: true,
           features: { where: { featureKey: 'shop' }, select: { enabled: true } },
         },
@@ -65,7 +64,7 @@ async function resolve(reqHeaders: Headers): Promise<StudentSession | null> {
   const { organization } = account
   return {
     student: { id: account.studentId, organizationId: account.organizationId },
-    org: { id: organization.id, slug: organization.slug, timezone: organization.timezone },
+    org: { timezone: organization.timezone },
     // В БД хранятся только ВЫКЛЮЧЕННЫЕ override'ы, отсутствие строки = включено.
     disabledShop: organization.features[0]?.enabled === false,
   }

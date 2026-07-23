@@ -11,7 +11,7 @@
  * Date-only строка `YYYY-MM-DD` → локальный `Date` (полдень того же дня),
  * чтобы компоненты дня читались одинаково в любом поясе браузера.
  */
-export function ymdToLocalDate(ymd: string): Date {
+function ymdToLocalDate(ymd: string): Date {
   const [y, m, d] = ymd.split('-').map(Number) as [number, number, number]
   return new Date(y, m - 1, d, 12, 0, 0)
 }

@@ -1,16 +1,18 @@
 'use client'
 
 import { CoinPrice } from '@/src/components/coin-price'
+import { Alert, AlertDescription } from '@repo/ui/components/alert'
 import { Button } from '@repo/ui/components/button'
 import { Card, CardContent } from '@repo/ui/components/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@repo/ui/components/empty'
 import { Separator } from '@repo/ui/components/separator'
 import { Skeleton } from '@repo/ui/components/skeleton'
+import { TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
 import { useCartQuery, useClearCartMutation } from '../queries'
+import { issueMessage } from '../types'
 import { CartItemRow } from './cart-item-row'
 import { CheckoutButton } from './checkout-button'
-import { CheckoutIssues } from './checkout-issues'
 
 export function CartView() {
   const { data, isLoading, isError } = useCartQuery()
@@ -58,7 +60,18 @@ export function CartView() {
       {/* Всегда описывает корзину в её нынешнем виде. Проблемы, всплывшие в
           момент чекаута (цена изменилась), показываются тостом — они по природе
           одноразовые и переживать исправление корзины не должны. */}
-      <CheckoutIssues issues={data.issues} />
+      {data.issues.length > 0 && (
+        <Alert variant="destructive">
+          <TriangleAlert />
+          <AlertDescription>
+            <ul className="list-inside list-disc">
+              {data.issues.map((issue, i) => (
+                <li key={i}>{issueMessage(issue)}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardContent className="space-y-3">

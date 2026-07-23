@@ -26,8 +26,8 @@ export async function recordCoins(
       studentId: args.studentId,
       amount: args.amount,
       reason: args.reason,
-      orderId: args.orderId ?? null,
-      attendanceId: args.attendanceId ?? null,
+      orderId: args.orderId,
+      attendanceId: args.attendanceId,
     },
   })
 }

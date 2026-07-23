@@ -20,7 +20,3 @@ export function getGroupName(group: {
   const parts = sorted.map((s) => `${DAYS_SHORT[s.dayOfWeek]} ${s.time}`)
   return `${group.course.name} ${parts.join(', ')}`.trim()
 }
-
-export function getFullName(firstName: string, lastName: string | null): string {
-  return lastName ? `${firstName} ${lastName}` : firstName
-}
