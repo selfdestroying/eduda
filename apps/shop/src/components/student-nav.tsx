@@ -5,7 +5,16 @@ import { cn } from '@/src/lib/utils'
 import { Button } from '@repo/ui/components/button'
 import { Logo } from '@repo/ui/components/logo'
 import { SwitchThemeButton } from '@repo/ui/components/switch-theme-button'
-import { CalendarCheck, Coins, LogOut, ShoppingBag, ShoppingCart, Trophy, User } from 'lucide-react'
+import {
+  CalendarCheck,
+  Coins,
+  LogOut,
+  Package,
+  ShoppingBag,
+  ShoppingCart,
+  Trophy,
+  User,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -13,7 +22,8 @@ import { useTransition } from 'react'
 
 type NavItem = { href: string; label: string; icon: LucideIcon; shop?: true }
 
-// Растёт по мере слайсов: заказы.
+// `shop: true` — пункт скрывается, когда школа выключила магазин. У «Заказов»
+// его нет намеренно: история покупок остаётся доступной.
 const ITEMS: NavItem[] = [
   { href: '/', label: 'Профиль', icon: User },
   { href: '/attendance', label: 'Посещаемость', icon: CalendarCheck },
@@ -21,6 +31,7 @@ const ITEMS: NavItem[] = [
   { href: '/achievements', label: 'Достижения', icon: Trophy },
   { href: '/shop', label: 'Магазин', icon: ShoppingBag, shop: true },
   { href: '/cart', label: 'Корзина', icon: ShoppingCart, shop: true },
+  { href: '/orders', label: 'Заказы', icon: Package },
 ]
 
 export function StudentNav({ shopDisabled }: { shopDisabled: boolean }) {

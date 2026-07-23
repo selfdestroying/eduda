@@ -1,21 +1,24 @@
 'use client'
 
 import { CoinPrice } from '@/src/components/coin-price'
-import { Alert, AlertDescription } from '@repo/ui/components/alert'
 import { Button } from '@repo/ui/components/button'
 import { Card, CardContent } from '@repo/ui/components/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@repo/ui/components/empty'
 import { Separator } from '@repo/ui/components/separator'
 import { Skeleton } from '@repo/ui/components/skeleton'
-import { TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
+import { useState } from 'react'
 import { useCartQuery, useClearCartMutation } from '../queries'
-import { issueMessage } from '../types'
+import type { CheckoutIssue } from '../types'
 import { CartItemRow } from './cart-item-row'
+import { CheckoutButton } from './checkout-button'
+import { CheckoutIssues } from './checkout-issues'
 
 export function CartView() {
   const { data, isLoading, isError } = useCartQuery()
   const clear = useClearCartMutation()
+  // Проблемы, вернувшиеся с чекаута, важнее предварительных: они актуальнее.
+  const [checkoutIssues, setCheckoutIssues] = useState<CheckoutIssue[] | null>(null)
 
   if (isLoading) {
     return (
@@ -54,18 +57,7 @@ export function CartView() {
         </CardContent>
       </Card>
 
-      {data.issues.length > 0 && (
-        <Alert variant="destructive">
-          <TriangleAlert />
-          <AlertDescription>
-            <ul className="list-inside list-disc">
-              {data.issues.map((issue, i) => (
-                <li key={i}>{issueMessage(issue)}</li>
-              ))}
-            </ul>
-          </AlertDescription>
-        </Alert>
-      )}
+      <CheckoutIssues issues={checkoutIssues ?? data.issues} />
 
       <Card>
         <CardContent className="space-y-3">
@@ -78,6 +70,12 @@ export function CartView() {
             <span className="font-medium">Итого</span>
             <CoinPrice value={data.total} size="lg" />
           </div>
+          <CheckoutButton
+            items={data.items.map((item) => ({ productId: item.productId, price: item.price }))}
+            total={data.total}
+            blocked={data.issues.length > 0}
+            onIssues={setCheckoutIssues}
+          />
         </CardContent>
       </Card>
 

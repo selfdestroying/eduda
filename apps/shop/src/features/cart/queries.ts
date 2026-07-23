@@ -1,13 +1,23 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { addToCart, clearCart, getCart, removeCartItem, setCartItemQuantity } from './actions'
+import {
+  addToCart,
+  checkout,
+  clearCart,
+  getCart,
+  removeCartItem,
+  setCartItemQuantity,
+} from './actions'
 import type {
   AddToCartSchemaType,
+  CheckoutSchemaType,
   RemoveCartItemSchemaType,
   SetCartItemQuantitySchemaType,
 } from './schemas'
+import type { CheckoutIssue } from './types'
 
 export const cartKeys = {
   all: ['cart'] as const,
@@ -58,3 +68,34 @@ export const useRemoveCartItemMutation = () =>
 
 export const useClearCartMutation = () =>
   useCartMutation<void>(() => clearCart(), 'Не удалось очистить корзину')
+
+/**
+ * Чекаут. Проблемы возвращаются обычным результатом, а не ошибкой: их надо
+ * показать списком, а канал ошибок в next-safe-action несёт только строку.
+ */
+export const useCheckoutMutation = (onIssues: (issues: CheckoutIssue[]) => void) => {
+  const queryClient = useQueryClient()
+  const router = useRouter()
+
+  return useMutation({
+    mutationFn: async (input: CheckoutSchemaType) => {
+      const { data, serverError } = await checkout(input)
+      if (serverError) throw new Error(serverError)
+      if (!data) throw new Error('Пустой ответ сервера')
+      return data
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: cartKeys.all })
+      if (result.ok) {
+        toast.success(`Заказ №${result.orderId} оформлен`)
+        // Баланс и остатки нарисованы сервером — перерисовываем их вместе с корзиной.
+        router.refresh()
+        router.push('/orders')
+      } else {
+        onIssues(result.issues)
+      }
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось оформить заказ'),
+  })
+}
