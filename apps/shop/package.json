@@ -20,6 +20,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@repo/db": "workspace:*",
     "@repo/ui": "workspace:*",
+    "@tanstack/react-query": "^5.101.3",
     "better-auth": "^1.6.9",
     "lucide-react": "^0.563.0",
     "next": "^16.1.6",

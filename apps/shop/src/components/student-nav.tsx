@@ -5,7 +5,7 @@ import { cn } from '@/src/lib/utils'
 import { Button } from '@repo/ui/components/button'
 import { Logo } from '@repo/ui/components/logo'
 import { SwitchThemeButton } from '@repo/ui/components/switch-theme-button'
-import { CalendarCheck, Coins, LogOut, ShoppingBag, Trophy, User } from 'lucide-react'
+import { CalendarCheck, Coins, LogOut, ShoppingBag, ShoppingCart, Trophy, User } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -20,6 +20,7 @@ const ITEMS: NavItem[] = [
   { href: '/coins', label: 'Коины', icon: Coins },
   { href: '/achievements', label: 'Достижения', icon: Trophy },
   { href: '/shop', label: 'Магазин', icon: ShoppingBag, shop: true },
+  { href: '/cart', label: 'Корзина', icon: ShoppingCart, shop: true },
 ]
 
 export function StudentNav({ shopDisabled }: { shopDisabled: boolean }) {

@@ -1,5 +1,6 @@
 import { CoinPrice } from '@/src/components/coin-price'
 import { CatalogProduct } from '@/src/components/product-card'
+import { AddToCartButton } from '@/src/features/cart/components/add-to-cart-button'
 import { Badge } from '@repo/ui/components/badge'
 import { Button } from '@repo/ui/components/button'
 import { Card, CardContent } from '@repo/ui/components/card'
@@ -47,6 +48,8 @@ export function ProductDetail({ product }: { product: CatalogProduct }) {
               {outOfStock ? 'Нет в наличии' : `Осталось ${product.quantity} шт.`}
             </span>
           </div>
+
+          <AddToCartButton productId={product.id} available={product.quantity} />
         </CardContent>
       </Card>
     </div>
