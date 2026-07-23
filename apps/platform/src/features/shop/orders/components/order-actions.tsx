@@ -23,11 +23,11 @@ import { Field, FieldGroup, FieldLabel } from '@repo/ui/components/field'
 import { Loader, MoreVertical, Pen } from 'lucide-react'
 import { useState } from 'react'
 import { useChangeOrderStatusMutation } from '../queries'
-import { OrderWithProductAndStudent } from '../types'
+import { OrderWithItemsAndStudent, orderTotal } from '../types'
 import { OrderStatusMap } from './orders-table'
 
 interface OrderActionsProps {
-  order: OrderWithProductAndStudent
+  order: OrderWithItemsAndStudent
 }
 
 export default function OrderActions({ order }: OrderActionsProps) {
@@ -81,6 +81,26 @@ export default function OrderActions({ order }: OrderActionsProps) {
             <DialogDescription>Обновите информацию о заказе</DialogDescription>
           </DialogHeader>
           <FieldGroup>
+            <Field>
+              <FieldLabel>Состав заказа</FieldLabel>
+              <ul className="divide-border bg-muted/30 divide-y rounded-md border text-sm">
+                {order.items.map((item) => (
+                  <li key={item.id} className="flex justify-between gap-3 px-3 py-2">
+                    <span className="truncate">
+                      {item.product.name}
+                      {item.quantity > 1 && (
+                        <span className="text-muted-foreground"> ×{item.quantity}</span>
+                      )}
+                    </span>
+                    <span className="tabular-nums">{item.priceAtPurchase * item.quantity}</span>
+                  </li>
+                ))}
+                <li className="flex justify-between gap-3 px-3 py-2 font-medium">
+                  <span>Итого</span>
+                  <span className="tabular-nums">{orderTotal(order)}</span>
+                </li>
+              </ul>
+            </Field>
             <Field>
               <FieldLabel>Статус</FieldLabel>
               <CustomCombobox

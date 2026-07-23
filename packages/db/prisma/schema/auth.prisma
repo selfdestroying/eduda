@@ -110,6 +110,7 @@ model Organization {
     categories                     Category[]
     products                       Product[]
     orders                         Order[]
+    orderItems                     OrderItem[]
     paymentProducts                PaymentProduct[]
     studentLessonsBalanceHistories StudentLessonsBalanceHistory[]
     groupSchedules                 GroupSchedule[]

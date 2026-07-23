@@ -629,9 +629,8 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       rating: 4 + rng(),
       reviews: int(0, 25),
     })),
-    select: { id: true },
+    select: { id: true, price: true },
   })
-  const productIds = products.map((p) => p.id)
 
   // Пара заказов от первых учеников (магазин привязан к ученику).
   const ORDER_STATUSES: Prisma.OrderCreateManyInput['status'][] = [
@@ -640,14 +639,26 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     'COMPLETED',
     'CANCELLED',
   ]
-  await prisma.order.createMany({
+  const orders = await prisma.order.createManyAndReturn({
     data: students.slice(0, 4).map((st, o) => ({
       organizationId: orgId,
-      productId: pick(productIds),
       studentId: st.id,
-      quantity: int(1, 3),
       status: ORDER_STATUSES[o % ORDER_STATUSES.length]!,
     })),
+    select: { id: true },
+  })
+  // Заказ — шапка с позициями; цена фиксируется снимком на момент покупки.
+  await prisma.orderItem.createMany({
+    data: orders.map((order) => {
+      const product = pick(products)
+      return {
+        organizationId: orgId,
+        orderId: order.id,
+        productId: product.id,
+        quantity: int(1, 3),
+        priceAtPurchase: product.price,
+      }
+    }),
   })
 
   return { organizationId: orgId }

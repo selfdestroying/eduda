@@ -881,13 +881,12 @@ export const getStudentShopStats = featureAction('shop')
         where: { studentId, organizationId },
         select: {
           status: true,
-          quantity: true,
-          product: { select: { price: true } },
+          items: { select: { quantity: true, priceAtPurchase: true } },
         },
       }),
       prisma.order.findMany({
         where: { studentId, organizationId },
-        include: { product: true },
+        include: { items: { include: { product: true } } },
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
@@ -905,7 +904,8 @@ export const getStudentShopStats = featureAction('shop')
       if (o.status === 'COMPLETED') completedOrders += 1
       if (o.status === 'CANCELLED') cancelledOrders += 1
       if (o.status !== 'CANCELLED') {
-        totalSpent += o.product.price * o.quantity
+        // По снимку цены: сколько коинов реально ушло, а не сколько товар стоит сейчас.
+        totalSpent += o.items.reduce((sum, i) => sum + i.priceAtPurchase * i.quantity, 0)
       }
     }
 

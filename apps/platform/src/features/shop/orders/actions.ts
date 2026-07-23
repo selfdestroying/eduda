@@ -4,6 +4,7 @@ import { prisma } from '@repo/db'
 import { CoinTxReason } from '@repo/db/enums'
 
 import { recordCoins } from '@/src/lib/coins'
+import { ConflictError } from '@/src/lib/error'
 import { featureAction } from '@/src/lib/safe-action'
 import { ChangeOrderStatusSchema } from './schemas'
 
@@ -14,7 +15,7 @@ export const getOrders = featureAction('shop')
       where: {
         organizationId: ctx.session.organizationId!,
       },
-      include: { product: true, student: true },
+      include: { student: true, items: { include: { product: true } } },
       orderBy: { createdAt: 'desc' },
     })
   })
@@ -26,12 +27,12 @@ export const changeOrderStatus = featureAction('shop')
     const { id, newStatus } = parsedInput
     const organizationId = ctx.session.organizationId!
 
-    // Возврат коинов и смена статуса — одной транзакцией: строка леджера обязана
-    // появиться вместе с изменением баланса.
+    // Возврат коинов, возврат остатка и смена статуса — одной транзакцией:
+    // строка леджера обязана появиться вместе с изменением баланса.
     await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUniqueOrThrow({
         where: { id, organizationId },
-        include: { product: true },
+        include: { items: true },
       })
 
       await tx.order.update({
@@ -43,22 +44,43 @@ export const changeOrderStatus = featureAction('shop')
       const isCharged = newStatus === 'PENDING' || newStatus === 'COMPLETED'
       if (wasCharged === isCharged) return
 
-      // Отмена возвращает коины, возврат из отмены — списывает их обратно.
-      // Считаем по количеству: до этого возврат игнорировал `quantity` и за
-      // заказ из трёх штук отдавал цену одной.
-      const total = order.product.price * order.quantity
-      const amount = isCharged ? -total : total
+      // Сумма считается по снимку цены в позициях, а не по текущей цене товара:
+      // вернуть надо ровно столько, сколько было списано.
+      const total = order.items.reduce((sum, item) => sum + item.priceAtPurchase * item.quantity, 0)
+      // Отмена возвращает коины и остаток, возврат из отмены — списывает обратно.
+      const sign = isCharged ? -1 : 1
+
+      for (const item of order.items) {
+        if (sign > 0) {
+          // Отмена: остаток просто возвращается.
+          await tx.product.update({
+            where: { id: item.productId, organizationId },
+            data: { quantity: { increment: item.quantity } },
+          })
+          continue
+        }
+        // Возврат заказа из отмены снова забирает остаток — условным апдейтом,
+        // иначе за время отмены школа могла распродать товар и остаток ушёл бы
+        // в минус.
+        const { count } = await tx.product.updateMany({
+          where: { id: item.productId, organizationId, quantity: { gte: item.quantity } },
+          data: { quantity: { decrement: item.quantity } },
+        })
+        if (count !== 1) {
+          throw new ConflictError('Товара из заказа больше нет в наличии — вернуть заказ нельзя')
+        }
+      }
 
       const { count } = await tx.studentAccount.updateMany({
         where: { studentId: order.studentId, organizationId },
-        data: { coins: { increment: amount } },
+        data: { coins: { increment: sign * total } },
       })
       if (count === 0) return
 
       await recordCoins(tx, {
         organizationId,
         studentId: order.studentId,
-        amount,
+        amount: sign * total,
         reason: isCharged ? CoinTxReason.ORDER_PURCHASE : CoinTxReason.ORDER_CANCELLED,
         orderId: order.id,
       })

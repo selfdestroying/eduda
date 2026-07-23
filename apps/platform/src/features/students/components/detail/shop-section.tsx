@@ -5,6 +5,7 @@ import { StatCard } from '@repo/ui/components/stat-card'
 import { Badge } from '@repo/ui/components/badge'
 import { Skeleton } from '@repo/ui/components/skeleton'
 import { OrderStatusMap } from '@/src/features/shop/orders/components/orders-table'
+import { orderTotal } from '@/src/features/shop/orders/types'
 import { cn } from '@/src/lib/utils'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
@@ -117,14 +118,22 @@ export default function ShopSection({ coins, studentId }: ShopSectionProps) {
           <ul className="divide-border bg-card divide-y rounded-lg border">
             {recentOrders.map((order) => {
               const Icon = statusIcons[order.status]
-              const total = order.product.price * order.quantity
+              const total = orderTotal(order)
+              const first = order.items[0]
               return (
                 <li key={order.id} className="flex items-center justify-between gap-3 px-3 py-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium">{order.product.name}</span>
-                      {order.quantity > 1 ? (
-                        <span className="text-muted-foreground text-xs">×{order.quantity}</span>
+                      <span className="truncate text-sm font-medium">
+                        {first?.product.name ?? 'Заказ'}
+                      </span>
+                      {first && first.quantity > 1 ? (
+                        <span className="text-muted-foreground text-xs">×{first.quantity}</span>
+                      ) : null}
+                      {order.items.length > 1 ? (
+                        <span className="text-muted-foreground text-xs">
+                          +{order.items.length - 1}
+                        </span>
                       ) : null}
                     </div>
                     <div className="text-muted-foreground mt-0.5 text-xs">

@@ -23,7 +23,7 @@ import { cva } from 'class-variance-authority'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { useOrderListQuery } from '../queries'
-import { OrderWithProductAndStudent } from '../types'
+import { OrderWithItemsAndStudent, orderTotal } from '../types'
 import OrderActions from './order-actions'
 
 export const OrderStatusMap: { [key in OrderStatus]: string } = {
@@ -52,11 +52,28 @@ export default function OrdersTable() {
   const { data: orders = [], isLoading, isError } = useOrderListQuery()
   const tz = useOrgTimezone()
 
-  const columns: ColumnDef<OrderWithProductAndStudent>[] = useMemo(
+  const columns: ColumnDef<OrderWithItemsAndStudent>[] = useMemo(
     () => [
       {
-        header: 'Товар',
-        accessorFn: (item) => item.product.name,
+        header: 'Товары',
+        // Заказ теперь из нескольких позиций: в строке — первый товар и счётчик
+        // остальных, полный состав виден в диалоге смены статуса.
+        cell: ({ row }) => {
+          const items = row.original.items
+          if (items.length === 0) return <span className="text-muted-foreground">—</span>
+          const first = items[0]!
+          return (
+            <span className="flex items-center gap-1.5">
+              <span>{first.product.name}</span>
+              {first.quantity > 1 && (
+                <span className="text-muted-foreground text-xs">×{first.quantity}</span>
+              )}
+              {items.length > 1 && (
+                <span className="text-muted-foreground text-xs">+{items.length - 1}</span>
+              )}
+            </span>
+          )
+        },
       },
       {
         header: 'Ученик',
@@ -70,8 +87,8 @@ export default function OrdersTable() {
         ),
       },
       {
-        header: 'Цена',
-        accessorFn: (item) => item.product.price,
+        header: 'Сумма',
+        accessorFn: (order) => orderTotal(order),
       },
       {
         id: 'status',
