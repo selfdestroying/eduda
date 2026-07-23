@@ -23,10 +23,3 @@ export class NotFoundError extends ActionError {
     this.name = 'NotFoundError'
   }
 }
-
-export class ConflictError extends ActionError {
-  constructor(message = 'Конфликт данных') {
-    super(message)
-    this.name = 'ConflictError'
-  }
-}

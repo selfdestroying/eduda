@@ -1,6 +1,6 @@
 'use server'
 
-import { ConflictError, NotFoundError } from '@/src/lib/error'
+import { NotFoundError } from '@/src/lib/error'
 import { shopAction } from '@/src/lib/safe-action'
 import { prisma } from '@repo/db'
 import { CoinTxReason } from '@repo/db/enums'
@@ -306,7 +306,37 @@ export const checkout = shopAction
             data: { quantity: { decrement: item.quantity } },
           })
           if (count !== 1) {
-            throw new ConflictError(`«${item.name}» изменился, пока вы оформляли заказ`)
+            // Кто-то успел раньше. Перечитываем товар и возвращаем ТУ ЖЕ
+            // структурную проблему, что и предварительная проверка: ученику нужен
+            // конкретный повод («осталось только 1 шт.»), а не «что-то изменилось».
+            const fresh = await tx.product.findFirst({
+              where: { id: item.productId, organizationId },
+              select: { name: true, price: true, quantity: true, archivedAt: true },
+            })
+            const name = fresh?.name ?? item.name
+
+            if (!fresh || fresh.archivedAt !== null) {
+              throw new CheckoutBlocked([{ kind: 'UNAVAILABLE', productId: item.productId, name }])
+            }
+            if (fresh.quantity < item.quantity) {
+              throw new CheckoutBlocked([
+                {
+                  kind: 'OUT_OF_STOCK',
+                  productId: item.productId,
+                  name,
+                  available: fresh.quantity,
+                },
+              ])
+            }
+            throw new CheckoutBlocked([
+              {
+                kind: 'PRICE_CHANGED',
+                productId: item.productId,
+                name,
+                oldPrice: item.price,
+                newPrice: fresh.price,
+              },
+            ])
           }
         }
 
@@ -315,7 +345,15 @@ export const checkout = shopAction
           data: { coins: { decrement: total } },
         })
         if (spent.count !== 1) {
-          throw new ConflictError('Не хватает коинов')
+          // Тот же приём: баланс успели потратить в другой вкладке — говорим
+          // сколько нужно и сколько осталось, а не «не хватает».
+          const fresh = await tx.studentAccount.findFirst({
+            where: { studentId, organizationId },
+            select: { coins: true },
+          })
+          throw new CheckoutBlocked([
+            { kind: 'INSUFFICIENT_COINS', needed: total, available: fresh?.coins ?? 0 },
+          ])
         }
 
         const order = await tx.order.create({

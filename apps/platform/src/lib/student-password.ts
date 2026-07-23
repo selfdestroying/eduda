@@ -42,14 +42,28 @@ export function encryptStudentPassword(plain: string): Uint8Array<ArrayBuffer> {
 
 /** Бросает при неверном ключе или повреждённом шифротексте. */
 export function decryptStudentPassword(enc: Uint8Array): string {
+  const key = getKey()
   const buffer = Buffer.from(enc)
   if (buffer.length <= NONCE_LENGTH + TAG_LENGTH) {
     throw new Error('Повреждённый шифротекст пароля')
   }
-  const decipher = createDecipheriv(ALGORITHM, getKey(), buffer.subarray(0, NONCE_LENGTH))
+  const decipher = createDecipheriv(ALGORITHM, key, buffer.subarray(0, NONCE_LENGTH))
   decipher.setAuthTag(buffer.subarray(buffer.length - TAG_LENGTH))
-  return Buffer.concat([
-    decipher.update(buffer.subarray(NONCE_LENGTH, buffer.length - TAG_LENGTH)),
-    decipher.final(),
-  ]).toString('utf8')
+
+  try {
+    return Buffer.concat([
+      decipher.update(buffer.subarray(NONCE_LENGTH, buffer.length - TAG_LENGTH)),
+      decipher.final(),
+    ]).toString('utf8')
+  } catch {
+    // AES-GCM отвечает одинаково и на чужой ключ, и на испорченные байты
+    // («Unsupported state or unable to authenticate data»), различить их нельзя.
+    // Называем обе причины сами: иначе менеджер видит английскую крипто-ошибку
+    // и не понимает, что делать. Вход ученика при этом не затронут — он идёт
+    // по хешу better-auth, а не по этому шифротексту.
+    throw new Error(
+      'Не удалось расшифровать пароль: STUDENT_PW_KEY не тот, которым он был зашифрован, ' +
+        'либо запись повреждена. Вход ученика это не затрагивает — перевыпустите пароль.',
+    )
+  }
 }
