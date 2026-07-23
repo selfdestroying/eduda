@@ -92,8 +92,12 @@ export const useCategoryDeleteMutation = () => {
       queryClient.invalidateQueries({ queryKey: categoryKeys.all })
       toast.success('Категория успешно удалена!')
     },
-    onError: () => {
-      toast.error('Не удалось удалить категорию.')
+    onError: (error) => {
+      // Причина отказа осмысленная («в категории есть товары») — показываем её,
+      // иначе staff видит только «не удалось» и не знает, что делать.
+      const message =
+        typeof error === 'string' ? error : error instanceof Error ? error.message : null
+      toast.error(message || 'Не удалось удалить категорию.')
     },
   })
 }

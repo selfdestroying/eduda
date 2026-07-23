@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@repo/db'
+import { ConflictError } from '@/src/lib/error'
 import { CreateCategorySchema, DeleteCategorySchema, UpdateCategorySchema } from './schemas'
 import { featureAction } from '@/src/lib/safe-action'
 
@@ -38,11 +39,31 @@ export const updateCategory = featureAction('shop')
     })
   })
 
+/**
+ * Категорию можно удалить, только пока в ней нет товаров.
+ *
+ * `Product.category` — каскад, поэтому раньше удаление категории тихо сносило
+ * её товары вместе с заказами. Теперь `OrderItem.product` стоит на `Restrict`,
+ * и такой каскад упирается в невнятную ошибку БД, а товары без заказов всё ещё
+ * стирались бы физически — ровно то, ради чего вводился `archivedAt`.
+ * Поэтому проверяем заранее и объясняем, что делать.
+ */
 export const deleteCategory = featureAction('shop')
   .metadata({ actionName: 'deleteCategory' })
   .inputSchema(DeleteCategorySchema)
   .action(async ({ ctx, parsedInput }) => {
+    const organizationId = ctx.session.organizationId!
+
+    const products = await prisma.product.count({
+      where: { categoryId: parsedInput.id, organizationId },
+    })
+    if (products > 0) {
+      throw new ConflictError(
+        'В категории есть товары. Перенесите их в другую категорию или архивируйте.',
+      )
+    }
+
     await prisma.category.delete({
-      where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
+      where: { id: parsedInput.id, organizationId },
     })
   })

@@ -65,5 +65,16 @@ export const getProduct = shopAction
       throw new NotFoundError('Товар не найден')
     }
 
-    return product
+    // Сколько этого товара уже в корзине — нужно карточке, чтобы не дать
+    // добавить сверх остатка. Считаем здесь, а не запросом с клиента.
+    const cartItem = await prisma.cartItem.findFirst({
+      where: {
+        productId: product.id,
+        organizationId: ctx.student.organizationId,
+        Cart: { studentId: ctx.student.id, organizationId: ctx.student.organizationId },
+      },
+      select: { quantity: true },
+    })
+
+    return { ...product, inCart: cartItem?.quantity ?? 0 }
   })

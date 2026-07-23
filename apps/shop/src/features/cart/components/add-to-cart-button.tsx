@@ -12,14 +12,17 @@ import { Loader, ShoppingCart } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { useAddToCartMutation, useCartQuery } from '../queries'
+import { useAddToCartMutation } from '../queries'
 
 export function AddToCartButton({
   productId,
   available,
+  inCart,
 }: {
   productId: number
   available: number
+  /** Сколько этого товара уже лежит в корзине — считает серверная страница. */
+  inCart: number
 }) {
   const [quantity, setQuantity] = useState(1)
   const router = useRouter()
@@ -28,8 +31,6 @@ export function AddToCartButton({
   // `addToCart` прибавляет к уже лежащему в корзине, поэтому потолок считается
   // от остатка МИНУС то, что уже отложено. Иначе можно дважды добавить по 30 при
   // остатке 35 и узнать об этом только в корзине.
-  const { data: cart } = useCartQuery()
-  const inCart = cart?.items.find((item) => item.productId === productId)?.quantity ?? 0
   const remaining = Math.max(available - inCart, 0)
 
   if (available <= 0) {

@@ -9,7 +9,7 @@ import { ChevronLeft } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 
-export function ProductDetail({ product }: { product: CatalogProduct }) {
+export function ProductDetail({ product, inCart }: { product: CatalogProduct; inCart: number }) {
   const outOfStock = product.quantity <= 0
 
   return (
@@ -49,7 +49,7 @@ export function ProductDetail({ product }: { product: CatalogProduct }) {
             </span>
           </div>
 
-          <AddToCartButton productId={product.id} available={product.quantity} />
+          <AddToCartButton productId={product.id} available={product.quantity} inCart={inCart} />
         </CardContent>
       </Card>
     </div>

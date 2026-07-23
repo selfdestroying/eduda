@@ -400,7 +400,19 @@ export const deleteStudent = authAction
       // Остальные связи (кошельки, группы, посещения, заказы, история, корзина, родители)
       // удаляются каскадно при удалении ученика.
       await tx.payment.deleteMany({ where: { studentId: student.id, organizationId } })
+
+      // Учётка better-auth не висит на ученике и каскадом не уходит. Без явного
+      // удаления логин остаётся занятым навсегда (username уникален), а по
+      // сохранившемуся паролю удалённый ученик продолжает получать сессию.
+      // Удаление StudentUser каскадом гасит его credential и сессии.
+      const account = await tx.studentAccount.findUnique({
+        where: { studentId: student.id },
+        select: { studentUserId: true },
+      })
       await tx.studentAccount.deleteMany({ where: { studentId: student.id } })
+      if (account?.studentUserId) {
+        await tx.studentUser.delete({ where: { id: account.studentUserId } })
+      }
 
       await tx.student.delete({ where: { id: student.id } })
     })

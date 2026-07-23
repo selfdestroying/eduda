@@ -18,5 +18,6 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   // Архив, чужая школа и несуществующий id неотличимы снаружи — везде 404.
   if (!data) notFound()
 
-  return <ProductDetail product={data} />
+  const { inCart, ...product } = data
+  return <ProductDetail product={product} inCart={inCart} />
 }
