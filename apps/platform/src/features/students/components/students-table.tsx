@@ -7,7 +7,7 @@ import { useOrganizationPermissionQuery } from '@/src/features/organization/quer
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
 import { formatDateTimeInTz } from '@/src/lib/timezone'
-import { getFullName } from '@/src/lib/utils'
+import { getAgeFromBirthDate, getFullName } from '@/src/lib/utils'
 import {
   ColumnDef,
   getCoreRowModel,
@@ -50,7 +50,9 @@ export default function StudentsTable() {
       },
       {
         header: 'Возраст',
-        accessorKey: 'age',
+        // Возраст не хранится: считаем из даты рождения. `accessorFn` вместо
+        // `accessorKey` — сортировка и фильтры продолжают работать по числу.
+        accessorFn: (row) => (row.birthDate ? getAgeFromBirthDate(row.birthDate, tz) : null),
       },
       {
         header: 'Всего оплат',

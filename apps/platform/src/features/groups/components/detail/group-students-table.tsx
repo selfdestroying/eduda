@@ -2,7 +2,8 @@
 
 import DataTable from '@repo/ui/components/data-table'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
-import { getFullName } from '@/src/lib/utils'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import { getAgeFromBirthDate, getFullName } from '@/src/lib/utils'
 import { ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import Link from 'next/link'
 import { useMemo } from 'react'
@@ -25,6 +26,8 @@ export default function GroupStudentsTable({
   data: StudentGroupWithStudent[]
   isActive?: boolean
 }) {
+  const tz = useOrgTimezone()
+
   const columns: ColumnDef<StudentGroupWithStudent>[] = useMemo(
     () => [
       {
@@ -63,14 +66,18 @@ export default function GroupStudentsTable({
       },
       {
         header: 'Возраст',
-        cell: ({ row }) => row.original.student.age,
+        // Возраст не хранится — считается из даты рождения в поясе школы.
+        cell: ({ row }) => {
+          const { birthDate } = row.original.student
+          return birthDate ? getAgeFromBirthDate(birthDate, tz) : null
+        },
       },
       {
         id: 'actions',
         cell: ({ row }) => isActive && <GroupStudentActionsCell sg={row.original} />,
       },
     ],
-    [isActive],
+    [isActive, tz],
   )
   const table = useReactTable({
     data,

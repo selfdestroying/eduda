@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { formatDateOnly } from '@/src/lib/timezone'
+import { getAgeFromBirthDate } from '@/src/lib/utils'
 import type { StudentDetail } from '../../types'
 
 interface StudentCardProps {
@@ -22,6 +23,8 @@ interface StudentCardProps {
 
 export default function StudentCard({ student }: StudentCardProps) {
   const tz = useOrgTimezone()
+  // Возраст не хранится — считается из даты рождения в поясе школы.
+  const age = student.birthDate ? getAgeFromBirthDate(student.birthDate, tz) : null
   const birthFormatted = student.birthDate
     ? formatDateOnly(student.birthDate, {
         day: 'numeric',
@@ -54,7 +57,7 @@ export default function StudentCard({ student }: StudentCardProps) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Возраст"
-          value={student.age ? `${student.age} лет` : 'Не указан'}
+          value={age !== null ? `${age} лет` : 'Не указан'}
           icon={UserRound}
         />
         <StatCard label="Дата рождения" value={birthFormatted ?? 'Не указана'} icon={Cake} />

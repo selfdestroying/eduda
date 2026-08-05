@@ -10,6 +10,8 @@
  *
  * Идемпотентен: аккаунты, у которых уже есть `studentUserId`, пропускаются.
  */
+import './load-env'
+
 import { prisma } from '@repo/db'
 import { createStudentUserTx } from '../src/lib/student-auth'
 import { decryptStudentPassword } from '../src/lib/student-password'

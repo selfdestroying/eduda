@@ -436,7 +436,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       organizationId: orgId,
       firstName: s.firstName,
       lastName: s.lastName,
-      age: s.age,
+      // Возраст в БД не хранится — считается из даты рождения на чтение.
       birthDate: ymd(addUTCDays(today, -s.age * 365)),
       lessonsBalance: s.balance,
       totalLessons: s.totalLessons,

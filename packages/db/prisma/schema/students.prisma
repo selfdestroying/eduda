@@ -2,7 +2,9 @@ model Student {
     id             Int       @id @default(autoincrement())
     firstName      String
     lastName       String
-    age            Int?
+    /// Возраст НЕ хранится: он считается из birthDate на чтение
+    /// (getAgeFromBirthDate). Колонка age была кешем, который протухал каждый
+    /// день рождения — обновлялся только при сохранении карточки.
     birthDate      String?
     url            String?
     editToken      String @unique @default(uuid()) @db.Uuid

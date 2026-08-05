@@ -20,7 +20,6 @@ import { authAction, featureAction, permissionAction } from '@/src/lib/safe-acti
 import { createStudentUserTx, hashStudentPassword } from '@/src/lib/student-auth'
 import { decryptStudentPassword } from '@/src/lib/student-password'
 import { todayYmdInTz } from '@/src/lib/timezone'
-import { getAgeFromBirthDate } from '@/src/lib/utils'
 import { randomInt } from 'crypto'
 import * as z from 'zod'
 import {
@@ -212,7 +211,6 @@ export const createStudent = authAction
   .action(async ({ ctx, parsedInput }) => {
     const { firstName, lastName, birthDate, url, parentMode, newParent, existingParentId } =
       parsedInput
-    const age = birthDate ? getAgeFromBirthDate(birthDate, ctx.tz) : null
 
     const login = await pickFreeLogin(firstName, lastName)
     const password = generatePassword()
@@ -233,7 +231,6 @@ export const createStudent = authAction
           firstName,
           lastName,
           birthDate,
-          age,
           url,
           organizationId,
           // organizationId обязателен явно: в схеме у Cart стоит @default(1), и

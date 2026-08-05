@@ -53,7 +53,7 @@ There is **no test suite**. Verification = `pnpm check` + running the app. `pris
 `RAISE EXCEPTION`, если backfill пропущен, — данные при этом целы:
 
 ```bash
-pnpm --filter platform exec tsx --env-file=.env scripts/backfill-student-auth.ts
+pnpm --filter platform exec tsx scripts/backfill-student-auth.ts
 ```
 
 На чистой БД (учеников ещё нет) шаг не нужен: проверка проходит на пустой таблице.
@@ -111,6 +111,8 @@ Timezone is **per organization** (`Organization.timezone`), not global — `DEFA
 Genuine timestamp fields (`createdAt`, `updatedAt`, `snoozedUntil`, …) are real `DateTime`s — for "today"/day-boundary logic go through `src/lib/timezone.ts` (`nowInTz(tz)`, `startOfDayInTz(tz)`, `endOfDayInTz(tz)`, `toTz`/`fromTz`, `formatInTz`, `formatDateTimeInTz`) rather than raw `new Date()`, since the server runs `TZ=UTC`.
 
 **Date-only columns are `String`, not `DateTime`.** `Lesson.date`, `Group.startDate`/`statusChangedAt`, `StudentGroup.statusChangedAt`, `Payment.date`, `Expense.date`, `PayCheck.date`, `ManagerSalary.startDate`/`endDate`, `Rent.startDate`/`endDate`, `Student.birthDate` store a calendar day as a `"YYYY-MM-DD"` string (like `Lesson.time`). They sort/compare lexicographically = chronologically, so Prisma `gte`/`lt`/`orderBy` work directly on the string. Helpers in `src/lib/timezone.ts`: `DateOnlySchema` (Zod `z.string().regex`), `todayYmdInTz(tz)` (today in the org's zone as `YYYY-MM-DD`), `dateToYmd(Date)` (a picker `Date` → string), `ymdToLocalDate(ymd)` (string → local `Date` for `date-fns format()`), `formatDateOnly`/`formatDate`. Date pickers keep a `Date` in-form and convert at the boundary (`dateToYmd` on submit, `ymdToLocalDate` for `selected`/display). These columns hold a **user-chosen business day** (often back-datable), which is why they're strings rather than `now()`-style timestamps — never write a `Date` to them; where a status-change row is created without an explicit day, default it to `todayYmdInTz(ctx.tz)`.
+
+Возраст ученика **не хранится**: колонка `Student.age` удалена — это был кеш, который протухал в каждый день рождения. Считайте из `birthDate` на чтение (`getAgeFromBirthDate(birthDate, tz)` в `src/lib/utils.ts`); в таблицах это `accessorFn`, а не `accessorKey`, чтобы сортировка осталась по числу.
 
 ## Calendar
 

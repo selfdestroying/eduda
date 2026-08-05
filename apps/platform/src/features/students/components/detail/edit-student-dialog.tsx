@@ -60,7 +60,6 @@ export default function EditStudentDialog({ student }: { student: StudentDetail 
 
   const onSubmit = (values: EditStudentSchemaType) => {
     // values.birthDate уже прогнан через DateOnlySchema (UTC-полночь) — не нормализуем повторно.
-    const age = values.birthDate ? getAgeFromBirthDate(values.birthDate, tz) : null
     mutation.mutate(
       {
         payload: {
@@ -68,7 +67,6 @@ export default function EditStudentDialog({ student }: { student: StudentDetail 
           data: {
             firstName: values.firstName,
             lastName: values.lastName,
-            age,
             birthDate: values.birthDate ?? null,
             url: values.url || null,
           },

@@ -105,7 +105,6 @@ export const getPublicStudentData = publicAction
         id: true,
         firstName: true,
         lastName: true,
-        age: true,
         birthDate: true,
         dataActual: true,
         dataActualizedAt: true,
@@ -129,15 +128,18 @@ export const getPublicStudentData = publicAction
 
     if (!student) return null
 
+    const timezone = student.organization?.timezone ?? DEFAULT_TZ
+
     return {
       id: student.id,
       firstName: student.firstName,
       lastName: student.lastName,
-      age: student.age,
+      // Возраст не хранится — считается из даты рождения в поясе школы.
+      age: student.birthDate ? getAgeFromBirthDate(student.birthDate, timezone) : null,
       birthDate: student.birthDate ?? null,
       dataActual: student.dataActual,
       dataActualizedAt: student.dataActualizedAt?.toISOString() ?? null,
-      timezone: student.organization?.timezone ?? DEFAULT_TZ,
+      timezone,
       parents: student.parents.map(({ parent }) => parent),
     }
   })
@@ -187,7 +189,6 @@ export const updatePublicStudent = publicAction
         firstName: parsedInput.firstName,
         lastName: parsedInput.lastName,
         birthDate,
-        age: birthDate ? getAgeFromBirthDate(birthDate, tz) : null,
         dataActual: false,
         dataActualizedAt: null,
       },
@@ -195,7 +196,6 @@ export const updatePublicStudent = publicAction
         id: true,
         firstName: true,
         lastName: true,
-        age: true,
         birthDate: true,
         dataActual: true,
         dataActualizedAt: true,
@@ -206,7 +206,7 @@ export const updatePublicStudent = publicAction
       id: updated.id,
       firstName: updated.firstName,
       lastName: updated.lastName,
-      age: updated.age,
+      age: updated.birthDate ? getAgeFromBirthDate(updated.birthDate, tz) : null,
       birthDate: updated.birthDate ?? null,
       dataActual: updated.dataActual,
       dataActualizedAt: updated.dataActualizedAt?.toISOString() ?? null,
