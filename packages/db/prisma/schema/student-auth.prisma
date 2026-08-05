@@ -1,0 +1,69 @@
+// Better-auth модели для учеников — отдельный инстанс, живущий в `apps/shop`.
+// Префикс `Student*`, потому что имя `StudentAccount` уже занято доменной
+// таблицей (логин + коины). Платформа в эти таблицы только пишет при создании
+// ученика; сессии заводит и гасит исключительно шоп.
+
+model StudentUser {
+    id Int @id @default(autoincrement())
+
+    name            String
+    email           String  @unique
+    emailVerified   Boolean @default(false)
+    image           String?
+    // Поля плагина `username`: вход идёт по `username`, e-mail синтетический.
+    username        String? @unique
+    displayUsername String?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    sessions    StudentSession[]
+    credentials StudentCredential[]
+    account     StudentAccount?
+}
+
+model StudentSession {
+    id        Int      @id @default(autoincrement())
+    expiresAt DateTime
+    token     String   @unique
+    ipAddress String?
+    userAgent String?
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    userId Int
+    user   StudentUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+}
+
+model StudentCredential {
+    id                    Int       @id @default(autoincrement())
+    accountId             String
+    providerId            String
+    accessToken           String?
+    refreshToken          String?
+    idToken               String?
+    accessTokenExpiresAt  DateTime?
+    refreshTokenExpiresAt DateTime?
+    scope                 String?
+    password              String?
+    createdAt             DateTime  @default(now())
+    updatedAt             DateTime  @updatedAt
+
+    userId Int
+    user   StudentUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+}
+
+model StudentVerification {
+    id         Int      @id @default(autoincrement())
+    identifier String
+    value      String
+    expiresAt  DateTime
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+
+    @@index([identifier])
+}

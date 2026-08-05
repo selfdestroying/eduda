@@ -1,0 +1,131 @@
+// Shop related models. They are currently quite basic, but they can be expanded in the future with more features like discounts, product variants, etc.
+model Cart {
+    id             Int          @id @default(autoincrement())
+    organizationId Int          @default(1)
+    studentId      Int          @unique
+    createdAt      DateTime     @default(now())
+    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    Student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+    CartItem       CartItem[]
+
+    @@index([organizationId])
+}
+
+model CartItem {
+    id             Int          @id @default(autoincrement())
+    organizationId Int          @default(1)
+    cartId         Int
+    productId      Int
+    quantity       Int
+    createdAt      DateTime     @default(now())
+    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    Cart           Cart         @relation(fields: [cartId], references: [id], onDelete: Cascade)
+    Product        Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+    @@unique([cartId, productId])
+    @@index([cartId])
+    @@index([productId])
+}
+
+model Category {
+    id             Int    @id @default(autoincrement())
+    organizationId Int
+    name           String
+
+    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    Product      Product[]
+
+    @@index([organizationId])
+}
+
+model Product {
+    id             Int        @id @default(autoincrement())
+    organizationId Int        @default(1)
+    name           String
+    description    String?
+    price          Int
+    originalPrice  Int?
+    imageUrl       String
+    categoryId     Int
+    rating         Float      @default(0)
+    reviews        Int        @default(0)
+    popular        Boolean    @default(false)
+    quantity       Int
+    /// Товар не удаляется, а архивируется: коины за него уже списаны, и история
+    /// заказов обязана пережить «удаление». Каталог ученика фильтрует archivedAt: null.
+    archivedAt     DateTime?
+    cartItem       CartItem[]
+    orderItems     OrderItem[]
+
+    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    category     Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+    @@index([categoryId])
+    @@index([organizationId])
+    @@index([organizationId, archivedAt])
+}
+
+/// История изменений баланса астрокоинов — по образцу StudentLessonsBalanceHistory.
+/// `StudentAccount.coins` остаётся денормализованным кешем, а инвариант такой:
+/// сумма `amount` по ученику равна его `coins`.
+///
+/// Пишут оба приложения: платформа (начисления, ручные правки, отмена заказа) и
+/// шоп (покупка). Каждая запись обязана лежать в той же транзакции, что и
+/// изменение `coins`, иначе инвариант разъедется.
+model CoinTransaction {
+    id             Int          @id @default(autoincrement())
+    organizationId Int
+    studentId      Int
+    amount         Int
+    reason         CoinTxReason
+    /// Ссылки на источник — намеренно БЕЗ внешних ключей: леджер обязан пережить
+    /// удаление заказа или записи посещаемости. Тот же приём, что `meta` у
+    /// StudentLessonsBalanceHistory.
+    orderId        Int?
+    attendanceId   Int?
+    createdAt      DateTime     @default(now())
+
+    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+    @@index([studentId, createdAt])
+    @@index([organizationId])
+}
+
+/// Шапка заказа. Корзина из трёх товаров — это один Order и три OrderItem;
+/// раньше Order был «одна строка на один товар» и такую корзину не выражал.
+model Order {
+    id             Int          @id @default(autoincrement())
+    organizationId Int          @default(1)
+    studentId      Int
+    status         OrderStatus  @default(PENDING)
+    createdAt      DateTime     @default(now())
+    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+    items OrderItem[]
+
+    @@index([studentId])
+    @@index([organizationId])
+}
+
+model OrderItem {
+    id             Int          @id @default(autoincrement())
+    organizationId Int
+    orderId        Int
+    productId      Int
+    quantity       Int
+    /// Снимок цены на момент покупки: цену товара школа меняет, а сумма, за
+    /// которую заказ уже оплачен коинами, меняться не должна.
+    priceAtPurchase Int
+
+    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+    /// Restrict, а не Cascade: удаление товара не имеет права стереть историю
+    /// заказов. Товары не удаляются, а архивируются (Product.archivedAt).
+    product      Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+    @@index([orderId])
+    @@index([productId])
+    @@index([organizationId])
+}

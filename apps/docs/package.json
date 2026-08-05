@@ -1,0 +1,43 @@
+{
+  "name": "docs",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "postinstall": "fumadocs-mdx",
+    "typegen": "next typegen",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "ts:check": "tsc --noEmit",
+    "check": "(npm run format:check || npm run format) && npm run lint && npm run ts:check",
+    "check:fix": "npm run format && npm run lint:fix"
+  },
+  "dependencies": {
+    "@repo/ui": "workspace:*",
+    "fumadocs-core": "^16.10.5",
+    "fumadocs-mdx": "^15.0.12",
+    "fumadocs-ui": "^16.10.5",
+    "lucide-react": "^0.563.0",
+    "next": "^16.1.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/mdx": "^2.0.14",
+    "@types/node": "^25.2.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "3.8.1",
+    "prettier-plugin-tailwindcss": "^0.7.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

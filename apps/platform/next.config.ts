@@ -1,0 +1,34 @@
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  transpilePackages: ['@repo/db', '@repo/ui'],
+  allowedDevOrigins: [
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN?.split(':')[0] || '',
+    `*.${process.env.NEXT_PUBLIC_ROOT_DOMAIN?.split(':')[0] || ''}`,
+  ],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
+  },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'storage.eduda.online',
+        pathname: '/images/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'images.alg.tw1.ru',
+      },
+    ],
+  },
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
+}
+
+export default nextConfig

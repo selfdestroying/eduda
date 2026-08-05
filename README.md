@@ -1,24 +1,17 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+ЕДУДА — a multi-tenant SaaS dashboard for educational centers. **pnpm + Turborepo monorepo**: the dashboard lives in `apps/platform`, the public documentation in `apps/docs` (fumadocs), Prisma in `packages/db` (`@repo/db`), the shared design system in `packages/ui` (`@repo/ui`).
 
 ## Getting Started
 
-First, run the development server:
+Requires Node (see `.nvmrc`) and pnpm (`corepack enable pnpm`). From the repo root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install     # installs all packages, generates the Prisma client
+pnpm dev         # starts both dev servers
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The dashboard is on [http://localhost:3000](http://localhost:3000), the documentation on [http://localhost:3001](http://localhost:3001). The dashboard uses subdomains for tenants (`slug.localhost:3000`) — see `apps/platform/.env.example` and `apps/docs/.env.example`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The dev servers auto-update as you edit files under `apps/platform/src/` and `apps/docs/`.
 
 ## Learn More
 

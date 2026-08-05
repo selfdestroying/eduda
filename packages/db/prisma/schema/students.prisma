@@ -1,0 +1,141 @@
+model Student {
+    id             Int       @id @default(autoincrement())
+    firstName      String
+    lastName       String
+    /// Возраст НЕ хранится: он считается из birthDate на чтение
+    /// (getAgeFromBirthDate). Колонка age была кешем, который протухал каждый
+    /// день рождения — обновлялся только при сохранении карточки.
+    birthDate      String?
+    url            String?
+    editToken      String @unique @default(uuid()) @db.Uuid
+    dataActual       Boolean   @default(false)
+    dataActualizedAt DateTime?
+    lessonsBalance   Int       @default(0)
+    totalLessons   Int       @default(0)
+    totalPayments  Int       @default(0)
+    createdAt      DateTime  @default(now())
+    updatedAt      DateTime  @updatedAt
+
+    // Relations
+    organizationId Int
+    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+    account StudentAccount?
+
+    cart                  Cart?
+    attendances           Attendance[]
+    orders                Order[]
+    payments              Payment[]
+    groups                StudentGroup[]
+    unprocessedPayments   UnprocessedPayment[]
+    lessonsBalanceHistory StudentLessonsBalanceHistory[]
+    coinTransactions      CoinTransaction[]
+    achievements          StudentAchievement[]
+    wallets               Wallet[]
+    parents               StudentParent[]
+
+    @@index([organizationId])
+}
+
+model Parent {
+    id          Int      @id @default(autoincrement())
+    firstName   String
+    lastName    String?
+    phone       String?
+    email       String?
+    accessToken String   @unique @default(uuid()) @db.Uuid
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    // Relations
+    organizationId Int
+    organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    students       StudentParent[]
+
+    @@index([organizationId])
+}
+
+model StudentParent {
+    createdAt DateTime @default(now())
+
+    // Relations
+    organizationId Int
+    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    studentId Int
+    parentId  Int
+    student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+    parent    Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+    @@id([studentId, parentId])
+    @@index([parentId])
+    @@index([organizationId])
+}
+
+model StudentAccount {
+    id    Int    @id @default(autoincrement())
+    // Логин уникален глобально: вход в шоп идёт на едином домене, без поддомена школы.
+    login String @unique
+    // Обратимая копия пароля (AES-256-GCM, ключ STUDENT_PW_KEY) — школа обязана
+    // видеть пароль ученика. Хеш для входа лежит в StudentCredential.password.
+    // Ученик пароль не меняет, поэтому копии не могут разойтись.
+    passwordEnc Bytes?
+    coins       Int    @default(0)
+
+    organizationId Int
+    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    studentId      Int          @unique
+    student        Student      @relation(fields: [studentId], references: [id])
+    studentUserId  Int?         @unique
+    studentUser    StudentUser? @relation(fields: [studentUserId], references: [id], onDelete: SetNull)
+
+    @@index([organizationId])
+}
+
+/// Забранное достижение. Хранится ТОЛЬКО факт получения: прогресс считается на
+/// чтение из посещаемости, заказов и леджера (`features/achievements/stats.ts`),
+/// поэтому правка статуса задним числом ничего не ломает — пересчитывать нечего.
+model StudentAchievement {
+    id             Int      @id @default(autoincrement())
+    organizationId Int
+    studentId      Int
+    /// Ключ из реестра в коде (`features/achievements/registry.ts`). У повторяемых
+    /// достижений в ключ подмешан период: `birthday:2026`.
+    key            String
+    /// Снимок награды на момент получения — как `OrderItem.priceAtPurchase`:
+    /// размер награды в реестре потом поменяют, а выданное меняться не должно.
+    coins          Int
+    claimedAt      DateTime @default(now())
+
+    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+    /// Вся защита от повторного получения, включая гонку двух вкладок.
+    @@unique([studentId, key])
+    @@index([organizationId])
+}
+
+model Wallet {
+    id             Int      @id @default(autoincrement())
+    name           String?
+    lessonsBalance Int          @default(0)
+    totalLessons   Int          @default(0)
+    totalPayments  Int          @default(0)
+    status         WalletStatus @default(ACTIVE)
+    archivedAt     DateTime?
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
+
+    // Relations
+    organizationId Int
+    studentId      Int
+    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+    studentGroups  StudentGroup[]
+    payments       Payment[]
+    balanceHistory StudentLessonsBalanceHistory[]
+    attendances    Attendance[]
+
+    @@index([organizationId])
+    @@index([studentId])
+}

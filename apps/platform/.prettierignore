@@ -1,0 +1,5 @@
+# Prettier ищет ignore-файл относительно cwd, а корневой .prettierignore
+# при запуске `pnpm --filter platform ...` не подхватывается — дублируем нужное.
+.next
+out
+public/uploads

@@ -30,8 +30,8 @@ jobs:
 
           # Code paths whose changes usually require a user-doc update
           FEATURE_CHANGED=$(echo "$CHANGED" | grep -E \
-            '^(src/features/|src/lib/features/registry\.ts|src/lib/features/route-feature-map\.ts|src/lib/permissions/)' || true)
-          DOCS_CHANGED=$(echo "$CHANGED" | grep -E '^content/docs/' || true)
+            '^apps/platform/(src/features/|src/lib/features/registry\.ts|src/lib/features/route-feature-map\.ts|src/lib/permissions/)' || true)
+          DOCS_CHANGED=$(echo "$CHANGED" | grep -E '^apps/docs/content/' || true)
 
           if [ -n "$FEATURE_CHANGED" ] && [ -z "$DOCS_CHANGED" ]; then
             echo "stale=true" >> "$GITHUB_OUTPUT"
@@ -55,7 +55,7 @@ jobs:
               marker,
               '### 📝 Docs reminder',
               '',
-              'This PR changes feature / permission / flag code but does not touch `content/docs/`.',
+              'This PR changes feature / permission / flag code but does not touch `apps/docs/content/`.',
               'If this affects user-facing behavior, please update the documentation.',
               '',
               '<details><summary>Changed files that triggered this</summary>',

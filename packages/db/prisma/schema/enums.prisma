@@ -1,0 +1,76 @@
+enum AttendanceStatus {
+    UNSPECIFIED
+    PRESENT
+    ABSENT
+}
+
+enum OrderStatus {
+    COMPLETED
+    PENDING
+    CANCELLED
+}
+
+enum CoinTxReason {
+    ATTENDANCE_PRESENT
+    ATTENDANCE_REVERTED
+    MANUAL_GRANT
+    MANUAL_DEDUCT
+    ORDER_PURCHASE
+    ORDER_CANCELLED
+    INITIAL_BALANCE
+    ACHIEVEMENT_CLAIM
+}
+
+enum GroupStatus {
+    ACTIVE
+    ARCHIVED
+    COMPLETED
+}
+
+enum WalletStatus {
+    ACTIVE
+    ARCHIVED
+}
+
+
+enum LessonStatus {
+    ACTIVE
+    CANCELLED
+}
+
+enum StudentStatus {
+    TRIAL
+    ACTIVE
+    DISMISSED
+    TRANSFERRED
+    COMPLETED
+}
+
+enum StudentLessonsBalanceChangeReason {
+    PAYMENT_CREATED
+    PAYMENT_CANCELLED
+    ATTENDANCE_PRESENT_CHARGED
+    ATTENDANCE_ABSENT_CHARGED
+    MAKEUP_ATTENDED_CHARGED
+    ATTENDANCE_REVERTED
+    MAKEUP_GRANTED
+    MANUAL_SET
+    TOTAL_PAYMENTS_MANUAL_SET
+    TOTAL_LESSONS_MANUAL_SET
+    BALANCE_REDISTRIBUTED
+    WALLET_MERGED
+    WALLET_TRANSFER
+    LESSON_CANCELLED
+}
+
+enum StudentFinancialField {
+    LESSONS_BALANCE
+    TOTAL_PAYMENTS
+    TOTAL_LESSONS
+}
+
+enum PayCheckType {
+    SALARY
+    BONUS
+    ADVANCE
+}
