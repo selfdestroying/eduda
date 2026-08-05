@@ -69,7 +69,7 @@ export function CartItemRow({ item }: { item: CartItem }) {
           setQuantity.mutate({ productId: item.productId, quantity: value })
         }}
       >
-        <NumberFieldGroup size="sm">
+        <NumberFieldGroup>
           <NumberFieldDecrement />
           <NumberFieldInput />
           <NumberFieldIncrement />
@@ -78,7 +78,8 @@ export function CartItemRow({ item }: { item: CartItem }) {
 
       <Button
         variant="ghost"
-        size="icon"
+        // icon-lg = size-8: ровно высота NumberFieldGroup рядом.
+        size="icon-lg"
         disabled={busy}
         title="Убрать"
         onClick={() => remove.mutate({ productId: item.productId })}

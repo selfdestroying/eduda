@@ -36,10 +36,12 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
             </div>
           )}
         </div>
-        <CardContent className="space-y-1 p-3">
-          <div className="line-clamp-2 text-sm font-medium">{product.name}</div>
+        {/* Колонка на всю высоту карточки: название занимает ровно две строки,
+            цена прижата к низу — иначе в ряду они пляшут по вертикали. */}
+        <CardContent className="flex flex-1 flex-col space-y-1 p-3">
+          <div className="line-clamp-2 min-h-10 text-sm font-medium">{product.name}</div>
           <div className="text-muted-foreground text-xs">{product.category.name}</div>
-          <div className="flex items-center justify-between pt-1">
+          <div className="mt-auto flex items-center justify-between pt-1">
             <CoinPrice value={product.price} />
             {!outOfStock && (
               <span className="text-muted-foreground text-xs">{product.quantity} шт.</span>

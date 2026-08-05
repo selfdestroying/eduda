@@ -7,6 +7,8 @@ export type StudentSession = {
   /** Только пояс: id организации живёт в `student.organizationId`, а slug кабинету незачем — домен единый. */
   org: { timezone: string }
   disabledShop: boolean
+  /** Для шапки кабинета — тем же запросом, что и сам резолв, без второго похода в БД. */
+  profile: { name: string; coins: number }
 }
 
 /** Маркер в `/login?error=`: вход прошёл, но школы ученика больше нет (§8 SPEC). */
@@ -51,6 +53,8 @@ async function resolve(reqHeaders: Headers): Promise<StudentSession | null> {
     select: {
       studentId: true,
       organizationId: true,
+      coins: true,
+      student: { select: { firstName: true, lastName: true } },
       organization: {
         select: {
           timezone: true,
@@ -61,10 +65,14 @@ async function resolve(reqHeaders: Headers): Promise<StudentSession | null> {
   })
   if (!account) return null
 
-  const { organization } = account
+  const { organization, student } = account
   return {
     student: { id: account.studentId, organizationId: account.organizationId },
     org: { timezone: organization.timezone },
+    profile: {
+      name: `${student.firstName} ${student.lastName}`,
+      coins: account.coins,
+    },
     // В БД хранятся только ВЫКЛЮЧЕННЫЕ override'ы, отсутствие строки = включено.
     disabledShop: organization.features[0]?.enabled === false,
   }

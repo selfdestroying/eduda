@@ -59,13 +59,16 @@ export function LoginForm({ orgUnavailable = false }: { orgUnavailable?: boolean
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-3">
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
       <FieldGroup>
+        <p className="text-muted-foreground text-center text-[0.78125rem] leading-relaxed">
+          Логин и пароль выдаёт школа
+        </p>
         <Controller
           name="username"
           control={form.control}
@@ -103,7 +106,11 @@ export function LoginForm({ orgUnavailable = false }: { orgUnavailable?: boolean
           )}
         />
       </FieldGroup>
-      <Button type="submit" className="h-10 w-full" disabled={loading}>
+      <Button
+        type="submit"
+        className="h-10 w-full gap-2 rounded-xl text-sm font-semibold"
+        disabled={loading}
+      >
         {loading ? <Loader size={16} className="animate-spin" /> : 'Войти'}
       </Button>
     </form>

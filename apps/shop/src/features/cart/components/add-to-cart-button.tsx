@@ -76,7 +76,8 @@ export function AddToCartButton({
           <NumberFieldIncrement />
         </NumberFieldGroup>
       </NumberField>
-      <Button className="flex-1" disabled={add.isPending} onClick={submit}>
+      {/* lg = h-8: ровно высота NumberFieldGroup слева. */}
+      <Button size="lg" className="flex-1" disabled={add.isPending} onClick={submit}>
         {add.isPending ? <Loader className="animate-spin" /> : <ShoppingCart />}В корзину
       </Button>
     </div>

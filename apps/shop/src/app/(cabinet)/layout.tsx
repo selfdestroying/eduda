@@ -1,4 +1,4 @@
-import { StudentNav } from '@/src/components/student-nav'
+import { StudentNav, StudentTabBar } from '@/src/components/student-nav'
 import { getStudentSession, loginRedirect } from '@/src/lib/auth/student-session'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -13,8 +13,14 @@ export default async function CabinetLayout({ children }: { children: React.Reac
 
   return (
     <div className="min-h-svh">
-      <StudentNav shopDisabled={session.disabledShop} />
-      <main className="mx-auto max-w-3xl px-4 py-6">{children}</main>
+      <StudentNav
+        shopDisabled={session.disabledShop}
+        name={session.profile.name}
+        coins={session.profile.coins}
+      />
+      {/* pb-20 — под фиксированный таб-бар, его на десктопе нет. */}
+      <main className="mx-auto max-w-5xl px-4 pt-6 pb-20 md:pb-6">{children}</main>
+      <StudentTabBar shopDisabled={session.disabledShop} />
     </div>
   )
 }
