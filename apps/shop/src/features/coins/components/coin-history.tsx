@@ -22,6 +22,7 @@ const REASON_LABEL: Record<CoinTxReason, string> = {
   ORDER_PURCHASE: 'Покупка',
   ORDER_CANCELLED: 'Возврат за заказ',
   INITIAL_BALANCE: 'Начальный баланс',
+  ACHIEVEMENT_CLAIM: 'Достижение',
 }
 
 export interface CoinRow {

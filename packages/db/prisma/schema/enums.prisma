@@ -18,6 +18,7 @@ enum CoinTxReason {
     ORDER_PURCHASE
     ORDER_CANCELLED
     INITIAL_BALANCE
+    ACHIEVEMENT_CLAIM
 }
 
 enum GroupStatus {

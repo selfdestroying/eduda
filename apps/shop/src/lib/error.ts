@@ -23,3 +23,11 @@ export class NotFoundError extends ActionError {
     this.name = 'NotFoundError'
   }
 }
+
+/** Состояние изменилось под руками: награда уже забрана, условие ещё не выполнено. */
+export class ConflictError extends ActionError {
+  constructor(message = 'Действие больше неактуально') {
+    super(message)
+    this.name = 'ConflictError'
+  }
+}

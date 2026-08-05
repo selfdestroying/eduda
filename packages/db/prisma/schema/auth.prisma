@@ -129,6 +129,7 @@ model Organization {
     studentParents                 StudentParent[]
     studentAccounts                StudentAccount[]
     coinTransactions               CoinTransaction[]
+    studentAchievements            StudentAchievement[]
 
     @@unique([slug])
     @@map("Organization")

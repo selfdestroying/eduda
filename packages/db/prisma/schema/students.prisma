@@ -30,6 +30,7 @@ model Student {
     unprocessedPayments   UnprocessedPayment[]
     lessonsBalanceHistory StudentLessonsBalanceHistory[]
     coinTransactions      CoinTransaction[]
+    achievements          StudentAchievement[]
     wallets               Wallet[]
     parents               StudentParent[]
 
@@ -87,6 +88,29 @@ model StudentAccount {
     studentUserId  Int?         @unique
     studentUser    StudentUser? @relation(fields: [studentUserId], references: [id], onDelete: SetNull)
 
+    @@index([organizationId])
+}
+
+/// Забранное достижение. Хранится ТОЛЬКО факт получения: прогресс считается на
+/// чтение из посещаемости, заказов и леджера (`features/achievements/stats.ts`),
+/// поэтому правка статуса задним числом ничего не ломает — пересчитывать нечего.
+model StudentAchievement {
+    id             Int      @id @default(autoincrement())
+    organizationId Int
+    studentId      Int
+    /// Ключ из реестра в коде (`features/achievements/registry.ts`). У повторяемых
+    /// достижений в ключ подмешан период: `birthday:2026`.
+    key            String
+    /// Снимок награды на момент получения — как `OrderItem.priceAtPurchase`:
+    /// размер награды в реестре потом поменяют, а выданное меняться не должно.
+    coins          Int
+    claimedAt      DateTime @default(now())
+
+    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+    /// Вся защита от повторного получения, включая гонку двух вкладок.
+    @@unique([studentId, key])
     @@index([organizationId])
 }
 
