@@ -349,7 +349,6 @@ export default function Onboarding() {
                 </span>
                 <Button
                   variant="ghost"
-                  size="sm"
                   className="text-muted-foreground -mr-2 h-8"
                   onClick={leave}
                   disabled={leaving}

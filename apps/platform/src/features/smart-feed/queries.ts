@@ -5,6 +5,7 @@ import {
   createSnoozedAlertsBulk,
   getAbsentStreak as getAbsentStreaks,
   getLowBalance,
+  getParentMarkedAbsences,
   getSnoozedAlerts,
   getUnmarkedAttendance,
   restoreSnoozedAlert,
@@ -23,6 +24,7 @@ export const smartFeedKeys = {
   absentStreak: ['smart-feed', 'absent-streak'] as const,
   unmarkedAttendance: ['smart-feed', 'unmarked-attendance'] as const,
   lowBalance: ['smart-feed', 'low-balance'] as const,
+  parentMarked: ['smart-feed', 'parent-marked'] as const,
   snoozed: (entityKey?: string) =>
     ['smart-feed', 'snoozed', ...(entityKey ? [entityKey] : [])] as const,
 }
@@ -56,6 +58,18 @@ export const useLowBalanceQuery = () => {
     queryKey: smartFeedKeys.lowBalance,
     queryFn: async () => {
       const { data, serverError } = await getLowBalance({ withSnoozed: false })
+      if (serverError) throw serverError
+      return data
+    },
+    refetchInterval: 5 * 60 * 1000, // refetch every 5 minutes
+  })
+}
+
+export const useParentMarkedAbsencesQuery = () => {
+  return useQuery({
+    queryKey: smartFeedKeys.parentMarked,
+    queryFn: async () => {
+      const { data, serverError } = await getParentMarkedAbsences({ withSnoozed: false })
       if (serverError) throw serverError
       return data
     },

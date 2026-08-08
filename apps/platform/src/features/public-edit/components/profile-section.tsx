@@ -1,14 +1,7 @@
 'use client'
 
+import { getFullName } from '@/src/lib/utils'
 import { Button } from '@repo/ui/components/button'
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@repo/ui/components/card'
 import {
   Dialog,
   DialogClose,
@@ -21,25 +14,17 @@ import {
 } from '@repo/ui/components/dialog'
 import { Input } from '@repo/ui/components/input'
 import { Skeleton } from '@repo/ui/components/skeleton'
-import { getFullName } from '@/src/lib/utils'
-import { Check, Loader } from 'lucide-react'
+import { Loader } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import {
-  useConfirmPublicActualityMutation,
   useCreatePublicParentMutation,
   usePublicStudentDataQuery,
+  useSelectedChild,
   useUpdatePublicParentMutation,
   useUpdatePublicStudentMutation,
 } from '../queries'
 import type { PublicParent } from '../types'
-
-export type CabinetParent = {
-  id: number
-  firstName: string
-  lastName: string | null
-  phone: string | null
-  email: string | null
-}
+import { CabinetEmpty, NoChildren } from './cabinet-empty'
 
 type NewParentState = {
   firstName: string
@@ -50,18 +35,19 @@ type NewParentState = {
 
 const emptyParent: NewParentState = { firstName: '', lastName: '', phone: '', email: '' }
 
-export type ProfileTabProps = {
-  token: string
-  studentId: number
-  parent: CabinetParent
-}
+export default function ProfileSection({ token }: { token: string }) {
+  const { studentId, isPending: childPending } = useSelectedChild(token)
 
-export default function ProfileTab({ token, studentId }: ProfileTabProps) {
-  return (
-    <div className="flex flex-col gap-4">
-      <ChildProfile key={studentId} token={token} studentId={studentId} />
-    </div>
-  )
+  if (!childPending && studentId == null) {
+    return <NoChildren />
+  }
+
+  if (childPending || studentId == null) {
+    return <ProfileSkeleton />
+  }
+
+  // key — чтобы локальное состояние форм сбрасывалось при смене ребёнка.
+  return <ChildProfile key={studentId} token={token} studentId={studentId} />
 }
 
 // ─── Профиль выбранного ребёнка ─────────────────────────────────────
@@ -70,25 +56,29 @@ function ChildProfile({ token, studentId }: { token: string; studentId: number }
   const { data, isPending, isError } = usePublicStudentDataQuery(token, studentId)
 
   if (isPending) {
-    return (
-      <div className="flex flex-col gap-4">
-        <Skeleton className="h-48 w-full rounded-xl" />
-        <Skeleton className="h-48 w-full rounded-xl" />
-      </div>
-    )
+    return <ProfileSkeleton />
   }
 
   if (isError || !data) {
     return (
-      <Card className="bg-card/80 shadow-xl shadow-black/5 backdrop-blur-xl dark:shadow-black/20">
-        <CardContent className="text-muted-foreground py-8 text-center text-sm">
-          Не удалось загрузить данные ребёнка. Попробуйте обновить страницу.
-        </CardContent>
-      </Card>
+      <CabinetEmpty
+        title="Не удалось загрузить данные ребёнка"
+        description="Попробуйте обновить страницу."
+      />
     )
   }
 
   return <ChildProfileForm token={token} studentId={studentId} data={data} />
+}
+
+function ProfileSkeleton() {
+  return (
+    <div className="space-y-6">
+      <Skeleton className="h-24 w-full rounded-xl" />
+      <Skeleton className="h-56 w-full rounded-xl" />
+      <Skeleton className="h-56 w-full rounded-xl" />
+    </div>
+  )
 }
 
 type ChildData = NonNullable<
@@ -109,8 +99,6 @@ function ChildProfileForm({
     lastName: data.lastName,
     age: data.age,
     birthDate: data.birthDate,
-    dataActual: data.dataActual,
-    dataActualizedAt: data.dataActualizedAt,
   })
   const [parents, setParents] = useState<PublicParent[]>(data.parents)
   const [newParent, setNewParent] = useState<NewParentState>(emptyParent)
@@ -119,7 +107,6 @@ function ChildProfileForm({
   const updateStudentMutation = useUpdatePublicStudentMutation()
   const updateParentMutation = useUpdatePublicParentMutation()
   const createParentMutation = useCreatePublicParentMutation()
-  const confirmActualityMutation = useConfirmPublicActualityMutation()
 
   const submitStudent = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -140,8 +127,6 @@ function ChildProfileForm({
               lastName: updated.lastName,
               age: updated.age,
               birthDate: updated.birthDate,
-              dataActual: updated.dataActual,
-              dataActualizedAt: updated.dataActualizedAt,
             })
         },
       },
@@ -177,7 +162,6 @@ function ChildProfileForm({
             setParents((current) =>
               current.map((parent) => (parent.id === parentId ? updated : parent)),
             )
-            setStudent((current) => ({ ...current, dataActual: false, dataActualizedAt: null }))
           }
         },
       },
@@ -192,7 +176,6 @@ function ChildProfileForm({
         onSuccess: (created) => {
           if (created) {
             setParents((current) => [...current, created])
-            setStudent((current) => ({ ...current, dataActual: false, dataActualizedAt: null }))
             setNewParent(emptyParent)
             setAddParentOpen(false)
           }
@@ -201,113 +184,71 @@ function ChildProfileForm({
     )
   }
 
-  const confirmActuality = () => {
-    confirmActualityMutation.mutate(
-      { token, studentId },
-      {
-        onSuccess: (result) => {
-          if (result)
-            setStudent((current) => ({
-              ...current,
-              dataActual: result.dataActual,
-              dataActualizedAt: result.dataActualizedAt,
-            }))
-        },
-      },
-    )
-  }
-
   return (
-    <div className="flex flex-col gap-4">
-      <Card className="bg-card/80 shadow-xl shadow-black/5 backdrop-blur-xl dark:shadow-black/20">
-        <CardHeader>
-          <CardTitle>Актуальность данных</CardTitle>
-          <CardDescription>
-            {student.dataActual && student.dataActualizedAt
-              ? `Данные подтверждены ${formatActualizedAt(student.dataActualizedAt, data.timezone)}.`
-              : 'После проверки данных подтвердите, что они актуальны.'}
-          </CardDescription>
-          <CardAction>
-            <Button
-              type="button"
-              disabled={confirmActualityMutation.isPending}
-              onClick={confirmActuality}
-              className="bg-success/10 text-success hover:bg-success/20"
-            >
-              {confirmActualityMutation.isPending ? <Loader className="animate-spin" /> : <Check />}
-              <span>Подтвердить</span>
-            </Button>
-          </CardAction>
-        </CardHeader>
-        <CardContent>
+    <div className="space-y-6">
+      {/* Дату берём из свежего ответа запроса, а не из локального стейта формы:
+          после сохранения запрос инвалидируется и `data` приходит обновлённой. */}
+      <p className="text-muted-foreground text-xs">
+        {data.dataActualizedAt
+          ? `Данные обновлялись ${formatActualizedAt(data.dataActualizedAt, data.timezone)}.`
+          : 'Данные ещё ни разу не меняли.'}
+      </p>
+
+      <section className="space-y-3 rounded-xl border p-3 sm:p-4">
+        <div>
+          <h2 className="text-sm font-medium">Данные ребёнка</h2>
           <p className="text-muted-foreground text-xs">
-            {student.dataActual ? (
-              'Менеджер увидит дату последнего подтверждения.'
-            ) : (
-              <span>
-                Если всё верно, нажмите <strong>Подтвердить</strong>. Если вы изменили данные,
-                сначала сохраните формы.
-              </span>
-            )}
+            Минимальная информация, которая хранится в школе.
           </p>
-        </CardContent>
-      </Card>
+        </div>
+        <form onSubmit={submitStudent} className="grid gap-4 sm:grid-cols-2">
+          <TextField
+            id="studentFirstName"
+            name="studentFirstName"
+            label="Имя ребёнка"
+            value={student.firstName}
+            onChange={(event) =>
+              setStudent((current) => ({ ...current, firstName: event.target.value }))
+            }
+            required
+          />
+          <TextField
+            id="studentLastName"
+            name="studentLastName"
+            label="Фамилия ребёнка"
+            value={student.lastName}
+            onChange={(event) =>
+              setStudent((current) => ({ ...current, lastName: event.target.value }))
+            }
+            required
+          />
+          <TextField
+            id="studentBirthDate"
+            name="studentBirthDate"
+            label="Дата рождения"
+            type="date"
+            value={student.birthDate ?? ''}
+            onChange={(event) =>
+              setStudent((current) => ({ ...current, birthDate: event.target.value || null }))
+            }
+            description={student.age ? `Возраст: ${student.age}` : 'Можно оставить пустым'}
+          />
 
-      <Card className="bg-card/80 shadow-xl shadow-black/5 backdrop-blur-xl dark:shadow-black/20">
-        <CardHeader>
-          <CardTitle>Данные ребёнка</CardTitle>
-          <CardDescription>Минимальная информация, которая хранится в школе.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={submitStudent} className="grid gap-4 sm:grid-cols-2">
-            <TextField
-              id="studentFirstName"
-              name="studentFirstName"
-              label="Имя ребёнка"
-              value={student.firstName}
-              onChange={(event) =>
-                setStudent((current) => ({ ...current, firstName: event.target.value }))
-              }
-              required
-            />
-            <TextField
-              id="studentLastName"
-              name="studentLastName"
-              label="Фамилия ребёнка"
-              value={student.lastName}
-              onChange={(event) =>
-                setStudent((current) => ({ ...current, lastName: event.target.value }))
-              }
-              required
-            />
-            <TextField
-              id="studentBirthDate"
-              name="studentBirthDate"
-              label="Дата рождения"
-              type="date"
-              value={student.birthDate ?? ''}
-              onChange={(event) =>
-                setStudent((current) => ({ ...current, birthDate: event.target.value || null }))
-              }
-              description={student.age ? `Возраст: ${student.age}` : 'Можно оставить пустым'}
-            />
+          <div className="sm:col-span-2">
+            <Button
+              type="submit"
+              className="w-full sm:w-auto"
+              disabled={updateStudentMutation.isPending}
+            >
+              {updateStudentMutation.isPending && <Loader className="animate-spin" />}
+              Сохранить данные ребёнка
+            </Button>
+          </div>
+        </form>
+      </section>
 
-            <div className="sm:col-span-2">
-              <Button
-                type="submit"
-                className="w-full sm:w-auto"
-                disabled={updateStudentMutation.isPending}
-              >
-                {updateStudentMutation.isPending && <Loader className="animate-spin" />}
-                Сохранить данные ребёнка
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      <section className="border-border/80 bg-card/80 rounded-xl border p-3 shadow-xl shadow-black/5 backdrop-blur-xl sm:p-4 dark:shadow-black/20">
-        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <section className="space-y-3 rounded-xl border p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-sm font-medium">Родители</h2>
             <p className="text-muted-foreground text-xs">
@@ -396,70 +337,62 @@ function ChildProfileForm({
             </p>
           )}
           {parents.map((parent) => (
-            <Card key={parent.id}>
-              <CardHeader>
-                <CardTitle>Данные родителя</CardTitle>
-                <CardDescription>
-                  {getFullName(parent.firstName, parent.lastName)} — контактная информация для
-                  связи.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form
-                  onSubmit={(event) => submitParent(event, parent.id)}
-                  className="grid gap-4 sm:grid-cols-2"
-                >
-                  <TextField
-                    id={`parent-${parent.id}-firstName`}
-                    name="parentFirstName"
-                    label="Имя родителя"
-                    value={parent.firstName}
-                    onChange={(event) =>
-                      updateParentField(parent.id, 'firstName', event.target.value)
-                    }
-                    required
-                  />
-                  <TextField
-                    id={`parent-${parent.id}-lastName`}
-                    name="parentLastName"
-                    label="Фамилия родителя"
-                    value={parent.lastName ?? ''}
-                    onChange={(event) =>
-                      updateParentField(parent.id, 'lastName', event.target.value)
-                    }
-                  />
-                  <TextField
-                    id={`parent-${parent.id}-phone`}
-                    name="parentPhone"
-                    label="Телефон"
-                    type="tel"
-                    value={parent.phone ?? ''}
-                    onChange={(event) => updateParentField(parent.id, 'phone', event.target.value)}
-                    placeholder="+7 999 000-00-00"
-                  />
-                  <TextField
-                    id={`parent-${parent.id}-email`}
-                    name="parentEmail"
-                    label="Email"
-                    type="email"
-                    value={parent.email ?? ''}
-                    onChange={(event) => updateParentField(parent.id, 'email', event.target.value)}
-                    placeholder="name@example.com"
-                  />
+            <div key={parent.id} className="bg-muted/40 space-y-3 rounded-lg p-3">
+              <p className="text-sm font-medium">
+                {getFullName(parent.firstName, parent.lastName)}
+              </p>
+              <form
+                onSubmit={(event) => submitParent(event, parent.id)}
+                className="grid gap-4 sm:grid-cols-2"
+              >
+                <TextField
+                  id={`parent-${parent.id}-firstName`}
+                  name="parentFirstName"
+                  label="Имя родителя"
+                  value={parent.firstName}
+                  onChange={(event) =>
+                    updateParentField(parent.id, 'firstName', event.target.value)
+                  }
+                  required
+                />
+                <TextField
+                  id={`parent-${parent.id}-lastName`}
+                  name="parentLastName"
+                  label="Фамилия родителя"
+                  value={parent.lastName ?? ''}
+                  onChange={(event) => updateParentField(parent.id, 'lastName', event.target.value)}
+                />
+                <TextField
+                  id={`parent-${parent.id}-phone`}
+                  name="parentPhone"
+                  label="Телефон"
+                  type="tel"
+                  value={parent.phone ?? ''}
+                  onChange={(event) => updateParentField(parent.id, 'phone', event.target.value)}
+                  placeholder="+7 999 000-00-00"
+                />
+                <TextField
+                  id={`parent-${parent.id}-email`}
+                  name="parentEmail"
+                  label="Email"
+                  type="email"
+                  value={parent.email ?? ''}
+                  onChange={(event) => updateParentField(parent.id, 'email', event.target.value)}
+                  placeholder="name@example.com"
+                />
 
-                  <div className="sm:col-span-2">
-                    <Button
-                      type="submit"
-                      className="w-full sm:w-auto"
-                      disabled={updateParentMutation.isPending}
-                    >
-                      {updateParentMutation.isPending && <Loader className="animate-spin" />}
-                      Сохранить данные родителя
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
+                <div className="sm:col-span-2">
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto"
+                    disabled={updateParentMutation.isPending}
+                  >
+                    {updateParentMutation.isPending && <Loader className="animate-spin" />}
+                    Сохранить данные родителя
+                  </Button>
+                </div>
+              </form>
+            </div>
           ))}
         </div>
       </section>

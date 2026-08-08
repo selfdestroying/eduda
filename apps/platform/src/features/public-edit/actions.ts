@@ -1,15 +1,22 @@
 'use server'
 
 import { prisma } from '@repo/db'
+import { ConflictError, ForbiddenError, NotFoundError } from '@/src/lib/error'
+import { getEffectiveFeatures } from '@/src/lib/features/effective'
+import { isFeatureDisabled } from '@/src/lib/features/registry'
 import { publicAction } from '@/src/lib/safe-action'
-import { DEFAULT_TZ } from '@/src/lib/timezone'
+import { touchStudentData } from '@/src/lib/student-data'
+import { DEFAULT_TZ, todayYmdInTz } from '@/src/lib/timezone'
 import { getAgeFromBirthDate } from '@/src/lib/utils'
+import { parentAbsenceBlocker } from './lib'
 import {
-  ConfirmPublicActualitySchema,
+  CancelPublicMakeupSchema,
+  CreatePublicMakeupSchema,
   CreatePublicParentSchema,
   PublicChildSchema,
+  PublicMakeupOptionsSchema,
   PublicTokenSchema,
-  UpdateOwnParentSchema,
+  SetPublicAbsenceSchema,
   UpdatePublicParentSchema,
   UpdatePublicStudentSchema,
 } from './schemas'
@@ -19,7 +26,11 @@ import {
 async function getParentByToken(token: string) {
   return prisma.parent.findUnique({
     where: { accessToken: token },
-    select: { id: true, organizationId: true },
+    select: {
+      id: true,
+      organizationId: true,
+      organization: { select: { timezone: true } },
+    },
   })
 }
 
@@ -46,8 +57,48 @@ async function resolveChild(token: string, studentId?: number) {
   if (targetId === undefined) throw new Error('К профилю не привязаны дети.')
   if (!childIds.includes(targetId)) throw new Error('Нет доступа к данным этого ребёнка.')
 
-  return { parentId: parent.id, organizationId: parent.organizationId, studentId: targetId }
+  return {
+    parentId: parent.id,
+    organizationId: parent.organizationId,
+    studentId: targetId,
+    // Пояс школы нужен всем действиям с датами; отдаём отсюда, чтобы каждое
+    // не ходило за организацией отдельно.
+    tz: parent.organization?.timezone ?? DEFAULT_TZ,
+  }
 }
+
+/**
+ * Гейт фичи для кабинета. `featureAction` из safe-action здесь неприменим — он
+ * построен на `authAction` и берёт список из сессии сотрудника, а у родителя
+ * сессии нет, организация приходит из токена.
+ */
+async function assertAbsenceEnabled(organizationId: number) {
+  const { disabledFeatures } = await getEffectiveFeatures(organizationId)
+  if (isFeatureDisabled(disabledFeatures, 'cabinet.absence')) {
+    throw new ForbiddenError('Школа отключила отметку пропусков из кабинета.')
+  }
+}
+
+/** Поля, по которым `parentAbsenceBlocker` решает, что родителю можно. */
+const blockableAttendanceSelect = {
+  id: true,
+  status: true,
+  isWarned: true,
+  parentMarkedAt: true,
+  makeupForAttendanceId: true,
+  makeupAttendance: { select: { id: true, status: true, parentMarkedAt: true } },
+  lesson: { select: { id: true, date: true, status: true } },
+} as const
+
+/** `YYYY-MM-DD` + n дней. Арифметика в UTC, поэтому переходов на летнее время нет. */
+function addDaysYmd(ymd: string, days: number): string {
+  const date = new Date(`${ymd}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+/** Насколько вперёд родителю показываем занятия для отработки. */
+const MAKEUP_HORIZON_DAYS = 60
 
 // ─── Get cabinet data (родитель + дети) ─────────────────────────────
 
@@ -106,7 +157,6 @@ export const getPublicStudentData = publicAction
         firstName: true,
         lastName: true,
         birthDate: true,
-        dataActual: true,
         dataActualizedAt: true,
         organization: { select: { timezone: true } },
         parents: {
@@ -137,32 +187,10 @@ export const getPublicStudentData = publicAction
       // Возраст не хранится — считается из даты рождения в поясе школы.
       age: student.birthDate ? getAgeFromBirthDate(student.birthDate, timezone) : null,
       birthDate: student.birthDate ?? null,
-      dataActual: student.dataActual,
       dataActualizedAt: student.dataActualizedAt?.toISOString() ?? null,
       timezone,
       parents: student.parents.map(({ parent }) => parent),
     }
-  })
-
-// ─── Update own parent (запись токена) ──────────────────────────────
-
-export const updateOwnParent = publicAction
-  .metadata({ actionName: 'updateOwnParent' })
-  .inputSchema(UpdateOwnParentSchema)
-  .action(async ({ parsedInput }) => {
-    const parent = await getParentByToken(parsedInput.token)
-    if (!parent) throw new Error('Ссылка недействительна.')
-
-    return prisma.parent.update({
-      where: { id: parent.id },
-      data: {
-        firstName: parsedInput.firstName,
-        lastName: parsedInput.lastName,
-        phone: parsedInput.phone,
-        email: parsedInput.email,
-      },
-      select: { id: true, firstName: true, lastName: true, phone: true, email: true },
-    })
   })
 
 // ─── Update student ─────────────────────────────────────────────────
@@ -171,17 +199,9 @@ export const updatePublicStudent = publicAction
   .metadata({ actionName: 'updatePublicStudent' })
   .inputSchema(UpdatePublicStudentSchema)
   .action(async ({ parsedInput }) => {
-    const { studentId, organizationId } = await resolveChild(
-      parsedInput.token,
-      parsedInput.studentId,
-    )
+    const { studentId, tz } = await resolveChild(parsedInput.token, parsedInput.studentId)
 
     const birthDate = parsedInput.birthDate
-    const org = await prisma.organization.findUnique({
-      where: { id: organizationId },
-      select: { timezone: true },
-    })
-    const tz = org?.timezone ?? DEFAULT_TZ
 
     const updated = await prisma.student.update({
       where: { id: studentId },
@@ -189,15 +209,14 @@ export const updatePublicStudent = publicAction
         firstName: parsedInput.firstName,
         lastName: parsedInput.lastName,
         birthDate,
-        dataActual: false,
-        dataActualizedAt: null,
+        // Актуальность = дата последней правки, отдельного флага нет.
+        dataActualizedAt: new Date(),
       },
       select: {
         id: true,
         firstName: true,
         lastName: true,
         birthDate: true,
-        dataActual: true,
         dataActualizedAt: true,
       },
     })
@@ -208,7 +227,6 @@ export const updatePublicStudent = publicAction
       lastName: updated.lastName,
       age: updated.birthDate ? getAgeFromBirthDate(updated.birthDate, tz) : null,
       birthDate: updated.birthDate ?? null,
-      dataActual: updated.dataActual,
       dataActualizedAt: updated.dataActualizedAt?.toISOString() ?? null,
     }
   })
@@ -243,10 +261,7 @@ export const updatePublicParent = publicAction
         select: { id: true, firstName: true, lastName: true, phone: true, email: true },
       })
 
-      await tx.student.update({
-        where: { id: studentId },
-        data: { dataActual: false, dataActualizedAt: null },
-      })
+      await touchStudentData(tx, [studentId])
 
       return parent
     })
@@ -285,10 +300,7 @@ export const createPublicParent = publicAction
         },
       })
 
-      await tx.student.update({
-        where: { id: studentId },
-        data: { dataActual: false, dataActualizedAt: null },
-      })
+      await touchStudentData(tx, [studentId])
 
       return created
     })
@@ -332,22 +344,6 @@ export const getPublicStudentFinances = publicAction
           },
           orderBy: { createdAt: 'asc' },
         },
-        payments: {
-          select: {
-            id: true,
-            date: true,
-            productName: true,
-            lessonCount: true,
-            price: true,
-            group: {
-              select: {
-                course: { select: { name: true } },
-                schedules: { select: { dayOfWeek: true, time: true } },
-              },
-            },
-          },
-          orderBy: { date: 'desc' },
-        },
       },
     })
   })
@@ -358,9 +354,14 @@ export const getPublicStudentGroups = publicAction
   .metadata({ actionName: 'getPublicStudentGroups' })
   .inputSchema(PublicChildSchema)
   .action(async ({ parsedInput }) => {
-    const { studentId } = await resolveChild(parsedInput.token, parsedInput.studentId)
+    const { studentId, organizationId, tz } = await resolveChild(
+      parsedInput.token,
+      parsedInput.studentId,
+    )
 
-    return prisma.studentGroup.findMany({
+    const { disabledFeatures } = await getEffectiveFeatures(organizationId)
+
+    const groups = await prisma.studentGroup.findMany({
       where: { studentId },
       select: {
         status: true,
@@ -368,6 +369,9 @@ export const getPublicStudentGroups = publicAction
         group: {
           select: {
             id: true,
+            // Без `name` группа с собственным именем показывалась родителю как
+            // «Курс Пн 15:00», хотя в платформе у неё другое название.
+            name: true,
             course: { select: { name: true } },
             location: { select: { name: true } },
             schedules: { select: { dayOfWeek: true, time: true } },
@@ -376,9 +380,45 @@ export const getPublicStudentGroups = publicAction
                 id: true,
                 date: true,
                 time: true,
+                // CANCELLED-уроки раньше рисовались как обычные неотмеченные.
+                status: true,
                 attendance: {
                   where: { studentId },
-                  select: { status: true, isWarned: true, isTrial: true, comment: true },
+                  select: {
+                    id: true,
+                    status: true,
+                    isWarned: true,
+                    isTrial: true,
+                    comment: true,
+                    parentMarkedAt: true,
+                    makeupForAttendanceId: true,
+                    // Отработка стоит на уроке чужой группы и в выборку по
+                    // studentGroup сама не попадает — только через эту ссылку.
+                    makeupAttendance: {
+                      select: {
+                        id: true,
+                        status: true,
+                        parentMarkedAt: true,
+                        makeupForAttendanceId: true,
+                        lesson: {
+                          select: {
+                            id: true,
+                            date: true,
+                            time: true,
+                            status: true,
+                            group: {
+                              select: {
+                                name: true,
+                                course: { select: { name: true } },
+                                location: { select: { name: true } },
+                                schedules: { select: { dayOfWeek: true, time: true } },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
                 },
               },
               orderBy: { date: 'asc' },
@@ -388,24 +428,246 @@ export const getPublicStudentGroups = publicAction
       },
       orderBy: { createdAt: 'asc' },
     })
+
+    // «Сегодня» считает сервер в поясе школы и отдаёт вместе с данными: клиент
+    // сравнивает те же строки теми же правилами, что и проверки в actions.
+    return {
+      today: todayYmdInTz(tz),
+      canMarkAbsence: !isFeatureDisabled(disabledFeatures, 'cabinet.absence'),
+      groups,
+    }
   })
 
-// ─── Confirm actuality ──────────────────────────────────────────────
+// ─── Отметить пропуск будущего занятия ──────────────────────────────
 
-export const confirmPublicDataActuality = publicAction
-  .metadata({ actionName: 'confirmPublicDataActuality' })
-  .inputSchema(ConfirmPublicActualitySchema)
+export const setPublicAbsence = publicAction
+  .metadata({ actionName: 'setPublicAbsence' })
+  .inputSchema(SetPublicAbsenceSchema)
   .action(async ({ parsedInput }) => {
-    const { studentId } = await resolveChild(parsedInput.token, parsedInput.studentId)
+    const { studentId, organizationId, tz } = await resolveChild(
+      parsedInput.token,
+      parsedInput.studentId,
+    )
+    await assertAbsenceEnabled(organizationId)
 
-    const updated = await prisma.student.update({
-      where: { id: studentId },
-      data: { dataActual: true, dataActualizedAt: new Date() },
-      select: { dataActualizedAt: true },
+    const attendance = await prisma.attendance.findFirst({
+      where: { studentId, lessonId: parsedInput.lessonId, organizationId },
+      select: blockableAttendanceSelect,
+    })
+    if (!attendance) throw new NotFoundError('Занятие не найдено.')
+
+    const blocker = parentAbsenceBlocker(
+      attendance,
+      attendance.lesson,
+      todayYmdInTz(tz),
+      parsedInput.absent ? 'mark' : 'unmark',
+    )
+    if (blocker) throw new ConflictError(blocker)
+
+    // Кошелёк, коины и StudentLessonsBalanceHistory здесь намеренно не трогаем:
+    // isLessonCharged() ложен и для UNSPECIFIED, и для ABSENT+isWarned, поэтому
+    // переход между ними стоит ноль занятий. Если правила списания изменятся —
+    // этот action обязан измениться вместе с ними.
+    await prisma.$transaction(async (tx) => {
+      // Отработка без пропуска — сирота, поэтому снимается вместе с отметкой.
+      // Предикат выше уже не пустил бы сюда чужую или отмеченную отработку.
+      if (!parsedInput.absent && attendance.makeupAttendance) {
+        await tx.attendance.delete({ where: { id: attendance.makeupAttendance.id } })
+      }
+
+      await tx.attendance.update({
+        where: { id: attendance.id },
+        data: parsedInput.absent
+          ? { status: 'ABSENT', isWarned: true, parentMarkedAt: new Date() }
+          : { status: 'UNSPECIFIED', isWarned: null, parentMarkedAt: null },
+      })
+    })
+  })
+
+// ─── Отработка: выбор занятия ───────────────────────────────────────
+
+/** Проверяет исходный пропуск и возвращает курс/локацию для подбора занятий. */
+async function resolveMakeupSource(
+  attendanceId: number,
+  studentId: number,
+  organizationId: number,
+  tz: string,
+) {
+  const source = await prisma.attendance.findFirst({
+    where: { id: attendanceId, studentId, organizationId },
+    select: {
+      ...blockableAttendanceSelect,
+      lesson: {
+        select: {
+          id: true,
+          date: true,
+          status: true,
+          group: { select: { courseId: true, locationId: true } },
+        },
+      },
+    },
+  })
+  if (!source) throw new NotFoundError('Пропущенное занятие не найдено.')
+
+  const blocker = parentAbsenceBlocker(source, source.lesson, todayYmdInTz(tz), 'makeup')
+  if (blocker) throw new ConflictError(blocker)
+
+  return source
+}
+
+export const getPublicMakeupOptions = publicAction
+  .metadata({ actionName: 'getPublicMakeupOptions' })
+  .inputSchema(PublicMakeupOptionsSchema)
+  .action(async ({ parsedInput }) => {
+    const { studentId, organizationId, tz } = await resolveChild(
+      parsedInput.token,
+      parsedInput.studentId,
+    )
+    await assertAbsenceEnabled(organizationId)
+
+    const source = await resolveMakeupSource(
+      parsedInput.attendanceId,
+      studentId,
+      organizationId,
+      tz,
+    )
+
+    const today = todayYmdInTz(tz)
+
+    const lessons = await prisma.lesson.findMany({
+      where: {
+        organizationId,
+        status: 'ACTIVE',
+        date: { gt: today, lte: addDaysYmd(today, MAKEUP_HORIZON_DAYS) },
+        group: {
+          courseId: source.lesson.group.courseId,
+          locationId: source.lesson.group.locationId,
+          status: 'ACTIVE',
+        },
+        // Одним условием закрывает и @@unique([studentId, lessonId]), и занятия
+        // групп, куда ребёнок уже ходит: записи там уже созданы заранее.
+        attendance: { none: { studentId } },
+      },
+      select: {
+        id: true,
+        date: true,
+        time: true,
+        group: {
+          select: {
+            name: true,
+            maxStudents: true,
+            course: { select: { name: true } },
+            location: { select: { name: true } },
+            schedules: { select: { dayOfWeek: true, time: true } },
+          },
+        },
+        teachers: { select: { teacher: { select: { name: true } } } },
+        _count: { select: { attendance: true } },
+      },
+      orderBy: [{ date: 'asc' }, { time: 'asc' }],
+      // Горизонт + лимит: публичная ручка не должна отдавать весь календарь школы.
+      take: 100,
     })
 
-    return {
-      dataActual: true as const,
-      dataActualizedAt: updated.dataActualizedAt!.toISOString(),
-    }
+    return lessons
+      .filter((lesson) => lesson._count.attendance < lesson.group.maxStudents)
+      .slice(0, 50)
+      .map((lesson) => ({
+        id: lesson.id,
+        date: lesson.date,
+        time: lesson.time,
+        group: lesson.group,
+        teachers: lesson.teachers.map((t) => t.teacher.name),
+        freeSeats: lesson.group.maxStudents - lesson._count.attendance,
+      }))
+  })
+
+// ─── Отработка: запись ──────────────────────────────────────────────
+
+export const createPublicMakeup = publicAction
+  .metadata({ actionName: 'createPublicMakeup' })
+  .inputSchema(CreatePublicMakeupSchema)
+  .action(async ({ parsedInput }) => {
+    const { studentId, organizationId, tz } = await resolveChild(
+      parsedInput.token,
+      parsedInput.studentId,
+    )
+    await assertAbsenceEnabled(organizationId)
+
+    const source = await resolveMakeupSource(
+      parsedInput.attendanceId,
+      studentId,
+      organizationId,
+      tz,
+    )
+
+    const today = todayYmdInTz(tz)
+
+    // Список из UI — подсказка; граница проверяется здесь и заново. Отдельная
+    // транзакция, потому что между выбором и отправкой урок мог заполниться.
+    return prisma.$transaction(async (tx) => {
+      const target = await tx.lesson.findFirst({
+        where: {
+          id: parsedInput.targetLessonId,
+          organizationId,
+          status: 'ACTIVE',
+          date: { gt: today, lte: addDaysYmd(today, MAKEUP_HORIZON_DAYS) },
+          group: {
+            courseId: source.lesson.group.courseId,
+            locationId: source.lesson.group.locationId,
+            status: 'ACTIVE',
+          },
+          attendance: { none: { studentId } },
+        },
+        select: {
+          id: true,
+          group: { select: { maxStudents: true } },
+          _count: { select: { attendance: true } },
+        },
+      })
+      if (!target) throw new ConflictError('На это занятие записаться нельзя. Выберите другое.')
+      if (target._count.attendance >= target.group.maxStudents) {
+        throw new ConflictError('На занятии не осталось мест. Выберите другое.')
+      }
+
+      // creditBalance staff-версии здесь намеренно нет: предупреждённый пропуск
+      // ничего не списал, так что «+1 к балансу» выдал бы бесплатное занятие.
+      return tx.attendance.create({
+        data: {
+          organizationId,
+          studentId,
+          lessonId: target.id,
+          comment: '',
+          status: 'UNSPECIFIED',
+          makeupForAttendanceId: parsedInput.attendanceId,
+          parentMarkedAt: new Date(),
+        },
+        select: { id: true },
+      })
+    })
+  })
+
+// ─── Отработка: отмена ──────────────────────────────────────────────
+
+export const cancelPublicMakeup = publicAction
+  .metadata({ actionName: 'cancelPublicMakeup' })
+  .inputSchema(CancelPublicMakeupSchema)
+  .action(async ({ parsedInput }) => {
+    const { studentId, organizationId, tz } = await resolveChild(
+      parsedInput.token,
+      parsedInput.studentId,
+    )
+    await assertAbsenceEnabled(organizationId)
+
+    const makeup = await prisma.attendance.findFirst({
+      where: { id: parsedInput.makeupAttendanceId, studentId, organizationId },
+      select: blockableAttendanceSelect,
+    })
+    if (!makeup) throw new NotFoundError('Отработка не найдена.')
+
+    const blocker = parentAbsenceBlocker(makeup, makeup.lesson, todayYmdInTz(tz), 'cancelMakeup')
+    if (blocker) throw new ConflictError(blocker)
+
+    // Сам пропуск остаётся предупреждённым — родитель отказался от даты, а не от пропуска.
+    await prisma.attendance.delete({ where: { id: makeup.id } })
   })

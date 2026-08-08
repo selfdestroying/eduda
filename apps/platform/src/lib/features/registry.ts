@@ -33,6 +33,7 @@ export const FEATURE_KEYS = [
   'organization.rates',
   'organization.courses',
   'organization.locations',
+  'cabinet.absence',
 ] as const
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number]
@@ -105,6 +106,15 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureEntry> = {
   'organization.rates': { label: 'Ставки', routes: ['/organization/rates'] },
   'organization.courses': { label: 'Курсы', routes: ['/organization/courses'] },
   'organization.locations': { label: 'Локации', routes: ['/organization/locations'] },
+
+  // - Кабинет родителя -
+  // Страницы нет: кабинет живёт вне /[slug] и гейтится в самих server actions,
+  // потому без routes (как finances.rent).
+  'cabinet.absence': {
+    label: 'Отмена занятий родителем',
+    description:
+      'Родитель может предупредить о пропуске будущего занятия и записать ребёнка на отработку из личного кабинета.',
+  },
 }
 
 /** Get all child feature keys for a parent */

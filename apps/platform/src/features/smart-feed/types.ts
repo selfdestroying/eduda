@@ -3,6 +3,7 @@ export const ALERT_TYPE = {
   LOW_BALANCE: 'LOW_BALANCE',
   NEGATIVE_BALANCE: 'NEGATIVE_BALANCE',
   CONSECUTIVE_ABSENCES: 'CONSECUTIVE_ABSENCES',
+  PARENT_MARKED_ABSENCE: 'PARENT_MARKED_ABSENCE',
 } as const
 
 export type AlertType = (typeof ALERT_TYPE)[keyof typeof ALERT_TYPE]
@@ -14,6 +15,7 @@ export const ALERT_TYPE_LABELS: Record<AlertType, string> = {
   [ALERT_TYPE.NEGATIVE_BALANCE]: 'Долги',
   [ALERT_TYPE.LOW_BALANCE]: 'Заканчивается баланс',
   [ALERT_TYPE.CONSECUTIVE_ABSENCES]: 'Зона риска',
+  [ALERT_TYPE.PARENT_MARKED_ABSENCE]: 'Отметки родителей',
 }
 
 export const ALERT_TYPE_ORDER: Record<AlertType, number> = {
@@ -21,6 +23,7 @@ export const ALERT_TYPE_ORDER: Record<AlertType, number> = {
   [ALERT_TYPE.NEGATIVE_BALANCE]: 1,
   [ALERT_TYPE.LOW_BALANCE]: 2,
   [ALERT_TYPE.CONSECUTIVE_ABSENCES]: 3,
+  [ALERT_TYPE.PARENT_MARKED_ABSENCE]: 4,
 }
 
 export type AlertSeverity = 'red' | 'orange' | 'yellow'
@@ -93,13 +96,43 @@ export interface ConsecutiveAbsencesAlert {
   absenceCount: number
 }
 
+/**
+ * Родитель предупредил о пропуске будущего занятия из кабинета (`/cabinet/{token}`).
+ *
+ * В отличие от соседних алертов это не проблема, которую надо «починить», а факт,
+ * который менеджер должен заметить: отметку никто из школы не подтверждал. Поэтому
+ * алерт живёт до дня занятия и снимается либо откладыванием, либо тем, что сотрудник
+ * сам меняет статус (тогда `Attendance.parentMarkedAt` очищается).
+ */
+export interface ParentMarkedAbsenceAlert {
+  type: typeof ALERT_TYPE.PARENT_MARKED_ABSENCE
+  /** orange — отработка не выбрана (повод позвонить), yellow — уже записан. */
+  severity: 'orange' | 'yellow'
+  attendanceId: number
+  studentId: number
+  studentName: string
+  groupId: number
+  groupName: string
+  lessonId: number
+  lessonDate: string
+  lessonTime: string
+  /** Занятие-отработка, если родитель уже выбрал дату. */
+  makeupLessonId: number | null
+  makeupDate: string | null
+  makeupTime: string | null
+}
+
 export type SmartFeedAlert =
   | UnmarkedAttendanceAlert
   | LowBalanceAlert
   | NegativeBalanceAlert
   | ConsecutiveAbsencesAlert
+  | ParentMarkedAbsenceAlert
 
-export type SnoozableSmartFeedAlert = LowBalanceAlert | NegativeBalanceAlert
+export type SnoozableSmartFeedAlert =
+  | LowBalanceAlert
+  | NegativeBalanceAlert
+  | ParentMarkedAbsenceAlert
 
 export type SmartFeedPageAlert = SmartFeedAlert & {
   id: string
@@ -122,6 +155,8 @@ export function getSmartFeedEntityKey(alert: SmartFeedAlert): string {
       return `wallet:${alert.walletId}`
     case ALERT_TYPE.CONSECUTIVE_ABSENCES:
       return `student:${alert.studentId}:group:${alert.groupId}`
+    case ALERT_TYPE.PARENT_MARKED_ABSENCE:
+      return `attendance:${alert.attendanceId}`
   }
 }
 

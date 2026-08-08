@@ -21,6 +21,7 @@ import {
   Ban,
   Bell,
   BellOff,
+  CalendarOff,
   ClipboardList,
   Menu,
   RotateCcw,
@@ -35,6 +36,7 @@ import {
   useCreateSnoozedAlertMutation,
   useCreateSnoozedAlertsBulkMutation,
   useLowBalanceQuery,
+  useParentMarkedAbsencesQuery,
   useRestoreSnoozedAlertsBulkMutation,
   useSnoozedAlertsQuery,
   useUnmarkedAttendnace,
@@ -49,10 +51,12 @@ export function SmartFeed() {
   const { data: unmarkedAlerts } = useUnmarkedAttendnace()
   const { data: lowBalanceAlerts } = useLowBalanceQuery()
   const { data: absentStreakAlerts } = useAbsentStreaksQuery()
+  const { data: parentMarkedAlerts } = useParentMarkedAbsencesQuery()
   const count =
     (unmarkedAlerts?.length ?? 0) +
     (lowBalanceAlerts?.length ?? 0) +
-    (absentStreakAlerts?.length ?? 0)
+    (absentStreakAlerts?.length ?? 0) +
+    (parentMarkedAlerts?.length ?? 0)
   const hasAlerts = count > 0
 
   return (
@@ -99,6 +103,7 @@ export function SmartFeedBar({ canSeeFeed }: { canSeeFeed: boolean }) {
             <UnmarkedAttendanceChip />
             <LowBalanceChip />
             <AbsentStreaksChip />
+            <ParentMarkedChip />
             <Button
               variant="outline"
               size="icon"
@@ -304,6 +309,111 @@ export function AbsentStreaksChip() {
                 </Link>
               </div>
             </div>
+          </li>
+        ))}
+      </ul>
+    </ChipPopover>
+  )
+}
+
+export function ParentMarkedChip() {
+  const { data, isLoading, isError } = useParentMarkedAbsencesQuery()
+  const { data: snoozedAlerts } = useSnoozedAlertsQuery('attendance')
+  const snoozeAllMutation = useCreateSnoozedAlertsBulkMutation()
+  const snoozeMutation = useCreateSnoozedAlertMutation()
+  const restoreAllMutation = useRestoreSnoozedAlertsBulkMutation()
+
+  const snoozedCount = snoozedAlerts?.length ?? 0
+  const amount = data?.length ?? 0
+
+  const handleSnoozeAll = (days: SnoozeDaysOption) => {
+    const items = data!.map((a) => ({ entityId: a.attendanceId, entityKey: 'attendance' }))
+    if (items.length === 0) return
+    snoozeAllMutation.mutate({ alerts: items, snoozeDays: days })
+  }
+
+  const handleRestoreAll = () => {
+    if (!snoozedAlerts || snoozedAlerts.length === 0) return
+    restoreAllMutation.mutate({
+      alerts: snoozedAlerts.map((a) => ({ entityId: a.entityId, entityKey: a.entityKey })),
+    })
+  }
+
+  return (
+    <ChipPopover
+      amount={amount}
+      snoozedAmount={snoozedCount}
+      snoozeAll={handleSnoozeAll}
+      restoreAll={handleRestoreAll}
+      icon={<CalendarOff />}
+      title="Отметки родителей"
+      isLoading={isLoading}
+      isError={isError}
+      description="Родители предупредили о пропуске будущих занятий"
+    >
+      <ul className="divide-border max-h-80 divide-y overflow-y-auto">
+        {data?.map((alert) => (
+          <li
+            key={alert.attendanceId}
+            className="flex items-center justify-between gap-2 px-3 py-2"
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <div
+                className="bg-destructive/10 text-destructive ring-destructive/15 flex h-9 min-w-9 items-center justify-center rounded-lg px-2 text-xs font-semibold tabular-nums ring-1"
+                title="Дата пропуска"
+              >
+                {formatDateOnly(alert.lessonDate, { day: '2-digit', month: '2-digit' })}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">
+                  <Link
+                    href={`/students/${alert.studentId}`}
+                    className="hover:text-primary underline-offset-1 hover:underline"
+                  >
+                    {alert.studentName}
+                  </Link>
+                </p>
+                <Link
+                  href={`/lessons/${alert.lessonId}`}
+                  className="text-muted-foreground hover:text-primary block truncate text-xs underline-offset-1 hover:underline"
+                >
+                  {alert.groupName}, {alert.lessonTime}
+                </Link>
+                {/* Главное, ради чего менеджер сюда смотрит: нужен ли звонок. */}
+                {alert.makeupDate ? (
+                  <Link
+                    href={`/lessons/${alert.makeupLessonId}`}
+                    className="text-muted-foreground hover:text-primary block truncate text-xs underline-offset-1 hover:underline"
+                  >
+                    Отработка {formatDateOnly(alert.makeupDate)}
+                    {alert.makeupTime ? `, ${alert.makeupTime}` : ''}
+                  </Link>
+                ) : (
+                  <span className="block truncate text-xs text-orange-600">
+                    Отработка не выбрана
+                  </span>
+                )}
+              </div>
+            </div>
+            <SnoozeDaysMenu
+              onSelect={(days) =>
+                snoozeMutation.mutate({
+                  entityId: alert.attendanceId,
+                  entityKey: 'attendance',
+                  snoozeDays: days,
+                })
+              }
+              trigger={
+                <Button
+                  variant="ghost"
+                  size={'icon'}
+                  disabled={snoozeMutation.isPending}
+                  title="Отложить"
+                />
+              }
+            >
+              <BellOff />
+            </SnoozeDaysMenu>
           </li>
         ))}
       </ul>

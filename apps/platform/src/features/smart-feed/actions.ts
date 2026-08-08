@@ -3,6 +3,7 @@
 import { prisma } from '@repo/db'
 import { authAction } from '@/src/lib/safe-action'
 import { nowInTz, todayYmdInTz } from '@/src/lib/timezone'
+import { collectParentMarkedAbsences } from './parent-marked.server'
 import { addDays } from 'date-fns'
 import z from 'zod'
 import {
@@ -16,6 +17,7 @@ import {
   type ConsecutiveAbsencesAlert,
   type LowBalanceAlert,
   type NegativeBalanceAlert,
+  type ParentMarkedAbsenceAlert,
   type UnmarkedAttendanceAlert,
 } from './types'
 
@@ -238,6 +240,18 @@ export const getAbsentStreak = authAction
 
     return alerts
   })
+
+export const getParentMarkedAbsences = authAction
+  .metadata({ actionName: 'getParentMarkedAbsences' })
+  .inputSchema(z.object({ withSnoozed: z.boolean().optional().default(false) }))
+  .action(
+    async ({ ctx, parsedInput }): Promise<ParentMarkedAbsenceAlert[]> =>
+      collectParentMarkedAbsences({
+        organizationId: ctx.session.organizationId!,
+        tz: ctx.tz,
+        withSnoozed: parsedInput.withSnoozed,
+      }),
+  )
 
 export const getSnoozedAlerts = authAction
   .metadata({ actionName: 'getSnoozedAlerts' })

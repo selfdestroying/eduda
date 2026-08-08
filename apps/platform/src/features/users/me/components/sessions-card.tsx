@@ -53,7 +53,6 @@ export default function SessionsCard() {
                     </div>
                     <Button
                       variant="destructive"
-                      size="sm"
                       disabled={isTerminating}
                       onClick={() => {
                         revokeSessionMutation.mutate(

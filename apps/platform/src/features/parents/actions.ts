@@ -2,6 +2,7 @@
 
 import { prisma } from '@repo/db'
 import { authAction } from '@/src/lib/safe-action'
+import { touchStudentData } from '@/src/lib/student-data'
 import {
   CreateParentSchema,
   DeleteParentSchema,
@@ -43,9 +44,25 @@ export const updateParent = authAction
   .inputSchema(UpdateParentSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { id, ...data } = parsedInput
-    return await prisma.parent.update({
-      where: { id, organizationId: ctx.session.organizationId! },
-      data,
+
+    return await prisma.$transaction(async (tx) => {
+      const parent = await tx.parent.update({
+        where: { id, organizationId: ctx.session.organizationId! },
+        data,
+      })
+
+      // Контакты родителя — часть анкеты ребёнка, поэтому правка двигает дату
+      // актуальности у всех его детей.
+      const links = await tx.studentParent.findMany({
+        where: { parentId: id },
+        select: { studentId: true },
+      })
+      await touchStudentData(
+        tx,
+        links.map((link) => link.studentId),
+      )
+
+      return parent
     })
   })
 
@@ -69,12 +86,16 @@ export const linkParentToStudent = authAction
   .metadata({ actionName: 'linkParentToStudent' })
   .inputSchema(LinkParentSchema)
   .action(async ({ ctx, parsedInput }) => {
-    await prisma.studentParent.create({
-      data: {
-        studentId: parsedInput.studentId,
-        parentId: parsedInput.parentId,
-        organizationId: ctx.session.organizationId!,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.studentParent.create({
+        data: {
+          studentId: parsedInput.studentId,
+          parentId: parsedInput.parentId,
+          organizationId: ctx.session.organizationId!,
+        },
+      })
+      // Появился новый контакт — набор контактов ребёнка изменился.
+      await touchStudentData(tx, [parsedInput.studentId])
     })
   })
 
@@ -82,12 +103,15 @@ export const unlinkParentFromStudent = authAction
   .metadata({ actionName: 'unlinkParentFromStudent' })
   .inputSchema(UnlinkParentSchema)
   .action(async ({ parsedInput }) => {
-    await prisma.studentParent.delete({
-      where: {
-        studentId_parentId: {
-          studentId: parsedInput.studentId,
-          parentId: parsedInput.parentId,
+    await prisma.$transaction(async (tx) => {
+      await tx.studentParent.delete({
+        where: {
+          studentId_parentId: {
+            studentId: parsedInput.studentId,
+            parentId: parsedInput.parentId,
+          },
         },
-      },
+      })
+      await touchStudentData(tx, [parsedInput.studentId])
     })
   })

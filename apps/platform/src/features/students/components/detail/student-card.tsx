@@ -4,7 +4,6 @@ import { StatCard } from '@repo/ui/components/stat-card'
 import { Separator } from '@repo/ui/components/separator'
 import {
   Cake,
-  CheckCircle2,
   Clock,
   ExternalLink,
   Link as LinkIcon,
@@ -67,10 +66,14 @@ export default function StudentCard({ student }: StudentCardProps) {
           description={`Групп: ${student.groups.length}`}
         />
         <StatCard
-          label="Актуальность данных"
-          value={student.dataActual ? 'Подтверждены' : 'Не подтверждены'}
-          description={actualizedAt ? `Дата: ${actualizedAt}` : 'Родитель ещё не подтвердил'}
-          icon={student.dataActual ? CheckCircle2 : Clock}
+          label="Данные обновлены"
+          value={actualizedAt ?? 'Не менялись'}
+          description={
+            actualizedAt
+              ? 'Дата последней правки анкеты'
+              : 'Ни родитель, ни сотрудник ещё ничего не меняли'
+          }
+          icon={Clock}
         />
       </div>
 

@@ -224,7 +224,6 @@ export default function MySalary() {
                   <Button
                     key={preset.label}
                     variant={isActive ? 'secondary' : 'ghost'}
-                    size="sm"
                     className="h-8 text-xs"
                     onClick={() => handlePresetSelect(preset)}
                   >

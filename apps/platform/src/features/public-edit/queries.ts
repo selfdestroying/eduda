@@ -1,26 +1,29 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { parseAsInteger, useQueryState } from 'nuqs'
 import { toast } from 'sonner'
 import {
-  confirmPublicDataActuality,
+  cancelPublicMakeup,
+  createPublicMakeup,
   createPublicParent,
   getCabinetData,
+  getPublicMakeupOptions,
   getPublicStudentData,
   getPublicStudentFinances,
   getPublicStudentGroups,
-  updateOwnParent,
+  setPublicAbsence,
   updatePublicParent,
   updatePublicStudent,
 } from './actions'
 import type {
-  ConfirmPublicActualitySchemaType,
+  CancelPublicMakeupSchemaType,
+  CreatePublicMakeupSchemaType,
   CreatePublicParentSchemaType,
-  UpdateOwnParentSchemaType,
+  SetPublicAbsenceSchemaType,
   UpdatePublicParentSchemaType,
   UpdatePublicStudentSchemaType,
 } from './schemas'
 
 export const publicEditKeys = {
-  all: ['public-edit'] as const,
   cabinet: (token: string) => ['public-edit', token, 'cabinet'] as const,
   student: (token: string, studentId: number) =>
     ['public-edit', token, 'student', studentId] as const,
@@ -28,6 +31,8 @@ export const publicEditKeys = {
     ['public-edit', token, 'finances', studentId] as const,
   groups: (token: string, studentId: number) =>
     ['public-edit', token, 'groups', studentId] as const,
+  makeupOptions: (token: string, studentId: number, attendanceId: number) =>
+    ['public-edit', token, 'makeup-options', studentId, attendanceId] as const,
 }
 
 // ─── Read-only queries ──────────────────────────────────────────────
@@ -73,29 +78,65 @@ export const usePublicStudentGroupsQuery = (token: string, studentId: number | u
     queryFn: async () => {
       const { data, serverError } = await getPublicStudentGroups({ token, studentId })
       if (serverError) throw serverError
-      return data ?? []
+      return data ?? null
     },
     enabled: studentId != null,
   })
 }
 
-// ─── Mutations ──────────────────────────────────────────────────────
-
-export const useUpdateOwnParentMutation = () => {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (values: UpdateOwnParentSchemaType) => {
-      const { data, serverError } = await updateOwnParent(values)
+/**
+ * Занятия, на которые можно записаться взамен пропущенного. Грузим лениво — при
+ * открытии диалога, а не на каждый чип в разделе.
+ */
+export const useMakeupOptionsQuery = (
+  token: string,
+  studentId: number | undefined,
+  attendanceId: number | undefined,
+) => {
+  return useQuery({
+    queryKey: publicEditKeys.makeupOptions(token, studentId ?? 0, attendanceId ?? 0),
+    queryFn: async () => {
+      const { data, serverError } = await getPublicMakeupOptions({
+        token,
+        studentId: studentId!,
+        attendanceId: attendanceId!,
+      })
       if (serverError) throw serverError
-      return data
+      return data ?? []
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: publicEditKeys.cabinet(variables.token) })
-      toast.success('Ваши данные сохранены.')
-    },
-    onError: () => toast.error('Не удалось сохранить ваши данные. Попробуйте ещё раз.'),
+    enabled: studentId != null && attendanceId != null,
   })
 }
+
+// ─── Выбранный ребёнок ──────────────────────────────────────────────
+
+/**
+ * Выбранный ребёнок живёт в `?child=`, а не в состоянии React: иначе выбор
+ * терялся бы при переходе между разделами кабинета и при перезагрузке.
+ *
+ * Значение клампим к детям этого родителя — устаревшая или подобранная ссылка
+ * не должна ронять раздел в ошибку. Настоящая граница доступа — `resolveChild`
+ * на сервере, здесь это только UX.
+ */
+export const useSelectedChild = (token: string) => {
+  const [child, setChild] = useQueryState(
+    'child',
+    // history: 'replace' — переключение ребёнка не должно засорять «назад».
+    parseAsInteger.withOptions({ history: 'replace' }),
+  )
+  const { data, isPending, isError } = useCabinetDataQuery(token)
+
+  const children = data?.children ?? []
+  const studentId = children.find((item) => item.id === child)?.id ?? children[0]?.id
+
+  // `<Link>` не сохраняет query-строку, поэтому каждую ссылку внутри кабинета
+  // приходится собирать с этим суффиксом. Одному ребёнку параметр не нужен.
+  const childQuery = children.length > 1 && studentId != null ? `?child=${studentId}` : ''
+
+  return { studentId, children, childQuery, setChild, isPending, isError }
+}
+
+// ─── Mutations ──────────────────────────────────────────────────────
 
 export const useUpdatePublicStudentMutation = () => {
   const queryClient = useQueryClient()
@@ -151,20 +192,75 @@ export const useCreatePublicParentMutation = () => {
   })
 }
 
-export const useConfirmPublicActualityMutation = () => {
+// ─── Посещаемость: пропуски и отработки ─────────────────────────────
+
+/**
+ * Отказы от сервера здесь осмысленные («уже отмечено школой», «поздно») —
+ * показываем их родителю как есть, а generic-текст держим только на непойманное.
+ */
+const absenceErrorText = (error: unknown, fallback: string) =>
+  typeof error === 'string' && error ? error : fallback
+
+export const useSetPublicAbsenceMutation = () => {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (values: ConfirmPublicActualitySchemaType) => {
-      const { data, serverError } = await confirmPublicDataActuality(values)
+    mutationFn: async (values: SetPublicAbsenceSchemaType) => {
+      const { data, serverError } = await setPublicAbsence(values)
       if (serverError) throw serverError
       return data
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
-        queryKey: publicEditKeys.student(variables.token, variables.studentId),
+        queryKey: publicEditKeys.groups(variables.token, variables.studentId),
       })
-      toast.success('Актуальность данных подтверждена.')
+      toast.success(variables.absent ? 'Школа предупреждена о пропуске.' : 'Отметка снята.')
     },
-    onError: () => toast.error('Не удалось подтвердить актуальность данных.'),
+    onError: (error) =>
+      toast.error(absenceErrorText(error, 'Не удалось изменить отметку. Попробуйте ещё раз.')),
+  })
+}
+
+export const useCreatePublicMakeupMutation = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (values: CreatePublicMakeupSchemaType) => {
+      const { data, serverError } = await createPublicMakeup(values)
+      if (serverError) throw serverError
+      return data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: publicEditKeys.groups(variables.token, variables.studentId),
+      })
+      queryClient.invalidateQueries({
+        queryKey: publicEditKeys.makeupOptions(
+          variables.token,
+          variables.studentId,
+          variables.attendanceId,
+        ),
+      })
+      toast.success('Записали на отработку.')
+    },
+    onError: (error) =>
+      toast.error(absenceErrorText(error, 'Не удалось записать на отработку. Попробуйте ещё раз.')),
+  })
+}
+
+export const useCancelPublicMakeupMutation = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (values: CancelPublicMakeupSchemaType) => {
+      const { data, serverError } = await cancelPublicMakeup(values)
+      if (serverError) throw serverError
+      return data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: publicEditKeys.groups(variables.token, variables.studentId),
+      })
+      toast.success('Запись на отработку отменена.')
+    },
+    onError: (error) =>
+      toast.error(absenceErrorText(error, 'Не удалось отменить отработку. Попробуйте ещё раз.')),
   })
 }

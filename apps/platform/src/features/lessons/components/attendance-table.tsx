@@ -58,6 +58,16 @@ export default function AttendanceTable() {
               {row.original.isTrial && (
                 <Badge className="bg-info/10 text-info hover:bg-info/20 select-none">Пробный</Badge>
               )}
+              {/* Отметка родителя из кабинета: выглядит так же, как отметка
+                  преподавателя, но её никто из школы не подтверждал. */}
+              {row.original.parentMarkedAt && (
+                <Badge
+                  variant="secondary"
+                  className="bg-amber-500/10 text-amber-600 select-none dark:text-amber-400"
+                >
+                  Из кабинета
+                </Badge>
+              )}
             </div>
           )
         },

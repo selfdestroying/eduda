@@ -29,7 +29,69 @@ export function FeedCard({ alert }: FeedCardProps) {
       return <LowBalanceCard alert={alert} />
     case ALERT_TYPE.CONSECUTIVE_ABSENCES:
       return <AbsentStreakCard alert={alert} />
+    case ALERT_TYPE.PARENT_MARKED_ABSENCE:
+      return <ParentMarkedAbsenceCard alert={alert} />
   }
+}
+
+function ParentMarkedAbsenceCard({
+  alert,
+}: {
+  alert: SmartFeedAlert & { type: 'PARENT_MARKED_ABSENCE' }
+}) {
+  const snoozeMutation = useCreateSnoozedAlertMutation()
+  const formattedDate = format(ymdToLocalDate(alert.lessonDate), 'd MMM', { locale: ru })
+
+  return (
+    <Item size={'xs'}>
+      <ItemContent className="truncate">
+        <ItemTitle>
+          <Link
+            href={`/students/${alert.studentId}`}
+            className="hover:text-primary underline-offset-1 hover:underline"
+          >
+            {alert.studentName}
+          </Link>
+        </ItemTitle>
+        <ItemDescription className="line-clamp-0">
+          <Link
+            href={`/lessons/${alert.lessonId}`}
+            className="hover:text-primary underline-offset-1 hover:underline"
+          >
+            {alert.groupName}
+          </Link>
+          <span className="ml-1">не придёт {formattedDate}</span>
+          <span className={alert.makeupDate ? 'ml-1' : 'ml-1 text-orange-600'}>
+            ·{' '}
+            {alert.makeupDate
+              ? `отработка ${format(ymdToLocalDate(alert.makeupDate), 'd MMM', { locale: ru })}`
+              : 'отработка не выбрана'}
+          </span>
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        <SnoozeDaysMenu
+          onSelect={(days) =>
+            snoozeMutation.mutate({
+              entityId: alert.attendanceId,
+              entityKey: 'attendance',
+              snoozeDays: days,
+            })
+          }
+          trigger={
+            <Button
+              variant="ghost"
+              size={'icon'}
+              disabled={snoozeMutation.isPending}
+              title="Отложить"
+            />
+          }
+        >
+          <BellOff />
+        </SnoozeDaysMenu>
+      </ItemActions>
+    </Item>
+  )
 }
 
 function UnmarkedAttendanceCard({

@@ -332,7 +332,9 @@ export const updateAttendanceStatus = authAction
         where: {
           studentId_lessonId: { studentId, lessonId },
         },
-        data: { status, isWarned },
+        // parentMarkedAt сбрасываем: статус переставил сотрудник, значит отметка
+        // больше не «со слов родителя» и родитель её из кабинета уже не тронет.
+        data: { status, isWarned, parentMarkedAt: null },
       })
     })
   })

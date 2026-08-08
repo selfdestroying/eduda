@@ -270,7 +270,6 @@ function AttendanceCell({
             <div className="flex items-center gap-2">
               <Button
                 variant="destructive"
-                size="sm"
                 className="h-7 flex-1 text-xs"
                 disabled={isPending}
                 onClick={() => handleStatusChange('ABSENT', false)}
@@ -278,7 +277,6 @@ function AttendanceCell({
                 Не предупредил (−1)
               </Button>
               <Button
-                size="sm"
                 className="bg-success/10 text-success hover:bg-success/20 h-7 flex-1 text-xs"
                 disabled={isPending}
                 onClick={() => handleStatusChange('ABSENT', true)}

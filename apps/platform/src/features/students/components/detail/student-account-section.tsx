@@ -59,7 +59,6 @@ export default function StudentAccountSection({ account }: StudentAccountSection
             ) : (
               <Button
                 variant="ghost"
-                size="sm"
                 className="-ml-2 h-7 px-2"
                 disabled={reveal.isPending}
                 onClick={() => reveal.mutate({ studentId: account.studentId })}

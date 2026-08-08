@@ -52,16 +52,6 @@ export const PublicChildSchema = z.object({
   studentId: StudentIdSchema.optional(),
 })
 
-// ─── Own parent (запись токена) ─────────────────────────────────────
-
-export const UpdateOwnParentSchema = z.object({
-  token: TokenSchema,
-  firstName: z.string().trim().min(2),
-  lastName: NullableTextSchema.pipe(z.string().min(2).nullable()),
-  phone: PhoneSchema,
-  email: EmailSchema,
-})
-
 // ─── Student input ──────────────────────────────────────────────────
 
 export const UpdatePublicStudentSchema = z.object({
@@ -93,19 +83,43 @@ export const CreatePublicParentSchema = z.object({
   email: EmailSchema,
 })
 
-// ─── Confirm actuality ──────────────────────────────────────────────
+// ─── Посещаемость: отсутствие и отработка ───────────────────────────
 
-export const ConfirmPublicActualitySchema = z.object({
+const AttendanceIdSchema = z.number().int().positive()
+
+/** Тумблер «не сможем прийти» на конкретном будущем занятии. */
+export const SetPublicAbsenceSchema = z.object({
   token: TokenSchema,
   studentId: StudentIdSchema,
+  lessonId: z.number().int().positive(),
+  absent: z.boolean(),
+})
+
+/** Список занятий, на которые можно записаться взамен пропущенного. */
+export const PublicMakeupOptionsSchema = z.object({
+  token: TokenSchema,
+  studentId: StudentIdSchema,
+  attendanceId: AttendanceIdSchema,
+})
+
+export const CreatePublicMakeupSchema = PublicMakeupOptionsSchema.extend({
+  targetLessonId: z.number().int().positive(),
+})
+
+export const CancelPublicMakeupSchema = z.object({
+  token: TokenSchema,
+  studentId: StudentIdSchema,
+  makeupAttendanceId: AttendanceIdSchema,
 })
 
 // ─── Inferred types ─────────────────────────────────────────────────
 
 export type PublicTokenSchemaType = z.input<typeof PublicTokenSchema>
 export type PublicChildSchemaType = z.input<typeof PublicChildSchema>
-export type UpdateOwnParentSchemaType = z.input<typeof UpdateOwnParentSchema>
 export type UpdatePublicStudentSchemaType = z.input<typeof UpdatePublicStudentSchema>
 export type UpdatePublicParentSchemaType = z.input<typeof UpdatePublicParentSchema>
 export type CreatePublicParentSchemaType = z.input<typeof CreatePublicParentSchema>
-export type ConfirmPublicActualitySchemaType = z.input<typeof ConfirmPublicActualitySchema>
+export type SetPublicAbsenceSchemaType = z.input<typeof SetPublicAbsenceSchema>
+export type PublicMakeupOptionsSchemaType = z.input<typeof PublicMakeupOptionsSchema>
+export type CreatePublicMakeupSchemaType = z.input<typeof CreatePublicMakeupSchema>
+export type CancelPublicMakeupSchemaType = z.input<typeof CancelPublicMakeupSchema>

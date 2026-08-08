@@ -425,7 +425,8 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       age,
       totalLessons: int(8, 60),
       totalPayments: int(1, 8) * 6400,
-      dataActual: rng() > 0.4,
+      // Актуальность = дата последней правки анкеты; у части учеников её нет.
+      dataUpdatedDaysAgo: rng() > 0.4 ? int(1, 400) : null,
       paymentsCount: int(1, 3),
       hasParent: rng() > 0.5,
     }
@@ -441,7 +442,8 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       lessonsBalance: s.balance,
       totalLessons: s.totalLessons,
       totalPayments: s.totalPayments,
-      dataActual: s.dataActual,
+      dataActualizedAt:
+        s.dataUpdatedDaysAgo === null ? null : addUTCDays(today, -s.dataUpdatedDaysAgo),
     })),
     select: { id: true },
   })

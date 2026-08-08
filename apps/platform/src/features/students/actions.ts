@@ -18,6 +18,7 @@ import {
 import { ConflictError, NotFoundError } from '@/src/lib/error'
 import { authAction, featureAction, permissionAction } from '@/src/lib/safe-action'
 import { createStudentUserTx, hashStudentPassword } from '@/src/lib/student-auth'
+import { isProfileEdit } from '@/src/lib/student-data'
 import { decryptStudentPassword } from '@/src/lib/student-password'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import { randomInt } from 'crypto'
@@ -324,14 +325,21 @@ export const updateStudent = authAction
       change: NonNullable<ReturnType<typeof parseIntFieldChange>>
     }[]
 
+    // Актуальность данных = дата последней правки анкеты.
+    const profileEdited = isProfileEdit(data)
+    const withTouch = (args: Prisma.StudentUpdateArgs): Prisma.StudentUpdateArgs =>
+      profileEdited
+        ? { ...args, data: { ...(args.data as object), dataActualizedAt: new Date() } }
+        : args
+
     const studentId = payload.where.id
     if (!studentId) {
-      await prisma.student.update(payload)
+      await prisma.student.update(withTouch(payload))
       return
     }
 
     if (changes.length === 0) {
-      await prisma.student.update(payload)
+      await prisma.student.update(withTouch(payload))
       return
     }
 
@@ -351,7 +359,7 @@ export const updateStudent = authAction
 
       const updated = await tx.student.update({
         where: { id: studentId },
-        data: payload.data as Prisma.StudentUpdateInput,
+        data: withTouch(payload).data as Prisma.StudentUpdateInput,
         select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
       })
 

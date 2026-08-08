@@ -60,6 +60,13 @@ model Attendance {
     makeupForAttendance   Attendance? @relation("MakeupLink", fields: [makeupForAttendanceId], references: [id], onDelete: SetNull)
     makeupAttendance      Attendance? @relation("MakeupLink")
 
+    /// Когда отметку поставил родитель через /cabinet/{token}; null — отметка сотрудника.
+    /// «Родитель предупредил» и «преподаватель отметил» выглядят в БД одинаково
+    /// (ABSENT + isWarned), но цена ошибки у них разная, поэтому источник храним.
+    /// FK на Parent не заводим: вопрос — «из кабинета или из платформы», а не «какой
+    /// из двух родителей», и без FK отметка переживает удаление родителя.
+    parentMarkedAt DateTime?
+
     // Кошелёк для списания разового посещения (ученик не состоит в группе урока).
     // null — обычная запись, списание идёт через StudentGroup группы урока.
     walletId Int?

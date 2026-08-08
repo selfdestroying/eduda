@@ -1,32 +1,12 @@
-import ParentCabinetClient from '@/src/features/public-edit/components/parent-cabinet-client'
-import { TokenSchema } from '@/src/features/public-edit/schemas'
-import { prisma } from '@repo/db'
-import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
+import CabinetHome from '@/src/features/public-edit/components/cabinet-home'
 
-export const metadata: Metadata = { title: 'Личный кабинет' }
-
+// Токен проверил layout сегмента, а каждый action всё равно перепроверяет его
+// сам — страницам остаётся только передать его вниз.
 type PageProps = {
   params: Promise<{ token: string }>
 }
 
 export default async function Page({ params }: PageProps) {
-  const { token: rawToken } = await params
-  const token = TokenSchema.safeParse(rawToken)
-
-  if (!token.success) {
-    return notFound()
-  }
-
-  // Токен принадлежит родителю (Parent.accessToken).
-  const parent = await prisma.parent.findUnique({
-    where: { accessToken: token.data },
-    select: { id: true },
-  })
-
-  if (!parent) {
-    return notFound()
-  }
-
-  return <ParentCabinetClient token={token.data} />
+  const { token } = await params
+  return <CabinetHome token={token} />
 }

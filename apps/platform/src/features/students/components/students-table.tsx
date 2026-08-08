@@ -80,18 +80,16 @@ export default function StudentsTable() {
             .join(', ') || '-',
       },
       {
-        header: 'Актуальность',
+        // Актуальность — это дата последней правки анкеты, а не флаг:
+        // подтверждать данные родителю больше не нужно.
+        header: 'Данные обновлены',
         accessorFn: (row) =>
           row.dataActualizedAt ? formatActualizedDate(row.dataActualizedAt, tz) : '-',
         cell: ({ row }) =>
-          row.original.dataActual ? (
-            <span>
-              {row.original.dataActualizedAt
-                ? formatActualizedDate(row.original.dataActualizedAt, tz)
-                : 'Да'}
-            </span>
+          row.original.dataActualizedAt ? (
+            <span>{formatActualizedDate(row.original.dataActualizedAt, tz)}</span>
           ) : (
-            <span className="text-muted-foreground">Не подтверждены</span>
+            <span className="text-muted-foreground">Не менялись</span>
           ),
       },
     ]
