@@ -143,7 +143,7 @@ export default function ActiveStatistics() {
           icon={TrendingUp}
           trend={growthPercent !== 0 ? { value: growthPercent, label: 'vs прошлый' } : undefined}
           subtitle={growthPercent === 0 ? 'нет данных за прошлый месяц' : undefined}
-          hint="Количество учеников, ставших активными в текущем месяце. Процент показывает рост или падение по сравнению с прошлым месяцем."
+          hint="Сколько учеников завели в системе в текущем месяце — независимо от того, занимаются ли они сейчас. Процент показывает рост или падение по сравнению с прошлым месяцем."
         />
         <KpiCard
           title="Групп"
@@ -166,7 +166,7 @@ export default function ActiveStatistics() {
           <CardHeader>
             <CardTitle className="text-sm font-medium">
               Динамика набора
-              <Hint text="Количество новых активных учеников по месяцам. Показывает темп набора новых учеников в организацию." />
+              <Hint text="Сколько новых учеников завели в организацию в каждом месяце. Ушедшие из своего месяца не исчезают, поэтому прошлые столбцы не меняются задним числом." />
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">

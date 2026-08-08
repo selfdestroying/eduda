@@ -41,8 +41,18 @@ export const getActiveStudentStatistics = authAction
 
     const totalStudents = uniqueStudentsMap.size
 
+    // Набор считаем по всем заведённым ученикам, а не по сегодня активным. Иначе
+    // мартовский столбец уменьшается каждый раз, когда кто-то уходит: прошлое
+    // переписывается задним числом, и по нему нельзя принимать решения.
+    // Ученик, заведённый и не попавший ни в одну группу, тоже идёт в набор —
+    // у Student статуса нет, он живёт на StudentGroup.
+    const enrolledStudents = await prisma.student.findMany({
+      where: { organizationId },
+      select: { createdAt: true },
+    })
+
     const monthlyStatsMap = new Map<string, { count: number; timestamp: number }>()
-    uniqueStudentsMap.forEach((student) => {
+    enrolledStudents.forEach((student) => {
       const date = toTz(student.createdAt, ctx.tz)
       const y = date.getFullYear()
       const m = date.getMonth()
