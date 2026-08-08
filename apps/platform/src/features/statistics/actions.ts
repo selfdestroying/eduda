@@ -119,6 +119,48 @@ export const getActiveStudentStatistics = authAction
     const totalGroups = new Set(activeStudentGroups.map((sg) => sg.groupId)).size
     const avgPerGroup = totalGroups > 0 ? Math.round((totalStudents / totalGroups) * 10) / 10 : 0
 
+    // Сколько учеников занималось в каждом месяце. Считаем по фактическим урокам:
+    // истории статусов в БД нет — у StudentGroup только текущий статус и дата
+    // последней смены, журнала переходов нет нигде, — так что посещаемость
+    // единственный источник с полными данными за прошлое. Ученик засчитан в месяц,
+    // если у него был хотя бы один урок; отметка не важна (отсутствие на занятии не
+    // значит, что человек перестал быть учеником), а отменённые уроки не в счёт.
+    // ponytail: вся посещаемость организации читается в память — десятки тысяч строк
+    // на школе в пару сотен учеников. Начнёт тормозить — здесь нужен GROUP BY по
+    // substring(date, 1, 7) сырым SQL, но $queryRaw в проекте пока нигде нет.
+    const attendedLessons = await prisma.attendance.findMany({
+      where: { organizationId, lesson: { status: { not: 'CANCELLED' } } },
+      select: { studentId: true, lesson: { select: { date: true } } },
+    })
+
+    const studentsByMonth = new Map<string, Set<number>>()
+    for (const a of attendedLessons) {
+      // Lesson.date — строка `YYYY-MM-DD`, месяц это её префикс.
+      const key = a.lesson.date.slice(0, 7)
+      const bucket = studentsByMonth.get(key)
+      if (bucket) bucket.add(a.studentId)
+      else studentsByMonth.set(key, new Set([a.studentId]))
+    }
+
+    // Месяцы без уроков рисуем нулём, а не пропускаем: летний провал — это факт,
+    // и на склеенном ряде его не видно.
+    const studiedKeys = Array.from(studentsByMonth.keys()).sort()
+    const firstKey = studiedKeys[0]
+    const lastKey = studiedKeys[studiedKeys.length - 1]
+    const studiedMonthly: { month: string; count: number }[] = []
+    if (firstKey && lastKey) {
+      const cursor = new Date(Number(firstKey.slice(0, 4)), Number(firstKey.slice(5, 7)) - 1, 1)
+      const end = new Date(Number(lastKey.slice(0, 4)), Number(lastKey.slice(5, 7)) - 1, 1)
+      while (cursor <= end) {
+        const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`
+        studiedMonthly.push({
+          month: cursor.toLocaleDateString('ru-RU', { month: 'short', year: '2-digit' }),
+          count: studentsByMonth.get(key)?.size ?? 0,
+        })
+        cursor.setMonth(cursor.getMonth() + 1)
+      }
+    }
+
     return {
       totalStudents,
       newThisMonth,
@@ -127,6 +169,7 @@ export const getActiveStudentStatistics = authAction
       totalGroups,
       avgPerGroup,
       monthly,
+      studiedMonthly,
       locations,
       teachers,
       courses,
