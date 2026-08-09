@@ -14,7 +14,6 @@ import GroupHistory from './group-history'
 import LessonsBalanceHistory from './lessons-balance-history'
 import ParentsSection from './parents-section'
 import PaymentSection from './payment-section'
-import RedistributeBalance from './redistribute-balance'
 import ShopSection from './shop-section'
 import StudentAccountSection from './student-account-section'
 import StudentCard from './student-card'
@@ -93,7 +92,6 @@ export default function StudentDetailPage({ studentId }: { studentId: number }) 
           </FeatureGate>
           <FeatureGate feature="finances">
             <PaymentSection student={student} />
-            <RedistributeBalance student={student} />
             <WalletsSection student={student} />
           </FeatureGate>
           <StudentGroupsSection

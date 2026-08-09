@@ -8,7 +8,6 @@ import {
   getStudentLessonsBalanceHistory,
   getStudentShopStats,
   getStudents,
-  redistributeBalance,
   revealStudentPassword,
   searchStudents,
   updateStudent,
@@ -207,34 +206,6 @@ export const useRevealStudentPasswordMutation = () => {
       const message =
         typeof error === 'string' ? error : error instanceof Error ? error.message : null
       toast.error(message || 'Не удалось показать пароль.')
-    },
-  })
-}
-
-export const useRedistributeBalanceMutation = (studentId: number) => {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (input: {
-      studentId: number
-      allocations: Array<{
-        walletId: number
-        lessons?: number
-        totalLessons?: number
-        totalPayments?: number
-      }>
-    }) => {
-      const { data, serverError } = await redistributeBalance(input)
-      if (serverError) throw serverError
-      return data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: studentKeys.detail(studentId) })
-      queryClient.invalidateQueries({ queryKey: studentKeys.all })
-      toast.success('Баланс успешно перераспределён!')
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Ошибка при перераспределении баланса')
     },
   })
 }
