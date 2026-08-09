@@ -24,7 +24,8 @@ export const getAdvancesData = authAction
     // 1. Оплаты ДО конца периода
     // ====================================================================
     const allPayments = await prisma.payment.findMany({
-      where: { organizationId, createdAt: { lte: periodEnd } },
+      // Отменённая оплата денег школе не принесла — в авансах ей делать нечего.
+      where: { organizationId, status: 'ACTIVE', createdAt: { lte: periodEnd } },
       select: {
         id: true,
         studentId: true,

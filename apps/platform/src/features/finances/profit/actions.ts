@@ -91,6 +91,7 @@ export const getProfitMonthlyData = authAction
     const payments = await prisma.payment.findMany({
       where: {
         organizationId,
+        status: 'ACTIVE',
         date: { gte: yearStartYmd, lte: yearEndYmd },
       },
       select: {

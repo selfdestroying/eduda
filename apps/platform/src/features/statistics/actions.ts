@@ -328,14 +328,6 @@ export const getAbsentStatistics = authAction
         status: 'ABSENT',
       },
       include: {
-        student: {
-          include: {
-            groups: {
-              where: { status: { in: ['ACTIVE', 'TRIAL'] } },
-              include: { wallet: true },
-            },
-          },
-        },
         lesson: true,
         makeupAttendance: true,
       },
@@ -346,22 +338,33 @@ export const getAbsentStatistics = authAction
       },
     })
 
-    function getPerGroupRate(
-      studentGroups: {
-        groupId: number
-        wallet: { totalPayments: number; totalLessons: number } | null
-      }[],
-      groupId: number,
-    ): number {
-      const sg = studentGroups.find((g) => g.groupId === groupId)
-      if (!sg?.wallet || sg.wallet.totalLessons === 0) return 0
-      return sg.wallet.totalPayments / sg.wallet.totalLessons
+    // Цена последнего списания ученика — на случай, когда у пропуска денег нет ни на
+    // себе, ни на отработке: предупредил и не отработал. Тогда «сколько стоил бы этот
+    // урок» больше взять неоткуда, а средняя по кошельку врала бы задним числом
+    // (см. карточку про очередь пакетов).
+    const lastPrices = await prisma.$queryRaw<{ studentId: number; price: number }[]>`
+      SELECT DISTINCT ON (a."studentId") a."studentId", a.price
+      FROM "Attendance" a
+      JOIN "Lesson" l ON l.id = a."lessonId"
+      WHERE a."organizationId" = ${organizationId} AND a.amount > 0 AND a.price > 0
+      ORDER BY a."studentId", l.date DESC, a.id DESC`
+    const lastPriceByStudent = new Map(lastPrices.map((r) => [r.studentId, r.price]))
+
+    /**
+     * Во сколько школе обошёлся пропуск. Порядок источников — от факта к оценке:
+     * списанная проводка самого пропуска, потом проводка его отработки, потом
+     * последняя известная цена ученика.
+     */
+    function priceOf(att: (typeof absences)[number]): number {
+      if ((att.amount ?? 0) > 0) return att.price ?? 0
+      if ((att.makeupAttendance?.amount ?? 0) > 0) return att.makeupAttendance?.price ?? 0
+      return lastPriceByStudent.get(att.studentId) ?? 0
     }
 
     let rateSum = 0
     let rateCount = 0
     absences.forEach((att) => {
-      const rate = getPerGroupRate(att.student.groups, att.lesson.groupId)
+      const rate = priceOf(att)
       if (rate > 0) {
         rateSum += rate
         rateCount++
@@ -380,7 +383,7 @@ export const getAbsentStatistics = authAction
 
     absences.forEach((att) => {
       const date = new Date(att.lesson.date)
-      const rate = getPerGroupRate(att.student.groups, att.lesson.groupId)
+      const rate = priceOf(att)
 
       const y = date.getUTCFullYear()
       const m = date.getUTCMonth()
@@ -391,10 +394,11 @@ export const getAbsentStatistics = authAction
       const monday = new Date(Date.UTC(y, m, diff))
       const weekKey = monday.toISOString().split('T')[0]!
 
-      let isSaved = false
-      if (att.makeupAttendance?.status === 'PRESENT') {
-        isSaved = true
-      }
+      const isSaved = att.makeupAttendance?.status === 'PRESENT'
+      // Спасённое — это уже признанная выручка отработки, а не оценка: урок провели,
+      // деньги списали её проводкой.
+      const savedRate =
+        (att.makeupAttendance?.amount ?? 0) > 0 ? (att.makeupAttendance?.price ?? 0) : rate
 
       if (!monthlyStatsMap.has(monthKey)) {
         monthlyStatsMap.set(monthKey, {
@@ -410,7 +414,7 @@ export const getAbsentStatistics = authAction
       mStat.missedMoney += rate
       if (isSaved) {
         mStat.saved++
-        mStat.savedMoney += rate
+        mStat.savedMoney += savedRate
       }
 
       if (!weeklyStatsMap.has(weekKey)) {
@@ -427,7 +431,7 @@ export const getAbsentStatistics = authAction
       wStat.missedMoney += rate
       if (isSaved) {
         wStat.saved++
-        wStat.savedMoney += rate
+        wStat.savedMoney += savedRate
       }
     })
 
