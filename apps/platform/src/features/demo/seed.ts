@@ -439,9 +439,9 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       lastName: s.lastName,
       // Возраст в БД не хранится — считается из даты рождения на чтение.
       birthDate: ymd(addUTCDays(today, -s.age * 365)),
-      lessonsBalance: s.balance,
-      totalLessons: s.totalLessons,
-      totalPayments: s.totalPayments,
+      // Финансы ученика живут в кошельках. Поля на самом ученике — нераспределённый
+      // остаток от старой системы учёта; в демо его быть не должно, иначе он
+      // задваивает баланс и предлагает распределить то, что распределить нечем.
       dataActualizedAt:
         s.dataUpdatedDaysAgo === null ? null : addUTCDays(today, -s.dataUpdatedDaysAgo),
     })),
@@ -538,10 +538,16 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
         bidForLesson: Math.round(price / lessonCount),
         productName: `Абонемент ${lessonCount} занятий`,
         date: ymd(addUTCDays(today, -int(1, 40))),
+        // Пакет встаёт в очередь целиком: без остатка демо-посещения списывались бы
+        // «в долг» и демо-выручка не показывала бы разбор по пакетам.
+        remaining: lessonCount,
       })
     }
   })
-  await prisma.payment.createMany({ data: payments })
+  const createdPayments = await prisma.payment.createManyAndReturn({
+    data: payments,
+    select: { id: true, studentId: true, date: true, price: true, lessonCount: true },
+  })
 
   await prisma.studentLessonsBalanceHistory.createMany({
     data: students.map((st, i) => ({
@@ -581,23 +587,71 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
   }
 
   // 8. Посещаемость по прошедшим урокам (одним батчем) ───────────────────
+  // Посещение здесь сразу становится проводкой: гасит головной пакет ученика и
+  // забирает его цену, как это делает `applyPacketEntryTx` вживую. Без этого
+  // «Выручка», «Прибыль» и «Авансы» в демо-школе показывали бы нули.
+  const queueByStudent = new Map<number, { id: number; price: number; left: number }[]>()
+  for (const p of [...createdPayments].sort((a, b) => (a.date < b.date ? -1 : 1))) {
+    const queue = queueByStudent.get(p.studentId) ?? []
+    queue.push({
+      id: p.id,
+      price: p.lessonCount > 0 ? Math.floor(p.price / p.lessonCount) : 0,
+      left: p.lessonCount,
+    })
+    queueByStudent.set(p.studentId, queue)
+  }
+
   const attendance: Prisma.AttendanceCreateManyInput[] = []
   for (let g = 0; g < createdGroups.length; g++) {
     for (const lessonId of createdGroups[g]!.pastLessonIds) {
       for (const studentId of studentsByGroup[g]!) {
         const roll = rng()
         const status = roll < 0.7 ? 'PRESENT' : roll < 0.9 ? 'ABSENT' : 'UNSPECIFIED'
+        const charged = status !== 'UNSPECIFIED'
+        const queue = queueByStudent.get(studentId) ?? []
+        const packet = charged ? queue.find((p) => p.left > 0) : undefined
+        if (packet) packet.left -= 1
+
+        // Пакеты кончились — списываем в долг по последней известной цене, как это
+        // делает `applyPacketEntryTx`: демо должно показывать те же случаи, что и живая база.
+        const price = packet?.price ?? queue.at(-1)?.price ?? 0
+
         attendance.push({
           organizationId: orgId,
           lessonId,
           studentId,
           status,
           comment: status === 'ABSENT' && rng() > 0.6 ? 'Болел' : '',
+          paymentId: packet?.id ?? null,
+          price: charged ? price : 0,
+          amount: charged ? 1 : 0,
         })
       }
     }
   }
   if (attendance.length > 0) await prisma.attendance.createMany({ data: attendance })
+
+  // Остатки пакетов после раздачи. Значений мало (0…12), поэтому обновляем группами,
+  // а не по одному пакету на запрос.
+  const byRemaining = new Map<number, number[]>()
+  for (const queue of queueByStudent.values()) {
+    for (const p of queue) byRemaining.set(p.left, [...(byRemaining.get(p.left) ?? []), p.id])
+  }
+  for (const [left, ids] of byRemaining) {
+    await prisma.payment.updateMany({ where: { id: { in: ids } }, data: { remaining: left } })
+  }
+
+  // Баланс кошелька — это и есть непотраченные уроки его пакетов. Случайное число
+  // здесь разошлось бы с пакетами, и сверка остатков на демо-базе краснела бы.
+  const balanceByWallet = new Map<number, number[]>()
+  for (const [studentId, queue] of queueByStudent) {
+    const left = queue.reduce((sum, p) => sum + p.left, 0)
+    const walletId = walletByStudent.get(studentId)
+    if (walletId) balanceByWallet.set(left, [...(balanceByWallet.get(left) ?? []), walletId])
+  }
+  for (const [left, ids] of balanceByWallet) {
+    await prisma.wallet.updateMany({ where: { id: { in: ids } }, data: { lessonsBalance: left } })
+  }
 
   // 9. Магазин ──────────────────────────────────────────────────────────
   const [catStationery, catMerch] = await Promise.all([
