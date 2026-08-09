@@ -7,7 +7,7 @@ import {
   chargeAttendanceTx,
   isLessonCharged,
   unchargeAttendanceTx,
-} from '@/src/features/finances/packets.server'
+} from '@/src/features/finances/ledger.server'
 import { ATTENDANCE_COINS, recordCoins } from '@/src/lib/coins'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
 import { authAction } from '@/src/lib/safe-action'

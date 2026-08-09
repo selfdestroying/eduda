@@ -1,7 +1,7 @@
 'use server'
 
 import { prisma } from '@repo/db'
-import { unchargeAttendanceTx } from '@/src/features/finances/packets.server'
+import { unchargeAttendanceTx } from '@/src/features/finances/ledger.server'
 import { ConflictError, ForbiddenError, NotFoundError } from '@/src/lib/error'
 import { getEffectiveFeatures } from '@/src/lib/features/effective'
 import { isFeatureDisabled } from '@/src/lib/features/registry'

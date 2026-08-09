@@ -12,7 +12,12 @@ import './load-env'
 
 import assert from 'node:assert/strict'
 import { prisma } from '@repo/db'
-import { chargeAttendanceTx, unchargeAttendanceTx } from '../src/features/finances/packets.server'
+import { WalletEntryKind } from '@repo/db/enums'
+import {
+  chargeAttendanceTx,
+  recordWalletEntryTx,
+  unchargeAttendanceTx,
+} from '../src/features/finances/ledger.server'
 
 class Rollback extends Error {}
 
@@ -88,8 +93,9 @@ async function main() {
         return attendance.id
       }
 
-      const packet = async (date: string, price: number, lessonCount: number) =>
-        await tx.payment.create({
+      /** Оплата: пакет в очередь, уроки на баланс, приход в журнал — как в экшене. */
+      const packet = async (date: string, price: number, lessonCount: number) => {
+        const created = await tx.payment.create({
           data: {
             organizationId,
             studentId: student.id,
@@ -102,6 +108,23 @@ async function main() {
           },
           select: { id: true },
         })
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: { lessonsBalance: { increment: lessonCount } },
+        })
+        await recordWalletEntryTx(tx, {
+          organizationId,
+          walletId: wallet.id,
+          studentId: student.id,
+          kind: WalletEntryKind.PURCHASE,
+          quantity: lessonCount,
+          unitPrice: lessonCount > 0 ? Math.floor(price / lessonCount) : 0,
+          effectiveAt: date,
+          paymentId: created.id,
+          actorUserId: null,
+        })
+        return created
+      }
 
       const entryOf = async (id: number) =>
         await tx.attendance.findUniqueOrThrow({
@@ -116,6 +139,22 @@ async function main() {
           .lessonsBalance
       const historyCount = async () =>
         await tx.studentLessonsBalanceHistory.count({ where: { studentId: student.id } })
+      /** Строки журнала по занятию, в порядке появления. */
+      const ledgerOf = async (attendanceId: number) =>
+        await tx.walletEntry.findMany({
+          where: { attendanceId },
+          orderBy: { id: 'asc' },
+          select: {
+            kind: true,
+            quantity: true,
+            unitPrice: true,
+            effectiveAt: true,
+            reversalOfId: true,
+          },
+        })
+      const ledgerSum = async (id = wallet.id) =>
+        (await tx.walletEntry.aggregate({ where: { walletId: id }, _sum: { quantity: true } }))._sum
+          .quantity ?? 0
 
       const charge = (attendanceId: number) =>
         chargeAttendanceTx(tx, { attendanceId, organizationId, actorUserId: null })
@@ -125,7 +164,6 @@ async function main() {
       // Пакет A дороже и куплен раньше, пакет B дешевле и куплен позже — тот самый
       // случай, в котором старая формула переписывала осень задним числом.
       const a = await packet('2026-09-01', 12_000, 12)
-      await tx.wallet.update({ where: { id: wallet.id }, data: { lessonsBalance: 12 } })
 
       // ─── Списание берёт головной пакет, его цену и двигает баланс ──────
       const first = await visit()
@@ -138,6 +176,19 @@ async function main() {
       assert.equal(await remainingOf(a.id), 11, 'остаток пакета A должен уменьшиться на урок')
       assert.equal(await balance(), 11, 'баланс кошелька должен уменьшиться на урок')
       assert.equal(await historyCount(), 1, 'движение баланса должно попасть в историю')
+      assert.deepEqual(
+        await ledgerOf(first),
+        [
+          {
+            kind: 'CHARGE',
+            quantity: -1,
+            unitPrice: 1000,
+            effectiveAt: '2026-09-01',
+            reversalOfId: null,
+          },
+        ],
+        'списание должно оставить строку журнала, датированную днём занятия',
+      )
 
       // ─── Повторное списание той же строки ничего не делает ─────────────
       await charge(first)
@@ -151,7 +202,6 @@ async function main() {
 
       // ─── Более дешёвый пакет не перебивает цену, пока голова не кончилась ──
       const b = await packet('2027-01-15', 6_000, 12)
-      await tx.wallet.update({ where: { id: wallet.id }, data: { lessonsBalance: 23 } })
 
       const second = await visit()
       await charge(second)
@@ -173,6 +223,25 @@ async function main() {
       assert.equal(await remainingOf(a.id), 11, 'урок вернулся в пакет A')
       assert.equal(await remainingOf(b.id), 12, 'откат не должен наливать остаток в пакет B')
       assert.equal(await balance(), balanceBeforeRevert + 1, 'урок вернулся и на баланс')
+
+      const secondLedger = await ledgerOf(second)
+      assert.equal(secondLedger.length, 2, 'откат пишет встречную строку, а не правит старую')
+      assert.equal(secondLedger[0]!.kind, 'CHARGE', 'первой остаётся строка списания')
+      assert.equal(secondLedger[1]!.kind, 'REVERSAL', 'второй появляется строка отката')
+      assert.equal(secondLedger[1]!.quantity, 1, 'откат возвращает урок')
+      assert.ok(secondLedger[1]!.reversalOfId, 'откат обязан ссылаться на своё списание')
+
+      // Пакет A: приход 12, два списания, один возврат — журнал обязан сойтись
+      // с его остатком. Ниже остатки правятся руками, поэтому проверяем здесь.
+      const packetLedger = await tx.walletEntry.aggregate({
+        where: { paymentId: a.id },
+        _sum: { quantity: true },
+      })
+      assert.equal(
+        packetLedger._sum.quantity,
+        await remainingOf(a.id),
+        'Σ журнала по пакету обязана равняться его остатку',
+      )
 
       // ─── Повторный откат уже откаченной строки ничего не двигает ───────
       await uncharge(second)
@@ -302,6 +371,17 @@ async function main() {
         'урок не возвращается на баланс: деньги за отменённую оплату школа вернула',
       )
       assert.equal(await remainingOf(cancelled.id), 0, 'и в отменённый пакет он не кладётся')
+
+      const cancelLedger = await ledgerOf(spent)
+      assert.equal(cancelLedger.length, 2, 'несостоявшийся возврат — тоже событие журнала')
+      assert.equal(cancelLedger[1]!.quantity, 0, 'но нулевое: урок никуда не двинулся')
+
+      // ─── Журнал сходится с остатком кошелька ───────────────────────────
+      assert.equal(
+        await ledgerSum(),
+        await balance(),
+        'Σ журнала по кошельку обязана равняться его остатку',
+      )
 
       // ─── Пакет с нулём уроков не делит на ноль ─────────────────────────
       const broken = await packet('2027-05-01', 5_000, 0)

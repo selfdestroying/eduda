@@ -33,6 +33,7 @@ model Student {
     achievements          StudentAchievement[]
     wallets               Wallet[]
     parents               StudentParent[]
+    walletEntries         WalletEntry[]
 
     @@index([organizationId])
 }
@@ -135,6 +136,7 @@ model Wallet {
     payments       Payment[]
     balanceHistory StudentLessonsBalanceHistory[]
     attendances    Attendance[]
+    ledger         WalletEntry[]
 
     @@index([organizationId])
     @@index([studentId])

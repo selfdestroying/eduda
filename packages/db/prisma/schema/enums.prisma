@@ -68,6 +68,19 @@ enum StudentLessonsBalanceChangeReason {
     LESSON_CANCELLED
 }
 
+enum WalletEntryKind {
+    /// Оплата: уроки пришли в кошелёк.
+    PURCHASE
+    /// Занятие списано.
+    CHARGE
+    /// Списание отменено: занятие перестало быть платным или строка удалена.
+    REVERSAL
+    /// Отмена оплаты: непотраченный остаток пакета снят.
+    CANCELLATION
+    /// Корректировка: сальдо на момент запуска журнала и разметка истории.
+    ADJUSTMENT
+}
+
 enum StudentFinancialField {
     LESSONS_BALANCE
     TOTAL_PAYMENTS

@@ -40,7 +40,7 @@
 import './load-env'
 
 import { prisma } from '@repo/db'
-import { isLessonCharged } from '../src/features/finances/packets.server'
+import { isLessonCharged } from '../src/features/finances/ledger.server'
 
 const APPLY = process.argv.includes('--apply')
 const VERBOSE = process.argv.includes('--verbose')

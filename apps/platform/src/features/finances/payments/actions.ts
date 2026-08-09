@@ -1,9 +1,14 @@
 'use server'
 
-import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@repo/db/enums'
+import {
+  StudentFinancialField,
+  StudentLessonsBalanceChangeReason,
+  WalletEntryKind,
+} from '@repo/db/enums'
 import { prisma } from '@repo/db'
-import { writeFinancialHistoryTx } from '@/src/features/finances/packets.server'
+import { recordWalletEntryTx, writeFinancialHistoryTx } from '@/src/features/finances/ledger.server'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
+import { todayYmdInTz } from '@/src/lib/timezone'
 import { authAction } from '@/src/lib/safe-action'
 import {
   CancelPaymentSchema,
@@ -78,7 +83,8 @@ export const createPaymentWithBalance = authAction
       if (!wallet) throw new Error('Кошелёк не найден')
       if (wallet.studentId !== studentId) throw new Error('Кошелёк не принадлежит этому ученику')
 
-      await tx.payment.create({
+      const payment = await tx.payment.create({
+        select: { id: true },
         data: {
           organizationId: wallet.organizationId,
           studentId,
@@ -93,6 +99,19 @@ export const createPaymentWithBalance = authAction
           paymentMethodId: paymentMethodId ?? null,
           managerId: managerId ?? null,
         },
+      })
+
+      // Журнал: оплата — приход уроков в кошелёк, встаёт в очередь по своей дате.
+      await recordWalletEntryTx(tx, {
+        organizationId: wallet.organizationId,
+        walletId,
+        studentId,
+        kind: WalletEntryKind.PURCHASE,
+        quantity: lessonCount,
+        unitPrice: Math.floor(price / lessonCount),
+        effectiveAt: date,
+        paymentId: payment.id,
+        actorUserId: Number(ctx.session.user.id),
       })
 
       const updated = await tx.wallet.update({
@@ -188,6 +207,21 @@ export const cancelPayment = authAction
         })
 
         balancesAfter = updatedWallet
+
+        // Журнал: снятие датируется днём отмены, а не днём оплаты — это новое
+        // событие, а не переписывание старого.
+        await recordWalletEntryTx(tx, {
+          organizationId: ctx.session.organizationId!,
+          walletId: payment.walletId,
+          studentId: payment.studentId,
+          kind: WalletEntryKind.CANCELLATION,
+          quantity: -unspent,
+          unitPrice: payment.lessonCount > 0 ? Math.floor(payment.price / payment.lessonCount) : 0,
+          effectiveAt: todayYmdInTz(ctx.tz),
+          paymentId: payment.id,
+          actorUserId: Number(ctx.session.user.id),
+          comment: 'Отмена оплаты: снят непотраченный остаток',
+        })
       } else {
         // Legacy payments without groupId - decrement global student balance
         const student = await tx.student.findUnique({
@@ -300,7 +334,8 @@ export const resolveUnprocessedPayment = authAction
       if (!wallet) throw new Error('Кошелёк не найден')
       if (wallet.studentId !== studentId) throw new Error('Кошелёк не принадлежит этому ученику')
 
-      await tx.payment.create({
+      const payment = await tx.payment.create({
+        select: { id: true },
         data: {
           organizationId: wallet.organizationId,
           studentId,
@@ -315,6 +350,19 @@ export const resolveUnprocessedPayment = authAction
           paymentMethodId: paymentMethodId ?? null,
           managerId: managerId ?? null,
         },
+      })
+
+      // Журнал: оплата — приход уроков в кошелёк, встаёт в очередь по своей дате.
+      await recordWalletEntryTx(tx, {
+        organizationId: wallet.organizationId,
+        walletId,
+        studentId,
+        kind: WalletEntryKind.PURCHASE,
+        quantity: lessonCount,
+        unitPrice: Math.floor(price / lessonCount),
+        effectiveAt: date,
+        paymentId: payment.id,
+        actorUserId: Number(ctx.session.user.id),
       })
 
       const updated = await tx.wallet.update({

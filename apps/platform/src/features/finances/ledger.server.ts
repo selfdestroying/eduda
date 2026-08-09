@@ -3,6 +3,7 @@ import {
   AttendanceStatus,
   StudentFinancialField,
   StudentLessonsBalanceChangeReason,
+  WalletEntryKind,
 } from '@repo/db/enums'
 
 /**
@@ -10,14 +11,21 @@ import {
  *
  * Наружу торчат ровно две операции — «занятие оплачено» и «занятие больше не
  * оплачено». Каждая делает всё, что за этим стоит: гасит или возвращает урок в
- * пакет, двигает баланс кошелька, переписывает проводку на строке и пишет
- * историю. Вызывающему не остаётся ни одной обязанности, про которую можно
- * забыть, — раньше их было четыре, и каждый из шести вызовов брал на себя свой
- * набор.
+ * пакет, двигает баланс кошелька, переписывает проводку на строке, пишет строку
+ * в журнал и в историю. Вызывающему не остаётся ни одной обязанности, про
+ * которую можно забыть.
  *
- * Живёт отдельно от экшенов, чтобы `scripts/check-payment-packets.ts` мог
- * прогнать денежную логику против настоящей БД, не поднимая сессию. По той же
- * причине здесь нет `server-only` и импортов из `@/src/lib`.
+ * Журнал (`WalletEntry`) — источник правды: остаток кошелька и остаток пакета
+ * это суммы его строк, а сами колонки — кеш поверх него. Строки журнала не
+ * правятся: откат списания пишет встречную строку, а не стирает старую.
+ *
+ * `StudentLessonsBalanceHistory` пишется рядом и по остатку уроков журнал
+ * дублирует: на ней держится экран истории в карточке ученика. Когда экран
+ * переедет на журнал, писать историю по `LESSONS_BALANCE` станет незачем.
+ *
+ * Живёт отдельно от экшенов, чтобы `scripts/check-ledger-core.ts` мог прогнать
+ * денежную логику против настоящей БД, не поднимая сессию. По той же причине
+ * здесь нет `server-only` и импортов из `@/src/lib`.
  */
 
 /**
@@ -40,10 +48,11 @@ const moneySelect = {
   walletId: true,
   paymentId: true,
   amount: true,
+  price: true,
   status: true,
   lessonId: true,
   makeupForAttendanceId: true,
-  lesson: { select: { groupId: true } },
+  lesson: { select: { groupId: true, date: true } },
   makeupForAttendance: { select: { lesson: { select: { groupId: true } } } },
 } satisfies Prisma.AttendanceSelect
 
@@ -105,13 +114,22 @@ export async function chargeAttendanceTx(
     await tx.payment.update({ where: { id: packet.id }, data: { remaining: { decrement: 1 } } })
   }
 
+  const price = packet ? unitPrice(packet) : await walletUnitPrice(tx, walletId)
+
   await tx.attendance.update({
     where: { id: attendance.id },
-    data: {
-      paymentId: packet?.id ?? null,
-      price: packet ? unitPrice(packet) : await walletUnitPrice(tx, walletId),
-      amount: 1,
-    },
+    data: { paymentId: packet?.id ?? null, price, amount: 1 },
+  })
+
+  await recordEntryTx(tx, {
+    attendance,
+    walletId,
+    kind: WalletEntryKind.CHARGE,
+    quantity: -1,
+    unitPrice: price,
+    paymentId: packet?.id ?? null,
+    actorUserId: args.actorUserId,
+    comment: packet ? null : 'В долг: непотраченных пакетов не было',
   })
 
   await moveBalanceTx(tx, {
@@ -164,11 +182,35 @@ export async function unchargeAttendanceTx(
 
   await tx.attendance.update({ where: { id: attendance.id }, data: { amount: 0 } })
 
-  if (attendance.paymentId && !returned) return
-
   // Урок возвращается в тот же кошелёк, где лежит его пакет: иначе баланс
   // разойдётся с остатками, если ученика с тех пор перевели на другой кошелёк.
   const walletId = packet?.walletId ?? (await walletOfAttendanceTx(tx, attendance))
+
+  // Оплату отменили: урок не вернулся ни в пакет, ни на баланс. Событие всё
+  // равно записываем — иначе в журнале останется списание без своей пары.
+  if (attendance.paymentId && !returned) {
+    await recordEntryTx(tx, {
+      attendance,
+      walletId,
+      kind: WalletEntryKind.REVERSAL,
+      quantity: 0,
+      unitPrice: attendance.price ?? 0,
+      paymentId: attendance.paymentId,
+      actorUserId: args.actorUserId,
+      comment: 'Оплата отменена — урок не возвращается',
+    })
+    return
+  }
+
+  await recordEntryTx(tx, {
+    attendance,
+    walletId,
+    kind: WalletEntryKind.REVERSAL,
+    quantity: attendance.amount,
+    unitPrice: attendance.price ?? 0,
+    paymentId: attendance.paymentId,
+    actorUserId: args.actorUserId,
+  })
 
   await moveBalanceTx(tx, {
     attendance,
@@ -200,6 +242,99 @@ async function walletOfAttendanceTx(
     select: { walletId: true },
   })
   return studentGroup?.walletId ?? null
+}
+
+/**
+ * Строка журнала — единственный способ записать движение остатка.
+ *
+ * Строки не правятся и не удаляются: ошибка исправляется встречной строкой.
+ * `Σ quantity` по кошельку даёт его остаток, по пакету — остаток пакета.
+ */
+export async function recordWalletEntryTx(
+  tx: Prisma.TransactionClient,
+  args: {
+    organizationId: number
+    walletId: number
+    studentId: number
+    kind: WalletEntryKind
+    /** Уроки: + пришли, − ушли. Ноль — событие было, движения не было. */
+    quantity: number
+    unitPrice: number
+    /** Бизнес-день: дата занятия или оплаты, а не дата записи. */
+    effectiveAt: string
+    paymentId?: number | null
+    attendanceId?: number | null
+    reversalOfId?: number | null
+    actorUserId: number | null
+    comment?: string | null
+  },
+): Promise<void> {
+  await tx.walletEntry.create({
+    data: {
+      organizationId: args.organizationId,
+      walletId: args.walletId,
+      studentId: args.studentId,
+      kind: args.kind,
+      quantity: args.quantity,
+      unitPrice: args.unitPrice,
+      effectiveAt: args.effectiveAt,
+      paymentId: args.paymentId ?? null,
+      attendanceId: args.attendanceId ?? null,
+      reversalOfId: args.reversalOfId ?? null,
+      actorUserId: args.actorUserId,
+      comment: args.comment ?? null,
+    },
+  })
+}
+
+/** Строка журнала по занятию. Бизнес-день берётся с самого занятия. */
+async function recordEntryTx(
+  tx: Prisma.TransactionClient,
+  args: {
+    attendance: MoneyAttendance
+    walletId: number | null
+    kind: WalletEntryKind
+    quantity: number
+    unitPrice: number
+    paymentId: number | null
+    actorUserId: number | null
+    comment?: string | null
+  },
+): Promise<void> {
+  const { attendance, walletId } = args
+  if (!walletId) return
+
+  // Откат ссылается на списание, которое отменяет: по этой ссылке журнал
+  // читается парами, а `@unique` не даёт отменить одно списание дважды.
+  const reversed =
+    args.kind === WalletEntryKind.REVERSAL
+      ? await tx.walletEntry.findFirst({
+          where: {
+            attendanceId: attendance.id,
+            kind: WalletEntryKind.CHARGE,
+            reversedBy: { is: null },
+          },
+          orderBy: { id: 'desc' },
+          select: { id: true },
+        })
+      : null
+
+  await recordWalletEntryTx(tx, {
+    organizationId: attendance.organizationId,
+    walletId,
+    studentId: attendance.studentId,
+    kind: args.kind,
+    quantity: args.quantity,
+    unitPrice: args.unitPrice,
+    // День занятия, а не день отметки: внесённое задним числом попадает в свой
+    // месяц, а не в тот, когда до него дошли руки.
+    effectiveAt: attendance.lesson.date,
+    paymentId: args.paymentId,
+    attendanceId: attendance.id,
+    reversalOfId: reversed?.id ?? null,
+    actorUserId: args.actorUserId,
+    comment: args.comment,
+  })
 }
 
 /** Двигает баланс кошелька и пишет строку истории — всегда вместе. */

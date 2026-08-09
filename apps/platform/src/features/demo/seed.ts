@@ -602,6 +602,8 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
   }
 
   const attendance: Prisma.AttendanceCreateManyInput[] = []
+  /** Занятия, списанные без пакета: на балансе они уходят в минус. */
+  const debtByStudent = new Map<number, number>()
   for (let g = 0; g < createdGroups.length; g++) {
     for (const lessonId of createdGroups[g]!.pastLessonIds) {
       for (const studentId of studentsByGroup[g]!) {
@@ -611,6 +613,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
         const queue = queueByStudent.get(studentId) ?? []
         const packet = charged ? queue.find((p) => p.left > 0) : undefined
         if (packet) packet.left -= 1
+        else if (charged) debtByStudent.set(studentId, (debtByStudent.get(studentId) ?? 0) + 1)
 
         // Пакеты кончились — списываем в долг по последней известной цене, как это
         // делает `chargeAttendanceTx`: демо должно показывать те же случаи, что и живая база.
@@ -629,7 +632,55 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       }
     }
   }
-  if (attendance.length > 0) await prisma.attendance.createMany({ data: attendance })
+  const createdAttendance =
+    attendance.length > 0
+      ? await prisma.attendance.createManyAndReturn({
+          data: attendance,
+          select: { id: true, studentId: true, lessonId: true, paymentId: true, price: true },
+        })
+      : []
+
+  // Журнал движений: демо обязано подчиняться тем же инвариантам, что и живая
+  // база, иначе `scripts/check-ledger.ts` краснеет после каждого сброса.
+  const lessonDate = new Map(
+    (
+      await prisma.lesson.findMany({
+        where: { organizationId: orgId },
+        select: { id: true, date: true },
+      })
+    ).map((l) => [l.id, l.date]),
+  )
+  const ledger: Prisma.WalletEntryCreateManyInput[] = []
+  for (const p of createdPayments) {
+    const walletId = walletByStudent.get(p.studentId)
+    if (!walletId) continue
+    ledger.push({
+      organizationId: orgId,
+      walletId,
+      studentId: p.studentId,
+      kind: 'PURCHASE',
+      quantity: p.lessonCount,
+      unitPrice: p.lessonCount > 0 ? Math.floor(p.price / p.lessonCount) : 0,
+      effectiveAt: p.date,
+      paymentId: p.id,
+    })
+  }
+  for (const a of createdAttendance) {
+    const walletId = walletByStudent.get(a.studentId)
+    if (!walletId || !a.price) continue
+    ledger.push({
+      organizationId: orgId,
+      walletId,
+      studentId: a.studentId,
+      kind: 'CHARGE',
+      quantity: -1,
+      unitPrice: a.price,
+      effectiveAt: lessonDate.get(a.lessonId)!,
+      paymentId: a.paymentId,
+      attendanceId: a.id,
+    })
+  }
+  if (ledger.length > 0) await prisma.walletEntry.createMany({ data: ledger })
 
   // Остатки пакетов после раздачи. Значений мало (0…12), поэтому обновляем группами,
   // а не по одному пакету на запрос.
@@ -641,11 +692,11 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     await prisma.payment.updateMany({ where: { id: { in: ids } }, data: { remaining: left } })
   }
 
-  // Баланс кошелька — это и есть непотраченные уроки его пакетов. Случайное число
-  // здесь разошлось бы с пакетами, и сверка остатков на демо-базе краснела бы.
+  // Баланс кошелька — непотраченные уроки его пакетов минус занятия, проведённые
+  // в долг. Случайное число здесь разошлось бы и с пакетами, и с журналом.
   const balanceByWallet = new Map<number, number[]>()
   for (const [studentId, queue] of queueByStudent) {
-    const left = queue.reduce((sum, p) => sum + p.left, 0)
+    const left = queue.reduce((sum, p) => sum + p.left, 0) - (debtByStudent.get(studentId) ?? 0)
     const walletId = walletByStudent.get(studentId)
     if (walletId) balanceByWallet.set(left, [...(balanceByWallet.get(left) ?? []), walletId])
   }

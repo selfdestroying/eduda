@@ -78,7 +78,7 @@ function chipClass(att: Attendance | null, lesson: LessonItem) {
   return 'bg-destructive/20 text-destructive'
 }
 
-// Списывается ли занятие с баланса (зеркало isLessonCharged из finances/packets.server).
+// Списывается ли занятие с баланса (зеркало isLessonCharged из finances/ledger.server).
 function isCharged(att: Attendance | null) {
   if (!att) return false
   if (att.status === 'PRESENT') return true
