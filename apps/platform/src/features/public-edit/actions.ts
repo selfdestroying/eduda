@@ -1,7 +1,7 @@
 'use server'
 
 import { prisma } from '@repo/db'
-import { refundAttendanceTx } from '@/src/features/finances/packets.server'
+import { unchargeAttendanceTx } from '@/src/features/finances/packets.server'
 import { ConflictError, ForbiddenError, NotFoundError } from '@/src/lib/error'
 import { getEffectiveFeatures } from '@/src/lib/features/effective'
 import { isFeatureDisabled } from '@/src/lib/features/registry'
@@ -473,14 +473,16 @@ export const setPublicAbsence = publicAction
       // Отработка без пропуска — сирота, поэтому снимается вместе с отметкой.
       // Предикат выше уже не пустил бы сюда чужую или отмеченную отработку.
       if (!parsedInput.absent && attendance.makeupAttendance) {
-        const deleted = await tx.attendance.delete({
-          where: { id: attendance.makeupAttendance.id },
-          select: { paymentId: true, amount: true },
-        })
         // Предикат сюда отмеченную отработку не пустит, так что возвращать обычно
         // нечего. Вызов оставлен затем, чтобы послабление предиката не увело урок
         // из пакета и с баланса вместе с удалённой строкой.
-        await refundAttendanceTx(tx, deleted)
+        await unchargeAttendanceTx(tx, {
+          attendanceId: attendance.makeupAttendance.id,
+          organizationId,
+          actorUserId: null,
+          meta: { removed: 'makeup', by: 'parent' },
+        })
+        await tx.attendance.delete({ where: { id: attendance.makeupAttendance.id } })
       }
 
       await tx.attendance.update({

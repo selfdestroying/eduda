@@ -4,15 +4,12 @@ import { Prisma } from '@repo/db'
 import { AttendanceStatus, CoinTxReason, StudentLessonsBalanceChangeReason } from '@repo/db/enums'
 import { prisma } from '@repo/db'
 import {
-  applyPacketEntryTx,
+  chargeAttendanceTx,
   isLessonCharged,
-  refundAttendanceTx,
-  releasePacketEntryTx,
-  type AttendanceEntry,
+  unchargeAttendanceTx,
 } from '@/src/features/finances/packets.server'
 import { ATTENDANCE_COINS, recordCoins } from '@/src/lib/coins'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
-import { writeLessonsBalanceHistoryTx } from '@/src/lib/lessons-balance'
 import { authAction } from '@/src/lib/safe-action'
 import { DateOnlySchema, formatDateOnly } from '@/src/lib/timezone'
 import { getGroupName } from '@/src/lib/utils'
@@ -226,7 +223,7 @@ export const updateAttendanceStatus = authAction
     }
 
     const oldAttendance = await prisma.attendance.findFirst({
-      where: { studentId, lessonId },
+      where: { studentId, lessonId, organizationId: ctx.session.organizationId! },
       include: {
         lesson: {
           include: {
@@ -248,121 +245,53 @@ export const updateAttendanceStatus = authAction
     if (!oldAttendance) throw new NotFoundError('Запись посещаемости не найдена')
 
     await prisma.$transaction(async (tx) => {
-      // Проводка: чем строка посещаемости расплатилась. Заполняется ниже, если
-      // списание (или его откат) реально случилось, и уезжает в attendance.update.
-      let entry: AttendanceEntry = {}
-
-      if (!oldAttendance.isTrial) {
-        await updateCoins(
-          tx,
-          status as AttendanceStatus,
-          oldAttendance.status,
-          oldAttendance.studentId,
-          ctx.session.organizationId!,
-          oldAttendance.id,
-        )
-
-        const delta = getLessonsBalanceDelta(
-          oldAttendance.status,
-          status as AttendanceStatus,
-          oldAttendance.isWarned,
-          isWarned,
-        )
-
-        if (delta !== 0) {
-          const groupId = oldAttendance.makeupForAttendance
-            ? oldAttendance.makeupForAttendance.lesson.groupId
-            : oldAttendance.lesson.groupId
-          const studentGroup = await tx.studentGroup.findUnique({
-            where: { studentId_groupId: { studentId: oldAttendance.studentId, groupId } },
-            select: { walletId: true },
-          })
-          // Разовое посещение: ученик не в группе урока — списываем с кошелька,
-          // выбранного при добавлении (attendance.walletId). Иначе — кошелёк группы.
-          const walletId = oldAttendance.walletId ?? studentGroup?.walletId
-
-          // Проводку пересчитываем всегда, даже когда кошелька не нашлось: иначе на
-          // строке осталась бы цена от прошлого статуса и выручка держалась бы за
-          // урок, который только что откатили.
-          const packet = await applyPacketEntryTx(tx, {
-            walletId: walletId ?? null,
-            delta,
-            previous: { paymentId: oldAttendance.paymentId, amount: oldAttendance.amount },
-          })
-          entry = packet.entry
-
-          // Баланс двигаем ровно на то, что подтвердила проводка. Разойтись они могут
-          // в одном случае: откат списания с отменённой оплаты — урок туда не
-          // возвращается, значит и на баланс попасть не должен.
-          if (walletId && packet.balanceDelta !== 0) {
-            const wallet = await tx.wallet.findUnique({
-              where: { id: walletId },
-              select: { lessonsBalance: true },
-            })
-            if (!wallet) throw new NotFoundError('Кошелёк не найден')
-
-            const balanceBefore = wallet.lessonsBalance
-            const updated = await tx.wallet.update({
-              where: { id: walletId },
-              data: {
-                lessonsBalance:
-                  packet.balanceDelta > 0
-                    ? { increment: packet.balanceDelta }
-                    : { decrement: Math.abs(packet.balanceDelta) },
-              },
-              select: { lessonsBalance: true },
-            })
-
-            const balanceAfter = updated.lessonsBalance
-            const isMakeupAttendance = Boolean(oldAttendance.makeupForAttendanceId)
-
-            const reason = (() => {
-              if (delta >= 0) return StudentLessonsBalanceChangeReason.ATTENDANCE_REVERTED
-              if (isMakeupAttendance)
-                return StudentLessonsBalanceChangeReason.MAKEUP_ATTENDED_CHARGED
-              if (status === AttendanceStatus.PRESENT)
-                return StudentLessonsBalanceChangeReason.ATTENDANCE_PRESENT_CHARGED
-              return StudentLessonsBalanceChangeReason.ATTENDANCE_ABSENT_CHARGED
-            })()
-
-            const lessonName =
-              getGroupName(oldAttendance.lesson.group) +
-              ` ${formatDateOnly(oldAttendance.lesson.date)}`
-
-            await writeLessonsBalanceHistoryTx(tx, {
-              organizationId: ctx.session.organizationId!,
-              studentId: oldAttendance.studentId,
-              actorUserId: Number(ctx.session.user.id),
-              groupId,
-              walletId,
-              reason,
-              delta: balanceAfter - balanceBefore,
-              balanceBefore,
-              balanceAfter,
-              meta: {
-                attendanceId: oldAttendance.id,
-                lessonId: oldAttendance.lessonId,
-                lessonName,
-                groupId,
-                oldStatus: oldAttendance.status,
-                newStatus: status,
-                oldIsWarned: oldAttendance.isWarned,
-                newIsWarned: isWarned,
-                isMakeupAttendance,
-              },
-            })
-          }
-        }
-      }
-
+      // Статус переставляем первым: денежные функции ниже читают строку уже в
+      // новом виде и сами решают, чем она расплатилась.
       await tx.attendance.update({
         where: {
           studentId_lessonId: { studentId, lessonId },
         },
         // parentMarkedAt сбрасываем: статус переставил сотрудник, значит отметка
         // больше не «со слов родителя» и родитель её из кабинета уже не тронет.
-        data: { status, isWarned, parentMarkedAt: null, ...entry },
+        data: { status, isWarned, parentMarkedAt: null },
       })
+
+      if (oldAttendance.isTrial) return
+
+      await updateCoins(
+        tx,
+        status as AttendanceStatus,
+        oldAttendance.status,
+        oldAttendance.studentId,
+        ctx.session.organizationId!,
+        oldAttendance.id,
+      )
+
+      const delta = getLessonsBalanceDelta(
+        oldAttendance.status,
+        status as AttendanceStatus,
+        oldAttendance.isWarned,
+        isWarned,
+      )
+      if (delta === 0) return
+
+      const money = {
+        attendanceId: oldAttendance.id,
+        organizationId: ctx.session.organizationId!,
+        actorUserId: Number(ctx.session.user.id),
+        meta: {
+          lessonName:
+            getGroupName(oldAttendance.lesson.group) +
+            ` ${formatDateOnly(oldAttendance.lesson.date)}`,
+          oldStatus: oldAttendance.status,
+          newStatus: status,
+          oldIsWarned: oldAttendance.isWarned,
+          newIsWarned: isWarned,
+        },
+      }
+
+      if (delta < 0) await chargeAttendanceTx(tx, money)
+      else await unchargeAttendanceTx(tx, money)
     })
   })
 
@@ -411,19 +340,24 @@ export const deleteAttendance = authAction
     }
 
     await prisma.$transaction(async (tx) => {
-      const deleted = await tx.attendance.delete({
+      const attendance = await tx.attendance.findFirst({
         where: {
-          studentId_lessonId: {
-            studentId: parsedInput.studentId,
-            lessonId: parsedInput.lessonId,
-          },
+          studentId: parsedInput.studentId,
+          lessonId: parsedInput.lessonId,
           organizationId: ctx.session.organizationId!,
         },
-        select: { paymentId: true, amount: true },
+        select: { id: true },
       })
-      // Записи больше нет — значит и списания. Урок возвращается и в пакет, и на
-      // баланс, иначе остаток кошелька разойдётся с его пакетами.
-      await refundAttendanceTx(tx, deleted)
+      if (!attendance) throw new NotFoundError('Запись посещаемости не найдена')
+
+      // Строки не будет — значит и списания: снимаем деньги до удаления.
+      await unchargeAttendanceTx(tx, {
+        attendanceId: attendance.id,
+        organizationId: ctx.session.organizationId!,
+        actorUserId: Number(ctx.session.user.id),
+        meta: { removed: 'attendance' },
+      })
+      await tx.attendance.delete({ where: { id: attendance.id } })
     })
   })
 
@@ -432,11 +366,19 @@ export const deleteAttendanceById = authAction
   .inputSchema(DeleteAttendanceByIdSchema)
   .action(async ({ ctx, parsedInput }) => {
     await prisma.$transaction(async (tx) => {
-      const deleted = await tx.attendance.delete({
+      const attendance = await tx.attendance.findFirst({
         where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
-        select: { paymentId: true, amount: true },
+        select: { id: true },
       })
-      await refundAttendanceTx(tx, deleted)
+      if (!attendance) throw new NotFoundError('Запись посещаемости не найдена')
+
+      await unchargeAttendanceTx(tx, {
+        attendanceId: attendance.id,
+        organizationId: ctx.session.organizationId!,
+        actorUserId: Number(ctx.session.user.id),
+        meta: { removed: 'attendance' },
+      })
+      await tx.attendance.delete({ where: { id: attendance.id } })
     })
   })
 
@@ -467,24 +409,18 @@ export const createMakeup = authAction
     })
 
     if (creditBalance) {
-      const originalGroupId = attendance.lesson.groupId
-      const studentGroup = await prisma.studentGroup.findUnique({
-        where: { studentId_groupId: { studentId, groupId: originalGroupId } },
-        select: { walletId: true },
-      })
-      if (studentGroup?.walletId) {
-        await prisma.$transaction(async (tx) => {
-          await tx.wallet.update({
-            where: { id: studentGroup.walletId! },
-            data: { lessonsBalance: { increment: 1 } },
-          })
-          // Урок вернули на баланс — значит и в пакет, из которого его списали.
-          // Спишется он заново уже на отработке, по цене того пакета, что будет
-          // головным тогда.
-          await releasePacketEntryTx(tx, attendance)
-          await tx.attendance.update({ where: { id: attendance.id }, data: { amount: 0 } })
+      // Урок за пропуск возвращается: и в пакет, из которого его списали, и на
+      // баланс. Спишется он заново уже на отработке — по цене того пакета,
+      // который будет головным тогда.
+      await prisma.$transaction(async (tx) => {
+        await unchargeAttendanceTx(tx, {
+          attendanceId: attendance.id,
+          organizationId: ctx.session.organizationId!,
+          actorUserId: Number(ctx.session.user.id),
+          reason: StudentLessonsBalanceChangeReason.MAKEUP_GRANTED,
+          meta: { makeupAttendanceId: newAttendance.id },
         })
-      }
+      })
     }
 
     return newAttendance
@@ -500,13 +436,15 @@ export const rescheduleMakeup = authAction
     const organizationId = ctx.session.organizationId!
 
     return await prisma.$transaction(async (tx) => {
-      const deleted = await tx.attendance.delete({
-        where: { id: oldMakeupAttendanceId, organizationId },
-        select: { paymentId: true, amount: true },
-      })
       // Отработку перенесли: если по старой дате урок уже списали, возвращаем его
       // в пакет и на баланс — на новой дате он спишется заново.
-      await refundAttendanceTx(tx, deleted)
+      await unchargeAttendanceTx(tx, {
+        attendanceId: oldMakeupAttendanceId,
+        organizationId: ctx.session.organizationId!,
+        actorUserId: Number(ctx.session.user.id),
+        meta: { rescheduledTo: targetLessonId },
+      })
+      await tx.attendance.delete({ where: { id: oldMakeupAttendanceId, organizationId } })
 
       return await tx.attendance.create({
         data: {

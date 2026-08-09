@@ -1,13 +1,30 @@
 import type { Prisma } from '@repo/db'
-import { AttendanceStatus } from '@repo/db/enums'
+import {
+  AttendanceStatus,
+  StudentFinancialField,
+  StudentLessonsBalanceChangeReason,
+} from '@repo/db/enums'
 
 /**
- * Списывается ли урок с баланса при таком статусе.
+ * Денежное ядро: единственное место, где посещение превращается в деньги.
+ *
+ * Наружу торчат ровно две операции — «занятие оплачено» и «занятие больше не
+ * оплачено». Каждая делает всё, что за этим стоит: гасит или возвращает урок в
+ * пакет, двигает баланс кошелька, переписывает проводку на строке и пишет
+ * историю. Вызывающему не остаётся ни одной обязанности, про которую можно
+ * забыть, — раньше их было четыре, и каждый из шести вызовов брал на себя свой
+ * набор.
+ *
+ * Живёт отдельно от экшенов, чтобы `scripts/check-payment-packets.ts` мог
+ * прогнать денежную логику против настоящей БД, не поднимая сессию. По той же
+ * причине здесь нет `server-only` и импортов из `@/src/lib`.
+ */
+
+/**
+ * Списывается ли урок при таком статусе.
  * - PRESENT — всегда списывается
  * - ABSENT без предупреждения — списывается
  * - ABSENT с предупреждением, UNSPECIFIED — нет
- *
- * Живёт рядом с раздачей пакетов: это одно правило — «случилась ли проводка».
  */
 export function isLessonCharged(status: AttendanceStatus, isWarned: boolean): boolean {
   if (status === AttendanceStatus.PRESENT) return true
@@ -15,58 +32,68 @@ export function isLessonCharged(status: AttendanceStatus, isWarned: boolean): bo
   return false
 }
 
-/** Поля проводки, которые уезжают в `attendance.update`. */
-export type AttendanceEntry = { paymentId?: number | null; price?: number; amount?: number }
+/** Что нужно знать о строке посещаемости, чтобы провести по ней деньги. */
+const moneySelect = {
+  id: true,
+  studentId: true,
+  organizationId: true,
+  walletId: true,
+  paymentId: true,
+  amount: true,
+  status: true,
+  lessonId: true,
+  makeupForAttendanceId: true,
+  lesson: { select: { groupId: true } },
+  makeupForAttendance: { select: { lesson: { select: { groupId: true } } } },
+} satisfies Prisma.AttendanceSelect
+
+type MoneyAttendance = Prisma.AttendanceGetPayload<{ select: typeof moneySelect }>
+
+export type AttendanceMoneyArgs = {
+  attendanceId: number
+  /** Школа вызывающего: изоляция здесь, а не у каждого из шести вызовов. */
+  organizationId: number
+  /** Кто инициировал. null — родитель из публичного кабинета. */
+  actorUserId: number | null
+  /** Дополнительные поля в историю: старый статус, название занятия и т.п. */
+  meta?: Record<string, unknown>
+}
+
+/** Строка посещаемости своей школы — или ничего. */
+const findAttendanceTx = (tx: Prisma.TransactionClient, args: AttendanceMoneyArgs) =>
+  tx.attendance.findFirst({
+    where: { id: args.attendanceId, organizationId: args.organizationId },
+    select: moneySelect,
+  })
 
 /**
- * Результат проводки: что записать в строку посещаемости и на сколько подвинуть
- * баланс кошелька. Обычно `balanceDelta` совпадает с `delta`, но при откате списания
- * с отменённой оплаты он ноль — урок туда не возвращается, значит и на баланс не
- * попадает: деньги за ту оплату школа уже вернула.
- */
-export type PacketResult = { entry: AttendanceEntry; balanceDelta: number }
-
-/**
- * Проводит посещение по очереди пакетов кошелька.
+ * Занятие оплачено: списывает урок с очереди пакетов кошелька.
  *
- * Пакет — это `Payment` с непотраченным остатком; очередь упорядочена по дате оплаты.
- * Списание гасит головной пакет и забирает его цену урока в строку посещаемости —
- * дальше эта цена не пересчитывается, поэтому новые оплаты не двигают прошлые месяцы.
- * Откат возвращает уроки в тот пакет, из которого они ушли, а не в текущую голову:
- * при нескольких пакетах разной цены иначе поедут и остатки, и признанная выручка.
+ * Гасит головной пакет — самый ранний непотраченный — и копирует его цену урока
+ * в строку. Дальше эта цена не пересчитывается, поэтому новые оплаты не двигают
+ * закрытые месяцы. Если непотраченных пакетов нет, урок всё равно списывается,
+ * по последней известной цене кошелька: школа занятие провела.
  *
- * Живёт отдельно от экшена, чтобы `scripts/check-payment-packets.ts` мог прогнать
- * денежную логику против настоящей БД, не поднимая сессию.
+ * Повторный вызов на уже списанной строке ничего не делает.
  */
-export async function applyPacketEntryTx(
+export async function chargeAttendanceTx(
   tx: Prisma.TransactionClient,
-  args: {
-    /** Кошелёк списания. null — списывать не с чего: группа осталась без кошелька. */
-    walletId: number | null
-    /** Изменение баланса уроков: <0 — списываем, >0 — откатываем списание. */
-    delta: number
-    /** Проводка, записанная на строке до этого изменения. */
-    previous: { paymentId: number | null; amount: number | null }
-  },
-): Promise<PacketResult> {
-  const { walletId, delta, previous } = args
+  args: AttendanceMoneyArgs,
+): Promise<void> {
+  const attendance = await findAttendanceTx(tx, args)
+  if (!attendance || attendance.amount) return
 
-  // delta = ±1 по построению (статус либо стал платным, либо перестал), поэтому
-  // визит всегда укладывается в один пакет и делить его между двумя не приходится.
-  const amount = Math.abs(delta)
+  const walletId = await walletOfAttendanceTx(tx, attendance)
 
-  if (delta > 0) {
-    // Урок возвращается в свой пакет — если он у строки есть и оплата не отменена.
-    // Количество обнуляем в любом случае: иначе выручка останется признанной за
-    // занятие, которое больше не списано.
-    const returned = await releasePacketEntryTx(tx, previous)
-    const hadPacket = Boolean(previous.paymentId && previous.amount)
-    return { entry: { amount: 0 }, balanceDelta: hadPacket && !returned ? 0 : delta }
+  // Кошелька нет — списывать не с чего. Проводку всё равно перезаписываем: на
+  // строке могла остаться цена от прошлого статуса.
+  if (!walletId) {
+    await tx.attendance.update({
+      where: { id: attendance.id },
+      data: { paymentId: null, price: 0, amount: 0 },
+    })
+    return
   }
-
-  // Кошелька у группы нет — списания не было, значит и выручки нет. Проводку всё
-  // равно перезаписываем: иначе на строке осталась бы цена от прошлого статуса.
-  if (!walletId) return { entry: { paymentId: null, price: 0, amount: 0 }, balanceDelta: 0 }
 
   const packet = await tx.payment.findFirst({
     where: { walletId, status: 'ACTIVE', remaining: { gt: 0 } },
@@ -74,35 +101,173 @@ export async function applyPacketEntryTx(
     select: { id: true, price: true, lessonCount: true },
   })
 
-  // Очередь пуста: школа урок провела, а оплаты под него нет. Выручку всё равно
-  // признаём — по последней известной цене кошелька, тем же правилом, что и бэкфилл
-  // истории. Иначе цифры разъехались бы ровно по дате внедрения: старые такие визиты
-  // с ценой, новые с нулём.
-  if (!packet) {
-    return {
-      entry: { paymentId: null, price: await walletUnitPrice(tx, walletId), amount },
-      balanceDelta: delta,
-    }
+  if (packet) {
+    await tx.payment.update({ where: { id: packet.id }, data: { remaining: { decrement: 1 } } })
   }
 
-  await tx.payment.update({
-    where: { id: packet.id },
-    data: { remaining: { decrement: amount } },
+  await tx.attendance.update({
+    where: { id: attendance.id },
+    data: {
+      paymentId: packet?.id ?? null,
+      price: packet ? unitPrice(packet) : await walletUnitPrice(tx, walletId),
+      amount: 1,
+    },
   })
 
-  return {
-    entry: { paymentId: packet.id, price: unitPrice(packet), amount },
-    balanceDelta: delta,
+  await moveBalanceTx(tx, {
+    attendance,
+    walletId,
+    delta: -1,
+    reason: chargeReason(attendance),
+    actorUserId: args.actorUserId,
+    meta: args.meta,
+  })
+}
+
+/**
+ * Занятие больше не оплачено: возвращает урок в пакет и на баланс.
+ *
+ * Урок уходит в тот пакет, из которого был списан, а не в текущую голову
+ * очереди: при пакетах разной цены иначе поедут и остатки, и признанная
+ * выручка. Строку можно потом удалять — деньги уже сняты со строки.
+ *
+ * Исключение одно: пакет отменён. Деньги за него школа вернула, класть урок
+ * обратно некуда и не за что — проводка снимается, баланс остаётся на месте.
+ *
+ * Повторный вызов на несписанной строке ничего не делает.
+ */
+export async function unchargeAttendanceTx(
+  tx: Prisma.TransactionClient,
+  /** `reason` — чем возврат назвать в истории; по умолчанию это откат отметки. */
+  args: AttendanceMoneyArgs & { reason?: StudentLessonsBalanceChangeReason },
+): Promise<void> {
+  const attendance = await findAttendanceTx(tx, args)
+  if (!attendance || !attendance.amount) return
+
+  const packet = attendance.paymentId
+    ? await tx.payment.findUnique({
+        where: { id: attendance.paymentId },
+        select: { walletId: true },
+      })
+    : null
+
+  // Возврат в пакет — условным апдейтом: если оплату успели отменить, count = 0
+  // и на баланс урок тоже не пойдёт.
+  const returned = attendance.paymentId
+    ? (
+        await tx.payment.updateMany({
+          where: { id: attendance.paymentId, status: 'ACTIVE' },
+          data: { remaining: { increment: attendance.amount } },
+        })
+      ).count > 0
+    : false
+
+  await tx.attendance.update({ where: { id: attendance.id }, data: { amount: 0 } })
+
+  if (attendance.paymentId && !returned) return
+
+  // Урок возвращается в тот же кошелёк, где лежит его пакет: иначе баланс
+  // разойдётся с остатками, если ученика с тех пор перевели на другой кошелёк.
+  const walletId = packet?.walletId ?? (await walletOfAttendanceTx(tx, attendance))
+
+  await moveBalanceTx(tx, {
+    attendance,
+    walletId,
+    delta: attendance.amount,
+    reason: args.reason ?? StudentLessonsBalanceChangeReason.ATTENDANCE_REVERTED,
+    actorUserId: args.actorUserId,
+    meta: args.meta,
+  })
+}
+
+/**
+ * Кошелёк списания: у разового посещения он выбран на самой строке, у обычного
+ * берётся из группы. Отработка платит кошельком той группы, где случился
+ * пропуск, а не той, куда ученик пришёл отрабатывать.
+ */
+async function walletOfAttendanceTx(
+  tx: Prisma.TransactionClient,
+  attendance: MoneyAttendance,
+): Promise<number | null> {
+  if (attendance.walletId) return attendance.walletId
+
+  const groupId = attendance.makeupForAttendance
+    ? attendance.makeupForAttendance.lesson.groupId
+    : attendance.lesson.groupId
+
+  const studentGroup = await tx.studentGroup.findUnique({
+    where: { studentId_groupId: { studentId: attendance.studentId, groupId } },
+    select: { walletId: true },
+  })
+  return studentGroup?.walletId ?? null
+}
+
+/** Двигает баланс кошелька и пишет строку истории — всегда вместе. */
+async function moveBalanceTx(
+  tx: Prisma.TransactionClient,
+  args: {
+    attendance: MoneyAttendance
+    walletId: number | null
+    delta: number
+    reason: StudentLessonsBalanceChangeReason
+    actorUserId: number | null
+    meta?: Record<string, unknown>
+  },
+): Promise<void> {
+  const { attendance, walletId, delta } = args
+  if (!walletId || !delta) return
+
+  const wallet = await tx.wallet.findUnique({
+    where: { id: walletId },
+    select: { lessonsBalance: true },
+  })
+  if (!wallet) return
+
+  const updated = await tx.wallet.update({
+    where: { id: walletId },
+    data: {
+      lessonsBalance: delta > 0 ? { increment: delta } : { decrement: Math.abs(delta) },
+    },
+    select: { lessonsBalance: true },
+  })
+
+  await writeFinancialHistoryTx(tx, {
+    organizationId: attendance.organizationId,
+    studentId: attendance.studentId,
+    actorUserId: args.actorUserId,
+    groupId: attendance.lesson.groupId,
+    walletId,
+    field: StudentFinancialField.LESSONS_BALANCE,
+    reason: args.reason,
+    delta: updated.lessonsBalance - wallet.lessonsBalance,
+    balanceBefore: wallet.lessonsBalance,
+    balanceAfter: updated.lessonsBalance,
+    meta: {
+      attendanceId: attendance.id,
+      lessonId: attendance.lessonId,
+      groupId: attendance.lesson.groupId,
+      isMakeupAttendance: Boolean(attendance.makeupForAttendanceId),
+      ...args.meta,
+    },
+  })
+}
+
+const chargeReason = (attendance: MoneyAttendance): StudentLessonsBalanceChangeReason => {
+  if (attendance.makeupForAttendanceId) {
+    return StudentLessonsBalanceChangeReason.MAKEUP_ATTENDED_CHARGED
   }
+  return attendance.status === AttendanceStatus.PRESENT
+    ? StudentLessonsBalanceChangeReason.ATTENDANCE_PRESENT_CHARGED
+    : StudentLessonsBalanceChangeReason.ATTENDANCE_ABSENT_CHARGED
 }
 
 const unitPrice = (p: { price: number; lessonCount: number }) =>
   p.lessonCount > 0 ? Math.floor(p.price / p.lessonCount) : 0
 
 /**
- * Цена урока кошелька, когда непотраченных пакетов не осталось: цена самого позднего
- * его пакета, а если оплат не было вовсе — из счётчиков, которые остались от переезда
- * на кошельки. Ноль означает, что про этот кошелёк не известно вообще ничего.
+ * Цена урока кошелька, когда непотраченных пакетов не осталось: цена самого
+ * позднего его пакета, а если оплат не было вовсе — из счётчиков, оставшихся от
+ * переезда на кошельки. Ноль означает, что про кошелёк не известно ничего.
  */
 async function walletUnitPrice(tx: Prisma.TransactionClient, walletId: number): Promise<number> {
   const latest = await tx.payment.findFirst({
@@ -120,49 +285,40 @@ async function walletUnitPrice(tx: Prisma.TransactionClient, walletId: number): 
   return Math.floor(wallet.totalPayments / wallet.totalLessons)
 }
 
-/**
- * Возвращает уроки в тот пакет, из которого они ушли. Баланс кошелька при этом не
- * трогает: вызывается из отката статуса, где баланс двигает сам экшен.
- *
- * Возвращает `true`, если возврат состоялся. В отменённую оплату уроки не кладём:
- * деньги за неё школа вернула, списать с такого пакета уже нельзя, и остаток на нём
- * был бы мёртвым — он не попадает ни в очередь, ни в сверку.
- */
-export async function releasePacketEntryTx(
+/** Строка в журнале изменений баланса. Пишется вместе с самим изменением. */
+export async function writeFinancialHistoryTx(
   tx: Prisma.TransactionClient,
-  entry: { paymentId: number | null; amount: number | null },
-): Promise<boolean> {
-  if (!entry.paymentId || !entry.amount) return false
+  args: {
+    organizationId: number
+    studentId: number
+    actorUserId: number | null
+    groupId?: number | null
+    walletId?: number | null
+    field: StudentFinancialField
+    reason: StudentLessonsBalanceChangeReason
+    delta: number
+    balanceBefore: number
+    balanceAfter: number
+    comment?: string
+    meta?: Prisma.InputJsonValue
+  },
+) {
+  if (args.delta === 0) return
 
-  const updated = await tx.payment.updateMany({
-    where: { id: entry.paymentId, status: 'ACTIVE' },
-    data: { remaining: { increment: entry.amount } },
-  })
-  return updated.count > 0
-}
-
-/**
- * Полный возврат списания: урок уходит обратно и в пакет, и на баланс кошелька.
- * Нужен там, где строка посещаемости исчезает целиком — удаление записи, перенос
- * отработки, снятие отработки из кабинета родителя. Кошелёк берётся у самого пакета,
- * поэтому вызывающему не надо его резолвить заново.
- *
- * Если оплата отменена, не делает ничего: возвращать урок некуда и не за что.
- */
-export async function refundAttendanceTx(
-  tx: Prisma.TransactionClient,
-  entry: { paymentId: number | null; amount: number | null },
-): Promise<void> {
-  if (!(await releasePacketEntryTx(tx, entry))) return
-
-  const packet = await tx.payment.findUniqueOrThrow({
-    where: { id: entry.paymentId! },
-    select: { walletId: true },
-  })
-  if (!packet.walletId) return
-
-  await tx.wallet.update({
-    where: { id: packet.walletId },
-    data: { lessonsBalance: { increment: entry.amount! } },
+  await tx.studentLessonsBalanceHistory.create({
+    data: {
+      organizationId: args.organizationId,
+      studentId: args.studentId,
+      actorUserId: args.actorUserId,
+      groupId: args.groupId ?? null,
+      walletId: args.walletId ?? null,
+      field: args.field,
+      reason: args.reason,
+      delta: args.delta,
+      balanceBefore: args.balanceBefore,
+      balanceAfter: args.balanceAfter,
+      comment: args.comment,
+      meta: args.meta,
+    },
   })
 }

@@ -588,7 +588,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
 
   // 8. Посещаемость по прошедшим урокам (одним батчем) ───────────────────
   // Посещение здесь сразу становится проводкой: гасит головной пакет ученика и
-  // забирает его цену, как это делает `applyPacketEntryTx` вживую. Без этого
+  // забирает его цену, как это делает `chargeAttendanceTx` вживую. Без этого
   // «Выручка», «Прибыль» и «Авансы» в демо-школе показывали бы нули.
   const queueByStudent = new Map<number, { id: number; price: number; left: number }[]>()
   for (const p of [...createdPayments].sort((a, b) => (a.date < b.date ? -1 : 1))) {
@@ -613,7 +613,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
         if (packet) packet.left -= 1
 
         // Пакеты кончились — списываем в долг по последней известной цене, как это
-        // делает `applyPacketEntryTx`: демо должно показывать те же случаи, что и живая база.
+        // делает `chargeAttendanceTx`: демо должно показывать те же случаи, что и живая база.
         const price = packet?.price ?? queue.at(-1)?.price ?? 0
 
         attendance.push({

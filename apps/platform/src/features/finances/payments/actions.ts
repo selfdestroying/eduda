@@ -2,8 +2,8 @@
 
 import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@repo/db/enums'
 import { prisma } from '@repo/db'
+import { writeFinancialHistoryTx } from '@/src/features/finances/packets.server'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
-import { writeFinancialHistoryTx } from '@/src/lib/lessons-balance'
 import { authAction } from '@/src/lib/safe-action'
 import {
   CancelPaymentSchema,
