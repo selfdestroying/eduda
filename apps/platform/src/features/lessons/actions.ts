@@ -3,9 +3,16 @@
 import { Prisma } from '@repo/db'
 import { AttendanceStatus, CoinTxReason, StudentLessonsBalanceChangeReason } from '@repo/db/enums'
 import { prisma } from '@repo/db'
+import {
+  applyPacketEntryTx,
+  isLessonCharged,
+  refundAttendanceTx,
+  releasePacketEntryTx,
+  type AttendanceEntry,
+} from '@/src/features/finances/packets.server'
 import { ATTENDANCE_COINS, recordCoins } from '@/src/lib/coins'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
-import { isLessonCharged, writeLessonsBalanceHistoryTx } from '@/src/lib/lessons-balance'
+import { writeLessonsBalanceHistoryTx } from '@/src/lib/lessons-balance'
 import { authAction } from '@/src/lib/safe-action'
 import { DateOnlySchema, formatDateOnly } from '@/src/lib/timezone'
 import { getGroupName } from '@/src/lib/utils'
@@ -241,6 +248,10 @@ export const updateAttendanceStatus = authAction
     if (!oldAttendance) throw new NotFoundError('Запись посещаемости не найдена')
 
     await prisma.$transaction(async (tx) => {
+      // Проводка: чем строка посещаемости расплатилась. Заполняется ниже, если
+      // списание (или его откат) реально случилось, и уезжает в attendance.update.
+      let entry: AttendanceEntry = {}
+
       if (!oldAttendance.isTrial) {
         await updateCoins(
           tx,
@@ -270,7 +281,20 @@ export const updateAttendanceStatus = authAction
           // выбранного при добавлении (attendance.walletId). Иначе — кошелёк группы.
           const walletId = oldAttendance.walletId ?? studentGroup?.walletId
 
-          if (walletId) {
+          // Проводку пересчитываем всегда, даже когда кошелька не нашлось: иначе на
+          // строке осталась бы цена от прошлого статуса и выручка держалась бы за
+          // урок, который только что откатили.
+          const packet = await applyPacketEntryTx(tx, {
+            walletId: walletId ?? null,
+            delta,
+            previous: { paymentId: oldAttendance.paymentId, amount: oldAttendance.amount },
+          })
+          entry = packet.entry
+
+          // Баланс двигаем ровно на то, что подтвердила проводка. Разойтись они могут
+          // в одном случае: откат списания с отменённой оплаты — урок туда не
+          // возвращается, значит и на баланс попасть не должен.
+          if (walletId && packet.balanceDelta !== 0) {
             const wallet = await tx.wallet.findUnique({
               where: { id: walletId },
               select: { lessonsBalance: true },
@@ -281,7 +305,10 @@ export const updateAttendanceStatus = authAction
             const updated = await tx.wallet.update({
               where: { id: walletId },
               data: {
-                lessonsBalance: delta > 0 ? { increment: delta } : { decrement: Math.abs(delta) },
+                lessonsBalance:
+                  packet.balanceDelta > 0
+                    ? { increment: packet.balanceDelta }
+                    : { decrement: Math.abs(packet.balanceDelta) },
               },
               select: { lessonsBalance: true },
             })
@@ -334,7 +361,7 @@ export const updateAttendanceStatus = authAction
         },
         // parentMarkedAt сбрасываем: статус переставил сотрудник, значит отметка
         // больше не «со слов родителя» и родитель её из кабинета уже не тронет.
-        data: { status, isWarned, parentMarkedAt: null },
+        data: { status, isWarned, parentMarkedAt: null, ...entry },
       })
     })
   })
@@ -383,14 +410,20 @@ export const deleteAttendance = authAction
       throw new ConflictError('Нельзя удалить ученика из отменённого урока')
     }
 
-    await prisma.attendance.delete({
-      where: {
-        studentId_lessonId: {
-          studentId: parsedInput.studentId,
-          lessonId: parsedInput.lessonId,
+    await prisma.$transaction(async (tx) => {
+      const deleted = await tx.attendance.delete({
+        where: {
+          studentId_lessonId: {
+            studentId: parsedInput.studentId,
+            lessonId: parsedInput.lessonId,
+          },
+          organizationId: ctx.session.organizationId!,
         },
-        organizationId: ctx.session.organizationId!,
-      },
+        select: { paymentId: true, amount: true },
+      })
+      // Записи больше нет — значит и списания. Урок возвращается и в пакет, и на
+      // баланс, иначе остаток кошелька разойдётся с его пакетами.
+      await refundAttendanceTx(tx, deleted)
     })
   })
 
@@ -398,8 +431,12 @@ export const deleteAttendanceById = authAction
   .metadata({ actionName: 'deleteAttendanceById' })
   .inputSchema(DeleteAttendanceByIdSchema)
   .action(async ({ ctx, parsedInput }) => {
-    await prisma.attendance.delete({
-      where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
+    await prisma.$transaction(async (tx) => {
+      const deleted = await tx.attendance.delete({
+        where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
+        select: { paymentId: true, amount: true },
+      })
+      await refundAttendanceTx(tx, deleted)
     })
   })
 
@@ -436,9 +473,16 @@ export const createMakeup = authAction
         select: { walletId: true },
       })
       if (studentGroup?.walletId) {
-        await prisma.wallet.update({
-          where: { id: studentGroup.walletId },
-          data: { lessonsBalance: { increment: 1 } },
+        await prisma.$transaction(async (tx) => {
+          await tx.wallet.update({
+            where: { id: studentGroup.walletId! },
+            data: { lessonsBalance: { increment: 1 } },
+          })
+          // Урок вернули на баланс — значит и в пакет, из которого его списали.
+          // Спишется он заново уже на отработке, по цене того пакета, что будет
+          // головным тогда.
+          await releasePacketEntryTx(tx, attendance)
+          await tx.attendance.update({ where: { id: attendance.id }, data: { amount: 0 } })
         })
       }
     }
@@ -455,19 +499,25 @@ export const rescheduleMakeup = authAction
     const { attendanceId, oldMakeupAttendanceId, studentId, targetLessonId } = parsedInput
     const organizationId = ctx.session.organizationId!
 
-    await prisma.attendance.delete({
-      where: { id: oldMakeupAttendanceId, organizationId },
-    })
+    return await prisma.$transaction(async (tx) => {
+      const deleted = await tx.attendance.delete({
+        where: { id: oldMakeupAttendanceId, organizationId },
+        select: { paymentId: true, amount: true },
+      })
+      // Отработку перенесли: если по старой дате урок уже списали, возвращаем его
+      // в пакет и на баланс — на новой дате он спишется заново.
+      await refundAttendanceTx(tx, deleted)
 
-    return await prisma.attendance.create({
-      data: {
-        organizationId,
-        studentId,
-        lessonId: targetLessonId,
-        comment: '',
-        status: 'UNSPECIFIED',
-        makeupForAttendanceId: attendanceId,
-      },
+      return await tx.attendance.create({
+        data: {
+          organizationId,
+          studentId,
+          lessonId: targetLessonId,
+          comment: '',
+          status: 'UNSPECIFIED',
+          makeupForAttendanceId: attendanceId,
+        },
+      })
     })
   })
 

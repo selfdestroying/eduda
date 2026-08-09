@@ -1,24 +1,7 @@
 import 'server-only'
 
 import { Prisma } from '@repo/db'
-import {
-  AttendanceStatus,
-  StudentFinancialField,
-  StudentLessonsBalanceChangeReason,
-} from '@repo/db/enums'
-
-/**
- * Whether a given attendance status+warned combination results in a wallet charge (-1 lesson).
- * - PRESENT → always charged
- * - ABSENT + not warned → charged
- * - ABSENT + warned → NOT charged
- * - UNSPECIFIED → NOT charged
- */
-export function isLessonCharged(status: AttendanceStatus, isWarned: boolean): boolean {
-  if (status === AttendanceStatus.PRESENT) return true
-  if (status === AttendanceStatus.ABSENT && !isWarned) return true
-  return false
-}
+import { StudentFinancialField, StudentLessonsBalanceChangeReason } from '@repo/db/enums'
 
 export type LessonsBalanceAudit = {
   reason: StudentLessonsBalanceChangeReason
