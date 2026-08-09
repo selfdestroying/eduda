@@ -287,6 +287,108 @@ export async function recordWalletEntryTx(
   })
 }
 
+/**
+ * Оплата закрывает долг: занятия, проведённые с пустой очередью, привязываются к
+ * новому пакету и получают его цену.
+ *
+ * Пока оплаты не было, такое занятие списывалось по последней известной цене — это
+ * догадка, а не цена. Оплата её уточняет, поэтому старое списание снимается
+ * встречной строкой, а занятие списывается заново с нового пакета. В журнале
+ * остаётся видно и догадку, и уточнение; `createdAt` покажет, что уточнили позже.
+ *
+ * Баланс кошелька при этом не двигается: уроки уже были списаны, меняется только
+ * то, чем за них заплатили. Зато остаток пакета сразу становится честным — в нём
+ * ровно столько уроков, сколько ученик может отходить дальше.
+ *
+ * Возвращает, сколько уроков долга закрыли.
+ */
+export async function settleDebtWithPacketTx(
+  tx: Prisma.TransactionClient,
+  args: {
+    walletId: number
+    paymentId: number
+    /** Цена урока нового пакета — её и получат долговые занятия. */
+    unitPrice: number
+    /** Уроков в пакете: закрыть долга больше, чем купили, нельзя. */
+    limit: number
+    actorUserId: number | null
+  },
+): Promise<number> {
+  if (args.limit <= 0) return 0
+
+  // Долг ищем по журналу: у списания «в долг» нет пакета, а `reversedBy` отсекает
+  // те, что уже откатили. Порядок — от старого занятия к новому, как и очередь.
+  const debts = await tx.walletEntry.findMany({
+    where: {
+      walletId: args.walletId,
+      kind: WalletEntryKind.CHARGE,
+      paymentId: null,
+      attendanceId: { not: null },
+      reversedBy: { is: null },
+    },
+    orderBy: [{ effectiveAt: 'asc' }, { id: 'asc' }],
+    select: {
+      id: true,
+      organizationId: true,
+      studentId: true,
+      attendanceId: true,
+      quantity: true,
+      unitPrice: true,
+      effectiveAt: true,
+    },
+  })
+
+  let covered = 0
+  for (const debt of debts) {
+    const lessons = Math.abs(debt.quantity)
+    if (lessons === 0 || covered + lessons > args.limit) break
+
+    const common = {
+      organizationId: debt.organizationId,
+      walletId: args.walletId,
+      studentId: debt.studentId,
+      // День занятия, а не день оплаты: уточняется цена прошедшего урока, и в
+      // отчёте он должен остаться в своём месяце.
+      effectiveAt: debt.effectiveAt,
+      attendanceId: debt.attendanceId,
+      actorUserId: args.actorUserId,
+    }
+
+    await recordWalletEntryTx(tx, {
+      ...common,
+      kind: WalletEntryKind.REVERSAL,
+      quantity: lessons,
+      unitPrice: debt.unitPrice,
+      paymentId: null,
+      reversalOfId: debt.id,
+      comment: 'Списание в долг снято: пришла оплата',
+    })
+    await recordWalletEntryTx(tx, {
+      ...common,
+      kind: WalletEntryKind.CHARGE,
+      quantity: -lessons,
+      unitPrice: args.unitPrice,
+      paymentId: args.paymentId,
+      comment: 'Занятие закрыто оплатой по её цене',
+    })
+
+    await tx.attendance.update({
+      where: { id: debt.attendanceId! },
+      data: { paymentId: args.paymentId, price: args.unitPrice },
+    })
+    covered += lessons
+  }
+
+  if (covered > 0) {
+    await tx.payment.update({
+      where: { id: args.paymentId },
+      data: { remaining: { decrement: covered } },
+    })
+  }
+
+  return covered
+}
+
 /** Строка журнала по занятию. Бизнес-день берётся с самого занятия. */
 async function recordEntryTx(
   tx: Prisma.TransactionClient,

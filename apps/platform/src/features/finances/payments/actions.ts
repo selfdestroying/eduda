@@ -6,7 +6,11 @@ import {
   WalletEntryKind,
 } from '@repo/db/enums'
 import { prisma } from '@repo/db'
-import { recordWalletEntryTx, writeFinancialHistoryTx } from '@/src/features/finances/ledger.server'
+import {
+  recordWalletEntryTx,
+  settleDebtWithPacketTx,
+  writeFinancialHistoryTx,
+} from '@/src/features/finances/ledger.server'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import { authAction } from '@/src/lib/safe-action'
@@ -111,6 +115,16 @@ export const createPaymentWithBalance = authAction
         unitPrice: Math.floor(price / lessonCount),
         effectiveAt: date,
         paymentId: payment.id,
+        actorUserId: Number(ctx.session.user.id),
+      })
+
+      // Долг закрывается этой же оплатой: занятия, проведённые с пустой очередью,
+      // получают её цену вместо догадки, а остаток пакета — честное число.
+      await settleDebtWithPacketTx(tx, {
+        walletId,
+        paymentId: payment.id,
+        unitPrice: Math.floor(price / lessonCount),
+        limit: lessonCount,
         actorUserId: Number(ctx.session.user.id),
       })
 
@@ -362,6 +376,16 @@ export const resolveUnprocessedPayment = authAction
         unitPrice: Math.floor(price / lessonCount),
         effectiveAt: date,
         paymentId: payment.id,
+        actorUserId: Number(ctx.session.user.id),
+      })
+
+      // Долг закрывается этой же оплатой: занятия, проведённые с пустой очередью,
+      // получают её цену вместо догадки, а остаток пакета — честное число.
+      await settleDebtWithPacketTx(tx, {
+        walletId,
+        paymentId: payment.id,
+        unitPrice: Math.floor(price / lessonCount),
+        limit: lessonCount,
         actorUserId: Number(ctx.session.user.id),
       })
 

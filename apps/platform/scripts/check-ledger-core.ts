@@ -16,6 +16,7 @@ import { WalletEntryKind } from '@repo/db/enums'
 import {
   chargeAttendanceTx,
   recordWalletEntryTx,
+  settleDebtWithPacketTx,
   unchargeAttendanceTx,
 } from '../src/features/finances/ledger.server'
 
@@ -283,6 +284,57 @@ async function main() {
         'урок, взятый в долг, возвращается на баланс',
       )
       assert.equal(await remainingOf(a.id), 0, 'откат долга не должен трогать чужие пакеты')
+
+      // ─── Оплата закрывает долг и переоценивает его по своей цене ───────
+      const inDebt = await visit()
+      await charge(inDebt)
+      assert.deepEqual(
+        await entryOf(inDebt),
+        { paymentId: null, price: 500, amount: 1 },
+        'пока оплаты нет, занятие списывается в долг по догадке',
+      )
+
+      const balanceBeforeSettle = await balance()
+      const c = await packet('2027-03-01', 12_000, 12) // 1000 ₽ за урок
+      const covered = await settleDebtWithPacketTx(tx, {
+        walletId: wallet.id,
+        paymentId: c.id,
+        unitPrice: 1000,
+        limit: 12,
+        actorUserId: null,
+      })
+
+      assert.equal(covered, 1, 'оплата обязана закрыть одно долговое занятие')
+      assert.deepEqual(
+        await entryOf(inDebt),
+        { paymentId: c.id, price: 1000, amount: 1 },
+        'долговое занятие переезжает на новый пакет и получает его цену',
+      )
+      assert.equal(
+        await remainingOf(c.id),
+        11,
+        'в пакете остаётся столько уроков, сколько ученик реально может отходить',
+      )
+      assert.equal(
+        await balance(),
+        balanceBeforeSettle + 12,
+        'баланс двигает только сама оплата: уроки были списаны раньше',
+      )
+      assert.equal(await ledgerSum(), await balance(), 'журнал обязан сойтись с балансом')
+
+      const settled = await ledgerOf(inDebt)
+      assert.equal(settled.length, 3, 'в журнале: списание в долг, его снятие и списание с пакета')
+      assert.equal(settled[1]!.kind, 'REVERSAL', 'догадка снимается встречной строкой')
+      assert.equal(settled[1]!.unitPrice, 500, 'снимается ровно та цена, что была записана')
+      assert.equal(settled[2]!.unitPrice, 1000, 'а списывается уже цена оплаты')
+      assert.equal(
+        settled[2]!.effectiveAt,
+        settled[0]!.effectiveAt,
+        'уточнение остаётся в месяце занятия, а не переезжает в месяц оплаты',
+      )
+
+      // Дальше сценарии снова начинаются с пустой очереди.
+      await tx.payment.update({ where: { id: c.id }, data: { remaining: 0 } })
 
       // ─── Кошелёк без единой оплаты: цена из счётчиков переезда ─────────
       const legacy = await tx.wallet.create({
