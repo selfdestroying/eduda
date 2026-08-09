@@ -38,6 +38,11 @@ enum LessonStatus {
     CANCELLED
 }
 
+enum PaymentStatus {
+    ACTIVE
+    CANCELLED
+}
+
 enum StudentStatus {
     TRIAL
     ACTIVE

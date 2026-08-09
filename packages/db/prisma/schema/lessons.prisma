@@ -72,8 +72,19 @@ model Attendance {
     walletId Int?
     wallet   Wallet? @relation(fields: [walletId], references: [id], onDelete: SetNull)
 
+    /// Проводка: из какого пакета списан урок, по какой цене и сколько уроков.
+    /// `price × amount` — признанная выручка строки; после записи она не
+    /// пересчитывается, поэтому новые оплаты не двигают прошлые месяцы.
+    /// `amount = 0` — списания не было (откат, предупреждённый пропуск).
+    /// Все три null — строка ещё не размечена (посещения до бэкфилла).
+    paymentId Int?
+    price     Int?
+    amount    Int?
+    payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
     @@unique([studentId, lessonId])
     @@index([lessonId])
     @@index([organizationId])
     @@index([walletId])
+    @@index([paymentId])
 }

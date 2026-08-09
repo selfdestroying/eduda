@@ -64,17 +64,44 @@ model Payment {
     createdAt    DateTime @default(now())
     updatedAt    DateTime @updatedAt
 
+    /// Отменённая оплата не удаляется: на неё ссылаются проводки уже проведённых
+    /// занятий, и стереть её значило бы переписать выручку прошлых месяцев. Такой
+    /// пакет выбывает из очереди, а его непотраченный остаток снимается с баланса.
+    status PaymentStatus @default(ACTIVE)
+    /// Когда отменили — чтобы в списке было видно, что это не свежая запись.
+    cancelledAt DateTime?
+
+    /// Сколько уроков пакета ещё не потрачено. Пакеты кошелька образуют очередь по
+    /// `date`: посещение гасит головной пакет с `remaining > 0` и забирает его цену.
+    /// null — пакет не размечен (оплаты до бэкфилла), в очередь такой не встаёт.
+    remaining Int?
+
+    /// Не оплата, а корректировка: пакеты, которыми бэкфилл свёл остатки кошельков с
+    /// их балансом. За ними стоят ручные операции старой системы — правки баланса,
+    /// переносы между кошельками, — платежа под ними нет. В очередь такой пакет
+    /// встаёт наравне с остальными, иначе списывать эти уроки было бы не с чего, но
+    /// в суммах поступлений он отделён, а из раздачи истории исключается: пусти его
+    /// туда — прошлые визиты его съедят, и следующий прогон заведёт ещё одну порцию.
+    isAdjustment Boolean @default(false)
+
     // Relations
     organizationId  Int
     studentId       Int
     groupId         Int?
     walletId        Int?
     paymentMethodId Int?
+    /// Кто продал. Не автор записи: оплаты часто вносит один администратор за всех,
+    /// а премия причитается тому, кто договорился. Поле необязательное — у оплат до
+    /// его появления менеджера нет, и расчёты это переживают.
+    managerId       Int?
     organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     student         Student        @relation(fields: [studentId], references: [id])
     group           Group?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
     wallet          Wallet?        @relation(fields: [walletId], references: [id], onDelete: SetNull)
     paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+    manager         User?          @relation(fields: [managerId], references: [id], onDelete: SetNull)
+
+    attendances Attendance[]
 
     @@index([studentId])
     @@index([organizationId])
@@ -82,6 +109,8 @@ model Payment {
     @@index([groupId])
     @@index([walletId])
     @@index([paymentMethodId])
+    @@index([walletId, date])
+    @@index([managerId])
 }
 
 model UnprocessedPayment {
