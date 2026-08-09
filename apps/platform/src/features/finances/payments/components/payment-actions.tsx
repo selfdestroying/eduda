@@ -34,6 +34,10 @@ export default function PaymentActions({ payment }: PaymentActionsProps) {
     cancelMutation.mutate({ id: payment.id }, { onSuccess: () => setConfirmOpen(false) })
   }
 
+  // Отменённую оплату трогать больше нечем: запись остаётся в списке как след
+  // операции, но действий над ней нет.
+  if (payment.status === 'CANCELLED') return null
+
   return (
     <>
       <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -60,8 +64,9 @@ export default function PaymentActions({ payment }: PaymentActionsProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Вы уверены, что хотите отменить оплату?</AlertDialogTitle>
             <AlertDialogDescription>
-              Это действие отменит оплату и не может быть отменено. Это так же повлияет на баланс
-              ученика
+              Оплата останется в списке со статусом «Отменена» — записи о деньгах не удаляются. С
+              баланса ученика снимутся только непотраченные уроки: занятия, которые он уже отходил,
+              останутся оплаченными.
             </AlertDialogDescription>
           </AlertDialogHeader>
 

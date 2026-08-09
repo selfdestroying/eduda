@@ -1,5 +1,6 @@
 'use client'
 
+import { Badge } from '@repo/ui/components/badge'
 import DataTable from '@repo/ui/components/data-table'
 import { Hint } from '@repo/ui/components/hint'
 import { Input } from '@repo/ui/components/input'
@@ -31,12 +32,15 @@ export default function PaymentsTable() {
       {
         header: 'Ученик',
         cell: ({ row }) => (
-          <Link
-            href={`/students/${row.original.student.id}`}
-            className="text-primary hover:underline"
-          >
-            {getFullName(row.original.student.firstName, row.original.student.lastName)}
-          </Link>
+          <span className="flex items-center gap-2">
+            <Link
+              href={`/students/${row.original.student.id}`}
+              className="text-primary hover:underline"
+            >
+              {getFullName(row.original.student.firstName, row.original.student.lastName)}
+            </Link>
+            {row.original.status === 'CANCELLED' && <Badge variant="outline">Отменена</Badge>}
+          </span>
         ),
       },
       {
@@ -69,6 +73,17 @@ export default function PaymentsTable() {
       {
         header: 'Метод оплаты',
         cell: ({ row }) => row.original.paymentMethod?.name ?? 'Неизвестно',
+      },
+      {
+        header: () => (
+          <span className="flex items-center gap-0.5">
+            Менеджер
+            <Hint text="Кто продал этот пакет. У оплат, заведённых до появления поля, менеджер не указан." />
+          </span>
+        ),
+        id: 'manager',
+        accessorFn: (row) => row.manager?.name ?? '',
+        cell: ({ row }) => row.original.manager?.name ?? '—',
       },
       {
         id: 'actions',
