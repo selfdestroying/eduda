@@ -13,8 +13,15 @@
 import './load-env'
 
 import { prisma } from '@repo/db'
+import { UNPAID_ATTENDANCE_WHERE } from '../src/features/finances/chargeable.server'
 
 type Row = { id: number; expected: number; actual: number }
+
+/**
+ * День перехода на учёт неоплаченных занятий (`close-negative-balances.ts`).
+ * Строки старше него жили по старым правилам — их проверять этой меркой нельзя.
+ */
+const SWITCH_DATE = '2026-08-10'
 
 const fmt = (n: number) => n.toLocaleString('ru-RU')
 
@@ -82,6 +89,22 @@ async function main() {
     where: { kind: 'REVERSAL', reversalOfId: null },
   })
 
+  // ─── Возврат к старому поведению ─────────────────────────────────────
+  // Минус на балансе означает, что кто-то снова списывает без пакета.
+  const negativeWallets = await prisma.wallet.count({ where: { lessonsBalance: { lt: 0 } } })
+
+  // Списание без пакета — тоже. Строки старше перехода не в счёт: их цены уже в
+  // отчётах прошлых месяцев, переписывать их нельзя.
+  const [freshDebtRow] = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT COUNT(*)::bigint AS n FROM "Attendance" a
+    WHERE a."amount" > 0 AND a."paymentId" IS NULL
+      AND a."updatedAt" > ${SWITCH_DATE}::timestamp
+  `
+  const freshDebt = Number(freshDebtRow?.n ?? 0)
+
+  // ─── Сколько занятий ждёт оплаты ─────────────────────────────────────
+  const unpaid = await prisma.attendance.count({ where: UNPAID_ATTENDANCE_WHERE })
+
   console.log(`Строк в журнале: ${fmt(total)}`)
   console.log(
     `Кошельков, где остаток ≠ Σ журнала: ${walletMismatches.length} из ${fmt(wallets.length)}`,
@@ -92,6 +115,9 @@ async function main() {
   console.log(`Выручка по журналу: ${fmt(ledgerMoney)} ₽`)
   console.log(`Выручка по строкам:  ${fmt(rowMoney)} ₽`)
   console.log(`Откатов без своей пары: ${danglingReversals}`)
+  console.log(`Кошельков с отрицательным балансом: ${negativeWallets}`)
+  console.log(`Списаний без пакета после перехода: ${freshDebt}`)
+  console.log(`Занятий ждёт оплаты: ${fmt(unpaid)}`)
 
   for (const row of walletMismatches.slice(0, 10)) {
     console.log(`  кошелёк ${row.id}: журнал ${row.expected}, колонка ${row.actual}`)
@@ -101,7 +127,11 @@ async function main() {
   }
 
   const broken =
-    walletMismatches.length > 0 || packetMismatches.length > 0 || ledgerMoney !== rowMoney
+    walletMismatches.length > 0 ||
+    packetMismatches.length > 0 ||
+    ledgerMoney !== rowMoney ||
+    negativeWallets > 0 ||
+    freshDebt > 0
 
   console.log(broken ? '\nЖурнал разошёлся с колонками.' : '\nЖурнал сходится.')
   await prisma.$disconnect()
