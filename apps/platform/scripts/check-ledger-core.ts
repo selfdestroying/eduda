@@ -301,6 +301,7 @@ async function main() {
       const c = await packet('2027-03-01', 12_000, 12) // 1000 ₽ за урок
       const settled = await settleUnpaidAttendancesTx(tx, {
         walletId: wallet.id,
+        organizationId,
         paymentId: c.id,
         take: 12,
         actorUserId: null,
@@ -333,6 +334,7 @@ async function main() {
       // ─── Повторное погашение безвредно ─────────────────────────────────
       const again = await settleUnpaidAttendancesTx(tx, {
         walletId: wallet.id,
+        organizationId,
         paymentId: c.id,
         take: 12,
         actorUserId: null,

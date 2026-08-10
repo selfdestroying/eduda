@@ -20,6 +20,7 @@
 import './load-env'
 
 import { prisma } from '@repo/db'
+import { LEDGER_SWITCH_COMMENT } from '../src/features/finances/ledger.server'
 
 const apply = process.argv.includes('--apply')
 /** День перехода: сальдо датируем им, а не задним числом. */
@@ -64,7 +65,7 @@ async function main() {
           quantity: -w.lessonsBalance,
           unitPrice: 0,
           effectiveAt: TODAY,
-          comment: 'Переход на учёт неоплаченных занятий: закрыт долг в уроках',
+          comment: LEDGER_SWITCH_COMMENT,
         },
       })
       await tx.wallet.update({ where: { id: w.id }, data: { lessonsBalance: 0 } })

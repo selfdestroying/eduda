@@ -21,6 +21,14 @@ import {
   ResolveUnprocessedPaymentSchema,
 } from './schemas'
 
+/**
+ * Оплата закрывает накопившиеся неоплаченные занятия, а каждое из них — отдельное
+ * списание со своим пакетом, журналом и историей. У ученика, который долго ходил
+ * без оплаты, таких занятий десятки, и в дефолтные пять секунд Prisma длинный
+ * хвост не укладывается: транзакция откатится целиком, и оплата не пройдёт вовсе.
+ */
+const PAYMENT_TX_OPTIONS = { timeout: 30_000 }
+
 export const getPayments = authAction
   .metadata({ actionName: 'getPayments' })
   .action(async ({ ctx }) => {
@@ -163,11 +171,12 @@ export const createPaymentWithBalance = authAction
       // порядком, то есть по цене этого пакета.
       await settleUnpaidAttendancesTx(tx, {
         walletId,
+        organizationId: ctx.session.organizationId!,
         paymentId: payment.id,
         take: lessonCount,
         actorUserId: Number(ctx.session.user.id),
       })
-    })
+    }, PAYMENT_TX_OPTIONS)
   })
 
 export const cancelPayment = authAction
@@ -429,11 +438,12 @@ export const resolveUnprocessedPayment = authAction
       // порядком, то есть по цене этого пакета.
       await settleUnpaidAttendancesTx(tx, {
         walletId,
+        organizationId: ctx.session.organizationId!,
         paymentId: payment.id,
         take: lessonCount,
         actorUserId: Number(ctx.session.user.id),
       })
-    })
+    }, PAYMENT_TX_OPTIONS)
   })
 
 export const deleteUnprocessedPayment = authAction

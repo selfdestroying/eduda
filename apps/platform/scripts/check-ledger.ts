@@ -15,13 +15,9 @@ import './load-env'
 import { prisma } from '@repo/db'
 import { UNPAID_ATTENDANCE_WHERE } from '../src/features/finances/chargeable.server'
 
-type Row = { id: number; expected: number; actual: number }
+import { LEDGER_SWITCH_COMMENT } from '../src/features/finances/ledger.server'
 
-/**
- * День перехода на учёт неоплаченных занятий (`close-negative-balances.ts`).
- * Строки старше него жили по старым правилам — их проверять этой меркой нельзя.
- */
-const SWITCH_DATE = '2026-08-10'
+type Row = { id: number; expected: number; actual: number }
 
 const fmt = (n: number) => n.toLocaleString('ru-RU')
 
@@ -93,14 +89,27 @@ async function main() {
   // Минус на балансе означает, что кто-то снова списывает без пакета.
   const negativeWallets = await prisma.wallet.count({ where: { lessonsBalance: { lt: 0 } } })
 
-  // Списание без пакета — тоже. Строки старше перехода не в счёт: их цены уже в
-  // отчётах прошлых месяцев, переписывать их нельзя.
-  const [freshDebtRow] = await prisma.$queryRaw<{ n: bigint }[]>`
-    SELECT COUNT(*)::bigint AS n FROM "Attendance" a
-    WHERE a."amount" > 0 AND a."paymentId" IS NULL
-      AND a."updatedAt" > ${SWITCH_DATE}::timestamp
-  `
-  const freshDebt = Number(freshDebtRow?.n ?? 0)
+  // Списание без пакета — тоже. Ищем его по журналу, а не по строкам посещаемости:
+  // у строки `updatedAt` меняется от любой правки, хоть от комментария, а строка
+  // журнала пишется один раз и датируется тем, когда движение случилось.
+  //
+  // День перехода берём из самой ранней корректировки, которой его пометили. Пока
+  // перехода не было, проверять нечего.
+  const switchEntry = await prisma.walletEntry.findFirst({
+    where: { kind: 'ADJUSTMENT', comment: LEDGER_SWITCH_COMMENT },
+    orderBy: { createdAt: 'asc' },
+    select: { createdAt: true },
+  })
+  const freshDebt = switchEntry
+    ? await prisma.walletEntry.count({
+        where: {
+          kind: 'CHARGE',
+          paymentId: null,
+          attendanceId: { not: null },
+          createdAt: { gt: switchEntry.createdAt },
+        },
+      })
+    : 0
 
   // ─── Сколько занятий ждёт оплаты ─────────────────────────────────────
   const unpaid = await prisma.attendance.count({ where: UNPAID_ATTENDANCE_WHERE })

@@ -63,6 +63,30 @@ export async function getUnpaidLessonsOfStudent(
   }))
 }
 
+/**
+ * Сколько занятий ждёт оплаты у каждого ученика.
+ *
+ * Считается на стороне БД: строк бывает много, а нужны из них только числа.
+ * `until` — верхняя граница по дню занятия, чтобы отчёт за период не показывал
+ * долги, набежавшие уже после него.
+ */
+export async function countUnpaidByStudent(
+  organizationId: number,
+  until?: string,
+): Promise<Map<number, number>> {
+  const rows = await prisma.attendance.groupBy({
+    by: ['studentId'],
+    where: {
+      ...UNPAID_ATTENDANCE_WHERE,
+      organizationId,
+      ...(until ? { lesson: { ...UNPAID_ATTENDANCE_WHERE.lesson, date: { lte: until } } } : {}),
+    },
+    _count: { _all: true },
+  })
+
+  return new Map(rows.map((r) => [r.studentId, r._count._all]))
+}
+
 export type UnpaidStudent = {
   studentId: number
   studentName: string
@@ -74,11 +98,29 @@ export type UnpaidStudent = {
   since: string
 }
 
-/** Сводка по школе: у кого сколько занятий ждёт оплаты. */
-export async function getUnpaidByStudent(organizationId: number): Promise<UnpaidStudent[]> {
-  const rows = await prisma.attendance.findMany({
-    where: { ...UNPAID_ATTENDANCE_WHERE, organizationId },
+/**
+ * Сводка для ленты: у кого сколько занятий ждёт оплаты, с самым ранним из них.
+ *
+ * Сначала считаем числа, потом добираем подробности только по тем ученикам,
+ * которые попадут на экран, — иначе поверхность, опрашиваемая каждые пять минут,
+ * вытаскивала бы из базы все неоплаченные строки школы разом.
+ */
+export async function getUnpaidByStudent(
+  organizationId: number,
+  limit = 50,
+): Promise<UnpaidStudent[]> {
+  const counts = await countUnpaidByStudent(organizationId)
+  if (counts.size === 0) return []
+
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit)
+  const studentIds = top.map(([studentId]) => studentId)
+
+  const earliest = await prisma.attendance.findMany({
+    where: { ...UNPAID_ATTENDANCE_WHERE, organizationId, studentId: { in: studentIds } },
+    // Самое раннее занятие каждого ученика: сортировка задаёт, какую строку
+    // оставит `distinct`.
     orderBy: [{ lesson: { date: 'asc' } }, { id: 'asc' }],
+    distinct: ['studentId'],
     select: {
       studentId: true,
       student: { select: { firstName: true, lastName: true } },
@@ -98,23 +140,14 @@ export async function getUnpaidByStudent(organizationId: number): Promise<Unpaid
     },
   })
 
-  const byStudent = new Map<number, UnpaidStudent>()
-  for (const r of rows) {
-    const existing = byStudent.get(r.studentId)
-    if (existing) {
-      existing.count += 1
-      continue
-    }
-    // Строки отсортированы по дате, поэтому первая встреченная — самая ранняя.
-    byStudent.set(r.studentId, {
+  return earliest
+    .map((r) => ({
       studentId: r.studentId,
       studentName: `${r.student.firstName} ${r.student.lastName}`,
       groupId: r.lesson.group.id,
       groupName: getGroupName(r.lesson.group),
-      count: 1,
+      count: counts.get(r.studentId) ?? 0,
       since: r.lesson.date,
-    })
-  }
-
-  return [...byStudent.values()].sort((a, b) => b.count - a.count || a.since.localeCompare(b.since))
+    }))
+    .sort((a, b) => b.count - a.count || a.since.localeCompare(b.since))
 }

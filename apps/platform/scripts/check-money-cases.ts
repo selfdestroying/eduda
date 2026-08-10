@@ -202,6 +202,7 @@ async function main() {
           })
           const settled = await settleUnpaidAttendancesTx(tx, {
             walletId,
+            organizationId,
             paymentId: payment.id,
             take: lessonCount,
             actorUserId: null,
@@ -381,6 +382,7 @@ async function main() {
           const p = await pay(s.walletId, s.studentId, '2027-01-01', 4_000, 4)
           const again = await settleUnpaidAttendancesTx(tx, {
             walletId: s.walletId,
+            organizationId,
             paymentId: p.id,
             take: 4,
             actorUserId: null,

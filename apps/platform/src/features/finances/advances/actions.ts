@@ -4,7 +4,7 @@ import { prisma } from '@repo/db'
 import { authAction } from '@/src/lib/safe-action'
 import { aggregateRevenueByStudent } from '../chargeable'
 import { computeAttendanceRevenue } from '../chargeable.server'
-import { getUnpaidByStudent } from '../unpaid.server'
+import { countUnpaidByStudent } from '../unpaid.server'
 import { AdvancesFiltersSchema } from './schemas'
 import type { AdvancesData, AdvanceTotals, StudentAdvanceRow } from './types'
 
@@ -88,10 +88,9 @@ export const getAdvancesData = authAction
     )
 
     // Долг школе больше не выражается отрицательным авансом: занятие без оплаты не
-    // списывается и выручки не даёт. Поэтому берём его отдельным счётчиком.
-    const unpaidByStudent = new Map(
-      (await getUnpaidByStudent(organizationId)).map((s) => [s.studentId, s.count]),
-    )
+    // списывается и выручки не даёт. Поэтому берём его отдельным счётчиком — по ту
+    // же границу периода, что и всё остальное в отчёте.
+    const unpaidByStudent = await countUnpaidByStudent(organizationId, periodEndYmd)
 
     // ====================================================================
     // 4. Собираем по студентам

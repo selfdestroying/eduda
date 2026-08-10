@@ -31,6 +31,13 @@ import { UNPAID_ATTENDANCE_WHERE } from './chargeable.server'
  */
 
 /**
+ * Комментарий, которым помечена корректировка перехода на учёт неоплаченных
+ * занятий (`scripts/close-negative-balances.ts`). По ней же сверка находит день
+ * перехода, поэтому строка живёт здесь, а не в одном из скриптов.
+ */
+export const LEDGER_SWITCH_COMMENT = 'Переход на учёт неоплаченных занятий: закрыт долг в уроках'
+
+/**
  * Списывается ли урок при таком статусе.
  * - PRESENT — всегда списывается
  * - ABSENT без предупреждения — списывается
@@ -304,11 +311,12 @@ export async function recordWalletEntryTx(
  */
 async function unpaidAttendancesOfWalletTx(
   tx: Prisma.TransactionClient,
-  walletId: number,
-  take: number,
-): Promise<{ id: number; organizationId: number }[]> {
-  const wallet = await tx.wallet.findUnique({
-    where: { id: walletId },
+  args: { walletId: number; organizationId: number; take: number },
+): Promise<{ id: number }[]> {
+  const { walletId, organizationId, take } = args
+
+  const wallet = await tx.wallet.findFirst({
+    where: { id: walletId, organizationId },
     select: { studentId: true },
   })
   if (!wallet) return []
@@ -323,6 +331,7 @@ async function unpaidAttendancesOfWalletTx(
     where: {
       ...UNPAID_ATTENDANCE_WHERE,
       OR: undefined,
+      organizationId,
       // Группа общая для всех её учеников, поэтому одного условия по группе мало:
       // без ученика оплата подхватила бы чужие неоплаченные занятия.
       studentId: wallet.studentId,
@@ -350,7 +359,7 @@ async function unpaidAttendancesOfWalletTx(
     },
     orderBy: [{ lesson: { date: 'asc' } }, { id: 'asc' }],
     take,
-    select: { id: true, organizationId: true },
+    select: { id: true },
   })
 }
 
@@ -372,6 +381,7 @@ export async function settleUnpaidAttendancesTx(
   tx: Prisma.TransactionClient,
   args: {
     walletId: number
+    organizationId: number
     paymentId: number
     take: number
     actorUserId: number | null
@@ -379,13 +389,17 @@ export async function settleUnpaidAttendancesTx(
 ): Promise<number> {
   if (args.take <= 0) return 0
 
-  const unpaid = await unpaidAttendancesOfWalletTx(tx, args.walletId, args.take)
+  const unpaid = await unpaidAttendancesOfWalletTx(tx, {
+    walletId: args.walletId,
+    organizationId: args.organizationId,
+    take: args.take,
+  })
 
   let settled = 0
   for (const attendance of unpaid) {
     await chargeAttendanceTx(tx, {
       attendanceId: attendance.id,
-      organizationId: attendance.organizationId,
+      organizationId: args.organizationId,
       actorUserId: args.actorUserId,
       meta: { settledByPaymentId: args.paymentId },
     })
