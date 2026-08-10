@@ -4,6 +4,7 @@ import { prisma } from '@repo/db'
 import { authAction } from '@/src/lib/safe-action'
 import { aggregateRevenueByStudent } from '../chargeable'
 import { computeAttendanceRevenue } from '../chargeable.server'
+import { getUnpaidByStudent } from '../unpaid.server'
 import { AdvancesFiltersSchema } from './schemas'
 import type { AdvancesData, AdvanceTotals, StudentAdvanceRow } from './types'
 
@@ -86,6 +87,12 @@ export const getAdvancesData = authAction
       totalAttendancesInPeriod.map((r) => [r.studentId, r._count]),
     )
 
+    // Долг школе больше не выражается отрицательным авансом: занятие без оплаты не
+    // списывается и выручки не даёт. Поэтому берём его отдельным счётчиком.
+    const unpaidByStudent = new Map(
+      (await getUnpaidByStudent(organizationId)).map((s) => [s.studentId, s.count]),
+    )
+
     // ====================================================================
     // 4. Собираем по студентам
     // ====================================================================
@@ -166,6 +173,7 @@ export const getAdvancesData = authAction
         revenueInPeriod,
         advanceAtEnd,
         totalAttendancesInPeriod: attCount,
+        unpaidCount: unpaidByStudent.get(studentId) ?? 0,
       })
     }
 
@@ -218,7 +226,9 @@ export const getAdvancesData = authAction
     )
 
     totals.activeStudents = activeRows.length
-    totals.negativeBalanceStudents = activeRows.filter((r) => r.advanceAtEnd < 0).length
+    // Должник — это тот, у кого есть проведённые и неоплаченные занятия. Аванс в
+    // минус больше не уходит: такое занятие не списывается, пока нет оплаты.
+    totals.negativeBalanceStudents = activeRows.filter((r) => r.unpaidCount > 0).length
     totals.avgCostPerVisit =
       totals.chargedInPeriod > 0 ? totals.revenueInPeriod / totals.chargedInPeriod : 0
     totals.chargeRate =

@@ -217,7 +217,7 @@ function SummaryCards({ totals }: { totals: AdvanceTotals }) {
               <p className="text-muted-foreground text-[0.625rem] tracking-wider uppercase">
                 Должников
               </p>
-              <Hint text="Студенты с отрицательным авансом на конец периода" />
+              <Hint text="Ученики, у которых есть проведённые занятия без оплаты. Стоимости у таких занятий пока нет — она появится вместе с оплатой, которая их и закроет." />
             </div>
             <p
               className={`text-2xl font-semibold tabular-nums ${totals.negativeBalanceStudents > 0 ? 'text-red-600' : ''}`}
@@ -255,6 +255,7 @@ function StudentsTable({
           <TableHead className="text-right">Посещений</TableHead>
           <TableHead className="text-right">Списано</TableHead>
           <TableHead className="text-right">Выручка</TableHead>
+          <TableHead className="text-right">Не опл.</TableHead>
           <TableHead className="text-right">Остаток</TableHead>
         </TableRow>
       </TableHeader>
@@ -276,6 +277,14 @@ function StudentsTable({
             <TableCell className="text-right tabular-nums">{r.chargedInPeriodCount}</TableCell>
             <TableCell className="text-right text-green-600 tabular-nums">
               {formatRub(Math.floor(r.revenueInPeriod))}
+            </TableCell>
+            <TableCell
+              className={`text-right tabular-nums ${
+                r.unpaidCount > 0 ? 'text-red-600' : 'text-muted-foreground'
+              }`}
+              title="Занятий проведено без оплаты. Цены у них пока нет — она придёт с оплатой."
+            >
+              {r.unpaidCount > 0 ? r.unpaidCount : '-'}
             </TableCell>
             <TableCell
               className={`text-right font-medium tabular-nums ${
@@ -304,6 +313,9 @@ function StudentsTable({
           <TableCell className="text-right tabular-nums">{totals.chargedInPeriod}</TableCell>
           <TableCell className="text-right text-green-600 tabular-nums">
             {formatRub(Math.floor(totals.revenueInPeriod))}
+          </TableCell>
+          <TableCell className="text-right tabular-nums">
+            {students.reduce((sum, r) => sum + r.unpaidCount, 0) || '-'}
           </TableCell>
           <TableCell
             className={`text-right tabular-nums ${

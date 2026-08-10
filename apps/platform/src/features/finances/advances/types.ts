@@ -25,6 +25,8 @@ export interface StudentAdvanceRow {
   paidBefore: number
   /** Оплачено внутри периода */
   paidInPeriod: number
+  /** Занятий проведено, а оплаты под них нет. Цены у них ещё не существует. */
+  unpaidCount: number
 }
 
 export interface AdvanceTotals {
@@ -41,7 +43,7 @@ export interface AdvanceTotals {
   totalAttendances: number
   /** Количество активных студентов (с оплатами/посещениями/авансом) */
   activeStudents: number
-  /** Количество студентов с отрицательным балансом */
+  /** Количество студентов, у которых есть занятия без оплаты */
   negativeBalanceStudents: number
   /** Средняя стоимость за списанное посещение */
   avgCostPerVisit: number
