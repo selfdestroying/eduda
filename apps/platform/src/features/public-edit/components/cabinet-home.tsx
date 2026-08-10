@@ -66,6 +66,7 @@ export default function CabinetHome({ token }: { token: string }) {
   }
 
   const { balance } = financeTotals(finances.data)
+  const unpaidCount = finances.data?.unpaid.length ?? 0
   const { present, marked, rate } = attendanceStats(groups.data.groups)
   // «Сегодня» считает сервер в поясе школы и отдаёт вместе с занятиями — так
   // ближайшие занятия и проверки в кабинете смотрят на одну и ту же дату.
@@ -89,6 +90,8 @@ export default function CabinetHome({ token }: { token: string }) {
             {balance > 0
               ? `Осталось ${balance} ${plural(balance, 'занятие', 'занятия', 'занятий')}. Пора продлить оплату.`
               : 'Оплаченные занятия закончились. Свяжитесь со школой, чтобы продлить обучение.'}
+            {unpaidCount > 0 &&
+              ` Уже прошло ${unpaidCount} ${plural(unpaidCount, 'занятие', 'занятия', 'занятий')} без оплаты — следующая оплата их закроет.`}
           </AlertDescription>
           <AlertAction>
             <Button

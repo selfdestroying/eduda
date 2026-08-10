@@ -3,6 +3,7 @@
 import { WalletCard } from '@/src/features/wallets/components/wallet-card'
 import { Skeleton } from '@repo/ui/components/skeleton'
 import { StatCard } from '@repo/ui/components/stat-card'
+import { formatDateOnly } from '@/src/lib/timezone'
 import { BookOpen, Receipt, Wallet } from 'lucide-react'
 import { financeTotals, LOW_BALANCE } from '../lib'
 import { usePublicStudentFinancesQuery, useSelectedChild } from '../queries'
@@ -61,6 +62,31 @@ export default function FinancesSection({ token }: { token: string }) {
           className="col-span-2 sm:col-span-1"
         />
       </div>
+
+      {data.unpaid.length > 0 && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-sm font-medium">Ждут оплаты</h2>
+            <p className="text-muted-foreground text-xs">
+              Эти занятия уже прошли, но оплаты под них не было. Следующая оплата закроет их
+              автоматически, начиная с самого раннего.
+            </p>
+          </div>
+          <ul className="divide-y rounded-lg border">
+            {data.unpaid.map((lesson) => (
+              <li
+                key={lesson.attendanceId}
+                className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
+              >
+                <span className="tabular-nums">
+                  {formatDateOnly(lesson.date)} · {lesson.time}
+                </span>
+                <span className="text-muted-foreground truncate text-xs">{lesson.groupName}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {activeWallets.length > 0 && (
         <section className="space-y-3">
