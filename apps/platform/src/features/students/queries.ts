@@ -7,6 +7,7 @@ import {
   getStudentGroupHistory,
   getStudentLessonsBalanceHistory,
   getStudentShopStats,
+  getStudentUnpaidLessons,
   getStudents,
   revealStudentPassword,
   searchStudents,
@@ -28,6 +29,7 @@ export const studentKeys = {
   groupHistory: (studentId: number) => ['students', 'groupHistory', studentId] as const,
   balanceHistory: (studentId: number) => ['students', 'balanceHistory', studentId] as const,
   shopStats: (studentId: number) => ['students', 'shopStats', studentId] as const,
+  unpaid: (studentId: number) => ['students', 'unpaid', studentId] as const,
 }
 
 // ─── Queries ────────────────────────────────────────────────────────
@@ -53,6 +55,17 @@ export const useStudentSearchQuery = (query: string) => {
     },
     enabled: query.trim().length > 0,
     placeholderData: (prev) => prev,
+  })
+}
+
+export const useStudentUnpaidLessonsQuery = (studentId: number) => {
+  return useQuery({
+    queryKey: studentKeys.unpaid(studentId),
+    queryFn: async () => {
+      const { data, serverError } = await getStudentUnpaidLessons({ studentId })
+      if (serverError) throw serverError
+      return data ?? []
+    },
   })
 }
 

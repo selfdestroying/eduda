@@ -18,6 +18,7 @@ import ShopSection from './shop-section'
 import StudentAccountSection from './student-account-section'
 import StudentCard from './student-card'
 import StudentGroupsSection from './student-groups-section'
+import UnpaidLessonsSection from './unpaid-lessons-section'
 
 export default function StudentDetailPage({ studentId }: { studentId: number }) {
   const { data: student, isLoading, isError } = useStudentDetailQuery(studentId)
@@ -92,6 +93,7 @@ export default function StudentDetailPage({ studentId }: { studentId: number }) 
           </FeatureGate>
           <FeatureGate feature="finances">
             <PaymentSection student={student} />
+            <UnpaidLessonsSection studentId={student.id} />
             <WalletsSection student={student} />
           </FeatureGate>
           <StudentGroupsSection

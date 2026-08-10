@@ -4,6 +4,7 @@ import { Prisma } from '@repo/db'
 import { CoinTxReason } from '@repo/db/enums'
 
 import { prisma } from '@repo/db'
+import { getUnpaidLessonsOfStudent } from '@/src/features/finances/unpaid.server'
 import { recordCoins } from '@/src/lib/coins'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
 import { authAction, featureAction, permissionAction } from '@/src/lib/safe-action'
@@ -191,6 +192,18 @@ export const getStudentDetail = authAction
         },
       },
     })
+  })
+
+/**
+ * Занятия ученика, которые ждут оплаты. Отдельным запросом, а не внутри
+ * `getStudentDetail`: предикат живёт в денежном модуле, и тащить его в общий
+ * include значит расползание одного правила по двум местам.
+ */
+export const getStudentUnpaidLessons = authAction
+  .metadata({ actionName: 'getStudentUnpaidLessons' })
+  .inputSchema(z.object({ studentId: z.number().int().positive() }))
+  .action(async ({ ctx, parsedInput }) => {
+    return await getUnpaidLessonsOfStudent(ctx.session.organizationId!, parsedInput.studentId)
   })
 
 // ─── CREATE ──────────────────────────────────────────────────────────────────
