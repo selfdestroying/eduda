@@ -427,7 +427,9 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       totalPayments: int(1, 8) * 6400,
       // Актуальность = дата последней правки анкеты; у части учеников её нет.
       dataUpdatedDaysAgo: rng() > 0.4 ? int(1, 400) : null,
-      paymentsCount: int(1, 3),
+      // У части учеников оплат нет вовсе: их занятия попадут в «Ждут оплаты» —
+      // демо должно показывать и это состояние, а не только благополучное.
+      paymentsCount: rng() > 0.85 ? 0 : int(1, 3),
       hasParent: rng() > 0.5,
     }
   })

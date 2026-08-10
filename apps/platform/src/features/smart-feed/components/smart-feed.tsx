@@ -43,10 +43,9 @@ import {
   useUnmarkedAttendnace,
   useUnpaidStudentsQuery,
 } from '../queries'
-import { type SmartFeedAlert } from '../types'
+import { type SmartFeedAlert, UNPAID_SNOOZE_KEY } from '../types'
 import { QuickTip } from './quick-tip'
 import { SnoozeDaysMenu, type SnoozeDaysOption } from './snooze-days-menu'
-import { UNPAID_SNOOZE_KEY } from '../actions'
 
 // ─── Popover-only trigger (mobile) ─────────────────────────────────────
 

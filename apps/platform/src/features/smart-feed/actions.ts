@@ -15,6 +15,7 @@ import {
 } from './schemas'
 import {
   ALERT_TYPE,
+  UNPAID_SNOOZE_KEY,
   type ConsecutiveAbsencesAlert,
   type LowBalanceAlert,
   type NegativeBalanceAlert,
@@ -253,9 +254,6 @@ export const getParentMarkedAbsences = authAction
         withSnoozed: parsedInput.withSnoozed,
       }),
   )
-
-/** Ключ откладывания для «Долгов»: свой, чтобы не пересекаться с «Зоной риска». */
-export const UNPAID_SNOOZE_KEY = 'student-unpaid'
 
 export const getUnpaidStudents = authAction
   .metadata({ actionName: 'getUnpaidStudents' })

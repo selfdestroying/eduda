@@ -26,6 +26,13 @@ export const ALERT_TYPE_ORDER: Record<AlertType, number> = {
   [ALERT_TYPE.PARENT_MARKED_ABSENCE]: 4,
 }
 
+/**
+ * Ключ откладывания для «Долгов»: свой, чтобы не пересекаться с «Зоной риска».
+ * Живёт здесь, а не в `actions.ts`: из файла с `'use server'` можно
+ * экспортировать только асинхронные функции.
+ */
+export const UNPAID_SNOOZE_KEY = 'student-unpaid'
+
 export type AlertSeverity = 'red' | 'orange' | 'yellow'
 
 export const ALERT_SEVERITY_VALUES = ['red', 'orange', 'yellow'] as const
