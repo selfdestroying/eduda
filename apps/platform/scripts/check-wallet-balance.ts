@@ -13,11 +13,12 @@ import assert from 'node:assert/strict'
 import { prisma } from '@repo/db'
 
 async function main() {
-  // Долг пакетами не выражается: очередь пустеет на нуле, а баланс уходит в минус.
-  // Поэтому сравниваем с балансом, обрезанным снизу нулём.
+  // Баланс кошелька — это ровно непотраченные уроки его пакетов. Занятие, под
+  // которое нет пакета, не списывается вовсе, поэтому в минус баланс не уходит и
+  // обрезать его снизу больше незачем.
   const [balance] = await prisma.$queryRaw<{ n: bigint; total: bigint }[]>`
     SELECT count(*)::bigint AS n, COALESCE(SUM(abs(diff)), 0)::bigint AS total FROM (
-      SELECT w.id, GREATEST(w."lessonsBalance", 0) - COALESCE(SUM(p.remaining), 0) AS diff
+      SELECT w.id, w."lessonsBalance" - COALESCE(SUM(p.remaining), 0) AS diff
       FROM "Wallet" w
       LEFT JOIN "Payment" p ON p."walletId" = w.id AND p.status = 'ACTIVE'
       GROUP BY w.id, w."lessonsBalance"
