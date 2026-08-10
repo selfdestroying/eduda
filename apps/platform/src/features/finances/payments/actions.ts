@@ -8,7 +8,7 @@ import {
 import { prisma } from '@repo/db'
 import {
   recordWalletEntryTx,
-  settleDebtWithPacketTx,
+  settleUnpaidAttendancesTx,
   writeFinancialHistoryTx,
 } from '@/src/features/finances/ledger.server'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
@@ -118,16 +118,6 @@ export const createPaymentWithBalance = authAction
         actorUserId: Number(ctx.session.user.id),
       })
 
-      // Долг закрывается этой же оплатой: занятия, проведённые с пустой очередью,
-      // получают её цену вместо догадки, а остаток пакета — честное число.
-      await settleDebtWithPacketTx(tx, {
-        walletId,
-        paymentId: payment.id,
-        unitPrice: Math.floor(price / lessonCount),
-        limit: lessonCount,
-        actorUserId: Number(ctx.session.user.id),
-      })
-
       const updated = await tx.wallet.update({
         where: { id: walletId },
         data: {
@@ -167,6 +157,16 @@ export const createPaymentWithBalance = authAction
           meta: paymentMeta,
         })
       }
+
+      // Купленные уроки на балансе — теперь ими можно закрыть занятия, которые
+      // школа уже провела, а платить за них было нечем. Списываются обычным
+      // порядком, то есть по цене этого пакета.
+      await settleUnpaidAttendancesTx(tx, {
+        walletId,
+        paymentId: payment.id,
+        take: lessonCount,
+        actorUserId: Number(ctx.session.user.id),
+      })
     })
   })
 
@@ -379,16 +379,6 @@ export const resolveUnprocessedPayment = authAction
         actorUserId: Number(ctx.session.user.id),
       })
 
-      // Долг закрывается этой же оплатой: занятия, проведённые с пустой очередью,
-      // получают её цену вместо догадки, а остаток пакета — честное число.
-      await settleDebtWithPacketTx(tx, {
-        walletId,
-        paymentId: payment.id,
-        unitPrice: Math.floor(price / lessonCount),
-        limit: lessonCount,
-        actorUserId: Number(ctx.session.user.id),
-      })
-
       const updated = await tx.wallet.update({
         where: { id: walletId },
         data: {
@@ -433,6 +423,16 @@ export const resolveUnprocessedPayment = authAction
           meta: paymentMeta,
         })
       }
+
+      // Купленные уроки на балансе — теперь ими можно закрыть занятия, которые
+      // школа уже провела, а платить за них было нечем. Списываются обычным
+      // порядком, то есть по цене этого пакета.
+      await settleUnpaidAttendancesTx(tx, {
+        walletId,
+        paymentId: payment.id,
+        take: lessonCount,
+        actorUserId: Number(ctx.session.user.id),
+      })
     })
   })
 

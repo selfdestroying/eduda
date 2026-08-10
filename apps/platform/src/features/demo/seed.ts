@@ -602,8 +602,6 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
   }
 
   const attendance: Prisma.AttendanceCreateManyInput[] = []
-  /** Занятия, списанные без пакета: на балансе они уходят в минус. */
-  const debtByStudent = new Map<number, number>()
   for (let g = 0; g < createdGroups.length; g++) {
     for (const lessonId of createdGroups[g]!.pastLessonIds) {
       for (const studentId of studentsByGroup[g]!) {
@@ -613,12 +611,9 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
         const queue = queueByStudent.get(studentId) ?? []
         const packet = charged ? queue.find((p) => p.left > 0) : undefined
         if (packet) packet.left -= 1
-        else if (charged) debtByStudent.set(studentId, (debtByStudent.get(studentId) ?? 0) + 1)
 
-        // Пакеты кончились — списываем в долг по последней известной цене, как это
-        // делает `chargeAttendanceTx`: демо должно показывать те же случаи, что и живая база.
-        const price = packet?.price ?? queue.at(-1)?.price ?? 0
-
+        // Пакеты кончились — занятие остаётся неоплаченным: ни цены, ни списания,
+        // как и в живом коде. Демо должно показывать те же случаи, что и база.
         attendance.push({
           organizationId: orgId,
           lessonId,
@@ -626,8 +621,8 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
           status,
           comment: status === 'ABSENT' && rng() > 0.6 ? 'Болел' : '',
           paymentId: packet?.id ?? null,
-          price: charged ? price : 0,
-          amount: charged ? 1 : 0,
+          price: packet?.price ?? null,
+          amount: packet ? 1 : 0,
         })
       }
     }
@@ -692,11 +687,11 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     await prisma.payment.updateMany({ where: { id: { in: ids } }, data: { remaining: left } })
   }
 
-  // Баланс кошелька — непотраченные уроки его пакетов минус занятия, проведённые
-  // в долг. Случайное число здесь разошлось бы и с пакетами, и с журналом.
+  // Баланс кошелька — это и есть непотраченные уроки его пакетов. Случайное число
+  // здесь разошлось бы и с пакетами, и с журналом.
   const balanceByWallet = new Map<number, number[]>()
   for (const [studentId, queue] of queueByStudent) {
-    const left = queue.reduce((sum, p) => sum + p.left, 0) - (debtByStudent.get(studentId) ?? 0)
+    const left = queue.reduce((sum, p) => sum + p.left, 0)
     const walletId = walletByStudent.get(studentId)
     if (walletId) balanceByWallet.set(left, [...(balanceByWallet.get(left) ?? []), walletId])
   }

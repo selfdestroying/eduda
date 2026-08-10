@@ -5,6 +5,8 @@ import {
   StudentLessonsBalanceChangeReason,
   WalletEntryKind,
 } from '@repo/db/enums'
+// Относительный путь, а не алиас: этот модуль запускают скрипты через tsx.
+import { UNPAID_ATTENDANCE_WHERE } from './chargeable.server'
 
 /**
  * Денежное ядро: единственное место, где посещение превращается в деньги.
@@ -80,8 +82,12 @@ const findAttendanceTx = (tx: Prisma.TransactionClient, args: AttendanceMoneyArg
  *
  * Гасит головной пакет — самый ранний непотраченный — и копирует его цену урока
  * в строку. Дальше эта цена не пересчитывается, поэтому новые оплаты не двигают
- * закрытые месяцы. Если непотраченных пакетов нет, урок всё равно списывается,
- * по последней известной цене кошелька: школа занятие провела.
+ * закрытые месяцы.
+ *
+ * Пакета нет — занятие остаётся **неоплаченным**: ни списания, ни цены, ни строки
+ * журнала. Выдумывать цену нечем, а выдуманная потом требует переписывания
+ * прошлого. Такое занятие ждёт оплаты — она скажет его цену
+ * (см. `settleUnpaidAttendancesTx`).
  *
  * Повторный вызов на уже списанной строке ничего не делает.
  */
@@ -94,31 +100,31 @@ export async function chargeAttendanceTx(
 
   const walletId = await walletOfAttendanceTx(tx, attendance)
 
-  // Кошелька нет — списывать не с чего. Проводку всё равно перезаписываем: на
-  // строке могла остаться цена от прошлого статуса.
-  if (!walletId) {
+  const packet = walletId
+    ? await tx.payment.findFirst({
+        where: { walletId, status: 'ACTIVE', remaining: { gt: 0 } },
+        orderBy: [{ date: 'asc' }, { id: 'asc' }],
+        select: { id: true, price: true, lessonCount: true },
+      })
+    : null
+
+  // Платить нечем: кошелька нет или очередь пуста. Проводку всё равно
+  // перезаписываем — на строке могла остаться цена от прошлого статуса.
+  if (!walletId || !packet) {
     await tx.attendance.update({
       where: { id: attendance.id },
-      data: { paymentId: null, price: 0, amount: 0 },
+      data: { paymentId: null, price: null, amount: 0 },
     })
     return
   }
 
-  const packet = await tx.payment.findFirst({
-    where: { walletId, status: 'ACTIVE', remaining: { gt: 0 } },
-    orderBy: [{ date: 'asc' }, { id: 'asc' }],
-    select: { id: true, price: true, lessonCount: true },
-  })
+  await tx.payment.update({ where: { id: packet.id }, data: { remaining: { decrement: 1 } } })
 
-  if (packet) {
-    await tx.payment.update({ where: { id: packet.id }, data: { remaining: { decrement: 1 } } })
-  }
-
-  const price = packet ? unitPrice(packet) : await walletUnitPrice(tx, walletId)
+  const price = unitPrice(packet)
 
   await tx.attendance.update({
     where: { id: attendance.id },
-    data: { paymentId: packet?.id ?? null, price, amount: 1 },
+    data: { paymentId: packet.id, price, amount: 1 },
   })
 
   await recordEntryTx(tx, {
@@ -127,9 +133,8 @@ export async function chargeAttendanceTx(
     kind: WalletEntryKind.CHARGE,
     quantity: -1,
     unitPrice: price,
-    paymentId: packet?.id ?? null,
+    paymentId: packet.id,
     actorUserId: args.actorUserId,
-    comment: packet ? null : 'В долг: непотраченных пакетов не было',
   })
 
   await moveBalanceTx(tx, {
@@ -288,105 +293,103 @@ export async function recordWalletEntryTx(
 }
 
 /**
- * Оплата закрывает долг: занятия, проведённые с пустой очередью, привязываются к
- * новому пакету и получают его цену.
+ * Занятия кошелька, которые школа провела, а оплаты под них не нашлось.
  *
- * Пока оплаты не было, такое занятие списывалось по последней известной цене — это
- * догадка, а не цена. Оплата её уточняет, поэтому старое списание снимается
- * встречной строкой, а занятие списывается заново с нового пакета. В журнале
- * остаётся видно и догадку, и уточнение; `createdAt` покажет, что уточнили позже.
+ * Обратная функция к `walletOfAttendanceTx`: кошелёк выбран на самой строке
+ * (разовый визит) либо через группу — свою у обычного занятия, группу пропуска у
+ * отработки. От старого занятия к новому: гасим в том же порядке, что и очередь.
  *
- * Баланс кошелька при этом не двигается: уроки уже были списаны, меняется только
- * то, чем за них заплатили. Зато остаток пакета сразу становится честным — в нём
- * ровно столько уроков, сколько ученик может отходить дальше.
- *
- * Возвращает, сколько уроков долга закрыли.
+ * Если ученика вывели из группы, его неоплаченные занятия отсюда не видны —
+ * связи с кошельком больше нет. В общем счётчике неоплаченных они останутся.
  */
-export async function settleDebtWithPacketTx(
+async function unpaidAttendancesOfWalletTx(
+  tx: Prisma.TransactionClient,
+  walletId: number,
+  take: number,
+): Promise<{ id: number; organizationId: number }[]> {
+  const groups = await tx.studentGroup.findMany({
+    where: { walletId },
+    select: { groupId: true },
+  })
+  const groupIds = groups.map((g) => g.groupId)
+
+  return await tx.attendance.findMany({
+    where: {
+      ...UNPAID_ATTENDANCE_WHERE,
+      OR: undefined,
+      AND: [
+        { OR: UNPAID_ATTENDANCE_WHERE.OR },
+        {
+          OR: [
+            { walletId },
+            ...(groupIds.length > 0
+              ? [
+                  {
+                    walletId: null,
+                    makeupForAttendanceId: null,
+                    lesson: { groupId: { in: groupIds } },
+                  },
+                  {
+                    walletId: null,
+                    makeupForAttendance: { lesson: { groupId: { in: groupIds } } },
+                  },
+                ]
+              : []),
+          ],
+        },
+      ],
+    },
+    orderBy: [{ lesson: { date: 'asc' } }, { id: 'asc' }],
+    take,
+    select: { id: true, organizationId: true },
+  })
+}
+
+/**
+ * Оплата закрывает неоплаченные занятия: они списываются обычным порядком, с
+ * головы очереди, то есть по цене этого пакета.
+ *
+ * Никакой отдельной механики здесь нет — это то же самое списание, просто
+ * применённое задним числом к занятиям, которые его ждали. Поэтому и цена, и
+ * баланс, и строка журнала, и история получаются такими же, как если бы оплата
+ * пришла вовремя. Строка журнала датируется днём занятия, а не днём оплаты.
+ *
+ * `take` — сколько уроков в пакете: больше него всё равно не спишется, а лишние
+ * занятия перебирать незачем.
+ *
+ * Возвращает, сколько занятий закрыли.
+ */
+export async function settleUnpaidAttendancesTx(
   tx: Prisma.TransactionClient,
   args: {
     walletId: number
     paymentId: number
-    /** Цена урока нового пакета — её и получат долговые занятия. */
-    unitPrice: number
-    /** Уроков в пакете: закрыть долга больше, чем купили, нельзя. */
-    limit: number
+    take: number
     actorUserId: number | null
   },
 ): Promise<number> {
-  if (args.limit <= 0) return 0
+  if (args.take <= 0) return 0
 
-  // Долг ищем по журналу: у списания «в долг» нет пакета, а `reversedBy` отсекает
-  // те, что уже откатили. Порядок — от старого занятия к новому, как и очередь.
-  const debts = await tx.walletEntry.findMany({
-    where: {
-      walletId: args.walletId,
-      kind: WalletEntryKind.CHARGE,
-      paymentId: null,
-      attendanceId: { not: null },
-      reversedBy: { is: null },
-    },
-    orderBy: [{ effectiveAt: 'asc' }, { id: 'asc' }],
-    select: {
-      id: true,
-      organizationId: true,
-      studentId: true,
-      attendanceId: true,
-      quantity: true,
-      unitPrice: true,
-      effectiveAt: true,
-    },
-  })
+  const unpaid = await unpaidAttendancesOfWalletTx(tx, args.walletId, args.take)
 
-  let covered = 0
-  for (const debt of debts) {
-    const lessons = Math.abs(debt.quantity)
-    if (lessons === 0 || covered + lessons > args.limit) break
-
-    const common = {
-      organizationId: debt.organizationId,
-      walletId: args.walletId,
-      studentId: debt.studentId,
-      // День занятия, а не день оплаты: уточняется цена прошедшего урока, и в
-      // отчёте он должен остаться в своём месяце.
-      effectiveAt: debt.effectiveAt,
-      attendanceId: debt.attendanceId,
+  let settled = 0
+  for (const attendance of unpaid) {
+    await chargeAttendanceTx(tx, {
+      attendanceId: attendance.id,
+      organizationId: attendance.organizationId,
       actorUserId: args.actorUserId,
-    }
-
-    await recordWalletEntryTx(tx, {
-      ...common,
-      kind: WalletEntryKind.REVERSAL,
-      quantity: lessons,
-      unitPrice: debt.unitPrice,
-      paymentId: null,
-      reversalOfId: debt.id,
-      comment: 'Списание в долг снято: пришла оплата',
+      meta: { settledByPaymentId: args.paymentId },
     })
-    await recordWalletEntryTx(tx, {
-      ...common,
-      kind: WalletEntryKind.CHARGE,
-      quantity: -lessons,
-      unitPrice: args.unitPrice,
-      paymentId: args.paymentId,
-      comment: 'Занятие закрыто оплатой по её цене',
+    // Пакет мог кончиться на предыдущем занятии — тогда списания не случилось.
+    const charged = await tx.attendance.findUnique({
+      where: { id: attendance.id },
+      select: { amount: true },
     })
-
-    await tx.attendance.update({
-      where: { id: debt.attendanceId! },
-      data: { paymentId: args.paymentId, price: args.unitPrice },
-    })
-    covered += lessons
+    if (!charged?.amount) break
+    settled += 1
   }
 
-  if (covered > 0) {
-    await tx.payment.update({
-      where: { id: args.paymentId },
-      data: { remaining: { decrement: covered } },
-    })
-  }
-
-  return covered
+  return settled
 }
 
 /** Строка журнала по занятию. Бизнес-день берётся с самого занятия. */
@@ -500,27 +503,6 @@ const chargeReason = (attendance: MoneyAttendance): StudentLessonsBalanceChangeR
 
 const unitPrice = (p: { price: number; lessonCount: number }) =>
   p.lessonCount > 0 ? Math.floor(p.price / p.lessonCount) : 0
-
-/**
- * Цена урока кошелька, когда непотраченных пакетов не осталось: цена самого
- * позднего его пакета, а если оплат не было вовсе — из счётчиков, оставшихся от
- * переезда на кошельки. Ноль означает, что про кошелёк не известно ничего.
- */
-async function walletUnitPrice(tx: Prisma.TransactionClient, walletId: number): Promise<number> {
-  const latest = await tx.payment.findFirst({
-    where: { walletId, status: 'ACTIVE' },
-    orderBy: [{ date: 'desc' }, { id: 'desc' }],
-    select: { price: true, lessonCount: true },
-  })
-  if (latest) return unitPrice(latest)
-
-  const wallet = await tx.wallet.findUnique({
-    where: { id: walletId },
-    select: { totalPayments: true, totalLessons: true },
-  })
-  if (!wallet || wallet.totalLessons <= 0) return 0
-  return Math.floor(wallet.totalPayments / wallet.totalLessons)
-}
 
 /** Строка в журнале изменений баланса. Пишется вместе с самим изменением. */
 export async function writeFinancialHistoryTx(

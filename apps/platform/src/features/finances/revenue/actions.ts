@@ -138,9 +138,19 @@ export const getRevenueData = authAction
         const costReason = (() => {
           if (lesson.status === 'CANCELLED') return 'Урок отменён — стоимость не списывается'
           if (att.isTrial) return 'Пробное занятие — с баланса не списывается'
-          if (att.price === null) return `${label} → не размечено, оплата не найдена`
+          if (att.amount === null) return `${label} → не размечено, оплата не найдена`
           if (!counted && att.makeupAttendance) {
             return `${label} → деньги на строке отработки ${att.makeupAttendance.lesson.date}`
+          }
+          // Занятие провели, платить за него надо, а пакета под него не нашлось.
+          // Цену не выдумываем — она появится вместе с оплатой.
+          if (
+            att.amount === 0 &&
+            att.price === null &&
+            classification !== null &&
+            ['present', 'absent_no_warn', 'makeup_success'].includes(classification)
+          ) {
+            return `${label} → не оплачено: оплаты под это занятие ещё нет`
           }
           if (!counted) return `${label} → не списано`
           if (att.payment) {

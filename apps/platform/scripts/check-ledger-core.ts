@@ -6,7 +6,7 @@
  * школа, ученик, группа и занятия в базе не остаются. Мока Prisma нет намеренно —
  * порядок очереди держится на сортировке в SQL, и мок бы её как раз и не проверил.
  *
- *   pnpm --filter platform exec tsx scripts/check-payment-packets.ts
+ *   pnpm --filter platform exec tsx scripts/check-ledger-core.ts
  */
 import './load-env'
 
@@ -16,7 +16,7 @@ import { WalletEntryKind } from '@repo/db/enums'
 import {
   chargeAttendanceTx,
   recordWalletEntryTx,
-  settleDebtWithPacketTx,
+  settleUnpaidAttendancesTx,
   unchargeAttendanceTx,
 } from '../src/features/finances/ledger.server'
 
@@ -259,84 +259,91 @@ async function main() {
         'после A очередь переходит к B с его собственной ценой',
       )
 
-      // ─── Очередь исчерпана: списываем в долг по последней цене ─────────
+      // ─── Очередь исчерпана: занятие остаётся неоплаченным ──────────────
       await tx.payment.update({ where: { id: b.id }, data: { remaining: 0 } })
-      const credit = await visit()
-      const balanceBeforeCredit = await balance()
-      await charge(credit)
+      const unpaidOne = await visit()
+      const balanceBeforeUnpaid = await balance()
+      const ledgerBeforeUnpaid = await tx.walletEntry.count({ where: { walletId: wallet.id } })
+      await charge(unpaidOne)
       assert.deepEqual(
-        await entryOf(credit),
-        { paymentId: null, price: 500, amount: 1 },
-        'без непотраченных пакетов урок идёт в долг по цене последнего пакета (B), а не первого',
+        await entryOf(unpaidOne),
+        { paymentId: null, price: null, amount: 0 },
+        'платить нечем — цену не выдумываем, занятие ждёт оплаты',
       )
-      assert.equal(await balance(), balanceBeforeCredit - 1, 'долг тоже уходит в минус по балансу')
-
-      // ─── Долг откатывается: и выручка, и баланс ───────────────────────
-      await uncharge(credit)
-      assert.deepEqual(
-        await entryOf(credit),
-        { paymentId: null, price: 500, amount: 0 },
-        'у долга нет пакета, но количество обнулить надо — иначе выручка останется',
-      )
+      assert.equal(await balance(), balanceBeforeUnpaid, 'баланс не уходит в минус')
       assert.equal(
-        await balance(),
-        balanceBeforeCredit,
-        'урок, взятый в долг, возвращается на баланс',
+        await tx.walletEntry.count({ where: { walletId: wallet.id } }),
+        ledgerBeforeUnpaid,
+        'движения не было — строки журнала тоже нет',
       )
-      assert.equal(await remainingOf(a.id), 0, 'откат долга не должен трогать чужие пакеты')
 
-      // ─── Оплата закрывает долг и переоценивает его по своей цене ───────
-      const inDebt = await visit()
-      await charge(inDebt)
-      assert.deepEqual(
-        await entryOf(inDebt),
-        { paymentId: null, price: 500, amount: 1 },
-        'пока оплаты нет, занятие списывается в долг по догадке',
+      // ─── Откат неоплаченного занятия ничего не двигает ─────────────────
+      // Как в экшене: сначала статус, потом деньги. Занятие перестало быть
+      // платным, значит и в очередь на оплату больше не встаёт.
+      await tx.attendance.update({ where: { id: unpaidOne }, data: { status: 'UNSPECIFIED' } })
+      await uncharge(unpaidOne)
+      assert.equal(await balance(), balanceBeforeUnpaid, 'возвращать нечего')
+      assert.equal(
+        await tx.walletEntry.count({ where: { walletId: wallet.id } }),
+        ledgerBeforeUnpaid,
+        'и записывать нечего',
       )
+
+      // ─── Оплата закрывает накопившиеся неоплаченные занятия ────────────
+      const unpaidA = await visit()
+      const unpaidB = await visit()
+      await charge(unpaidA)
+      await charge(unpaidB)
+      assert.equal((await entryOf(unpaidA)).amount, 0, 'оба занятия ждут оплаты')
+      assert.equal((await entryOf(unpaidB)).amount, 0, 'оба занятия ждут оплаты')
 
       const balanceBeforeSettle = await balance()
       const c = await packet('2027-03-01', 12_000, 12) // 1000 ₽ за урок
-      const covered = await settleDebtWithPacketTx(tx, {
+      const settled = await settleUnpaidAttendancesTx(tx, {
         walletId: wallet.id,
         paymentId: c.id,
-        unitPrice: 1000,
-        limit: 12,
+        take: 12,
         actorUserId: null,
       })
 
-      assert.equal(covered, 1, 'оплата обязана закрыть одно долговое занятие')
+      assert.equal(settled, 2, 'оплата обязана закрыть оба занятия')
       assert.deepEqual(
-        await entryOf(inDebt),
+        await entryOf(unpaidA),
         { paymentId: c.id, price: 1000, amount: 1 },
-        'долговое занятие переезжает на новый пакет и получает его цену',
+        'неоплаченное занятие получает цену пришедшей оплаты',
       )
-      assert.equal(
-        await remainingOf(c.id),
-        11,
-        'в пакете остаётся столько уроков, сколько ученик реально может отходить',
-      )
-      assert.equal(
-        await balance(),
-        balanceBeforeSettle + 12,
-        'баланс двигает только сама оплата: уроки были списаны раньше',
-      )
+      assert.equal(await remainingOf(c.id), 10, 'из пакета ушло ровно два урока')
+      assert.equal(await balance(), balanceBeforeSettle + 12 - 2, 'приход минус закрытые занятия')
       assert.equal(await ledgerSum(), await balance(), 'журнал обязан сойтись с балансом')
 
-      const settled = await ledgerOf(inDebt)
-      assert.equal(settled.length, 3, 'в журнале: списание в долг, его снятие и списание с пакета')
-      assert.equal(settled[1]!.kind, 'REVERSAL', 'догадка снимается встречной строкой')
-      assert.equal(settled[1]!.unitPrice, 500, 'снимается ровно та цена, что была записана')
-      assert.equal(settled[2]!.unitPrice, 1000, 'а списывается уже цена оплаты')
+      const settledLedger = await ledgerOf(unpaidA)
+      assert.equal(settledLedger.length, 1, 'одна строка на занятие: ни догадки, ни её снятия')
+      assert.equal(settledLedger[0]!.kind, 'CHARGE', 'обычное списание, просто задним числом')
+      assert.equal(settledLedger[0]!.unitPrice, 1000, 'по цене оплаты')
+      const unpaidALesson = await tx.attendance.findUniqueOrThrow({
+        where: { id: unpaidA },
+        select: { lesson: { select: { date: true } } },
+      })
       assert.equal(
-        settled[2]!.effectiveAt,
-        settled[0]!.effectiveAt,
-        'уточнение остаётся в месяце занятия, а не переезжает в месяц оплаты',
+        settledLedger[0]!.effectiveAt,
+        unpaidALesson.lesson.date,
+        'строка датирована днём занятия, а не днём оплаты',
       )
+
+      // ─── Повторное погашение безвредно ─────────────────────────────────
+      const again = await settleUnpaidAttendancesTx(tx, {
+        walletId: wallet.id,
+        paymentId: c.id,
+        take: 12,
+        actorUserId: null,
+      })
+      assert.equal(again, 0, 'закрывать больше нечего')
+      assert.equal(await remainingOf(c.id), 10, 'и пакет не тронут')
 
       // Дальше сценарии снова начинаются с пустой очереди.
       await tx.payment.update({ where: { id: c.id }, data: { remaining: 0 } })
 
-      // ─── Кошелёк без единой оплаты: цена из счётчиков переезда ─────────
+      // ─── Кошелёк без единой оплаты: занятие просто не оплачено ─────────
       const legacy = await tx.wallet.create({
         data: { organizationId, studentId: student.id, totalLessons: 36, totalPayments: 36_000 },
         select: { id: true },
@@ -345,21 +352,8 @@ async function main() {
       await charge(fromCounters)
       assert.deepEqual(
         await entryOf(fromCounters),
-        { paymentId: null, price: 1000, amount: 1 },
-        'без оплат цена берётся из счётчиков кошелька',
-      )
-
-      // ─── Совсем пустой кошелёк: цены нет, но и падать нельзя ───────────
-      const blank = await tx.wallet.create({
-        data: { organizationId, studentId: student.id },
-        select: { id: true },
-      })
-      const unknown = await visit({ walletId: blank.id })
-      await charge(unknown)
-      assert.deepEqual(
-        await entryOf(unknown),
-        { paymentId: null, price: 0, amount: 1 },
-        'про кошелёк без оплат и счётчиков не известно ничего — цена ноль',
+        { paymentId: null, price: null, amount: 0 },
+        'счётчики от переезда — не цена: занятие ждёт оплаты',
       )
 
       // ─── Ученик без кошелька: ни списания, ни выручки ──────────────────
@@ -396,7 +390,7 @@ async function main() {
       await charge(orphan.id)
       assert.deepEqual(
         await entryOf(orphan.id),
-        { paymentId: null, price: 0, amount: 0 },
+        { paymentId: null, price: null, amount: 0 },
         'без кошелька проводка обнуляется, а не остаётся от прошлого статуса',
       )
 
