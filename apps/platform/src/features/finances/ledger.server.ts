@@ -307,6 +307,12 @@ async function unpaidAttendancesOfWalletTx(
   walletId: number,
   take: number,
 ): Promise<{ id: number; organizationId: number }[]> {
+  const wallet = await tx.wallet.findUnique({
+    where: { id: walletId },
+    select: { studentId: true },
+  })
+  if (!wallet) return []
+
   const groups = await tx.studentGroup.findMany({
     where: { walletId },
     select: { groupId: true },
@@ -317,6 +323,9 @@ async function unpaidAttendancesOfWalletTx(
     where: {
       ...UNPAID_ATTENDANCE_WHERE,
       OR: undefined,
+      // Группа общая для всех её учеников, поэтому одного условия по группе мало:
+      // без ученика оплата подхватила бы чужие неоплаченные занятия.
+      studentId: wallet.studentId,
       AND: [
         { OR: UNPAID_ATTENDANCE_WHERE.OR },
         {
