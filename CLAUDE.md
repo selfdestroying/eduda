@@ -46,8 +46,6 @@ pnpm --filter platform exec shadcn add <component>
 
 There is **no test suite**. Verification = `pnpm check` + running the app. `prisma.config.ts` references a `prisma/seed.ts` that does not exist.
 
-**Перевод боевой базы на денежную модель с пакетами и журналом** — пошаговая инструкция в `docs/prod-migration.md`: порядок миграций и трёх бэкфиллов, необратимые шаги, и то, какие сверки в середине процесса законно краснеют.
-
 **Одноразовый шаг при накатывании миграций учеников.** Между `20260723120000_student_auth`
 и `20260723120100_drop_student_password` обязан отработать backfill: первая
 добавляет таблицы better-auth и `passwordEnc`, вторая удаляет колонку с открытым
