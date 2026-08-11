@@ -22,6 +22,7 @@ import {
   Bell,
   BellOff,
   CalendarOff,
+  CircleAlert,
   ClipboardList,
   Menu,
   RotateCcw,
@@ -40,8 +41,9 @@ import {
   useRestoreSnoozedAlertsBulkMutation,
   useSnoozedAlertsQuery,
   useUnmarkedAttendnace,
+  useUnpaidStudentsQuery,
 } from '../queries'
-import { type SmartFeedAlert } from '../types'
+import { type SmartFeedAlert, UNPAID_SNOOZE_KEY } from '../types'
 import { QuickTip } from './quick-tip'
 import { SnoozeDaysMenu, type SnoozeDaysOption } from './snooze-days-menu'
 
@@ -50,11 +52,13 @@ import { SnoozeDaysMenu, type SnoozeDaysOption } from './snooze-days-menu'
 export function SmartFeed() {
   const { data: unmarkedAlerts } = useUnmarkedAttendnace()
   const { data: lowBalanceAlerts } = useLowBalanceQuery()
+  const { data: unpaidAlerts } = useUnpaidStudentsQuery()
   const { data: absentStreakAlerts } = useAbsentStreaksQuery()
   const { data: parentMarkedAlerts } = useParentMarkedAbsencesQuery()
   const count =
     (unmarkedAlerts?.length ?? 0) +
     (lowBalanceAlerts?.length ?? 0) +
+    (unpaidAlerts?.length ?? 0) +
     (absentStreakAlerts?.length ?? 0) +
     (parentMarkedAlerts?.length ?? 0)
   const hasAlerts = count > 0
@@ -101,6 +105,7 @@ export function SmartFeedBar({ canSeeFeed }: { canSeeFeed: boolean }) {
         {canSeeFeed && !isMobile && (
           <div className="grid auto-cols-max grid-flow-col items-center gap-2">
             <UnmarkedAttendanceChip />
+            <UnpaidChip />
             <LowBalanceChip />
             <AbsentStreaksChip />
             <ParentMarkedChip />
@@ -244,6 +249,93 @@ export function LowBalanceChip() {
                 snoozeMutation.mutate({
                   entityId: alert.walletId,
                   entityKey: 'wallet',
+                  snoozeDays: days,
+                })
+              }
+              trigger={
+                <Button
+                  variant="ghost"
+                  size={'icon'}
+                  disabled={snoozeMutation.isPending}
+                  title="Отложить"
+                />
+              }
+            >
+              <BellOff />
+            </SnoozeDaysMenu>
+          </li>
+        ))}
+      </ul>
+    </ChipPopover>
+  )
+}
+
+export function UnpaidChip() {
+  const { data, isLoading, isError } = useUnpaidStudentsQuery()
+  const { data: snoozedAlerts } = useSnoozedAlertsQuery(UNPAID_SNOOZE_KEY)
+  const snoozeAllMutation = useCreateSnoozedAlertsBulkMutation()
+  const snoozeMutation = useCreateSnoozedAlertMutation()
+  const restoreAllMutation = useRestoreSnoozedAlertsBulkMutation()
+
+  const amount = data?.length ?? 0
+
+  const handleSnoozeAll = (days: SnoozeDaysOption) => {
+    const items = (data ?? []).map((a) => ({
+      entityId: a.studentId,
+      entityKey: UNPAID_SNOOZE_KEY,
+    }))
+    if (items.length === 0) return
+    snoozeAllMutation.mutate({ alerts: items, snoozeDays: days })
+  }
+
+  const handleRestoreAll = () => {
+    if (!snoozedAlerts || snoozedAlerts.length === 0) return
+    restoreAllMutation.mutate({
+      alerts: snoozedAlerts.map((a) => ({ entityId: a.entityId, entityKey: a.entityKey })),
+    })
+  }
+
+  return (
+    <ChipPopover
+      amount={amount}
+      snoozedAmount={snoozedAlerts?.length ?? 0}
+      snoozeAll={handleSnoozeAll}
+      restoreAll={handleRestoreAll}
+      icon={<CircleAlert />}
+      title="Долги"
+      isLoading={isLoading}
+      isError={isError}
+      description="Занятия проведены, оплаты под них нет"
+    >
+      <ul className="divide-border max-h-80 divide-y overflow-y-auto">
+        {data?.map((alert) => (
+          <li key={alert.studentId} className="flex items-center justify-between gap-2 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <div
+                className="bg-destructive/10 text-destructive ring-destructive/15 flex h-9 min-w-9 items-center justify-center rounded-lg px-2 text-xs font-semibold tabular-nums ring-1"
+                title="Занятий ждёт оплаты"
+              >
+                {alert.unpaidCount}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">
+                  <Link
+                    href={`/students/${alert.studentId}`}
+                    className="hover:text-primary underline-offset-1 hover:underline"
+                  >
+                    {alert.studentName}
+                  </Link>
+                </p>
+                <span className="text-muted-foreground truncate text-xs">
+                  с {formatDateOnly(alert.since)} · {alert.groupName}
+                </span>
+              </div>
+            </div>
+            <SnoozeDaysMenu
+              onSelect={(days) =>
+                snoozeMutation.mutate({
+                  entityId: alert.studentId,
+                  entityKey: UNPAID_SNOOZE_KEY,
                   snoozeDays: days,
                 })
               }

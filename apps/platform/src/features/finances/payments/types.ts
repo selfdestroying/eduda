@@ -5,6 +5,7 @@ export type PaymentWithStudentAndGroup = Prisma.PaymentGetPayload<{
     student: true
     group: { include: { course: true; location: true } }
     paymentMethod: true
+    manager: { select: { id: true; name: true } }
   }
 }>
 

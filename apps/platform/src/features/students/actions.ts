@@ -1,26 +1,16 @@
 'use server'
 
 import { Prisma } from '@repo/db'
-import {
-  CoinTxReason,
-  StudentFinancialField,
-  StudentLessonsBalanceChangeReason,
-} from '@repo/db/enums'
+import { CoinTxReason } from '@repo/db/enums'
 
 import { prisma } from '@repo/db'
+import { getUnpaidLessonsOfStudent } from '@/src/features/finances/unpaid.server'
 import { recordCoins } from '@/src/lib/coins'
-import {
-  type StudentFinancialAudit,
-  FINANCIAL_FIELD_KEY,
-  parseIntFieldChange,
-  writeFinancialHistoryTx,
-} from '@/src/lib/lessons-balance'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
 import { authAction, featureAction, permissionAction } from '@/src/lib/safe-action'
 import { createStudentUserTx, hashStudentPassword } from '@/src/lib/student-auth'
 import { isProfileEdit } from '@/src/lib/student-data'
 import { decryptStudentPassword } from '@/src/lib/student-password'
-import { todayYmdInTz } from '@/src/lib/timezone'
 import { randomInt } from 'crypto'
 import * as z from 'zod'
 import {
@@ -204,6 +194,18 @@ export const getStudentDetail = authAction
     })
   })
 
+/**
+ * Занятия ученика, которые ждут оплаты. Отдельным запросом, а не внутри
+ * `getStudentDetail`: предикат живёт в денежном модуле, и тащить его в общий
+ * include значит расползание одного правила по двум местам.
+ */
+export const getStudentUnpaidLessons = authAction
+  .metadata({ actionName: 'getStudentUnpaidLessons' })
+  .inputSchema(z.object({ studentId: z.number().int().positive() }))
+  .action(async ({ ctx, parsedInput }) => {
+    return await getUnpaidLessonsOfStudent(ctx.session.organizationId!, parsedInput.studentId)
+  })
+
 // ─── CREATE ──────────────────────────────────────────────────────────────────
 
 export const createStudent = authAction
@@ -302,87 +304,28 @@ export const updateStudent = authAction
       audit: z.any().optional(),
     }),
   )
-  .action(async ({ ctx, parsedInput }) => {
+  .action(async ({ parsedInput }) => {
     const payload = parsedInput.payload as Prisma.StudentUpdateArgs
-    const audit = parsedInput.audit as StudentFinancialAudit | undefined
     const data = payload.data as Prisma.StudentUpdateInput | undefined
 
-    const financialFields = [
-      StudentFinancialField.LESSONS_BALANCE,
-      StudentFinancialField.TOTAL_PAYMENTS,
-      StudentFinancialField.TOTAL_LESSONS,
-    ] as const
-
-    const changes = financialFields
-      .map((field) => {
-        const key = FINANCIAL_FIELD_KEY[field]
-        const change = parseIntFieldChange(data?.[key])
-        return change ? { field, key, change } : null
-      })
-      .filter(Boolean) as {
-      field: StudentFinancialField
-      key: 'lessonsBalance' | 'totalPayments' | 'totalLessons'
-      change: NonNullable<ReturnType<typeof parseIntFieldChange>>
-    }[]
+    // Деньги через этот экшен не проходят: баланс складывается из оплат и посещений,
+    // а нераспределённый остаток достался от старой системы и только уменьшается.
+    // Пришёл финансовый ключ — значит где-то остался старый вызов, и это ошибка.
+    for (const key of ['lessonsBalance', 'totalPayments', 'totalLessons'] as const) {
+      if (data && key in data) {
+        throw new ConflictError(
+          'Баланс и суммы оплат не редактируются: заведите оплату или перенесите существующую',
+        )
+      }
+    }
 
     // Актуальность данных = дата последней правки анкеты.
-    const profileEdited = isProfileEdit(data)
     const withTouch = (args: Prisma.StudentUpdateArgs): Prisma.StudentUpdateArgs =>
-      profileEdited
+      isProfileEdit(data)
         ? { ...args, data: { ...(args.data as object), dataActualizedAt: new Date() } }
         : args
 
-    const studentId = payload.where.id
-    if (!studentId) {
-      await prisma.student.update(withTouch(payload))
-      return
-    }
-
-    if (changes.length === 0) {
-      await prisma.student.update(withTouch(payload))
-      return
-    }
-
-    for (const c of changes) {
-      if (!audit?.[c.field]) {
-        throw new Error(`Для изменения поля ${c.key} требуется указать причину (audit.${c.field})`)
-      }
-    }
-
-    await prisma.$transaction(async (tx) => {
-      const student = await tx.student.findUnique({
-        where: { id: studentId },
-        select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
-      })
-
-      if (!student) throw new Error('Ученик не найден')
-
-      const updated = await tx.student.update({
-        where: { id: studentId },
-        data: withTouch(payload).data as Prisma.StudentUpdateInput,
-        select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
-      })
-
-      for (const c of changes) {
-        const fieldAudit = audit![c.field]!
-        const balanceBefore = student[c.key]
-        const balanceAfter = updated[c.key]
-        const delta = balanceAfter - balanceBefore
-
-        await writeFinancialHistoryTx(tx, {
-          organizationId: ctx.session.organizationId!,
-          studentId,
-          actorUserId: Number(ctx.session.user.id),
-          field: c.field,
-          reason: fieldAudit.reason,
-          delta,
-          balanceBefore,
-          balanceAfter,
-          comment: fieldAudit.comment,
-          meta: fieldAudit.meta,
-        })
-      }
-    })
+    await prisma.student.update(withTouch(payload))
   })
 
 // ─── DELETE ──────────────────────────────────────────────────────────────────
@@ -461,267 +404,10 @@ export const updateStudentCoins = authAction
     })
   })
 
-// ─── STUDENT GROUP BALANCE ───────────────────────────────────────────────────
-
-export const updateStudentGroupBalance = authAction
-  .metadata({ actionName: 'updateStudentGroupBalance' })
-  .inputSchema(
-    z.object({
-      studentId: z.number().int().positive(),
-      groupId: z.number().int().positive(),
-      data: z.any(),
-      audit: z.any(),
-      payment: z
-        .object({
-          lessonCount: z.number(),
-          price: z.number(),
-          bidForLesson: z.number(),
-          leadName: z.string(),
-          productName: z.string(),
-        })
-        .optional(),
-    }),
-  )
-  .action(async ({ ctx, parsedInput }) => {
-    const { studentId, groupId, payment } = parsedInput
-    const data = parsedInput.data as {
-      lessonsBalance?: Prisma.IntFieldUpdateOperationsInput | number
-      totalLessons?: Prisma.IntFieldUpdateOperationsInput | number
-      totalPayments?: Prisma.IntFieldUpdateOperationsInput | number
-    }
-    const audit = parsedInput.audit as StudentFinancialAudit
-
-    const financialFields = [
-      StudentFinancialField.LESSONS_BALANCE,
-      StudentFinancialField.TOTAL_PAYMENTS,
-      StudentFinancialField.TOTAL_LESSONS,
-    ] as const
-
-    const changes = financialFields
-      .map((field) => {
-        const key = FINANCIAL_FIELD_KEY[field]
-        const change = parseIntFieldChange(data[key] as Prisma.StudentUpdateInput['lessonsBalance'])
-        return change ? { field, key, change } : null
-      })
-      .filter(Boolean) as {
-      field: StudentFinancialField
-      key: 'lessonsBalance' | 'totalPayments' | 'totalLessons'
-      change: NonNullable<ReturnType<typeof parseIntFieldChange>>
-    }[]
-
-    if (changes.length === 0) return
-
-    for (const c of changes) {
-      if (!audit[c.field]) {
-        throw new Error(`Для изменения поля ${c.key} требуется указать причину (audit.${c.field})`)
-      }
-    }
-
-    await prisma.$transaction(async (tx) => {
-      const sg = await tx.studentGroup.findUnique({
-        where: { studentId_groupId: { studentId, groupId } },
-        select: {
-          organizationId: true,
-          walletId: true,
-        },
-      })
-      if (!sg) throw new Error('Ученик не найден в группе')
-      if (!sg.walletId) throw new Error('У ученика нет привязанного кошелька')
-
-      if (payment) {
-        await tx.payment.create({
-          data: {
-            organizationId: sg.organizationId,
-            studentId,
-            groupId,
-            walletId: sg.walletId,
-            lessonCount: payment.lessonCount,
-            price: payment.price,
-            bidForLesson: payment.bidForLesson,
-            leadName: payment.leadName,
-            productName: payment.productName,
-            date: todayYmdInTz(ctx.tz),
-          },
-        })
-      }
-
-      const wallet = await tx.wallet.findUnique({
-        where: { id: sg.walletId },
-        select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
-      })
-      if (!wallet) throw new Error('Кошелёк не найден')
-
-      const updated = await tx.wallet.update({
-        where: { id: sg.walletId },
-        data,
-        select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
-      })
-
-      for (const c of changes) {
-        const fieldAudit = audit[c.field]!
-        const balanceBefore = wallet[c.key]
-        const balanceAfter = updated[c.key]
-        const delta = balanceAfter - balanceBefore
-
-        await writeFinancialHistoryTx(tx, {
-          organizationId: ctx.session.organizationId!,
-          studentId,
-          actorUserId: Number(ctx.session.user.id),
-          groupId,
-          walletId: sg.walletId,
-          field: c.field,
-          reason: fieldAudit.reason,
-          delta,
-          balanceBefore,
-          balanceAfter,
-          comment: fieldAudit.comment,
-          meta: fieldAudit.meta,
-        })
-      }
-    })
-  })
-
-// ─── REDISTRIBUTE BALANCE ────────────────────────────────────────────────────
-
-export const redistributeBalance = authAction
-  .metadata({ actionName: 'redistributeBalance' })
-  .inputSchema(
-    z.object({
-      studentId: z.number().int().positive(),
-      allocations: z.array(
-        z.object({
-          walletId: z.number().int().positive(),
-          lessons: z.number().optional(),
-          totalLessons: z.number().optional(),
-          totalPayments: z.number().optional(),
-        }),
-      ),
-    }),
-  )
-  .action(async ({ ctx, parsedInput }) => {
-    const { studentId, allocations } = parsedInput
-
-    const sumLessons = allocations.reduce((sum, a) => sum + (a.lessons ?? 0), 0)
-    const sumTotalLessons = allocations.reduce((sum, a) => sum + (a.totalLessons ?? 0), 0)
-    const sumTotalPayments = allocations.reduce((sum, a) => sum + (a.totalPayments ?? 0), 0)
-
-    await prisma.$transaction(async (tx) => {
-      const student = await tx.student.findUnique({
-        where: { id: studentId },
-        select: { lessonsBalance: true, totalLessons: true, totalPayments: true },
-      })
-      if (!student) throw new Error('Ученик не найден')
-
-      if (sumLessons > student.lessonsBalance) {
-        throw new Error(
-          `Невозможно распределить ${sumLessons} ур. Нераспределённый остаток: ${student.lessonsBalance}`,
-        )
-      }
-      if (sumTotalLessons > student.totalLessons) {
-        throw new Error(
-          `Невозможно распределить ${sumTotalLessons} всего уроков. Нераспределённый остаток: ${student.totalLessons}`,
-        )
-      }
-      if (sumTotalPayments > student.totalPayments) {
-        throw new Error(
-          `Невозможно распределить ${sumTotalPayments} ₽. Нераспределённый остаток: ${student.totalPayments}`,
-        )
-      }
-
-      for (const alloc of allocations) {
-        const hasLessons = (alloc.lessons ?? 0) > 0
-        const hasTotalLessons = (alloc.totalLessons ?? 0) > 0
-        const hasTotalPayments = (alloc.totalPayments ?? 0) > 0
-        if (!hasLessons && !hasTotalLessons && !hasTotalPayments) continue
-
-        const wallet = await tx.wallet.findUnique({
-          where: { id: alloc.walletId },
-          select: {
-            lessonsBalance: true,
-            totalLessons: true,
-            totalPayments: true,
-            studentId: true,
-            status: true,
-          },
-        })
-        if (!wallet) throw new Error(`Кошелёк ${alloc.walletId} не найден`)
-        if (wallet.studentId !== studentId) throw new Error('Кошелёк не принадлежит этому ученику')
-        if (wallet.status === 'ARCHIVED') {
-          throw new Error('Нельзя распределить баланс на архивный кошелёк')
-        }
-
-        const updateData: Prisma.WalletUpdateInput = {}
-        const decrementStudent: Prisma.StudentUpdateInput = {}
-
-        if (hasLessons) {
-          updateData.lessonsBalance = { increment: alloc.lessons! }
-          decrementStudent.lessonsBalance = { decrement: alloc.lessons! }
-        }
-        if (hasTotalLessons) {
-          updateData.totalLessons = { increment: alloc.totalLessons! }
-          decrementStudent.totalLessons = { decrement: alloc.totalLessons! }
-        }
-        if (hasTotalPayments) {
-          updateData.totalPayments = { increment: alloc.totalPayments! }
-          decrementStudent.totalPayments = { decrement: alloc.totalPayments! }
-        }
-
-        const updated = await tx.wallet.update({
-          where: { id: alloc.walletId },
-          data: updateData,
-          select: { lessonsBalance: true, totalLessons: true, totalPayments: true },
-        })
-
-        await tx.student.update({
-          where: { id: studentId },
-          data: decrementStudent,
-        })
-
-        if (hasLessons) {
-          await writeFinancialHistoryTx(tx, {
-            organizationId: ctx.session.organizationId!,
-            studentId,
-            actorUserId: Number(ctx.session.user.id),
-            walletId: alloc.walletId,
-            field: StudentFinancialField.LESSONS_BALANCE,
-            reason: StudentLessonsBalanceChangeReason.BALANCE_REDISTRIBUTED,
-            delta: alloc.lessons!,
-            balanceBefore: wallet.lessonsBalance,
-            balanceAfter: updated.lessonsBalance,
-            comment: 'Распределение баланса уроков по кошелькам',
-          })
-        }
-        if (hasTotalLessons) {
-          await writeFinancialHistoryTx(tx, {
-            organizationId: ctx.session.organizationId!,
-            studentId,
-            actorUserId: Number(ctx.session.user.id),
-            walletId: alloc.walletId,
-            field: StudentFinancialField.TOTAL_LESSONS,
-            reason: StudentLessonsBalanceChangeReason.BALANCE_REDISTRIBUTED,
-            delta: alloc.totalLessons!,
-            balanceBefore: wallet.totalLessons,
-            balanceAfter: updated.totalLessons,
-            comment: 'Распределение всего уроков по кошелькам',
-          })
-        }
-        if (hasTotalPayments) {
-          await writeFinancialHistoryTx(tx, {
-            organizationId: ctx.session.organizationId!,
-            studentId,
-            actorUserId: Number(ctx.session.user.id),
-            walletId: alloc.walletId,
-            field: StudentFinancialField.TOTAL_PAYMENTS,
-            reason: StudentLessonsBalanceChangeReason.BALANCE_REDISTRIBUTED,
-            delta: alloc.totalPayments!,
-            balanceBefore: wallet.totalPayments,
-            balanceAfter: updated.totalPayments,
-            comment: 'Распределение суммы оплат по кошелькам',
-          })
-        }
-      }
-    })
-  })
+// Экшена правки баланса по группе здесь тоже нет: остаток кошелька складывается из
+// оплат и посещений. Он вызывался только из давно удалённого экрана и умел две
+// опасные вещи — менять баланс мимо оплаты и заводить оплату без остатка, то есть
+// пакет, из которого нельзя списать ни одного занятия.
 
 // ─── BALANCE HISTORY ─────────────────────────────────────────────────────────
 

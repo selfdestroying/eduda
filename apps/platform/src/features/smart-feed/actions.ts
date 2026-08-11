@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@repo/db'
+import { getUnpaidByStudent } from '@/src/features/finances/unpaid.server'
 import { authAction } from '@/src/lib/safe-action'
 import { nowInTz, todayYmdInTz } from '@/src/lib/timezone'
 import { collectParentMarkedAbsences } from './parent-marked.server'
@@ -14,6 +15,7 @@ import {
 } from './schemas'
 import {
   ALERT_TYPE,
+  UNPAID_SNOOZE_KEY,
   type ConsecutiveAbsencesAlert,
   type LowBalanceAlert,
   type NegativeBalanceAlert,
@@ -76,7 +78,7 @@ export const getUnmarkedAttendance = authAction
 export const getLowBalance = authAction
   .metadata({ actionName: 'getLowBalance' })
   .inputSchema(z.object({ withSnoozed: z.boolean().optional().default(false) }))
-  .action(async ({ ctx, parsedInput }): Promise<(LowBalanceAlert | NegativeBalanceAlert)[]> => {
+  .action(async ({ ctx, parsedInput }): Promise<LowBalanceAlert[]> => {
     const { withSnoozed } = parsedInput
 
     const wallets = await prisma.wallet.findMany({
@@ -99,7 +101,7 @@ export const getLowBalance = authAction
       },
     })
 
-    const alerts: (LowBalanceAlert | NegativeBalanceAlert)[] = []
+    const alerts: LowBalanceAlert[] = []
 
     for (const wallet of wallets) {
       const sg = wallet.studentGroups[0]
@@ -252,6 +254,41 @@ export const getParentMarkedAbsences = authAction
         withSnoozed: parsedInput.withSnoozed,
       }),
   )
+
+export const getUnpaidStudents = authAction
+  .metadata({ actionName: 'getUnpaidStudents' })
+  .inputSchema(z.object({ withSnoozed: z.boolean().optional().default(false) }))
+  .action(async ({ ctx, parsedInput }): Promise<NegativeBalanceAlert[]> => {
+    const organizationId = ctx.session.organizationId!
+    const students = await getUnpaidByStudent(organizationId)
+    if (students.length === 0) return []
+
+    const snoozed = parsedInput.withSnoozed
+      ? []
+      : await prisma.snoozedAlert.findMany({
+          where: {
+            organizationId,
+            entityKey: UNPAID_SNOOZE_KEY,
+            entityId: { in: students.map((s) => s.studentId) },
+            snoozedUntil: { gt: new Date() },
+          },
+          select: { entityId: true },
+        })
+    const hidden = new Set(snoozed.map((s) => s.entityId))
+
+    return students
+      .filter((s) => !hidden.has(s.studentId))
+      .map((s) => ({
+        type: ALERT_TYPE.NEGATIVE_BALANCE,
+        severity: 'red',
+        studentId: s.studentId,
+        studentName: s.studentName,
+        groupId: s.groupId,
+        groupName: s.groupName,
+        unpaidCount: s.count,
+        since: s.since,
+      }))
+  })
 
 export const getSnoozedAlerts = authAction
   .metadata({ actionName: 'getSnoozedAlerts' })

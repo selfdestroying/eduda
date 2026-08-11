@@ -3,7 +3,7 @@
 import { prisma } from '@repo/db'
 import { authAction } from '@/src/lib/safe-action'
 import { ymdToLocalDate } from '@/src/lib/timezone'
-import { CLASSIFICATION_LABELS, classifyAttendance, isChargeable } from '../chargeable'
+import { CLASSIFICATION_LABELS, classifyAttendance } from '../chargeable'
 import { RevenueFiltersSchema } from './schemas'
 import { formatCurrency } from '@/src/lib/utils'
 import type {
@@ -58,7 +58,6 @@ export const getRevenueData = authAction
           },
         },
         attendance: {
-          where: { makeupForAttendanceId: null },
           select: {
             makeupAttendance: {
               select: {
@@ -71,9 +70,13 @@ export const getRevenueData = authAction
                 },
               },
             },
+            makeupForAttendanceId: true,
             isWarned: true,
             status: true,
             isTrial: true,
+            price: true,
+            amount: true,
+            payment: { select: { date: true, price: true, lessonCount: true } },
             student: {
               select: {
                 id: true,
@@ -117,27 +120,44 @@ export const getRevenueData = authAction
           w.studentGroups.some((sg) => sg.groupId === lesson.group.id),
         )
 
-        let costReason: string
-        let visitCost = 0
+        // Отработка зарабатывает на своей дате, поэтому в списке она отдельной
+        // строкой; у исходного пропуска денег нет — там стоит amount 0. Класс у неё
+        // тот же, что и в отчётах (`chargeable.server.ts`), иначе снятая галка
+        // фильтра развела бы страницу «Выручка» и «Прибыль» по разным суммам.
+        const classification = att.makeupForAttendanceId
+          ? 'makeup_success'
+          : (classifyAttendance(att) ?? null)
+        const label = classification ? CLASSIFICATION_LABELS[classification] : 'Статус не определён'
+        const counted =
+          att.amount !== null &&
+          att.amount > 0 &&
+          (classification === null || chargeableStatuses.includes(classification))
 
-        if (lesson.status === 'CANCELLED') {
-          costReason = 'Урок отменён - стоимость не списывается'
-        } else if (!wallet) {
-          costReason = 'Кошелёк не привязан к этой группе'
-        } else if (wallet.totalLessons <= 0) {
-          costReason = 'В кошельке 0 уроков - невозможно рассчитать стоимость'
-        } else if (isChargeable(att, chargeableStatuses)) {
-          visitCost = wallet.totalPayments / wallet.totalLessons
-          const classification = classifyAttendance(att)
-          const label = classification ? CLASSIFICATION_LABELS[classification] : 'Списано'
-          costReason = `${label} → списано\n${formatCurrency(wallet.totalPayments)} / ${wallet.totalLessons} ур. = ${formatCurrency(visitCost)}`
-        } else {
-          const classification = classifyAttendance(att)
-          const label = classification
-            ? CLASSIFICATION_LABELS[classification]
-            : 'Статус не определён'
-          costReason = `${label} → не списано`
-        }
+        const visitCost = counted ? (att.price ?? 0) * att.amount! : 0
+
+        const costReason = (() => {
+          if (lesson.status === 'CANCELLED') return 'Урок отменён — стоимость не списывается'
+          if (att.isTrial) return 'Пробное занятие — с баланса не списывается'
+          if (att.amount === null) return `${label} → не размечено, оплата не найдена`
+          if (!counted && att.makeupAttendance) {
+            return `${label} → деньги на строке отработки ${att.makeupAttendance.lesson.date}`
+          }
+          // Занятие провели, платить за него надо, а пакета под него не нашлось.
+          // Цену не выдумываем — она появится вместе с оплатой.
+          if (
+            att.amount === 0 &&
+            att.price === null &&
+            classification !== null &&
+            ['present', 'absent_no_warn', 'makeup_success'].includes(classification)
+          ) {
+            return `${label} → не оплачено: оплаты под это занятие ещё нет`
+          }
+          if (!counted) return `${label} → не списано`
+          if (att.payment) {
+            return `${label} → списано\nпакет от ${att.payment.date}: ${formatCurrency(att.payment.price)} / ${att.payment.lessonCount} ур. = ${formatCurrency(visitCost)}`
+          }
+          return `${label} → списано в долг\nоплаты под этот урок в базе нет, взята последняя цена кошелька: ${formatCurrency(visitCost)}`
+        })()
 
         // Stats accumulation (only for active lessons)
         if (isActive) {

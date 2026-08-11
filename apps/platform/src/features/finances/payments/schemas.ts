@@ -22,6 +22,8 @@ export const CreatePaymentSchema = z.object({
     },
   ),
   paymentMethodId: z.number().int().positive().nullable().optional(),
+  /** Кто продал: не автор записи, а тот, кто договорился. */
+  managerId: z.number().int().positive().nullable().optional(),
 })
 
 export const CancelPaymentSchema = z.object({
@@ -48,6 +50,8 @@ export const ResolveUnprocessedPaymentSchema = z.object({
     },
   ),
   paymentMethodId: z.number().int().positive().nullable().optional(),
+  /** Кто продал: не автор записи, а тот, кто договорился. */
+  managerId: z.number().int().positive().nullable().optional(),
 })
 
 export const DeleteUnprocessedPaymentSchema = z.object({

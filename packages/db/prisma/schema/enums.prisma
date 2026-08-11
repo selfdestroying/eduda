@@ -38,6 +38,11 @@ enum LessonStatus {
     CANCELLED
 }
 
+enum PaymentStatus {
+    ACTIVE
+    CANCELLED
+}
+
 enum StudentStatus {
     TRIAL
     ACTIVE
@@ -61,6 +66,19 @@ enum StudentLessonsBalanceChangeReason {
     WALLET_MERGED
     WALLET_TRANSFER
     LESSON_CANCELLED
+}
+
+enum WalletEntryKind {
+    /// Оплата: уроки пришли в кошелёк.
+    PURCHASE
+    /// Занятие списано.
+    CHARGE
+    /// Списание отменено: занятие перестало быть платным или строка удалена.
+    REVERSAL
+    /// Отмена оплаты: непотраченный остаток пакета снят.
+    CANCELLATION
+    /// Корректировка: сальдо на момент запуска журнала и разметка истории.
+    ADJUSTMENT
 }
 
 enum StudentFinancialField {

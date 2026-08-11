@@ -26,6 +26,13 @@ export const ALERT_TYPE_ORDER: Record<AlertType, number> = {
   [ALERT_TYPE.PARENT_MARKED_ABSENCE]: 4,
 }
 
+/**
+ * Ключ откладывания для «Долгов»: свой, чтобы не пересекаться с «Зоной риска».
+ * Живёт здесь, а не в `actions.ts`: из файла с `'use server'` можно
+ * экспортировать только асинхронные функции.
+ */
+export const UNPAID_SNOOZE_KEY = 'student-unpaid'
+
 export type AlertSeverity = 'red' | 'orange' | 'yellow'
 
 export const ALERT_SEVERITY_VALUES = ['red', 'orange', 'yellow'] as const
@@ -75,15 +82,20 @@ export interface LowBalanceAlert {
   lessonsBalance: number
 }
 
+/**
+ * Занятия проведены, а оплаты под них нет. Не «минус на балансе»: баланс в минус
+ * не уходит — такое занятие просто не списывается и ждёт оплаты.
+ */
 export interface NegativeBalanceAlert {
   type: typeof ALERT_TYPE.NEGATIVE_BALANCE
   severity: 'red'
-  walletId: number
   studentId: number
   studentName: string
   groupId: number
   groupName: string
-  lessonsBalance: number
+  unpaidCount: number
+  /** Дата самого раннего неоплаченного занятия. */
+  since: string
 }
 
 export interface ConsecutiveAbsencesAlert {
@@ -151,8 +163,11 @@ export function getSmartFeedEntityKey(alert: SmartFeedAlert): string {
     case ALERT_TYPE.UNMARKED_ATTENDANCE:
       return `lesson:${alert.lessonId}`
     case ALERT_TYPE.LOW_BALANCE:
-    case ALERT_TYPE.NEGATIVE_BALANCE:
       return `wallet:${alert.walletId}`
+    // Свой ключ, а не `student`: иначе отложенные «Долги» заодно прятали бы
+    // «Зону риска» того же ученика.
+    case ALERT_TYPE.NEGATIVE_BALANCE:
+      return `student-unpaid:${alert.studentId}`
     case ALERT_TYPE.CONSECUTIVE_ABSENCES:
       return `student:${alert.studentId}:group:${alert.groupId}`
     case ALERT_TYPE.PARENT_MARKED_ABSENCE:

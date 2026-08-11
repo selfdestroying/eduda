@@ -12,7 +12,7 @@ import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
 import { getFullName, getGroupName } from '@/src/lib/utils'
 import { ru } from 'date-fns/locale'
 import { CalendarIcon } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import {
   Controller,
   type FieldValues,
@@ -20,6 +20,8 @@ import {
   type UseFormReturn,
   useWatch,
 } from 'react-hook-form'
+import { useMemberListQuery } from '@/src/features/organization/members/queries'
+import { useSessionQuery } from '@/src/features/users/me/queries'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
 import { useStudentForPaymentListQuery } from '../queries'
 
@@ -36,6 +38,25 @@ export default function PaymentForm<T extends FieldValues>({
 }: PaymentFormProps<T>) {
   const { data: students = [] } = useStudentForPaymentListQuery()
   const { data: paymentMethods = [] } = useActivePaymentMethodListQuery()
+  const { data: memberList = [] } = useMemberListQuery()
+  const { data: session } = useSessionQuery()
+
+  const members = memberList.map((m) => ({ id: m.userId, name: m.user.name }))
+
+  // По умолчанию продавец — тот, кто вносит оплату. Подставляем ровно один раз, когда
+  // список сотрудников приехал: следить за самим полем нельзя — очистка вернула бы
+  // текущего пользователя обратно, и оплату без продавца завести было бы невозможно.
+  const prefilled = useRef(false)
+  useEffect(() => {
+    if (prefilled.current) return
+    const currentUserId = Number(session?.user?.id)
+    if (!currentUserId || !memberList.some((m) => m.userId === currentUserId)) return
+
+    prefilled.current = true
+    if (form.getValues('managerId' as Path<T>) == null) {
+      form.setValue('managerId' as Path<T>, currentUserId as never)
+    }
+  }, [memberList, session, form])
 
   const selectedStudent = useWatch({ control: form.control, name: 'studentId' as Path<T> }) as
     | number
@@ -169,6 +190,29 @@ export default function PaymentForm<T extends FieldValues>({
                   />
                 </PopoverContent>
               </Popover>
+              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+            </Field>
+          )}
+        />
+        <Controller
+          control={form.control}
+          name={'managerId' as Path<T>}
+          render={({ field, fieldState }) => (
+            <Field>
+              <FieldLabel htmlFor={`${formId}-manager`}>
+                Менеджер
+                <Hint text="Кто продал этот пакет. По умолчанию — вы; поменяйте, если оплату вносите за коллегу." />
+              </FieldLabel>
+              <CustomCombobox
+                items={members}
+                getKey={(m) => m!.id}
+                getLabel={(m) => m!.name}
+                value={members.find((m) => m.id === field.value) ?? null}
+                onValueChange={(m) => field.onChange(m?.id ?? null)}
+                id={`${formId}-manager`}
+                placeholder="Выберите менеджера"
+                emptyText="Нет сотрудников"
+              />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}

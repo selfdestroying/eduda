@@ -1,13 +1,64 @@
-import { prisma } from '@repo/db'
+import { type Prisma, prisma } from '@repo/db'
 
-import { type ChargeableStatus, isChargeable, type StudentRevenueEntry } from './chargeable'
+import { type ChargeableStatus, type StudentRevenueEntry } from './chargeable'
 
 /**
- * Computes per-attendance visit costs using wallet-based pricing.
- * Returns flat array of { studentId, visitCost, lessonDate } for each
- * chargeable attendance in the date range.
+ * Условия «за это занятие школе платят» — по классам посещаемости.
  *
- * Used by both revenue and advances pages.
+ * Единственное место, где этот набор описан: у него есть неочевидная часть про NULL,
+ * и вторая копия рано или поздно разъедется с первой.
+ */
+export function chargeableClassesWhere(
+  chargeableStatuses: ChargeableStatus[],
+): Prisma.AttendanceWhereInput[] {
+  const classes: Prisma.AttendanceWhereInput[] = []
+  if (chargeableStatuses.includes('present')) {
+    classes.push({ status: 'PRESENT', makeupForAttendanceId: null })
+  }
+  if (chargeableStatuses.includes('absent_no_warn')) {
+    // `isWarned: { not: true }` здесь не годится: в SQL сравнение с NULL даёт NULL,
+    // и пропуски с непроставленным флагом — а таких большинство — выпали бы из выручки.
+    classes.push({ status: 'ABSENT', OR: [{ isWarned: false }, { isWarned: null }] })
+  }
+  // Отработка зарабатывает на своей дате, а не на дате пропущенного урока: деньги
+  // признаются тогда, когда занятие фактически провели.
+  if (chargeableStatuses.includes('makeup_success')) {
+    classes.push({ status: 'PRESENT', makeupForAttendanceId: { not: null } })
+  }
+  return classes
+}
+
+/**
+ * Занятие проведено, платить за него надо, а пакета под него не нашлось.
+ *
+ * Такое занятие ничего не списывает и не оценивается — оно ждёт оплаты, которая
+ * скажет его цену (см. `settleUnpaidAttendancesTx` в `ledger.server.ts`).
+ *
+ * - `amount: 0` — именно ноль, а не null: null у строк до разметки истории, а
+ *   единица у занятий, списанных «в долг» по старым правилам. И те и другие уже
+ *   посчитаны в выручке прошлых месяцев, трогать их нельзя.
+ * - `makeupAttendance: { is: null }` — у пропуска с назначенной отработкой деньги
+ *   живут на строке отработки. Без этого условия оплата закрыла бы оба занятия.
+ */
+export const UNPAID_ATTENDANCE_WHERE = {
+  amount: 0,
+  paymentId: null,
+  makeupAttendance: { is: null },
+  lesson: { status: 'ACTIVE' },
+  OR: chargeableClassesWhere(['present', 'absent_no_warn', 'makeup_success']),
+} as const satisfies Prisma.AttendanceWhereInput
+
+/**
+ * Признанная выручка по посещениям: `price × amount`, записанные в строку в момент
+ * списания (см. `ledger.server.ts`). Ничего не делится и не усредняется на чтение,
+ * поэтому отчёт за закрытый месяц не меняется от новых оплат.
+ *
+ * Используется «Авансами» и «Прибылью».
+ *
+ * Про `chargeableStatuses`: списание случается только у присутствовавших и у тех, кто
+ * пропустил без предупреждения, — у остальных `amount = 0`. Поэтому фильтр отбирает
+ * ровно эти классы, а «Предупредил, без отработки» и «отработка не засчитана» денег
+ * не приносят ни при каком выборе: их уроки школе не оплачивались.
  */
 export async function computeAttendanceRevenue(params: {
   organizationId: number
@@ -18,56 +69,27 @@ export async function computeAttendanceRevenue(params: {
 }): Promise<StudentRevenueEntry[]> {
   const { organizationId, startDate, endDate, chargeableStatuses } = params
 
-  const lessons = await prisma.lesson.findMany({
+  const classes = chargeableClassesWhere(chargeableStatuses)
+  if (classes.length === 0) return []
+
+  const rows = await prisma.attendance.findMany({
     where: {
       organizationId,
-      status: 'ACTIVE',
-      date: { gte: startDate, lte: endDate },
+      amount: { gt: 0 },
+      lesson: { status: 'ACTIVE', date: { gte: startDate, lte: endDate } },
+      OR: classes,
     },
     select: {
-      group: { select: { id: true } },
-      date: true,
-      attendance: {
-        where: { makeupForAttendanceId: null },
-        select: {
-          studentId: true,
-          status: true,
-          isWarned: true,
-          makeupAttendance: { select: { status: true } },
-          student: {
-            select: {
-              wallets: {
-                select: {
-                  totalLessons: true,
-                  totalPayments: true,
-                  studentGroups: { select: { groupId: true } },
-                },
-              },
-            },
-          },
-        },
-      },
+      studentId: true,
+      price: true,
+      amount: true,
+      lesson: { select: { date: true } },
     },
   })
 
-  const entries: StudentRevenueEntry[] = []
-
-  for (const lesson of lessons) {
-    for (const att of lesson.attendance) {
-      if (!isChargeable(att, chargeableStatuses)) continue
-
-      const wallet = att.student.wallets.find((w) =>
-        w.studentGroups.some((sg) => sg.groupId === lesson.group.id),
-      )
-      if (!wallet || wallet.totalLessons <= 0) continue
-
-      entries.push({
-        studentId: att.studentId,
-        visitCost: wallet.totalPayments / wallet.totalLessons,
-        lessonDate: lesson.date,
-      })
-    }
-  }
-
-  return entries
+  return rows.map((r) => ({
+    studentId: r.studentId,
+    visitCost: (r.price ?? 0) * (r.amount ?? 0),
+    lessonDate: r.lesson.date,
+  }))
 }

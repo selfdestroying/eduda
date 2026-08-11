@@ -8,6 +8,7 @@ import {
   getParentMarkedAbsences,
   getSnoozedAlerts,
   getUnmarkedAttendance,
+  getUnpaidStudents,
   restoreSnoozedAlert,
   restoreSnoozedAlertsBulk,
 } from './actions'
@@ -24,6 +25,7 @@ export const smartFeedKeys = {
   absentStreak: ['smart-feed', 'absent-streak'] as const,
   unmarkedAttendance: ['smart-feed', 'unmarked-attendance'] as const,
   lowBalance: ['smart-feed', 'low-balance'] as const,
+  unpaid: ['smart-feed', 'unpaid'] as const,
   parentMarked: ['smart-feed', 'parent-marked'] as const,
   snoozed: (entityKey?: string) =>
     ['smart-feed', 'snoozed', ...(entityKey ? [entityKey] : [])] as const,
@@ -62,6 +64,18 @@ export const useLowBalanceQuery = () => {
       return data
     },
     refetchInterval: 5 * 60 * 1000, // refetch every 5 minutes
+  })
+}
+
+export const useUnpaidStudentsQuery = () => {
+  return useQuery({
+    queryKey: smartFeedKeys.unpaid,
+    queryFn: async () => {
+      const { data, serverError } = await getUnpaidStudents({ withSnoozed: false })
+      if (serverError) throw serverError
+      return data
+    },
+    refetchInterval: 5 * 60 * 1000,
   })
 }
 

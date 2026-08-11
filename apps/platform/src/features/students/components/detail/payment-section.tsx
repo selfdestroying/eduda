@@ -10,12 +10,12 @@ interface PaymentSectionProps {
 }
 
 export default function PaymentSection({ student }: PaymentSectionProps) {
-  const totalPaymentsAggregate =
-    student.wallets.reduce((sum, w) => sum + w.totalPayments, 0) + student.totalPayments
-  const totalLessonsAggregate =
-    student.wallets.reduce((sum, w) => sum + w.totalLessons, 0) + student.totalLessons
-  const totalLessonsBalance =
-    student.wallets.reduce((sum, w) => sum + w.lessonsBalance, 0) + student.lessonsBalance
+  // Считаем только по кошелькам. Поля на самом ученике — нераспределённый остаток от
+  // старой системы учёта: он ни за какой оплатой не стоит и распределить его больше
+  // нечем, поэтому складывать его с балансом значит показывать уроки, которых нет.
+  const totalPaymentsAggregate = student.wallets.reduce((sum, w) => sum + w.totalPayments, 0)
+  const totalLessonsAggregate = student.wallets.reduce((sum, w) => sum + w.totalLessons, 0)
+  const totalLessonsBalance = student.wallets.reduce((sum, w) => sum + w.lessonsBalance, 0)
 
   const avgCost =
     totalLessonsAggregate > 0 ? (totalPaymentsAggregate / totalLessonsAggregate).toFixed(0) : '-'
@@ -38,7 +38,7 @@ export default function PaymentSection({ student }: PaymentSectionProps) {
           label="Всего уроков"
           value={totalLessonsAggregate}
           icon={BookOpen}
-          hint="Общее количество оплаченных уроков по всем кошелькам ученика (включая нераспределённый остаток)."
+          hint="Общее количество оплаченных уроков по всем кошелькам ученика."
         />
         <StatCard
           label="Средняя стоимость"
@@ -53,7 +53,7 @@ export default function PaymentSection({ student }: PaymentSectionProps) {
           description={getBalanceLabel(balanceVariant)}
           variant={balanceVariant}
           icon={Wallet}
-          hint="Оставшееся количество оплаченных уроков по всем кошелькам. При посещении урока списывается 1 урок. Отрицательный баланс означает долг."
+          hint="Оставшееся количество оплаченных уроков по всем кошелькам. При посещении урока списывается 1 урок. Если оплаченных уроков не осталось, занятие не списывается — оно попадает в «Ждут оплаты» и закроется следующей оплатой."
         />
       </div>
     </div>

@@ -7,8 +7,8 @@ import {
   getStudentGroupHistory,
   getStudentLessonsBalanceHistory,
   getStudentShopStats,
+  getStudentUnpaidLessons,
   getStudents,
-  redistributeBalance,
   revealStudentPassword,
   searchStudents,
   updateStudent,
@@ -29,6 +29,7 @@ export const studentKeys = {
   groupHistory: (studentId: number) => ['students', 'groupHistory', studentId] as const,
   balanceHistory: (studentId: number) => ['students', 'balanceHistory', studentId] as const,
   shopStats: (studentId: number) => ['students', 'shopStats', studentId] as const,
+  unpaid: (studentId: number) => ['students', 'unpaid', studentId] as const,
 }
 
 // ─── Queries ────────────────────────────────────────────────────────
@@ -54,6 +55,17 @@ export const useStudentSearchQuery = (query: string) => {
     },
     enabled: query.trim().length > 0,
     placeholderData: (prev) => prev,
+  })
+}
+
+export const useStudentUnpaidLessonsQuery = (studentId: number) => {
+  return useQuery({
+    queryKey: studentKeys.unpaid(studentId),
+    queryFn: async () => {
+      const { data, serverError } = await getStudentUnpaidLessons({ studentId })
+      if (serverError) throw serverError
+      return data ?? []
+    },
   })
 }
 
@@ -207,34 +219,6 @@ export const useRevealStudentPasswordMutation = () => {
       const message =
         typeof error === 'string' ? error : error instanceof Error ? error.message : null
       toast.error(message || 'Не удалось показать пароль.')
-    },
-  })
-}
-
-export const useRedistributeBalanceMutation = (studentId: number) => {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (input: {
-      studentId: number
-      allocations: Array<{
-        walletId: number
-        lessons?: number
-        totalLessons?: number
-        totalPayments?: number
-      }>
-    }) => {
-      const { data, serverError } = await redistributeBalance(input)
-      if (serverError) throw serverError
-      return data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: studentKeys.detail(studentId) })
-      queryClient.invalidateQueries({ queryKey: studentKeys.all })
-      toast.success('Баланс успешно перераспределён!')
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Ошибка при перераспределении баланса')
     },
   })
 }

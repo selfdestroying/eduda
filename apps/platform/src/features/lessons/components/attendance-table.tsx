@@ -17,6 +17,18 @@ import AttendanceActions from './attendance-actions'
 import { AttendanceStatusSwitcher } from './attendance-status-switcher'
 import { useLessonDetail } from './lesson-detail-context'
 
+/**
+ * Занятие ждёт оплаты: статус платный, а пакета под него не нашлось.
+ * Зеркало `UNPAID_ATTENDANCE_WHERE` из `finances/chargeable.server.ts` —
+ * строка уже здесь, за ней незачем ходить на сервер.
+ */
+function isUnpaid(attendance: AttendanceWithStudents): boolean {
+  if (attendance.isTrial) return false
+  if (attendance.amount !== 0 || attendance.paymentId !== null) return false
+  if (attendance.makeupAttendance) return false
+  return attendance.status === 'PRESENT' || (attendance.status === 'ABSENT' && !attendance.isWarned)
+}
+
 function AttendanceActionsCell({ attendance }: { attendance: AttendanceWithStudents }) {
   const { isCancelled } = useLessonDetail()
   const { data: hasPermission } = useOrganizationPermissionQuery({ studentLesson: ['update'] })
@@ -57,6 +69,15 @@ export default function AttendanceTable() {
               </Link>
               {row.original.isTrial && (
                 <Badge className="bg-info/10 text-info hover:bg-info/20 select-none">Пробный</Badge>
+              )}
+              {isUnpaid(row.original) && (
+                <Badge
+                  variant="destructive"
+                  className="select-none"
+                  title="Занятие проведено, но оплаты под него не нашлось. Следующая оплата закроет его по своей цене."
+                >
+                  Не оплачено
+                </Badge>
               )}
               {/* Отметка родителя из кабинета: выглядит так же, как отметка
                   преподавателя, но её никто из школы не подтверждал. */}

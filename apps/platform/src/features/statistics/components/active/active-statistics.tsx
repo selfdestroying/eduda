@@ -19,6 +19,10 @@ const trendConfig = {
   count: { label: 'Ученики', color: 'var(--chart-1)' },
 } satisfies ChartConfig
 
+const studiedConfig = {
+  count: { label: 'Занимались', color: 'var(--chart-2)' },
+} satisfies ChartConfig
+
 function KpiCard({
   title,
   value,
@@ -123,6 +127,7 @@ export default function ActiveStatistics() {
     totalGroups,
     avgPerGroup,
     monthly,
+    studiedMonthly,
     locations,
     teachers,
     courses,
@@ -143,7 +148,7 @@ export default function ActiveStatistics() {
           icon={TrendingUp}
           trend={growthPercent !== 0 ? { value: growthPercent, label: 'vs прошлый' } : undefined}
           subtitle={growthPercent === 0 ? 'нет данных за прошлый месяц' : undefined}
-          hint="Количество учеников, ставших активными в текущем месяце. Процент показывает рост или падение по сравнению с прошлым месяцем."
+          hint="Сколько учеников завели в системе в текущем месяце — независимо от того, занимаются ли они сейчас. Процент показывает рост или падение по сравнению с прошлым месяцем."
         />
         <KpiCard
           title="Групп"
@@ -160,13 +165,13 @@ export default function ActiveStatistics() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid gap-2 lg:grid-cols-5">
+      <div className="grid gap-2 lg:grid-cols-2">
         {/* Trend Chart */}
-        <Card className="lg:col-span-2">
+        <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium">
               Динамика набора
-              <Hint text="Количество новых активных учеников по месяцам. Показывает темп набора новых учеников в организацию." />
+              <Hint text="Сколько новых учеников завели в организацию в каждом месяце. Ушедшие из своего месяца не исчезают, поэтому прошлые столбцы не меняются задним числом." />
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
@@ -199,20 +204,58 @@ export default function ActiveStatistics() {
           </CardContent>
         </Card>
 
-        {/* Distribution */}
-        <Card className="lg:col-span-3">
+        {/* Studied-per-month Chart */}
+        <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Распределение (Топ-5)</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Количество учеников
+              <Hint text="Сколько учеников занималось в каждом месяце — по фактическим урокам, а не срезом на последний день. Один ученик из двух групп считается один раз. Летом ряд проседает: уроков нет. Ученик на оплаченной паузе в месяц не попадает." />
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <CompactBarList data={courses} title="По курсам" color="var(--chart-1)" />
-              <CompactBarList data={teachers} title="По преподавателям" color="var(--chart-3)" />
-              <CompactBarList data={locations} title="По локациям" color="var(--chart-2)" />
-            </div>
+            <ChartContainer config={studiedConfig} className="h-40 w-full">
+              <AreaChart data={studiedMonthly} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
+                <defs>
+                  <linearGradient id="studiedGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--chart-2)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="var(--chart-2)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="month"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 10 }}
+                  tickMargin={4}
+                />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
+                <Area
+                  dataKey="count"
+                  type="monotone"
+                  fill="url(#studiedGrad)"
+                  stroke="var(--chart-2)"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ChartContainer>
           </CardContent>
         </Card>
       </div>
+
+      {/* Distribution */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Распределение (Топ-5)</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <CompactBarList data={courses} title="По курсам" color="var(--chart-1)" />
+            <CompactBarList data={teachers} title="По преподавателям" color="var(--chart-3)" />
+            <CompactBarList data={locations} title="По локациям" color="var(--chart-2)" />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

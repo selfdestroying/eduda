@@ -1,6 +1,8 @@
 'use server'
 
 import { prisma } from '@repo/db'
+import { unchargeAttendanceTx } from '@/src/features/finances/ledger.server'
+import { getUnpaidLessonsOfStudent } from '@/src/features/finances/unpaid.server'
 import { ConflictError, ForbiddenError, NotFoundError } from '@/src/lib/error'
 import { getEffectiveFeatures } from '@/src/lib/features/effective'
 import { isFeatureDisabled } from '@/src/lib/features/registry'
@@ -314,9 +316,16 @@ export const getPublicStudentFinances = publicAction
   .metadata({ actionName: 'getPublicStudentFinances' })
   .inputSchema(PublicChildSchema)
   .action(async ({ parsedInput }) => {
-    const { studentId } = await resolveChild(parsedInput.token, parsedInput.studentId)
+    const { studentId, organizationId } = await resolveChild(
+      parsedInput.token,
+      parsedInput.studentId,
+    )
 
-    return prisma.student.findUnique({
+    // Занятия, за которые школа ещё не получила денег. Родителю их видно намеренно:
+    // иначе про долг узнаёт кто угодно, кроме того, кто платит.
+    const unpaid = await getUnpaidLessonsOfStudent(organizationId, studentId)
+
+    const student = await prisma.student.findUnique({
       where: { id: studentId },
       select: {
         lessonsBalance: true,
@@ -346,6 +355,8 @@ export const getPublicStudentFinances = publicAction
         },
       },
     })
+
+    return student && { ...student, unpaid }
   })
 
 // ─── Get student groups & attendance (read-only) ────────────────────
@@ -472,6 +483,15 @@ export const setPublicAbsence = publicAction
       // Отработка без пропуска — сирота, поэтому снимается вместе с отметкой.
       // Предикат выше уже не пустил бы сюда чужую или отмеченную отработку.
       if (!parsedInput.absent && attendance.makeupAttendance) {
+        // Предикат сюда отмеченную отработку не пустит, так что возвращать обычно
+        // нечего. Вызов оставлен затем, чтобы послабление предиката не увело урок
+        // из пакета и с баланса вместе с удалённой строкой.
+        await unchargeAttendanceTx(tx, {
+          attendanceId: attendance.makeupAttendance.id,
+          organizationId,
+          actorUserId: null,
+          meta: { removed: 'makeup', by: 'parent' },
+        })
         await tx.attendance.delete({ where: { id: attendance.makeupAttendance.id } })
       }
 

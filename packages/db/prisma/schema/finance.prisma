@@ -64,17 +64,45 @@ model Payment {
     createdAt    DateTime @default(now())
     updatedAt    DateTime @updatedAt
 
+    /// Отменённая оплата не удаляется: на неё ссылаются проводки уже проведённых
+    /// занятий, и стереть её значило бы переписать выручку прошлых месяцев. Такой
+    /// пакет выбывает из очереди, а его непотраченный остаток снимается с баланса.
+    status PaymentStatus @default(ACTIVE)
+    /// Когда отменили — чтобы в списке было видно, что это не свежая запись.
+    cancelledAt DateTime?
+
+    /// Сколько уроков пакета ещё не потрачено. Пакеты кошелька образуют очередь по
+    /// `date`: посещение гасит головной пакет с `remaining > 0` и забирает его цену.
+    /// null — пакет не размечен (оплаты до бэкфилла), в очередь такой не встаёт.
+    remaining Int?
+
+    /// Не оплата, а корректировка: пакеты, которыми бэкфилл свёл остатки кошельков с
+    /// их балансом. За ними стоят ручные операции старой системы — правки баланса,
+    /// переносы между кошельками, — платежа под ними нет. В очередь такой пакет
+    /// встаёт наравне с остальными, иначе списывать эти уроки было бы не с чего, но
+    /// в суммах поступлений он отделён, а из раздачи истории исключается: пусти его
+    /// туда — прошлые визиты его съедят, и следующий прогон заведёт ещё одну порцию.
+    isAdjustment Boolean @default(false)
+
     // Relations
     organizationId  Int
     studentId       Int
     groupId         Int?
     walletId        Int?
     paymentMethodId Int?
+    /// Кто продал. Не автор записи: оплаты часто вносит один администратор за всех,
+    /// а премия причитается тому, кто договорился. Поле необязательное — у оплат до
+    /// его появления менеджера нет, и расчёты это переживают.
+    managerId       Int?
     organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     student         Student        @relation(fields: [studentId], references: [id])
     group           Group?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
     wallet          Wallet?        @relation(fields: [walletId], references: [id], onDelete: SetNull)
     paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+    manager         User?          @relation(fields: [managerId], references: [id], onDelete: SetNull)
+
+    attendances Attendance[]
+    ledger      WalletEntry[]
 
     @@index([studentId])
     @@index([organizationId])
@@ -82,6 +110,66 @@ model Payment {
     @@index([groupId])
     @@index([walletId])
     @@index([paymentMethodId])
+    @@index([walletId, date])
+    @@index([managerId])
+}
+
+/// Журнал движений кошелька: одна строка на каждое изменение остатка уроков.
+///
+/// Строки не правятся и не удаляются — ошибка исправляется встречной строкой.
+/// Поэтому по журналу можно восстановить, каким остаток был на любой момент, и
+/// увидеть, кто и когда его подвинул.
+///
+/// Две суммы держат всю денежную модель:
+///   Σ quantity по кошельку   = Wallet.lessonsBalance
+///   Σ quantity по пакету     = Payment.remaining
+/// Обе колонки — кеш поверх журнала, а не отдельная правда; сходимость проверяет
+/// `scripts/check-ledger.ts`.
+model WalletEntry {
+    id       Int             @id @default(autoincrement())
+    kind     WalletEntryKind
+    /// Уроки: + пришли, − ушли. Ноль — движения не было, но событие записать надо
+    /// (откат списания с отменённой оплаты).
+    quantity Int
+    /// Цена урока в этой строке; `quantity × unitPrice` — деньги строки.
+    unitPrice Int @default(0)
+
+    /// Бизнес-день движения: дата занятия или оплаты, а не дата записи. По нему
+    /// строятся отчёты — задним числом внесённое занятие попадает в свой месяц.
+    effectiveAt String
+    /// Когда строку записали. Пара с `effectiveAt` позволяет спросить «какой была
+    /// выручка марта по состоянию на 1 апреля».
+    createdAt DateTime @default(now())
+
+    comment String?
+
+    // Relations
+    organizationId Int
+    walletId       Int
+    studentId      Int
+    paymentId      Int?
+    actorUserId    Int?
+    /// Какую строку отменяет. У списания отмена может быть только одна: повторное
+    /// списание того же занятия — это новая пара строк.
+    reversalOfId Int? @unique
+
+    organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    wallet       Wallet        @relation(fields: [walletId], references: [id], onDelete: Cascade)
+    student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+    payment      Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+    actorUser    User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+    reversalOf   WalletEntry?  @relation("LedgerReversal", fields: [reversalOfId], references: [id], onDelete: SetNull)
+    reversedBy   WalletEntry?  @relation("LedgerReversal")
+
+    /// Занятие, за которое списали. FK нет намеренно: строку посещаемости удаляют,
+    /// а запись о движении денег обязана её пережить.
+    attendanceId Int?
+
+    @@index([walletId, effectiveAt])
+    @@index([organizationId, effectiveAt])
+    @@index([paymentId])
+    @@index([attendanceId])
+    @@index([studentId])
 }
 
 model UnprocessedPayment {

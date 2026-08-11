@@ -25,19 +25,26 @@ export function formatDateOnly(
 }
 
 /**
- * Сегодняшний день в поясе школы как `YYYY-MM-DD`. Сервер работает в UTC,
- * поэтому «сегодня» без пояса — не сегодня.
+ * Календарный день таймстампа в поясе школы как `YYYY-MM-DD`.
  *
  * `en-CA` — локаль, чья краткая дата и есть ISO-формат: даёт нужную строку без
  * ручной сборки из частей.
  */
-export function todayYmdInTz(tz: string): string {
+export function ymdInTz(date: Date, tz: string): string {
   try {
-    return new Date().toLocaleDateString('en-CA', { timeZone: tz })
+    return date.toLocaleDateString('en-CA', { timeZone: tz })
   } catch {
     // Битая зона в БД не должна ронять страницу — берём пояс сервера.
-    return new Date().toLocaleDateString('en-CA')
+    return date.toLocaleDateString('en-CA')
   }
+}
+
+/**
+ * Сегодняшний день в поясе школы как `YYYY-MM-DD`. Сервер работает в UTC,
+ * поэтому «сегодня» без пояса — не сегодня.
+ */
+export function todayYmdInTz(tz: string): string {
+  return ymdInTz(new Date(), tz)
 }
 
 /** `formatDateTimeInTz(order.createdAt, tz)` → «15.01.2026, 14:30» */

@@ -149,6 +149,32 @@ Public docs live in their **own Next app** (fumadocs, port 3001) — no auth, no
 
 `PopoverContent` and `DropdownMenuContent` accept a `container` prop (forwarded to the Base UI `Portal`). Inside a vaul `Drawer`, portal them into the drawer content (pass its ref) — otherwise vaul's overlay swallows outside clicks and the popover can't be interacted with. See the lesson detail drawer + `AttendanceStatusSwitcher` / `AttendanceCommentPopover`.
 
+## Деньги: пакеты и журнал движений
+
+Оплата — это **пакет** (`Payment.remaining`), посещение — **проводка** (`Attendance.paymentId/price/amount`). Занятие гасит самый ранний непотраченный пакет кошелька и копирует его цену урока в строку; после этого цена не пересчитывается, поэтому новые оплаты не двигают закрытые месяцы.
+
+Пакетов нет — занятие **не списывается и не оценивается**: `price = null`, `amount = 0`, баланс не двигается, строки журнала нет. Цену выдумывать нечем, а выдуманная потом требует переписывания прошлого. Такое занятие ждёт оплаты: она спишет его обычным порядком, по своей цене (`settleUnpaidAttendancesTx`). Предикат «ждёт оплаты» описан один раз — `UNPAID_ATTENDANCE_WHERE` в `finances/chargeable.server.ts`; там же `chargeableClassesWhere` с неочевидной частью про NULL. Баланс кошелька из-за этого не уходит в минус.
+
+Занятия, списанные «в долг» до перехода 10.08.2026, остались с выданными тогда ценами и в отчётах прошлых месяцев: у них `amount = 1`, а «ждёт оплаты» — это `amount = 0`.
+
+Все движения остатка проходят через `src/features/finances/ledger.server.ts` — единственное место, где посещение превращается в деньги. Наружу торчат `chargeAttendanceTx` и `unchargeAttendanceTx` (плюс `recordWalletEntryTx` для оплат): каждая сама двигает пакет, баланс, проводку, журнал и историю. **Не двигайте `wallet.lessonsBalance` и `payment.remaining` мимо них** — экшенов ручной правки баланса, перевода и объединения кошельков в системе нет намеренно.
+
+`WalletEntry` — append-only журнал: строки не правятся и не удаляются, откат пишет встречную строку со ссылкой `reversalOfId`. Отсюда два инварианта, которые обязаны сходиться всегда:
+
+- `Σ quantity` по кошельку = `Wallet.lessonsBalance`
+- `Σ quantity` по пакету = `Payment.remaining`
+
+`effectiveAt` — бизнес-день (дата занятия или оплаты), `createdAt` — когда записали; отчёты строятся по первому, «как было на дату» — по второму. Оплату нельзя удалить, только отменить (`status = CANCELLED`): на неё ссылаются проводки проведённых занятий.
+
+Проверки (гоняются против настоящей БД, ничего не меняют):
+
+```bash
+pnpm --filter platform exec tsx scripts/check-ledger-core.ts   # ядро в откатываемой транзакции
+pnpm --filter platform exec tsx scripts/check-ledger.ts        # журнал против колонок
+pnpm --filter platform exec tsx scripts/check-wallet-balance.ts
+pnpm --filter platform exec tsx scripts/check-revenue-parity.ts
+```
+
 ## Feature flags
 
 `src/lib/features/registry.ts` is the source of truth for toggleable features (hierarchical keys like `finances.payments`). The DB stores only **disabled** overrides (`OrganizationFeature`, default = enabled). `route-feature-map.ts` maps URL patterns → feature keys; the proxy blocks disabled routes and the sidebar hides them.

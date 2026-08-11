@@ -91,6 +91,7 @@ export const getProfitMonthlyData = authAction
     const payments = await prisma.payment.findMany({
       where: {
         organizationId,
+        status: 'ACTIVE',
         date: { gte: yearStartYmd, lte: yearEndYmd },
       },
       select: {
@@ -140,10 +141,16 @@ export const getProfitMonthlyData = authAction
       lessonCountPerMonth[m]! += 1
     }
 
+    // Отрицательный чек — не затрата, а отметка, что часть зарплаты уже выдана на руки
+    // (минусом уменьшают сумму к переводу на карту). Работа при этом оплачена полностью,
+    // и её стоимость уже посчитана выше по урокам. Учесть минус ещё раз — занизить затраты.
+    // Держится на договорённости «минус = уже выдано»: тип чека спрашивают только при
+    // редактировании, так что штраф, заведённый минус-чеком, здесь завысит прибыль.
     const paychecks = await prisma.payCheck.findMany({
       where: {
         organizationId,
         date: { gte: yearStartYmd, lte: yearEndYmd },
+        amount: { gt: 0 },
       },
       select: { date: true, amount: true, userId: true, type: true },
     })
