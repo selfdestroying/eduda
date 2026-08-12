@@ -1,7 +1,20 @@
+import { DateOnlySchema } from '@/src/lib/timezone'
 import * as z from 'zod'
 
 export const comboboxNumber = (error: string) =>
   z.object({ label: z.string(), value: z.number() }, error)
+
+/**
+ * Период выборки оплат. Обе границы включительно и сравниваются лексикографически:
+ * `Payment.date` — date-only строка `YYYY-MM-DD`.
+ *
+ * Границы необязательные: без них сервер сам подставит текущий месяц в поясе
+ * организации. Тянуть всю историю школы разом страница больше не умеет.
+ */
+export const PaymentListSchema = z.object({
+  from: DateOnlySchema.optional(),
+  to: DateOnlySchema.optional(),
+})
 
 export const CreatePaymentSchema = z.object({
   studentId: z.int('Выберите студента').positive('Выберите студента'),
@@ -58,6 +71,7 @@ export const DeleteUnprocessedPaymentSchema = z.object({
   id: z.number().int().positive(),
 })
 
+export type PaymentListSchemaType = z.infer<typeof PaymentListSchema>
 export type CreatePaymentSchemaType = z.infer<typeof CreatePaymentSchema>
 export type CancelPaymentSchemaType = z.infer<typeof CancelPaymentSchema>
 export type ResolveUnprocessedPaymentSchemaType = z.infer<typeof ResolveUnprocessedPaymentSchema>

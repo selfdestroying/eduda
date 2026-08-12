@@ -11,15 +11,19 @@ import {
   settleUnpaidAttendancesTx,
   writeFinancialHistoryTx,
 } from '@/src/features/finances/ledger.server'
+import { getWalletLabel } from '@/src/features/wallets/utils'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
-import { todayYmdInTz } from '@/src/lib/timezone'
-import { authAction } from '@/src/lib/safe-action'
+import { dateToYmd, nowInTz, todayYmdInTz } from '@/src/lib/timezone'
+import { permissionAction } from '@/src/lib/safe-action'
+import { endOfMonth, startOfMonth } from 'date-fns'
 import {
   CancelPaymentSchema,
   CreatePaymentSchema,
   DeleteUnprocessedPaymentSchema,
+  PaymentListSchema,
   ResolveUnprocessedPaymentSchema,
 } from './schemas'
+import { PAYMENT_LIST_SELECT, type PaymentListItem, type StudentForPayment } from './types'
 
 /**
  * Оплата закрывает накопившиеся неоплаченные занятия, а каждое из них — отдельное
@@ -29,42 +33,75 @@ import {
  */
 const PAYMENT_TX_OPTIONS = { timeout: 30_000 }
 
-export const getPayments = authAction
+export const getPayments = permissionAction({ payment: ['read'] })
   .metadata({ actionName: 'getPayments' })
-  .action(async ({ ctx }) => {
-    return await prisma.payment.findMany({
-      where: { organizationId: ctx.session.organizationId! },
-      include: {
-        student: true,
-        group: { include: { course: true, location: true } },
-        paymentMethod: true,
-        manager: { select: { id: true, name: true } },
+  .inputSchema(PaymentListSchema)
+  .action(async ({ ctx, parsedInput }): Promise<PaymentListItem[]> => {
+    // Границы включительные и сравниваются как строки: `date` — date-only колонка.
+    // Без явного периода отдаём текущий месяц в поясе организации, а не всю историю.
+    const now = nowInTz(ctx.tz)
+    const from = parsedInput.from ?? dateToYmd(startOfMonth(now))
+    const to = parsedInput.to ?? dateToYmd(endOfMonth(now))
+
+    const payments = await prisma.payment.findMany({
+      where: {
+        organizationId: ctx.session.organizationId!,
+        date: { gte: from, lte: to },
       },
-      orderBy: { createdAt: 'desc' },
+      select: PAYMENT_LIST_SELECT,
+      orderBy: [{ date: 'desc' }, { id: 'desc' }],
     })
+
+    return payments.map(({ wallet, ...payment }) => ({
+      ...payment,
+      walletId: wallet?.id ?? null,
+      walletLabel: wallet ? getWalletLabel(wallet) : null,
+    }))
   })
 
-export const getStudentsForPayments = authAction
+export const getStudentsForPayments = permissionAction({ payment: ['create'] })
   .metadata({ actionName: 'getStudentsForPayments' })
-  .action(async ({ ctx }) => {
-    return await prisma.student.findMany({
+  .action(async ({ ctx }): Promise<StudentForPayment[]> => {
+    const students = await prisma.student.findMany({
       where: { organizationId: ctx.session.organizationId! },
-      orderBy: { id: 'asc' },
-      include: {
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        // Только активные: форма всё равно показывает лишь их, и фильтровать
+        // выгоднее в БД, чем возить архив по сети.
         wallets: {
-          include: {
+          where: { status: 'ACTIVE' },
+          select: {
+            id: true,
+            name: true,
             studentGroups: {
-              include: {
-                group: { include: { course: true, location: true, schedules: true } },
+              select: {
+                status: true,
+                group: {
+                  select: {
+                    name: true,
+                    course: { select: { name: true } },
+                    schedules: { select: { dayOfWeek: true, time: true } },
+                  },
+                },
               },
             },
           },
         },
       },
     })
+
+    return students.map((s) => ({
+      id: s.id,
+      firstName: s.firstName,
+      lastName: s.lastName,
+      wallets: s.wallets.map((w) => ({ id: w.id, label: getWalletLabel(w) })),
+    }))
   })
 
-export const createPaymentWithBalance = authAction
+export const createPaymentWithBalance = permissionAction({ payment: ['create'] })
   .metadata({ actionName: 'createPaymentWithBalance' })
   .inputSchema(CreatePaymentSchema)
   .action(async ({ ctx, parsedInput }) => {
@@ -179,7 +216,7 @@ export const createPaymentWithBalance = authAction
     }, PAYMENT_TX_OPTIONS)
   })
 
-export const cancelPayment = authAction
+export const cancelPayment = permissionAction({ payment: ['delete'] })
   .metadata({ actionName: 'cancelPayment' })
   .inputSchema(CancelPaymentSchema)
   .action(async ({ ctx, parsedInput }) => {
@@ -311,7 +348,7 @@ export const cancelPayment = authAction
     })
   })
 
-export const getUnprocessedPayments = authAction
+export const getUnprocessedPayments = permissionAction({ payment: ['read'] })
   .metadata({ actionName: 'getUnprocessedPayments' })
   .action(async ({ ctx }) => {
     return await prisma.unprocessedPayment.findMany({
@@ -320,7 +357,9 @@ export const getUnprocessedPayments = authAction
     })
   })
 
-export const resolveUnprocessedPayment = authAction
+// Разбор неразобранной оплаты создаёт настоящий `Payment` — право то же, что у
+// создания вручную.
+export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] })
   .metadata({ actionName: 'resolveUnprocessedPayment' })
   .inputSchema(ResolveUnprocessedPaymentSchema)
   .action(async ({ ctx, parsedInput }) => {
@@ -446,7 +485,7 @@ export const resolveUnprocessedPayment = authAction
     }, PAYMENT_TX_OPTIONS)
   })
 
-export const deleteUnprocessedPayment = authAction
+export const deleteUnprocessedPayment = permissionAction({ payment: ['delete'] })
   .metadata({ actionName: 'deleteUnprocessedPayment' })
   .inputSchema(DeleteUnprocessedPaymentSchema)
   .action(async ({ ctx, parsedInput }) => {

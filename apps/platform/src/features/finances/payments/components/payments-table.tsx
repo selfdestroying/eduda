@@ -21,13 +21,15 @@ import {
 import Link from 'next/link'
 import { useMemo } from 'react'
 import { usePaymentListQuery } from '../queries'
-import type { PaymentWithStudentAndGroup } from '../types'
+import type { PaymentListItem } from '../types'
 import PaymentActions from './payment-actions'
 
 export default function PaymentsTable() {
-  const { data: payments = [], isLoading, isError } = usePaymentListQuery()
+  // Период пока не выбирается: сервер отдаёт текущий месяц. Выбор периода
+  // приезжает вместе с панелью фильтров.
+  const { data: payments = [], isLoading, isError } = usePaymentListQuery({})
 
-  const columns: ColumnDef<PaymentWithStudentAndGroup>[] = useMemo(
+  const columns: ColumnDef<PaymentListItem>[] = useMemo(
     () => [
       {
         header: 'Ученик',

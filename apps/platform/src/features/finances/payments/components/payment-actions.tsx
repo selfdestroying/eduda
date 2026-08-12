@@ -1,6 +1,7 @@
 'use client'
 
-import { Payment } from '@repo/db'
+import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
+import type { PaymentStatus } from '@repo/db/enums'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -22,10 +23,14 @@ import { useState } from 'react'
 import { usePaymentCancelMutation } from '../queries'
 
 interface PaymentActionsProps {
-  payment: Payment
+  payment: { id: number; status: PaymentStatus }
 }
 
+// Вне компонента: `useHasPermission` мемоизирует по ссылке на объект прав.
+const CAN_CANCEL = { payment: ['delete'] } as const
+
 export default function PaymentActions({ payment }: PaymentActionsProps) {
+  const canCancel = useHasPermission(CAN_CANCEL)
   const [open, setOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const cancelMutation = usePaymentCancelMutation()
@@ -37,6 +42,7 @@ export default function PaymentActions({ payment }: PaymentActionsProps) {
   // Отменённую оплату трогать больше нечем: запись остаётся в списке как след
   // операции, но действий над ней нет.
   if (payment.status === 'CANCELLED') return null
+  if (!canCancel) return null
 
   return (
     <>

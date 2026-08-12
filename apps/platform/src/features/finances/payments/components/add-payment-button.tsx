@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@repo/ui/components/dialog'
+import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, Plus } from 'lucide-react'
 import { useState } from 'react'
@@ -18,7 +19,11 @@ import { usePaymentCreateMutation } from '../queries'
 import { CreatePaymentSchema, type CreatePaymentSchemaType } from '../schemas'
 import PaymentForm from './payment-form'
 
+// Вне компонента: `useHasPermission` мемоизирует по ссылке на объект прав.
+const CAN_CREATE = { payment: ['create'] } as const
+
 export default function AddPaymentButton() {
+  const canCreate = useHasPermission(CAN_CREATE)
   const [dialogOpen, setDialogOpen] = useState(false)
   const createMutation = usePaymentCreateMutation()
 
@@ -40,6 +45,10 @@ export default function AddPaymentButton() {
       },
     })
   }
+
+  // Сервер всё равно откажет (`permissionAction`), но показывать кнопку, которая
+  // гарантированно упрётся в «Недостаточно прав», незачем.
+  if (!canCreate) return null
 
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

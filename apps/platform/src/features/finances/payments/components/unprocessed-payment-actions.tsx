@@ -24,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@repo/ui/components/dropdown-menu'
+import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Check, CircleX, Loader, MoreVertical } from 'lucide-react'
 import { useState } from 'react'
@@ -39,9 +40,15 @@ interface UnprocessedPaymentActionsProps {
   unprocessedPayment: UnprocessedPayment
 }
 
+// Вне компонента: `useHasPermission` мемоизирует по ссылке на объект прав.
+const CAN_CREATE = { payment: ['create'] } as const
+const CAN_DELETE = { payment: ['delete'] } as const
+
 export default function UnprocessedPaymentActions({
   unprocessedPayment,
 }: UnprocessedPaymentActionsProps) {
+  const canCreate = useHasPermission(CAN_CREATE)
+  const canDelete = useHasPermission(CAN_DELETE)
   const [open, setOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -78,6 +85,9 @@ export default function UnprocessedPaymentActions({
     deleteMutation.mutate({ id: unprocessedPayment.id }, { onSuccess: () => setConfirmOpen(false) })
   }
 
+  // Ни разобрать, ни удалить — меню пустое, показывать нечего.
+  if (!canCreate && !canDelete) return null
+
   return (
     <>
       <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -86,25 +96,29 @@ export default function UnprocessedPaymentActions({
         </DropdownMenuTrigger>
 
         <DropdownMenuContent className="w-max">
-          <DropdownMenuItem
-            onClick={() => {
-              setDialogOpen(true)
-              setOpen(false)
-            }}
-          >
-            <Check />
-            Разобрать оплату
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => {
-              setConfirmOpen(true)
-              setOpen(false)
-            }}
-          >
-            <CircleX />
-            Удалить
-          </DropdownMenuItem>
+          {canCreate && (
+            <DropdownMenuItem
+              onClick={() => {
+                setDialogOpen(true)
+                setOpen(false)
+              }}
+            >
+              <Check />
+              Разобрать оплату
+            </DropdownMenuItem>
+          )}
+          {canDelete && (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => {
+                setConfirmOpen(true)
+                setOpen(false)
+              }}
+            >
+              <CircleX />
+              Удалить
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

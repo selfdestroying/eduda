@@ -13,11 +13,13 @@ import type {
   CancelPaymentSchemaType,
   CreatePaymentSchemaType,
   DeleteUnprocessedPaymentSchemaType,
+  PaymentListSchemaType,
   ResolveUnprocessedPaymentSchemaType,
 } from './schemas'
 
 export const paymentKeys = {
   all: ['payments'] as const,
+  list: (period: PaymentListSchemaType) => [...paymentKeys.all, period] as const,
 }
 
 export const unprocessedPaymentKeys = {
@@ -28,11 +30,11 @@ export const studentForPaymentKeys = {
   all: ['students-for-payments'] as const,
 }
 
-export const usePaymentListQuery = () => {
+export const usePaymentListQuery = (period: PaymentListSchemaType) => {
   return useQuery({
-    queryKey: paymentKeys.all,
+    queryKey: paymentKeys.list(period),
     queryFn: async () => {
-      const { data, serverError } = await getPayments()
+      const { data, serverError } = await getPayments(period)
       if (serverError) throw serverError
       return data ?? []
     },

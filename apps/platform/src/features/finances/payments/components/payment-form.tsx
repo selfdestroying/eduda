@@ -9,7 +9,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/f
 import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
 import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
 import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
-import { getFullName, getGroupName } from '@/src/lib/utils'
+import { getFullName } from '@/src/lib/utils'
 import { ru } from 'date-fns/locale'
 import { CalendarIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
@@ -62,19 +62,13 @@ export default function PaymentForm<T extends FieldValues>({
     | number
     | undefined
 
+  // Подписи кошельков собирает сервер (`getWalletLabel`) — здесь остаётся только
+  // разложить их в форму комбобокса.
   const mappedWallets = useMemo(() => {
     if (!selectedStudent) return []
     const student = students.find((s) => s.id === selectedStudent)
     if (!student) return []
-    return student.wallets
-      .filter((w) => w.status === 'ACTIVE')
-      .map((w) => {
-        const groupNames = w.studentGroups.map((sg) => getGroupName(sg.group)).join(', ')
-        const label = w.name
-          ? `${w.name} (${groupNames || 'без групп'})`
-          : groupNames || `Кошелёк #${w.id}`
-        return { label, value: w.id }
-      })
+    return student.wallets.map((w) => ({ label: w.label, value: w.id }))
   }, [selectedStudent, students])
 
   interface PaymentMethodOption {
