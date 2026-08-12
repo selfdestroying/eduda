@@ -13,6 +13,7 @@ const STATUS_LABEL: Record<StudentStatus, string> = {
   DISMISSED: 'Отчислен',
   TRANSFERRED: 'Переведён',
   COMPLETED: 'Завершил',
+  ARCHIVED: 'Группа закрыта',
 }
 
 const STATUS_VARIANT: Record<StudentStatus, 'default' | 'secondary' | 'outline'> = {
@@ -21,6 +22,7 @@ const STATUS_VARIANT: Record<StudentStatus, 'default' | 'secondary' | 'outline'>
   DISMISSED: 'secondary',
   TRANSFERRED: 'secondary',
   COMPLETED: 'secondary',
+  ARCHIVED: 'secondary',
 }
 
 interface ProfileViewProps {

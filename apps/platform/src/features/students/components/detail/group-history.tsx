@@ -17,6 +17,7 @@ const statusLabels: Record<string, string> = {
   DISMISSED: 'Отчислен',
   TRANSFERRED: 'Переведён',
   COMPLETED: 'Завершён',
+  ARCHIVED: 'Группа закрыта',
 }
 
 function formatDate(date: string) {

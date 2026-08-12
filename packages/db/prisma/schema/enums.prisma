@@ -49,6 +49,9 @@ enum StudentStatus {
     DISMISSED
     TRANSFERRED
     COMPLETED
+    // Запись закрыта вместе с группой: ученик не отчислялся и курс не проходил.
+    // Отдельный статус, чтобы архивация не попадала ни в отток, ни в выпускники.
+    ARCHIVED
 }
 
 enum StudentLessonsBalanceChangeReason {

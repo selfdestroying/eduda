@@ -4,6 +4,7 @@ import { prisma } from '@repo/db'
 import { authAction } from '@/src/lib/safe-action'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import * as z from 'zod'
+import { closeStudentGroupsTx } from './close.server'
 import {
   AddStudentToGroupSchema,
   AddTeacherToGroupSchema,
@@ -240,6 +241,12 @@ export const archiveGroup = authAction
         },
       })
 
+      await closeStudentGroupsTx(tx, {
+        groupId,
+        statusChangedAt: statusChangedAtYmd,
+        status: 'ARCHIVED',
+      })
+
       if (deleteFutureLessons) {
         await tx.lesson.deleteMany({
           where: { groupId, date: { gte: statusChangedAtYmd } },
@@ -266,13 +273,10 @@ export const completeGroup = authAction
         },
       })
 
-      await tx.studentGroup.updateMany({
-        where: { groupId, status: { in: ['ACTIVE', 'TRIAL'] } },
-        data: {
-          status: 'COMPLETED',
-          statusChangedAt: statusChangedAtYmd,
-          statusComment: null,
-        },
+      await closeStudentGroupsTx(tx, {
+        groupId,
+        statusChangedAt: statusChangedAtYmd,
+        status: 'COMPLETED',
       })
 
       if (deleteFutureLessons) {
@@ -504,7 +508,8 @@ export const getGroupDetail = authAction
         groupType: { include: { rate: true } },
         teachers: { include: { teacher: true, rate: true } },
         students: {
-          where: { status: { in: ['ACTIVE', 'TRIAL', 'COMPLETED'] } },
+          // ARCHIVED — чтобы состав архивной группы не пропадал из её карточки
+          where: { status: { in: ['ACTIVE', 'TRIAL', 'COMPLETED', 'ARCHIVED'] } },
           include: { student: true },
         },
       },

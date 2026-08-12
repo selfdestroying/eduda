@@ -313,7 +313,8 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                       const isInactive =
                         sg.status === 'DISMISSED' ||
                         sg.status === 'TRANSFERRED' ||
-                        sg.status === 'COMPLETED'
+                        sg.status === 'COMPLETED' ||
+                        sg.status === 'ARCHIVED'
                       return (
                         <div
                           key={sg.groupId}
@@ -337,6 +338,11 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                             {sg.status === 'COMPLETED' && (
                               <Badge variant="outline" className="px-1 py-0 text-[0.5rem]">
                                 Завершён
+                              </Badge>
+                            )}
+                            {sg.status === 'ARCHIVED' && (
+                              <Badge variant="secondary" className="px-1 py-0 text-[0.5rem]">
+                                Группа закрыта
                               </Badge>
                             )}
                           </div>

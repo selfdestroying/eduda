@@ -49,6 +49,7 @@ const StudentStatusMap = {
   DISMISSED: 'Отчислен',
   TRANSFERRED: 'Переведён',
   COMPLETED: 'Завершил',
+  ARCHIVED: 'Группа закрыта',
 } as const
 
 // ─── Stats helpers ──────────────────────────────────────────────────────────
@@ -272,6 +273,8 @@ function getStatusBadge(sg: StudentGroupWithStats) {
     }
     case 'COMPLETED':
       return <Badge variant="success">{StudentStatusMap.COMPLETED}</Badge>
+    case 'ARCHIVED':
+      return <Badge variant="secondary">{StudentStatusMap.ARCHIVED}</Badge>
     case 'TRIAL':
       return <Badge variant="secondary">{StudentStatusMap.TRIAL}</Badge>
     default:
