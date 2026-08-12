@@ -27,7 +27,12 @@ import {
   TableRow,
 } from '@repo/ui/components/table'
 import { cn } from '@repo/ui/lib/utils'
-import { flexRender, type RowData, type Table as TanstackTable } from '@tanstack/react-table'
+import {
+  flexRender,
+  type Row,
+  type RowData,
+  type Table as TanstackTable,
+} from '@tanstack/react-table'
 import {
   ArrowDown,
   ArrowUp,
@@ -70,6 +75,8 @@ interface DataTableProps<TData> {
    * `columnVisibility` в состоянии — иначе переключать будет нечего.
    */
   showColumnVisibility?: boolean
+  /** Классы на строку — приглушить отменённое, подсветить просроченное. */
+  rowClassName?: (row: Row<TData>) => string | undefined
 }
 
 export default function DataTable<TData>({
@@ -79,6 +86,7 @@ export default function DataTable<TData>({
   toolbar,
   isLoading = false,
   showColumnVisibility = false,
+  rowClassName,
 }: DataTableProps<TData>) {
   // Именно видимые: скрытая колонка не рисуется, и colSpan по всем растянул бы
   // пустое состояние шире таблицы. Минимум единица — скрыть можно все колонки
@@ -151,7 +159,7 @@ export default function DataTable<TData>({
             </TableRow>
           ) : table.getRowModel().rows?.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow key={row.id} className={rowClassName?.(row)}>
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
