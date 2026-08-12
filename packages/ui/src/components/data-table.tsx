@@ -5,6 +5,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -195,18 +196,22 @@ function DataTableViewOptions<TData>({ table }: { table: TanstackTable<TData> })
         {hiddenCount > 0 && <span className="text-muted-foreground">({hiddenCount} скрыто)</span>}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuLabel>Показывать</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {columns.map((column) => (
-          <DropdownMenuCheckboxItem
-            key={column.id}
-            checked={column.getIsVisible()}
-            onCheckedChange={(checked) => column.toggleVisibility(checked)}
-            closeOnClick={false}
-          >
-            {column.columnDef.meta?.title}
-          </DropdownMenuCheckboxItem>
-        ))}
+        {/* `DropdownMenuLabel` — это `Menu.GroupLabel`, вне `Menu.Group` Base UI
+            падает на отсутствующем контексте. */}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Показывать</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {columns.map((column) => (
+            <DropdownMenuCheckboxItem
+              key={column.id}
+              checked={column.getIsVisible()}
+              onCheckedChange={(checked) => column.toggleVisibility(checked)}
+              closeOnClick={false}
+            >
+              {column.columnDef.meta?.title}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )
