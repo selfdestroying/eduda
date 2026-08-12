@@ -27,9 +27,6 @@ export default function CategoriesTable() {
       {
         header: 'Название',
         accessorKey: 'name',
-        meta: {
-          filterVariant: 'text',
-        },
       },
       {
         header: 'Описание',

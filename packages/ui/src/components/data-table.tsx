@@ -1,6 +1,14 @@
 'use client'
 
 import { Button } from '@repo/ui/components/button'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@repo/ui/components/dropdown-menu'
 import { Label } from '@repo/ui/components/label'
 import {
   Select,
@@ -19,7 +27,7 @@ import {
   TableRow,
 } from '@repo/ui/components/table'
 import { cn } from '@repo/ui/lib/utils'
-import { flexRender, type Table as TanstackTable } from '@tanstack/react-table'
+import { flexRender, type RowData, type Table as TanstackTable } from '@tanstack/react-table'
 import {
   ArrowDown,
   ArrowUp,
@@ -28,9 +36,24 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Loader,
+  Settings2,
 } from 'lucide-react'
 import { type ReactNode } from 'react'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@repo/ui/components/empty'
+
+declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    /**
+     * Подпись колонки для меню видимости. Отдельно от `header`, потому что тот
+     * сплошь и рядом JSX с иконкой-подсказкой — в пункт меню его не положишь.
+     * Колонка без `title` в меню не попадает и спрятать её нельзя (действия).
+     */
+    title?: string
+    /** Классы на ячейку и заголовок колонки — выключка, ширина, `tabular-nums`. */
+    className?: string
+  }
+}
 
 interface DataTableProps<TData> {
   table: TanstackTable<TData>
@@ -42,6 +65,11 @@ interface DataTableProps<TData> {
   toolbar?: ReactNode
   /**  */
   isLoading?: boolean
+  /**
+   * Меню «Колонки» справа от тулбара. Требует, чтобы таблица держала
+   * `columnVisibility` в состоянии — иначе переключать будет нечего.
+   */
+  showColumnVisibility?: boolean
 }
 
 export default function DataTable<TData>({
@@ -50,23 +78,39 @@ export default function DataTable<TData>({
   showPagination = false,
   toolbar,
   isLoading = false,
+  showColumnVisibility = false,
 }: DataTableProps<TData>) {
-  const columnCount = table.getAllColumns().length
+  // Именно видимые: скрытая колонка не рисуется, и colSpan по всем растянул бы
+  // пустое состояние шире таблицы. Минимум единица — скрыть можно все колонки
+  // сразу, а `colSpan={0}` браузер понимает как «до конца группы строк».
+  const columnCount = Math.max(1, table.getVisibleLeafColumns().length)
 
   return (
     <div className="flex h-full flex-col gap-2">
-      {toolbar}
+      {showColumnVisibility ? (
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          {toolbar}
+          <DataTableViewOptions table={table} />
+        </div>
+      ) : (
+        toolbar
+      )}
       <Table className="overflow-y-auto">
         <TableHeader className="bg-card sticky top-0 z-10">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
+                <TableHead key={header.id} className={header.column.columnDef.meta?.className}>
                   {header.isPlaceholder ? null : header.column.getCanSort() ? (
                     <div
                       className={cn(
                         header.column.getCanSort() &&
-                          'flex w-fit cursor-pointer items-center gap-2 select-none',
+                          'flex cursor-pointer items-center gap-2 select-none',
+                        // Числовые колонки выключены вправо — стрелка сортировки
+                        // должна ехать за заголовком, а не болтаться слева.
+                        header.column.columnDef.meta?.className?.includes('text-right')
+                          ? 'justify-end'
+                          : 'w-fit',
                       )}
                       onClick={header.column.getToggleSortingHandler()}
                       onKeyDown={(e) => {
@@ -109,7 +153,7 @@ export default function DataTable<TData>({
             table.getRowModel().rows.map((row) => (
               <TableRow key={row.id}>
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
+                  <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
@@ -126,6 +170,37 @@ export default function DataTable<TData>({
       </Table>
       {showPagination && <DataTablePagination table={table} />}
     </div>
+  )
+}
+
+function DataTableViewOptions<TData>({ table }: { table: TanstackTable<TData> }) {
+  const columns = table.getAllColumns().filter((c) => c.getCanHide() && c.columnDef.meta?.title)
+  if (columns.length === 0) return null
+
+  const hiddenCount = columns.filter((c) => !c.getIsVisible()).length
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button variant="outline" className="shrink-0" />}>
+        <Settings2 />
+        Колонки
+        {hiddenCount > 0 && <span className="text-muted-foreground">({hiddenCount} скрыто)</span>}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel>Показывать</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {columns.map((column) => (
+          <DropdownMenuCheckboxItem
+            key={column.id}
+            checked={column.getIsVisible()}
+            onCheckedChange={(checked) => column.toggleVisibility(checked)}
+            closeOnClick={false}
+          >
+            {column.columnDef.meta?.title}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

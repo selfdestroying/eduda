@@ -224,8 +224,9 @@ function createColumns(studentId: number, tz: string): ColumnDef<HistoryRow>[] {
     {
       header: 'Комментарий',
       accessorFn: (row) => row.comment,
-      cell: ({ row }) => <span className="truncate text-right">{row.original.comment ?? '-'}</span>,
-      meta: { className: 'text-right' },
+      // Текст, а не число: выключка левая. `meta.className` таблица теперь
+      // действительно применяет, и правая выключка здесь читалась бы ошибкой.
+      cell: ({ row }) => <span className="truncate">{row.original.comment ?? '-'}</span>,
     },
     {
       id: 'delta',
