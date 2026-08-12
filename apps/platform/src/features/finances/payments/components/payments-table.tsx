@@ -3,12 +3,11 @@
 import { Badge } from '@repo/ui/components/badge'
 import DataTable from '@repo/ui/components/data-table'
 import { Hint } from '@repo/ui/components/hint'
-import { Input } from '@repo/ui/components/input'
 import { Skeleton } from '@repo/ui/components/skeleton'
 import { useColumnVisibility } from '@/src/hooks/use-column-visibility'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
-import { formatDateOnly, formatDateTimeInTz } from '@/src/lib/timezone'
+import { dateToYmd, formatDateOnly, formatDateTimeInTz, ymdToLocalDate } from '@/src/lib/timezone'
 import { formatCurrency, getFullName } from '@/src/lib/utils'
 import {
   type ColumnDef,
@@ -21,13 +20,36 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import Link from 'next/link'
+import {
+  parseAsArrayOf,
+  parseAsInteger,
+  parseAsString,
+  parseAsStringLiteral,
+  useQueryStates,
+} from 'nuqs'
 import { useMemo } from 'react'
+import type { DateRange } from 'react-day-picker'
+import { getPaymentKind, PAYMENT_KINDS } from '../constants'
 import { usePaymentListQuery } from '../queries'
 import type { PaymentListItem } from '../types'
 import PaymentActions from './payment-actions'
+import PaymentsFilters from './payments-filters'
 
 /** Правая выключка + моноширинные цифры: колонки сумм должны читаться столбиком. */
 const NUMERIC = 'text-right tabular-nums'
+
+/**
+ * Фильтры, которым не соответствует ни одна колонка таблицы: период уезжает
+ * на сервер, вид и сумма отсекаются до неё. `useTableSearchParams` умеет только
+ * колоночные, поэтому эти живут в URL сами.
+ */
+const EXTRA_FILTER_PARSERS = {
+  from: parseAsString,
+  to: parseAsString,
+  kind: parseAsArrayOf(parseAsStringLiteral(PAYMENT_KINDS)).withDefault([]),
+  amountMin: parseAsInteger,
+  amountMax: parseAsInteger,
+}
 
 function buildColumns(tz: string): ColumnDef<PaymentListItem>[] {
   return [
@@ -137,6 +159,8 @@ function buildColumns(tz: string): ColumnDef<PaymentListItem>[] {
       accessorFn: (row) => row.paymentMethod?.name ?? '',
       cell: ({ row }) => row.original.paymentMethod?.name ?? '—',
       meta: { title: 'Метод оплаты' },
+      filterFn: (row, _id, selectedIds: number[]) =>
+        selectedIds.length === 0 || selectedIds.includes(row.original.paymentMethod?.id ?? -1),
     },
     {
       id: 'manager',
@@ -149,6 +173,8 @@ function buildColumns(tz: string): ColumnDef<PaymentListItem>[] {
       accessorFn: (row) => row.manager?.name ?? '',
       cell: ({ row }) => row.original.manager?.name ?? '—',
       meta: { title: 'Менеджер' },
+      filterFn: (row, _id, selectedIds: number[]) =>
+        selectedIds.length === 0 || selectedIds.includes(row.original.manager?.id ?? -1),
     },
     {
       id: 'actions',
@@ -159,39 +185,118 @@ function buildColumns(tz: string): ColumnDef<PaymentListItem>[] {
 }
 
 export default function PaymentsTable() {
-  // Период пока не выбирается: сервер отдаёт текущий месяц. Выбор периода
-  // приезжает вместе с панелью фильтров.
-  const { data: payments = [], isLoading, isError } = usePaymentListQuery({})
   const tz = useOrgTimezone()
+
+  const {
+    columnFilters,
+    setColumnFilters,
+    globalFilter,
+    setGlobalFilter,
+    pagination,
+    setPagination,
+    sorting,
+    setSorting,
+  } = useTableSearchParams({ filters: { paymentMethod: 'integer', manager: 'integer' } })
+
+  // Период уезжает на сервер, поэтому живёт отдельно от фильтров таблицы.
+  // Вид и сумма — тоже отдельно: колонок под них нет, а заводить их ради
+  // `filterFn` значило бы держать в таблице две пустые колонки.
+  const [{ from, to, kind, amountMin, amountMax }, setExtraFilters] = useQueryStates(
+    EXTRA_FILTER_PARSERS,
+    { shallow: true, history: 'replace' },
+  )
+
+  // nuqs отдаёт `null` для незаданного параметра, схема экшена ждёт `undefined`.
+  // Незакрытый диапазон (кликнули одну дату из двух) сжимаем в этот же день:
+  // на кнопке написано «5 мар», и выборка обязана этому соответствовать —
+  // иначе серверный дефолт растянул бы её до конца текущего месяца.
+  const {
+    data: payments = [],
+    isLoading,
+    isError,
+  } = usePaymentListQuery({ from: from ?? undefined, to: to ?? from ?? undefined })
+  const { columnVisibility, setColumnVisibility } = useColumnVisibility('payments')
+
+  const rows = useMemo(
+    () =>
+      payments.filter((p) => {
+        if (kind.length > 0 && !kind.includes(getPaymentKind(p))) return false
+        if (amountMin !== null && p.price < amountMin) return false
+        if (amountMax !== null && p.price > amountMax) return false
+        return true
+      }),
+    [payments, kind, amountMin, amountMax],
+  )
 
   const columns = useMemo(() => buildColumns(tz), [tz])
 
-  const { globalFilter, setGlobalFilter, pagination, setPagination, sorting, setSorting } =
-    useTableSearchParams()
-  const { columnVisibility, setColumnVisibility } = useColumnVisibility('payments')
-
   const table = useReactTable({
-    data: payments,
+    data: rows,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getFacetedRowModel: getFacetedRowModel(),
-    globalFilterFn: (row, columnId, filterValue) => {
-      const searchValue = String(filterValue).toLowerCase()
-      const fullName = getFullName(
-        row.original.student.firstName,
-        row.original.student.lastName,
-      ).toLowerCase()
-      return fullName.includes(searchValue)
+    // Поиск идёт по тому, что человек видит в строке: ученик, менеджер, метод.
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const needle = String(filterValue).trim().toLowerCase()
+      if (!needle) return true
+      const { student, manager, paymentMethod, walletLabel } = row.original
+      return [
+        getFullName(student.firstName, student.lastName),
+        manager?.name,
+        paymentMethod?.name,
+        walletLabel,
+      ].some((field) => field?.toLowerCase().includes(needle))
     },
     onPaginationChange: setPagination,
     getPaginationRowModel: getPaginationRowModel(),
+    onColumnFiltersChange: setColumnFilters,
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
-    state: { pagination, sorting, globalFilter, columnVisibility },
+    state: { pagination, sorting, globalFilter, columnFilters, columnVisibility },
   })
+
+  // Любая смена фильтра возвращает на первую страницу: иначе отбор в пять строк,
+  // сделанный со страницы четыре, показывает пустую таблицу и «Страница 4 из 1».
+  // `setGlobalFilter` это делает сам, остальные сеттеры — нет.
+  const resetPage = () => setPagination({ ...pagination, pageIndex: 0 })
+
+  const setExtra = (values: Partial<Record<keyof typeof EXTRA_FILTER_PARSERS, unknown>>) => {
+    setExtraFilters(values as Parameters<typeof setExtraFilters>[0])
+    resetPage()
+  }
+
+  const setFilters: typeof setColumnFilters = (updater) => {
+    setColumnFilters(updater)
+    resetPage()
+  }
+
+  const period: DateRange | undefined = from
+    ? { from: ymdToLocalDate(from), to: to ? ymdToLocalDate(to) : undefined }
+    : undefined
+
+  const setPeriod = (range: DateRange | undefined) =>
+    setExtra({
+      from: range?.from ? dateToYmd(range.from) : null,
+      to: range?.to ? dateToYmd(range.to) : null,
+    })
+
+  const hasActiveFilters =
+    Boolean(from) ||
+    Boolean(to) ||
+    Boolean(globalFilter) ||
+    kind.length > 0 ||
+    amountMin !== null ||
+    amountMax !== null ||
+    columnFilters.length > 0
+
+  const resetFilters = () => {
+    setExtra({ from: null, to: null, kind: null, amountMin: null, amountMax: null })
+    setGlobalFilter('')
+    setColumnFilters([])
+  }
 
   if (isLoading) {
     return (
@@ -216,11 +321,21 @@ export default function PaymentsTable() {
       // как погашенная — одного бейджа в широкой строке не видно.
       rowClassName={(row) => (row.original.status === 'CANCELLED' ? 'opacity-55' : undefined)}
       toolbar={
-        <Input
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          placeholder="Поиск по ученику..."
-          className="md:max-w-xs"
+        <PaymentsFilters
+          search={globalFilter}
+          onSearchChange={setGlobalFilter}
+          period={period}
+          onPeriodChange={setPeriod}
+          columnFilters={columnFilters}
+          setColumnFilters={setFilters}
+          kind={kind}
+          onKindChange={(values) => setExtra({ kind: values.length > 0 ? values : null })}
+          amountMin={amountMin}
+          amountMax={amountMax}
+          onAmountMinChange={(value) => setExtra({ amountMin: value })}
+          onAmountMaxChange={(value) => setExtra({ amountMax: value })}
+          hasActiveFilters={hasActiveFilters}
+          onReset={resetFilters}
         />
       }
     />
