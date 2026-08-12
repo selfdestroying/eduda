@@ -230,6 +230,20 @@ export default function PaymentsTable() {
 
   const columns = useMemo(() => buildColumns(tz), [tz])
 
+  // Колонки переименовали (`lessonCount` → `lessons` и т.д.), а `sort` живёт в
+  // адресе — по старым ссылкам и из истории браузера приезжает id, которого уже
+  // нет. Сортировать по нему react-table всё равно не станет, только ругнётся в
+  // консоль на каждый рендер; выкидываем сами.
+  const safeSorting = useMemo(() => {
+    // id колонки — либо явный, либо `accessorKey`: у колонки, объявленной вторым
+    // способом, `c.id` пуст, и брать только его значило бы вычеркнуть её из
+    // разрешённых и тихо сломать ей сортировку.
+    const ids = new Set(
+      columns.map((c) => c.id ?? ('accessorKey' in c ? String(c.accessorKey) : undefined)),
+    )
+    return sorting.filter((s) => ids.has(s.id))
+  }, [sorting, columns])
+
   const table = useReactTable({
     data: rows,
     columns,
@@ -255,7 +269,7 @@ export default function PaymentsTable() {
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
-    state: { pagination, sorting, globalFilter, columnFilters, columnVisibility },
+    state: { pagination, sorting: safeSorting, globalFilter, columnFilters, columnVisibility },
   })
 
   // Любая смена фильтра возвращает на первую страницу: иначе отбор в пять строк,

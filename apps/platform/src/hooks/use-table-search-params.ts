@@ -67,18 +67,30 @@ export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {
   )
   const [sortingValues, setSortingValues] = useQueryStates(SORTING_PARSERS, QUERY_STATES_OPTIONS)
 
-  const columnFilters: ColumnFiltersState = Object.entries(filterValues)
-    .filter(([, value]) => Array.isArray(value) && value.length > 0)
-    .map(([id, value]) => ({ id, value }))
+  // Все три среза обязаны сохранять ссылку между рендерами. Модели строк
+  // react-table мемоизированы по идентичности этих объектов, а на каждый
+  // пересчёт дёргают `_autoResetPageIndex()`. Новый литерал на каждый рендер
+  // означает пересчёт на каждый рендер и, значит, сброс на первую страницу
+  // сразу после клика по «вперёд» — пагинация просто перестаёт работать.
+  // nuqs свои значения уже мемоизирует, так что зависимости здесь стабильны.
+  const columnFilters: ColumnFiltersState = useMemo(
+    () =>
+      Object.entries(filterValues)
+        .filter(([, value]) => Array.isArray(value) && value.length > 0)
+        .map(([id, value]) => ({ id, value })),
+    [filterValues],
+  )
 
-  const pagination: PaginationState = {
-    pageIndex: paginationValues.page,
-    pageSize: paginationValues.pageSize,
-  }
+  const pagination: PaginationState = useMemo(
+    () => ({ pageIndex: paginationValues.page, pageSize: paginationValues.pageSize }),
+    [paginationValues.page, paginationValues.pageSize],
+  )
 
-  const sorting: SortingState = sortingValues.sort
-    ? [{ id: sortingValues.sort, desc: sortingValues.order === 'desc' }]
-    : []
+  const sorting: SortingState = useMemo(
+    () =>
+      sortingValues.sort ? [{ id: sortingValues.sort, desc: sortingValues.order === 'desc' }] : [],
+    [sortingValues.sort, sortingValues.order],
+  )
 
   // Сеттеры с API `useState` (значение или updater), как ждёт react-table.
   // Дефолтное значение пишем как `null`, чтобы параметр исчезал из URL.
