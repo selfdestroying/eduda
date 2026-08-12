@@ -297,15 +297,6 @@ export default function PaymentsTable() {
       to: range?.to ? dateToYmd(range.to) : null,
     })
 
-  const hasActiveFilters =
-    Boolean(from) ||
-    Boolean(to) ||
-    Boolean(globalFilter) ||
-    kind.length > 0 ||
-    amountMin !== null ||
-    amountMax !== null ||
-    columnFilters.length > 0
-
   const resetFilters = () => {
     setExtra({ from: null, to: null, kind: null, amountMin: null, amountMax: null })
     setGlobalFilter('')
@@ -348,7 +339,6 @@ export default function PaymentsTable() {
           amountMax={amountMax}
           onAmountMinChange={(value) => setExtra({ amountMin: value })}
           onAmountMaxChange={(value) => setExtra({ amountMax: value })}
-          hasActiveFilters={hasActiveFilters}
           onReset={resetFilters}
         />
       }
