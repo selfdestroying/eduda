@@ -41,16 +41,36 @@ import PaymentActions from './payment-actions'
 const NUMERIC = 'text-right tabular-nums'
 
 /**
- * Ширины колонок в пикселях, и они окончательные: гибких колонок здесь нет, так
- * что таблица встаёт ровно на их сумму, а свободное место остаётся справа. Отдать
- * излишек одной колонке пробовали — «Ученик» раздувался до полутысячи пикселей под
- * имя в сто; поделить на три — то же самое случалось с «Методом».
+ * Ширины — в процентах: 30% забирает «Ученик», остальные 70% делят между собой
+ * прочие колонки пропорционально своему размеру. Проценты, а не пиксели, потому
+ * что при пикселях излишек надо куда-то девать: отдашь одной колонке — раздуется
+ * она, поделишь на все — раздуются все.
+ *
+ * Классы, а не `style`, потому что инлайновую ширину пишет сам `DataTable`;
+ * `meta.flexible` её отключает, оставляя ширину этим классам. Значения обязаны
+ * быть литералами — Tailwind ищет их в исходнике, из переменной класс не родится.
+ */
+const W = {
+  student: 'w-[30%]',
+  price: 'w-[13%]',
+  lessons: 'w-[11.5%]',
+  kind: 'w-[10%]',
+  date: 'w-[8.5%]',
+  paymentMethod: 'w-[11.5%]',
+  manager: 'w-[11.5%]',
+  actions: 'w-[4%]',
+} as const
+
+/**
+ * Те же ширины в пикселях. На раскладку не влияют — её задают проценты выше, — но
+ * из их суммы складывается порог, ниже которого таблица уходит в горизонтальную
+ * прокрутку вместо сжатия колонок в огрызки.
  */
 const WIDTHS = {
   student: 220,
-  // Обе выключены вправо, поэтому расстояние между значениями задаёт ширина
-  // «Занятий»: на 90px число упиралось в сумму. Заодно перестал теснить заголовок
-  // «Занятий» с иконкой-подсказкой.
+  // Сумма и занятия выключены вправо, поэтому расстояние между значениями задаёт
+  // ширина «Занятий»: на 90px число упиралось в сумму. Заодно перестал теснить
+  // заголовок «Занятий» с иконкой-подсказкой.
   price: 170,
   lessons: 150,
   kind: 130,
@@ -96,7 +116,7 @@ function buildColumns(
         </Link>
       ),
       size: WIDTHS.student,
-      meta: { title: 'Ученик' },
+      meta: { title: 'Ученик', flexible: true, className: W.student },
       // Строка без ученика бессмысленна — прятать нечего.
       enableHiding: false,
     },
@@ -108,7 +128,13 @@ function buildColumns(
       accessorFn: (row) => row.price,
       cell: ({ row }) => formatCurrency(row.original.price),
       size: WIDTHS.price,
-      meta: { title: 'Сумма', className: NUMERIC, variant: 'range', unit: '₽' },
+      meta: {
+        title: 'Сумма',
+        flexible: true,
+        className: `${NUMERIC} ${W.price}`,
+        variant: 'range',
+        unit: '₽',
+      },
       filterFn: (row, _id, [min, max]: [number?, number?]) => {
         const price = row.original.price
         if (min !== undefined && price < min) return false
@@ -126,7 +152,7 @@ function buildColumns(
       ),
       accessorKey: 'lessonCount',
       size: WIDTHS.lessons,
-      meta: { title: 'Занятий', className: NUMERIC },
+      meta: { title: 'Занятий', flexible: true, className: `${NUMERIC} ${W.lessons}` },
     },
     {
       // id остался `kind` — по нему уже записаны фильтр в URL и видимость в
@@ -140,7 +166,13 @@ function buildColumns(
         return <Badge variant={PAYMENT_KIND_BADGE[kind]}>{PAYMENT_KIND_LABELS[kind]}</Badge>
       },
       size: WIDTHS.kind,
-      meta: { title: 'Статус', variant: 'multiSelect', options: PAYMENT_KIND_OPTIONS },
+      meta: {
+        title: 'Статус',
+        flexible: true,
+        className: W.kind,
+        variant: 'multiSelect',
+        options: PAYMENT_KIND_OPTIONS,
+      },
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(getPaymentKind(row.original)),
     },
@@ -150,7 +182,7 @@ function buildColumns(
       accessorKey: 'date',
       cell: ({ row }) => formatDateOnly(row.original.date),
       size: WIDTHS.date,
-      meta: { title: 'Дата' },
+      meta: { title: 'Дата', flexible: true, className: W.date },
     },
     {
       id: 'paymentMethod',
@@ -158,7 +190,13 @@ function buildColumns(
       accessorFn: (row) => row.paymentMethod?.name ?? '',
       cell: ({ row }) => row.original.paymentMethod?.name ?? '—',
       size: WIDTHS.paymentMethod,
-      meta: { title: 'Метод оплаты', variant: 'multiSelect', options: methodOptions },
+      meta: {
+        title: 'Метод оплаты',
+        flexible: true,
+        className: W.paymentMethod,
+        variant: 'multiSelect',
+        options: methodOptions,
+      },
       // Сравниваем строками: значения фильтров приезжают из URL и остаются ими.
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(String(row.original.paymentMethod?.id)),
@@ -174,7 +212,13 @@ function buildColumns(
       accessorFn: (row) => row.manager?.name ?? '',
       cell: ({ row }) => row.original.manager?.name ?? '—',
       size: WIDTHS.manager,
-      meta: { title: 'Менеджер', variant: 'multiSelect', options: managerOptions },
+      meta: {
+        title: 'Менеджер',
+        flexible: true,
+        className: W.manager,
+        variant: 'multiSelect',
+        options: managerOptions,
+      },
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(String(row.original.manager?.id)),
     },
@@ -187,7 +231,7 @@ function buildColumns(
       // нажатия, а с `p-2` ячейки она вытягивала строку до 44px. У отменённой
       // оплаты действий нет, и та же строка выходила 36px — теперь высоту всюду
       // задаёт бейдж статуса, а не наличие кнопки.
-      meta: { className: 'px-2 py-0' },
+      meta: { flexible: true, className: `px-2 py-0 ${W.actions}` },
     },
   ]
 }
