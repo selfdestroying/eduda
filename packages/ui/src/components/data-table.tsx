@@ -272,10 +272,12 @@ function DataTableViewOptions<TData>({ table }: { table: TanstackTable<TData> })
 
 function DataTablePagination<TData>({ table }: { table: TanstackTable<TData> }) {
   return (
-    <div className="flex items-center justify-end px-4">
-      <div className="flex w-full items-center gap-8 lg:w-fit">
-        <div className="hidden items-center gap-2 lg:flex">
-          <Label htmlFor="rows-per-page">Строк на страницу:</Label>
+    <div className="flex items-center justify-end">
+      <div className="flex w-full items-center gap-4 md:w-fit">
+        <div className="hidden items-center gap-2 md:flex">
+          <Label htmlFor="rows-per-page" className="text-muted-foreground">
+            Строк на страницу:
+          </Label>
           <Select
             value={`${table.getState().pagination.pageSize}`}
             onValueChange={(value) => {
@@ -297,12 +299,12 @@ function DataTablePagination<TData>({ table }: { table: TanstackTable<TData> }) 
           </Select>
         </div>
         <div className="ml-auto flex items-center gap-2 lg:ml-0">
-          <Label className="flex w-fit items-center justify-center">
+          <Label className="text-muted-foreground flex w-fit items-center justify-center">
             Страница {table.getState().pagination.pageIndex + 1} из {table.getPageCount()}
           </Label>
           <Button
             variant="outline"
-            className="hidden lg:flex"
+            className="hidden md:flex"
             size="icon"
             onClick={() => table.setPageIndex(0)}
             disabled={!table.getCanPreviousPage()}
@@ -330,7 +332,7 @@ function DataTablePagination<TData>({ table }: { table: TanstackTable<TData> }) 
           </Button>
           <Button
             variant="outline"
-            className="hidden lg:flex"
+            className="hidden md:flex"
             size="icon"
             onClick={() => table.setPageIndex(table.getPageCount() - 1)}
             disabled={!table.getCanNextPage()}
