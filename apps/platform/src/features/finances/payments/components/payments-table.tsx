@@ -35,17 +35,10 @@ import type { PaymentListItem } from '../types'
 import PaymentActions from './payment-actions'
 
 /**
- * Деньги — по правому краю и моноширинными цифрами: только так разряды встают в
- * столбик и суммы можно сравнивать взглядом. По центру «1 097 ₽» и «12 000 ₽»
- * центруются каждая по своей ширине, и разряды разъезжаются.
+ * Цифры — по правому краю и моноширинными: только так разряды встают в столбик и
+ * значения можно сравнивать взглядом. Текстовые колонки остаются по левому краю.
  */
-const MONEY = 'text-right tabular-nums'
-
-/** Счётный столбец: по центру, но цифры моноширинные. */
-const NUMERIC = 'text-center tabular-nums'
-
-/** Всё, кроме ученика, суммы и статуса, выключено по центру. */
-const CENTERED = 'text-center'
+const NUMERIC = 'text-right tabular-nums'
 
 /**
  * Ширины колонок в пикселях. Свободную ширину целиком забирает «Ученик»
@@ -113,7 +106,7 @@ function buildColumns(
       accessorFn: (row) => row.price,
       cell: ({ row }) => formatCurrency(row.original.price),
       size: WIDTHS.price,
-      meta: { title: 'Сумма', className: MONEY, variant: 'range', unit: '₽' },
+      meta: { title: 'Сумма', className: NUMERIC, variant: 'range', unit: '₽' },
       filterFn: (row, _id, [min, max]: [number?, number?]) => {
         const price = row.original.price
         if (min !== undefined && price < min) return false
@@ -155,7 +148,7 @@ function buildColumns(
       accessorKey: 'date',
       cell: ({ row }) => formatDateOnly(row.original.date),
       size: WIDTHS.date,
-      meta: { title: 'Дата', className: CENTERED },
+      meta: { title: 'Дата' },
     },
     {
       id: 'paymentMethod',
@@ -163,12 +156,7 @@ function buildColumns(
       accessorFn: (row) => row.paymentMethod?.name ?? '',
       cell: ({ row }) => row.original.paymentMethod?.name ?? '—',
       size: WIDTHS.paymentMethod,
-      meta: {
-        title: 'Метод оплаты',
-        className: CENTERED,
-        variant: 'multiSelect',
-        options: methodOptions,
-      },
+      meta: { title: 'Метод оплаты', variant: 'multiSelect', options: methodOptions },
       // Сравниваем строками: значения фильтров приезжают из URL и остаются ими.
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(String(row.original.paymentMethod?.id)),
@@ -184,12 +172,7 @@ function buildColumns(
       accessorFn: (row) => row.manager?.name ?? '',
       cell: ({ row }) => row.original.manager?.name ?? '—',
       size: WIDTHS.manager,
-      meta: {
-        title: 'Менеджер',
-        className: CENTERED,
-        variant: 'multiSelect',
-        options: managerOptions,
-      },
+      meta: { title: 'Менеджер', variant: 'multiSelect', options: managerOptions },
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(String(row.original.manager?.id)),
     },
