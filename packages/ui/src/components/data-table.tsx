@@ -114,12 +114,27 @@ export default function DataTable<TData>({
       ) : (
         toolbar
       )}
-      <Table>
+      {/* `table-fixed`: без него `width` на ячейке для браузерного auto-алгоритма
+          лишь подсказка, и колонка всё равно растягивается под содержимое — ширины
+          прыгают от страницы к странице. Здесь, а не в самом `Table`: его собирают
+          руками и в других местах, где сетка по содержимому как раз нужна.
+          Таблица стоит `w-full`, поэтому числа `size` работают как пропорции: излишек
+          браузер распределяет по колонкам. */}
+      {/* `minWidth` по сумме колонок: без него `table-fixed` + `w-full` на узком
+          экране сжимал бы колонки до нечитаемых огрызков вместо горизонтальной
+          прокрутки, которую даёт обёртка `Table`. */}
+      <Table className="table-fixed" style={{ minWidth: table.getTotalSize() }}>
         <TableHeader className="bg-card sticky top-0 z-10">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
-                <TableHead key={header.id} className={header.column.columnDef.meta?.className}>
+                <TableHead
+                  key={header.id}
+                  // При фиксированной раскладке ширины берутся из первой строки,
+                  // остальным задавать их не нужно.
+                  style={{ width: header.getSize() }}
+                  className={header.column.columnDef.meta?.className}
+                >
                   {header.isPlaceholder ? null : header.column.getCanSort() ? (
                     <div
                       className={cn(
@@ -172,7 +187,14 @@ export default function DataTable<TData>({
             table.getRowModel().rows.map((row) => (
               <TableRow key={row.id} className={rowClassName?.(row)}>
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
+                  <TableCell
+                    key={cell.id}
+                    // `truncate` обязателен именно здесь: при фиксированной сетке
+                    // содержимое шире колонки не сжимается, а вылезает за её край.
+                    // `overflow: hidden` на `td` работает, на вложенной ссылке —
+                    // нет, она инлайновая.
+                    className={cn('truncate', cell.column.columnDef.meta?.className)}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}

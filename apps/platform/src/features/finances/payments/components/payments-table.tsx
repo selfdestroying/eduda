@@ -38,6 +38,23 @@ import PaymentActions from './payment-actions'
 const NUMERIC = 'text-right tabular-nums'
 
 /**
+ * Ширины колонок. Таблица растянута на `w-full`, поэтому это пропорции, а не
+ * пиксели: браузер распределяет излишек. Заданы, потому что дефолт react-table —
+ * 150 на каждую, то есть все колонки одинаковые, а «Ученик» и «⋮» одинаковыми
+ * быть не должны.
+ */
+const WIDTHS = {
+  student: 220,
+  lessons: 90,
+  price: 110,
+  date: 100,
+  paymentMethod: 130,
+  manager: 140,
+  kind: 120,
+  actions: 48,
+} as const
+
+/**
  * Период. Контрола под него сейчас нет — пикер сняли, его переделывают, — но
  * параметры читаются и уезжают в запрос: без них таблица была бы наглухо заперта
  * в текущем месяце (серверный дефолт), и до прошлых оплат не добраться совсем.
@@ -67,14 +84,13 @@ function buildColumns(
       cell: ({ row }) => (
         <Link
           href={`/students/${row.original.student.id}`}
-          className="text-primary truncate hover:underline"
+          className="text-primary hover:underline"
         >
           {getFullName(row.original.student.firstName, row.original.student.lastName)}
         </Link>
       ),
-      // Ширину задаём здесь, иначе `truncate` ничего не режет: длинное ФИО
-      // растянуло бы колонку и вытолкнуло суммы за экран.
-      meta: { title: 'Ученик', className: 'max-w-64' },
+      size: WIDTHS.student,
+      meta: { title: 'Ученик' },
       // Строка без ученика бессмысленна — прятать нечего.
       enableHiding: false,
     },
@@ -87,6 +103,7 @@ function buildColumns(
         </span>
       ),
       accessorKey: 'lessonCount',
+      size: WIDTHS.lessons,
       meta: { title: 'Занятий', className: NUMERIC },
     },
     {
@@ -94,6 +111,7 @@ function buildColumns(
       header: 'Сумма',
       accessorFn: (row) => row.price,
       cell: ({ row }) => formatCurrency(row.original.price),
+      size: WIDTHS.price,
       meta: { title: 'Сумма', className: NUMERIC, variant: 'range', unit: '₽' },
       filterFn: (row, _id, [min, max]: [number?, number?]) => {
         const price = row.original.price
@@ -107,13 +125,15 @@ function buildColumns(
       header: 'Дата',
       accessorKey: 'date',
       cell: ({ row }) => formatDateOnly(row.original.date),
-      meta: { title: 'Дата', className: 'whitespace-nowrap' },
+      size: WIDTHS.date,
+      meta: { title: 'Дата' },
     },
     {
       id: 'paymentMethod',
       header: 'Метод',
       accessorFn: (row) => row.paymentMethod?.name ?? '',
       cell: ({ row }) => row.original.paymentMethod?.name ?? '—',
+      size: WIDTHS.paymentMethod,
       meta: { title: 'Метод оплаты', variant: 'multiSelect', options: methodOptions },
       // Сравниваем строками: значения фильтров приезжают из URL и остаются ими.
       filterFn: (row, _id, selected: string[]) =>
@@ -129,6 +149,7 @@ function buildColumns(
       ),
       accessorFn: (row) => row.manager?.name ?? '',
       cell: ({ row }) => row.original.manager?.name ?? '—',
+      size: WIDTHS.manager,
       meta: { title: 'Менеджер', variant: 'multiSelect', options: managerOptions },
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(String(row.original.manager?.id)),
@@ -144,6 +165,7 @@ function buildColumns(
         const kind = getPaymentKind(row.original)
         return <Badge variant={PAYMENT_KIND_BADGE[kind]}>{PAYMENT_KIND_LABELS[kind]}</Badge>
       },
+      size: WIDTHS.kind,
       meta: { title: 'Статус', variant: 'multiSelect', options: PAYMENT_KIND_OPTIONS },
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(getPaymentKind(row.original)),
@@ -152,6 +174,7 @@ function buildColumns(
       id: 'actions',
       enableSorting: false,
       cell: ({ row }) => <PaymentActions payment={row.original} />,
+      size: WIDTHS.actions,
       // Без вертикального отступа: иконка-кнопка и так 28px со своей областью
       // нажатия, а с `p-2` ячейки она вытягивала строку до 44px. У отменённой
       // оплаты действий нет, и та же строка выходила 36px — теперь высоту всюду
