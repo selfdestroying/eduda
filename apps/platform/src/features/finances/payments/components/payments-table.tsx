@@ -9,7 +9,7 @@ import { useMappedMemberListQuery } from '@/src/features/organization/members/qu
 import { useColumnVisibility } from '@/src/hooks/use-column-visibility'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
 import { formatDateOnly } from '@/src/lib/timezone'
-import { formatCurrency, getFullName } from '@/src/lib/utils'
+import { cn, formatCurrency, getFullName } from '@/src/lib/utils'
 import {
   type ColumnDef,
   getCoreRowModel,
@@ -87,7 +87,13 @@ function buildColumns(
       accessorFn: (row) => PAYMENT_KIND_LABELS[getPaymentKind(row)],
       cell: ({ row }) => {
         const kind = getPaymentKind(row.original)
-        return <Badge variant={PAYMENT_KIND_BADGE[kind]}>{PAYMENT_KIND_LABELS[kind]}</Badge>
+        const style = PAYMENT_KIND_BADGE[kind]
+        return (
+          <Badge className={style.badge}>
+            <span className={cn('size-1.5 rounded-full', style.dot)} aria-hidden="true" />
+            {PAYMENT_KIND_LABELS[kind]}
+          </Badge>
+        )
       },
       meta: { title: 'Статус', variant: 'multiSelect', options: PAYMENT_KIND_OPTIONS },
       filterFn: (row, _id, selected: string[]) =>
