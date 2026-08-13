@@ -68,6 +68,13 @@ declare module '@tanstack/react-table' {
     options?: Array<{ label: string; value: string }>
     /** Подпись единиц у `range` — «₽», «уроков». */
     unit?: string
+    /**
+     * Колонка забирает всю свободную ширину: ей не пишется `width`, и по
+     * алгоритму фиксированной раскладки остаток достаётся ей. Без такой колонки
+     * излишек размазывается по всем, и каждая оказывается вдвое шире содержимого.
+     * Помечать стоит ровно одну — обычно ту, где текст непредсказуемой длины.
+     */
+    flexible?: boolean
   }
 }
 
@@ -118,11 +125,12 @@ export default function DataTable<TData>({
           лишь подсказка, и колонка всё равно растягивается под содержимое — ширины
           прыгают от страницы к странице. Здесь, а не в самом `Table`: его собирают
           руками и в других местах, где сетка по содержимому как раз нужна.
-          Таблица стоит `w-full`, поэтому числа `size` работают как пропорции: излишек
-          браузер распределяет по колонкам. */}
-      {/* `minWidth` по сумме колонок: без него `table-fixed` + `w-full` на узком
-          экране сжимал бы колонки до нечитаемых огрызков вместо горизонтальной
-          прокрутки, которую даёт обёртка `Table`. */}
+          Числа `size` — пиксели; свободную ширину забирает колонка с
+          `meta.flexible`, а не все понемногу.
+
+          `minWidth` по сумме колонок: без него на узком экране колонки сжимались бы
+          до нечитаемых огрызков вместо горизонтальной прокрутки, которую даёт
+          обёртка `Table`. */}
       <Table className="table-fixed" style={{ minWidth: table.getTotalSize() }}>
         <TableHeader className="bg-card sticky top-0 z-10">
           {table.getHeaderGroups().map((headerGroup) => (
@@ -131,8 +139,11 @@ export default function DataTable<TData>({
                 <TableHead
                   key={header.id}
                   // При фиксированной раскладке ширины берутся из первой строки,
-                  // остальным задавать их не нужно.
-                  style={{ width: header.getSize() }}
+                  // остальным задавать их не нужно. Гибкой колонке ширину не пишем
+                  // вовсе — ей достанется вся свободная.
+                  style={
+                    header.column.columnDef.meta?.flexible ? undefined : { width: header.getSize() }
+                  }
                   className={header.column.columnDef.meta?.className}
                 >
                   {header.isPlaceholder ? null : header.column.getCanSort() ? (
