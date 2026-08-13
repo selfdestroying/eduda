@@ -46,12 +46,12 @@ const NUMERIC = 'text-right tabular-nums'
  */
 const WIDTHS = {
   student: 200,
-  date: 110,
   price: 120,
   lessons: 90,
   paymentMethod: 150,
   manager: 150,
   kind: 130,
+  date: 110,
   actions: 48,
 } as const
 
@@ -94,16 +94,6 @@ function buildColumns(
       meta: { title: 'Ученик', flexible: true },
       // Строка без ученика бессмысленна — прятать нечего.
       enableHiding: false,
-    },
-    {
-      // Сразу за учеником: список по умолчанию отсортирован по дате, и колонка,
-      // задающая порядок строк, должна читаться сверху вниз без поиска глазами.
-      id: 'date',
-      header: 'Дата',
-      accessorKey: 'date',
-      cell: ({ row }) => formatDateOnly(row.original.date),
-      size: WIDTHS.date,
-      meta: { title: 'Дата' },
     },
     {
       // Деньги раньше количества: на финансовой странице сумма — главная цифра, а
@@ -174,6 +164,14 @@ function buildColumns(
       meta: { title: 'Статус', variant: 'multiSelect', options: PAYMENT_KIND_OPTIONS },
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(getPaymentKind(row.original)),
+    },
+    {
+      id: 'date',
+      header: 'Дата',
+      accessorKey: 'date',
+      cell: ({ row }) => formatDateOnly(row.original.date),
+      size: WIDTHS.date,
+      meta: { title: 'Дата' },
     },
     {
       id: 'actions',
