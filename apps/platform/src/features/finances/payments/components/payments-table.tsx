@@ -34,10 +34,17 @@ import { usePaymentListQuery } from '../queries'
 import type { PaymentListItem } from '../types'
 import PaymentActions from './payment-actions'
 
-/** По центру, но моноширинными цифрами — чтобы разряды не плясали по строкам. */
+/**
+ * Деньги — по правому краю и моноширинными цифрами: только так разряды встают в
+ * столбик и суммы можно сравнивать взглядом. По центру «1 097 ₽» и «12 000 ₽»
+ * центруются каждая по своей ширине, и разряды разъезжаются.
+ */
+const MONEY = 'text-right tabular-nums'
+
+/** Счётный столбец: по центру, но цифры моноширинные. */
 const NUMERIC = 'text-center tabular-nums'
 
-/** Всё, кроме ученика и статуса, выключено по центру. */
+/** Всё, кроме ученика, суммы и статуса, выключено по центру. */
 const CENTERED = 'text-center'
 
 /**
@@ -106,7 +113,7 @@ function buildColumns(
       accessorFn: (row) => row.price,
       cell: ({ row }) => formatCurrency(row.original.price),
       size: WIDTHS.price,
-      meta: { title: 'Сумма', className: NUMERIC, variant: 'range', unit: '₽' },
+      meta: { title: 'Сумма', className: MONEY, variant: 'range', unit: '₽' },
       filterFn: (row, _id, [min, max]: [number?, number?]) => {
         const price = row.original.price
         if (min !== undefined && price < min) return false
