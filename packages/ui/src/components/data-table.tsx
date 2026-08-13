@@ -114,83 +114,79 @@ export default function DataTable<TData>({
       ) : (
         toolbar
       )}
-      {/* Рамка вокруг таблицы, а не только линейки внутри: иначе тулбар и
-          пагинация висят в воздухе, не привязанные к тому, чем управляют. */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader className="bg-card sticky top-0 z-10">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className={header.column.columnDef.meta?.className}>
-                    {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                      <div
-                        className={cn(
-                          header.column.getCanSort() &&
-                            'flex cursor-pointer items-center gap-2 select-none',
-                          // Числовые колонки выключены вправо — стрелка сортировки
-                          // должна ехать за заголовком, а не болтаться слева.
-                          header.column.columnDef.meta?.className?.includes('text-right')
-                            ? 'justify-end'
-                            : 'w-fit',
-                        )}
-                        onClick={header.column.getToggleSortingHandler()}
-                        onKeyDown={(e) => {
-                          if (header.column.getCanSort() && (e.key === 'Enter' || e.key === ' ')) {
-                            e.preventDefault()
-                            header.column.getToggleSortingHandler()?.(e)
-                          }
-                        }}
-                        tabIndex={header.column.getCanSort() ? 0 : undefined}
-                      >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {{
-                          asc: <ArrowUp className="shrink-0 opacity-60" size={16} />,
-                          desc: <ArrowDown className="shrink-0 opacity-60" size={16} />,
-                        }[header.column.getIsSorted() as string] ?? null}
-                      </div>
-                    ) : (
-                      flexRender(header.column.columnDef.header, header.getContext())
-                    )}
-                  </TableHead>
+      <Table>
+        <TableHeader className="bg-card sticky top-0 z-10">
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead key={header.id} className={header.column.columnDef.meta?.className}>
+                  {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                    <div
+                      className={cn(
+                        header.column.getCanSort() &&
+                          'flex cursor-pointer items-center gap-2 select-none',
+                        // Числовые колонки выключены вправо — стрелка сортировки
+                        // должна ехать за заголовком, а не болтаться слева.
+                        header.column.columnDef.meta?.className?.includes('text-right')
+                          ? 'justify-end'
+                          : 'w-fit',
+                      )}
+                      onClick={header.column.getToggleSortingHandler()}
+                      onKeyDown={(e) => {
+                        if (header.column.getCanSort() && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault()
+                          header.column.getToggleSortingHandler()?.(e)
+                        }
+                      }}
+                      tabIndex={header.column.getCanSort() ? 0 : undefined}
+                    >
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {{
+                        asc: <ArrowUp className="shrink-0 opacity-60" size={16} />,
+                        desc: <ArrowDown className="shrink-0 opacity-60" size={16} />,
+                      }[header.column.getIsSorted() as string] ?? null}
+                    </div>
+                  ) : (
+                    flexRender(header.column.columnDef.header, header.getContext())
+                  )}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            <TableRow>
+              <TableCell colSpan={columnCount}>
+                <Empty className="w-full">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <Loader className="animate-spin" />
+                    </EmptyMedia>
+                    <EmptyTitle>Получение списка уроков</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              </TableCell>
+            </TableRow>
+          ) : table.getRowModel().rows?.length ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id} className={rowClassName?.(row)}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
                 ))}
               </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={columnCount}>
-                  <Empty className="w-full">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <Loader className="animate-spin" />
-                      </EmptyMedia>
-                      <EmptyTitle>Получение списка уроков</EmptyTitle>
-                    </EmptyHeader>
-                  </Empty>
-                </TableCell>
-              </TableRow>
-            ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className={rowClassName?.(row)}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columnCount} className="h-24 text-center">
-                  {emptyMessage}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={columnCount} className="h-24 text-center">
+                {emptyMessage}
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
       {showPagination && <DataTablePagination table={table} />}
     </div>
   )
