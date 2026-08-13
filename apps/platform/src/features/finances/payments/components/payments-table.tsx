@@ -48,10 +48,10 @@ const WIDTHS = {
   student: 200,
   price: 120,
   lessons: 90,
-  paymentMethod: 150,
-  manager: 150,
   kind: 130,
   date: 110,
+  paymentMethod: 150,
+  manager: 150,
   actions: 48,
 } as const
 
@@ -124,6 +124,30 @@ function buildColumns(
       meta: { title: 'Занятий', className: NUMERIC },
     },
     {
+      // id остался `kind` — по нему уже записаны фильтр в URL и видимость в
+      // localStorage, переименование в `status` их обнулило бы.
+      id: 'kind',
+      header: 'Статус',
+      // Сортируем по видимой подписи, а не по внутреннему ключу.
+      accessorFn: (row) => PAYMENT_KIND_LABELS[getPaymentKind(row)],
+      cell: ({ row }) => {
+        const kind = getPaymentKind(row.original)
+        return <Badge variant={PAYMENT_KIND_BADGE[kind]}>{PAYMENT_KIND_LABELS[kind]}</Badge>
+      },
+      size: WIDTHS.kind,
+      meta: { title: 'Статус', variant: 'multiSelect', options: PAYMENT_KIND_OPTIONS },
+      filterFn: (row, _id, selected: string[]) =>
+        selected.length === 0 || selected.includes(getPaymentKind(row.original)),
+    },
+    {
+      id: 'date',
+      header: 'Дата',
+      accessorKey: 'date',
+      cell: ({ row }) => formatDateOnly(row.original.date),
+      size: WIDTHS.date,
+      meta: { title: 'Дата' },
+    },
+    {
       id: 'paymentMethod',
       header: 'Метод',
       accessorFn: (row) => row.paymentMethod?.name ?? '',
@@ -148,30 +172,6 @@ function buildColumns(
       meta: { title: 'Менеджер', variant: 'multiSelect', options: managerOptions },
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(String(row.original.manager?.id)),
-    },
-    {
-      // id остался `kind` — по нему уже записаны фильтр в URL и видимость в
-      // localStorage, переименование в `status` их обнулило бы.
-      id: 'kind',
-      header: 'Статус',
-      // Сортируем по видимой подписи, а не по внутреннему ключу.
-      accessorFn: (row) => PAYMENT_KIND_LABELS[getPaymentKind(row)],
-      cell: ({ row }) => {
-        const kind = getPaymentKind(row.original)
-        return <Badge variant={PAYMENT_KIND_BADGE[kind]}>{PAYMENT_KIND_LABELS[kind]}</Badge>
-      },
-      size: WIDTHS.kind,
-      meta: { title: 'Статус', variant: 'multiSelect', options: PAYMENT_KIND_OPTIONS },
-      filterFn: (row, _id, selected: string[]) =>
-        selected.length === 0 || selected.includes(getPaymentKind(row.original)),
-    },
-    {
-      id: 'date',
-      header: 'Дата',
-      accessorKey: 'date',
-      cell: ({ row }) => formatDateOnly(row.original.date),
-      size: WIDTHS.date,
-      meta: { title: 'Дата' },
     },
     {
       id: 'actions',
