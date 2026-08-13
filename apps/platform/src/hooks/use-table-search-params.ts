@@ -12,9 +12,14 @@ import { useMemo } from 'react'
 
 /**
  * Маппинг id колонки → тип значения фильтра.
- * Каждый ключ становится URL-параметром со списком значений.
+ *
+ * `integer`/`string` — мультиселект: один URL-параметр со списком значений.
+ * `range` — числовой диапазон: два параметра, `<key>Min` и `<key>Max`, а таблице
+ * отдаётся `[min, max]`, где любая граница может быть `undefined`. Двумя
+ * параметрами, а не одним «1000-5000», чтобы «только от» и «только до»
+ * выражались без придуманных заполнителей и адрес читался глазами.
  */
-type FilterConfig = Record<string, 'integer' | 'string'>
+type FilterConfig = Record<string, 'integer' | 'string' | 'range'>
 
 const SORT_ORDERS = ['asc', 'desc'] as const
 const DEFAULT_PAGE_SIZE = 10
@@ -47,17 +52,25 @@ export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {
   // Каллеры передают объектный литерал, поэтому стабилизируем конфиг по значению —
   // иначе парсеры пересоздавались бы на каждый рендер.
   const filtersKey = JSON.stringify(filters ?? {})
+  const config = useMemo(() => JSON.parse(filtersKey) as FilterConfig, [filtersKey])
+
   const filterParsers = useMemo(() => {
-    const config: FilterConfig = JSON.parse(filtersKey)
-    return Object.fromEntries(
-      Object.entries(config).map(([key, type]) => [
-        key,
+    const parsers: Record<string, Parameters<typeof useQueryStates>[0][string]> = {}
+    for (const [key, type] of Object.entries(config)) {
+      if (type === 'range') {
+        // Диапазон — два параметра: «только от» и «только до» должны выражаться
+        // без придуманной второй границы.
+        parsers[`${key}Min`] = parseAsInteger
+        parsers[`${key}Max`] = parseAsInteger
+        continue
+      }
+      parsers[key] =
         type === 'integer'
           ? parseAsArrayOf(parseAsInteger).withDefault([])
-          : parseAsArrayOf(parseAsString).withDefault([]),
-      ]),
-    )
-  }, [filtersKey])
+          : parseAsArrayOf(parseAsString).withDefault([])
+    }
+    return parsers
+  }, [config])
 
   const [filterValues, setFilterValues] = useQueryStates(filterParsers, QUERY_STATES_OPTIONS)
   const [searchValues, setSearchValues] = useQueryStates(SEARCH_PARSERS, QUERY_STATES_OPTIONS)
@@ -73,13 +86,22 @@ export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {
   // означает пересчёт на каждый рендер и, значит, сброс на первую страницу
   // сразу после клика по «вперёд» — пагинация просто перестаёт работать.
   // nuqs свои значения уже мемоизирует, так что зависимости здесь стабильны.
-  const columnFilters: ColumnFiltersState = useMemo(
-    () =>
-      Object.entries(filterValues)
-        .filter(([, value]) => Array.isArray(value) && value.length > 0)
-        .map(([id, value]) => ({ id, value })),
-    [filterValues],
-  )
+  const columnFilters: ColumnFiltersState = useMemo(() => {
+    const result: ColumnFiltersState = []
+    for (const [key, type] of Object.entries(config)) {
+      if (type === 'range') {
+        const min = filterValues[`${key}Min`] as number | null | undefined
+        const max = filterValues[`${key}Max`] as number | null | undefined
+        if (min != null || max != null) {
+          result.push({ id: key, value: [min ?? undefined, max ?? undefined] })
+        }
+        continue
+      }
+      const value = filterValues[key]
+      if (Array.isArray(value) && value.length > 0) result.push({ id: key, value })
+    }
+    return result
+  }, [config, filterValues])
 
   const pagination: PaginationState = useMemo(
     () => ({ pageIndex: paginationValues.page, pageSize: paginationValues.pageSize }),
@@ -99,14 +121,18 @@ export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {
     updater: ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState),
   ) => {
     const next = typeof updater === 'function' ? updater(columnFilters) : updater
-    setFilterValues(
-      Object.fromEntries(
-        Object.keys(filterParsers).map((key) => {
-          const value = next.find((f) => f.id === key)?.value
-          return [key, Array.isArray(value) && value.length > 0 ? value : null]
-        }),
-      ),
-    )
+    const patch: Record<string, unknown> = {}
+    for (const [key, type] of Object.entries(config)) {
+      const value = next.find((f) => f.id === key)?.value
+      if (type === 'range') {
+        const [min, max] = (value as [number?, number?] | undefined) ?? []
+        patch[`${key}Min`] = min ?? null
+        patch[`${key}Max`] = max ?? null
+        continue
+      }
+      patch[key] = Array.isArray(value) && value.length > 0 ? value : null
+    }
+    setFilterValues(patch)
   }
 
   const setGlobalFilter = (value: string) => {

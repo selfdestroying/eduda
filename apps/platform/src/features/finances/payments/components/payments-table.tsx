@@ -2,8 +2,11 @@
 
 import { Badge } from '@repo/ui/components/badge'
 import DataTable from '@repo/ui/components/data-table'
+import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
 import { Hint } from '@repo/ui/components/hint'
 import { Skeleton } from '@repo/ui/components/skeleton'
+import DateRangeFilter from '@/src/components/date-range-filter'
+import { useMappedMemberListQuery } from '@/src/features/organization/members/queries'
 import { useColumnVisibility } from '@/src/hooks/use-column-visibility'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
@@ -20,38 +23,40 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import Link from 'next/link'
-import {
-  parseAsArrayOf,
-  parseAsInteger,
-  parseAsString,
-  parseAsStringLiteral,
-  useQueryStates,
-} from 'nuqs'
+import { parseAsString, useQueryStates } from 'nuqs'
 import { useMemo } from 'react'
 import type { DateRange } from 'react-day-picker'
-import { getPaymentKind, PAYMENT_KINDS } from '../constants'
+import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
+import { getPaymentKind, PAYMENT_KIND_LABELS, PAYMENT_KIND_OPTIONS } from '../constants'
 import { usePaymentListQuery } from '../queries'
 import type { PaymentListItem } from '../types'
 import PaymentActions from './payment-actions'
-import PaymentsFilters from './payments-filters'
 
 /** Правая выключка + моноширинные цифры: колонки сумм должны читаться столбиком. */
 const NUMERIC = 'text-right tabular-nums'
 
 /**
- * Фильтры, которым не соответствует ни одна колонка таблицы: период уезжает
- * на сервер, вид и сумма отсекаются до неё. `useTableSearchParams` умеет только
- * колоночные, поэтому эти живут в URL сами.
+ * Период — единственный фильтр вне колонок: он уезжает в запрос и ограничивает
+ * выборку до неё. Остальные описаны в `meta` своих колонок, и тулбар собирает их
+ * оттуда сам.
  */
-const EXTRA_FILTER_PARSERS = {
-  from: parseAsString,
-  to: parseAsString,
-  kind: parseAsArrayOf(parseAsStringLiteral(PAYMENT_KINDS)).withDefault([]),
-  amountMin: parseAsInteger,
-  amountMax: parseAsInteger,
-}
+const PERIOD_PARSERS = { from: parseAsString, to: parseAsString }
 
-function buildColumns(tz: string): ColumnDef<PaymentListItem>[] {
+/** Колонки, по которым фильтруем: `useTableSearchParams` держит их в URL. */
+const TABLE_FILTERS = {
+  paymentMethod: 'string',
+  manager: 'string',
+  kind: 'string',
+  price: 'range',
+} as const
+
+type FilterOption = { label: string; value: string }
+
+function buildColumns(
+  tz: string,
+  methodOptions: FilterOption[],
+  managerOptions: FilterOption[],
+): ColumnDef<PaymentListItem>[] {
   return [
     {
       id: 'student',
@@ -144,7 +149,13 @@ function buildColumns(tz: string): ColumnDef<PaymentListItem>[] {
           </span>
         </div>
       ),
-      meta: { title: 'Сумма', className: NUMERIC },
+      meta: { title: 'Сумма', className: NUMERIC, variant: 'range', unit: '₽' },
+      filterFn: (row, _id, [min, max]: [number?, number?]) => {
+        const price = row.original.price
+        if (min !== undefined && price < min) return false
+        if (max !== undefined && price > max) return false
+        return true
+      },
     },
     {
       id: 'date',
@@ -158,9 +169,10 @@ function buildColumns(tz: string): ColumnDef<PaymentListItem>[] {
       header: 'Метод',
       accessorFn: (row) => row.paymentMethod?.name ?? '',
       cell: ({ row }) => row.original.paymentMethod?.name ?? '—',
-      meta: { title: 'Метод оплаты' },
-      filterFn: (row, _id, selectedIds: number[]) =>
-        selectedIds.length === 0 || selectedIds.includes(row.original.paymentMethod?.id ?? -1),
+      meta: { title: 'Метод оплаты', variant: 'multiSelect', options: methodOptions },
+      // Сравниваем строками: значения фильтров приезжают из URL и остаются ими.
+      filterFn: (row, _id, selected: string[]) =>
+        selected.length === 0 || selected.includes(String(row.original.paymentMethod?.id)),
     },
     {
       id: 'manager',
@@ -172,9 +184,20 @@ function buildColumns(tz: string): ColumnDef<PaymentListItem>[] {
       ),
       accessorFn: (row) => row.manager?.name ?? '',
       cell: ({ row }) => row.original.manager?.name ?? '—',
-      meta: { title: 'Менеджер' },
-      filterFn: (row, _id, selectedIds: number[]) =>
-        selectedIds.length === 0 || selectedIds.includes(row.original.manager?.id ?? -1),
+      meta: { title: 'Менеджер', variant: 'multiSelect', options: managerOptions },
+      filterFn: (row, _id, selected: string[]) =>
+        selected.length === 0 || selected.includes(String(row.original.manager?.id)),
+    },
+    {
+      // Колонка существует ради фильтра и по умолчанию скрыта: статус и так виден
+      // бейджем в строке ученика, а отбирать по нему надо.
+      id: 'kind',
+      header: 'Вид',
+      accessorFn: (row) => getPaymentKind(row),
+      cell: ({ row }) => PAYMENT_KIND_LABELS[getPaymentKind(row.original)],
+      meta: { title: 'Вид', variant: 'multiSelect', options: PAYMENT_KIND_OPTIONS },
+      filterFn: (row, _id, selected: string[]) =>
+        selected.length === 0 || selected.includes(getPaymentKind(row.original)),
     },
     {
       id: 'actions',
@@ -196,15 +219,12 @@ export default function PaymentsTable() {
     setPagination,
     sorting,
     setSorting,
-  } = useTableSearchParams({ filters: { paymentMethod: 'integer', manager: 'integer' } })
+  } = useTableSearchParams({ filters: TABLE_FILTERS })
 
-  // Период уезжает на сервер, поэтому живёт отдельно от фильтров таблицы.
-  // Вид и сумма — тоже отдельно: колонок под них нет, а заводить их ради
-  // `filterFn` значило бы держать в таблице две пустые колонки.
-  const [{ from, to, kind, amountMin, amountMax }, setExtraFilters] = useQueryStates(
-    EXTRA_FILTER_PARSERS,
-    { shallow: true, history: 'replace' },
-  )
+  const [{ from, to }, setPeriodValues] = useQueryStates(PERIOD_PARSERS, {
+    shallow: true,
+    history: 'replace',
+  })
 
   // nuqs отдаёт `null` для незаданного параметра, схема экшена ждёт `undefined`.
   // Незакрытый диапазон (кликнули одну дату из двух) сжимаем в этот же день:
@@ -215,20 +235,20 @@ export default function PaymentsTable() {
     isLoading,
     isError,
   } = usePaymentListQuery({ from: from ?? undefined, to: to ?? from ?? undefined })
-  const { columnVisibility, setColumnVisibility } = useColumnVisibility('payments')
 
-  const rows = useMemo(
-    () =>
-      payments.filter((p) => {
-        if (kind.length > 0 && !kind.includes(getPaymentKind(p))) return false
-        if (amountMin !== null && p.price < amountMin) return false
-        if (amountMax !== null && p.price > amountMax) return false
-        return true
-      }),
-    [payments, kind, amountMin, amountMax],
+  const { data: paymentMethods = [] } = useActivePaymentMethodListQuery()
+  const { data: members = [] } = useMappedMemberListQuery()
+  const { columnVisibility, setColumnVisibility } = useColumnVisibility('payments', { kind: false })
+
+  const methodOptions = useMemo(
+    () => paymentMethods.map((m) => ({ value: String(m.id), label: m.name })),
+    [paymentMethods],
   )
 
-  const columns = useMemo(() => buildColumns(tz), [tz])
+  const columns = useMemo(
+    () => buildColumns(tz, methodOptions, members),
+    [tz, methodOptions, members],
+  )
 
   // Колонки переименовали (`lessonCount` → `lessons` и т.д.), а `sort` живёт в
   // адресе — по старым ссылкам и из истории браузера приезжает id, которого уже
@@ -245,7 +265,7 @@ export default function PaymentsTable() {
   }, [sorting, columns])
 
   const table = useReactTable({
-    data: rows,
+    data: payments,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -277,30 +297,23 @@ export default function PaymentsTable() {
   // `setGlobalFilter` это делает сам, остальные сеттеры — нет.
   const resetPage = () => setPagination({ ...pagination, pageIndex: 0 })
 
-  const setExtra = (values: Partial<Record<keyof typeof EXTRA_FILTER_PARSERS, unknown>>) => {
-    setExtraFilters(values as Parameters<typeof setExtraFilters>[0])
-    resetPage()
-  }
-
-  const setFilters: typeof setColumnFilters = (updater) => {
-    setColumnFilters(updater)
-    resetPage()
-  }
-
   const period: DateRange | undefined = from
     ? { from: ymdToLocalDate(from), to: to ? ymdToLocalDate(to) : undefined }
     : undefined
 
-  const setPeriod = (range: DateRange | undefined) =>
-    setExtra({
+  const setPeriod = (range: DateRange | undefined) => {
+    setPeriodValues({
       from: range?.from ? dateToYmd(range.from) : null,
       to: range?.to ? dateToYmd(range.to) : null,
     })
+    resetPage()
+  }
 
   const resetFilters = () => {
-    setExtra({ from: null, to: null, kind: null, amountMin: null, amountMax: null })
+    setPeriodValues({ from: null, to: null })
     setGlobalFilter('')
     setColumnFilters([])
+    resetPage()
   }
 
   if (isLoading) {
@@ -326,21 +339,18 @@ export default function PaymentsTable() {
       // как погашенная — одного бейджа в широкой строке не видно.
       rowClassName={(row) => (row.original.status === 'CANCELLED' ? 'opacity-55' : undefined)}
       toolbar={
-        <PaymentsFilters
+        <DataTableToolbar
+          table={table}
           search={globalFilter}
           onSearchChange={setGlobalFilter}
-          period={period}
-          onPeriodChange={setPeriod}
-          columnFilters={columnFilters}
-          setColumnFilters={setFilters}
-          kind={kind}
-          onKindChange={(values) => setExtra({ kind: values.length > 0 ? values : null })}
-          amountMin={amountMin}
-          amountMax={amountMax}
-          onAmountMinChange={(value) => setExtra({ amountMin: value })}
-          onAmountMaxChange={(value) => setExtra({ amountMax: value })}
+          searchPlaceholder="Ученик, менеджер, метод..."
           onReset={resetFilters}
-        />
+          hasExtraFilters={Boolean(from) || Boolean(to)}
+        >
+          {/* Период — не колоночный фильтр: он ограничивает сам запрос. Без
+              выбранного сервер отдаёт текущий месяц, так и подписан. */}
+          <DateRangeFilter value={period} onChange={setPeriod} placeholder="Текущий месяц" />
+        </DataTableToolbar>
       }
     />
   )

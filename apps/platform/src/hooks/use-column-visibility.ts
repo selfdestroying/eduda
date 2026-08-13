@@ -17,20 +17,31 @@ const storageKey = (tableId: string) => `table-columns:${tableId}`
  * успел бы затереть сохранённое пустым объектом. Сеттер устроен как в
  * `useTableSearchParams`: `next` считается снаружи, апдейтер остаётся чистым.
  *
+ * `defaultVisibility` — колонки, скрытые до первой настройки: например, та, что
+ * нужна только как фильтр в тулбаре. Сохранённое состояние её перекрывает.
+ *
  * @example
- * const { columnVisibility, setColumnVisibility } = useColumnVisibility('payments')
+ * const { columnVisibility, setColumnVisibility } = useColumnVisibility('payments', { kind: false })
  */
-export function useColumnVisibility(tableId: string) {
-  const [columnVisibility, setState] = useState<VisibilityState>({})
+export function useColumnVisibility(tableId: string, defaultVisibility: VisibilityState = {}) {
+  const [columnVisibility, setState] = useState<VisibilityState>(defaultVisibility)
 
   useEffect(() => {
     const stored = localStorage.getItem(storageKey(tableId))
     if (!stored) return
     try {
-      setState(JSON.parse(stored) as VisibilityState)
+      // Поверх дефолтов, а не вместо них: в сохранённом объекте нет ключей для
+      // колонок, появившихся после последней настройки, и целиком подменяя
+      // состояние мы бы показали то, что задумано скрытым. Явный выбор человека
+      // при этом всё равно перекрывает дефолт — он лежит справа.
+      setState({ ...defaultVisibility, ...(JSON.parse(stored) as VisibilityState) })
     } catch {
       localStorage.removeItem(storageKey(tableId))
     }
+    // `defaultVisibility` намеренно вне зависимостей: каллеры передают объектный
+    // литерал, и с ним эффект перезапускался бы на каждый рендер, вызывая
+    // `setState` по кругу. Значение с первого рендера — то же самое.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableId])
 
   const setColumnVisibility: OnChangeFn<VisibilityState> = (updater) => {
