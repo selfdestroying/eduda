@@ -1,15 +1,13 @@
 'use client'
 
-import { Badge } from '@repo/ui/components/badge'
 import DataTable from '@repo/ui/components/data-table'
 import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
 import { Hint } from '@repo/ui/components/hint'
 import { Skeleton } from '@repo/ui/components/skeleton'
 import { useMappedMemberListQuery } from '@/src/features/organization/members/queries'
 import { useColumnVisibility } from '@/src/hooks/use-column-visibility'
-import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
-import { formatDateOnly, formatDateTimeInTz } from '@/src/lib/timezone'
+import { formatDateOnly } from '@/src/lib/timezone'
 import { formatCurrency, getFullName } from '@/src/lib/utils'
 import {
   type ColumnDef,
@@ -52,7 +50,6 @@ const TABLE_FILTERS = {
 type FilterOption = { label: string; value: string }
 
 function buildColumns(
-  tz: string,
   methodOptions: FilterOption[],
   managerOptions: FilterOption[],
 ): ColumnDef<PaymentListItem>[] {
@@ -60,51 +57,17 @@ function buildColumns(
     {
       id: 'student',
       header: 'Ученик',
-      // Подпись кошелька уходит второй строкой: она нужна, чтобы отличить два
-      // пакета одного ученика, но заголовка колонки не заслуживает.
       accessorFn: (row) => getFullName(row.student.firstName, row.student.lastName),
-      cell: ({ row }) => {
-        const { student, walletLabel, status, isAdjustment, cancelledAt } = row.original
-        return (
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <Link
-                href={`/students/${student.id}`}
-                className="text-primary truncate hover:underline"
-              >
-                {getFullName(student.firstName, student.lastName)}
-              </Link>
-              {/* Пояснение — нативным `title`: `Hint` рисует кнопку в 24px, а
-                  бейдж высотой 20px с `overflow-hidden` её обрезает. */}
-              {status === 'CANCELLED' && (
-                <Badge
-                  variant="destructive"
-                  title={
-                    cancelledAt ? `Отменена ${formatDateTimeInTz(cancelledAt, tz)}` : undefined
-                  }
-                >
-                  Отменена
-                </Badge>
-              )}
-              {isAdjustment && (
-                <Badge
-                  variant="outline"
-                  title="Не оплата, а выравнивание остатка кошелька при переходе на пакеты. Денег за такой записью нет."
-                >
-                  Корректировка
-                </Badge>
-              )}
-            </div>
-            {walletLabel && (
-              <span className="text-muted-foreground truncate text-xs" title={walletLabel}>
-                {walletLabel}
-              </span>
-            )}
-          </div>
-        )
-      },
-      // Ширину задаём здесь, иначе `truncate` ничего не режет: подпись кошелька
-      // из нескольких групп растянула бы колонку и вытолкнула суммы за экран.
+      cell: ({ row }) => (
+        <Link
+          href={`/students/${row.original.student.id}`}
+          className="text-primary truncate hover:underline"
+        >
+          {getFullName(row.original.student.firstName, row.original.student.lastName)}
+        </Link>
+      ),
+      // Ширину задаём здесь, иначе `truncate` ничего не режет: длинное ФИО
+      // растянуло бы колонку и вытолкнуло суммы за экран.
       meta: { title: 'Ученик', className: 'max-w-64' },
       // Строка без ученика бессмысленна — прятать нечего.
       enableHiding: false,
@@ -114,40 +77,17 @@ function buildColumns(
       header: () => (
         <span className="flex items-center gap-0.5">
           Занятий
-          <Hint text="Сколько уроков зачислено на баланс кошелька этой оплатой и сколько из них ещё не потрачено." />
+          <Hint text="Сколько уроков зачислено на баланс кошелька этой оплатой." />
         </span>
       ),
-      accessorFn: (row) => row.lessonCount,
-      cell: ({ row }) => {
-        const { lessonCount, remaining, status } = row.original
-        return (
-          <div className="flex flex-col">
-            <span>{lessonCount}</span>
-            {/* `null` — пакет до разметки остатков, врать «осталось 0» нельзя.
-                У отменённой оплаты остаток обнулён самой отменой, и «потрачен»
-                там означало бы, что уроки отходили, — а их сняли с баланса. */}
-            {remaining !== null && status !== 'CANCELLED' && (
-              <span className="text-muted-foreground text-xs">
-                {remaining > 0 ? `осталось ${remaining}` : 'потрачен'}
-              </span>
-            )}
-          </div>
-        )
-      },
+      accessorKey: 'lessonCount',
       meta: { title: 'Занятий', className: NUMERIC },
     },
     {
       id: 'price',
       header: 'Сумма',
       accessorFn: (row) => row.price,
-      cell: ({ row }) => (
-        <div className="flex flex-col">
-          <span className="font-medium">{formatCurrency(row.original.price)}</span>
-          <span className="text-muted-foreground text-xs">
-            {formatCurrency(row.original.bidForLesson)} / занятие
-          </span>
-        </div>
-      ),
+      cell: ({ row }) => formatCurrency(row.original.price),
       meta: { title: 'Сумма', className: NUMERIC, variant: 'range', unit: '₽' },
       filterFn: (row, _id, [min, max]: [number?, number?]) => {
         const price = row.original.price
@@ -188,8 +128,9 @@ function buildColumns(
         selected.length === 0 || selected.includes(String(row.original.manager?.id)),
     },
     {
-      // Колонка существует ради фильтра и по умолчанию скрыта: статус и так виден
-      // бейджем в строке ученика, а отбирать по нему надо.
+      // По умолчанию скрыта — колонка нужна прежде всего как фильтр. Включить её
+      // через «Колонки» — единственный способ прочитать статус текстом: отменённая
+      // оплата иначе отличается только приглушённой строкой.
       id: 'kind',
       header: 'Вид',
       accessorFn: (row) => getPaymentKind(row),
@@ -207,8 +148,6 @@ function buildColumns(
 }
 
 export default function PaymentsTable() {
-  const tz = useOrgTimezone()
-
   const {
     columnFilters,
     setColumnFilters,
@@ -226,9 +165,8 @@ export default function PaymentsTable() {
   })
 
   // nuqs отдаёт `null` для незаданного параметра, схема экшена ждёт `undefined`.
-  // Незакрытый диапазон (кликнули одну дату из двух) сжимаем в этот же день:
-  // на кнопке написано «5 мар», и выборка обязана этому соответствовать —
-  // иначе серверный дефолт растянул бы её до конца текущего месяца.
+  // `from` без `to` — это один день, а не «от даты и далее»: иначе серверный
+  // дефолт дотянул бы верхнюю границу до конца текущего месяца.
   const {
     data: payments = [],
     isLoading,
@@ -244,10 +182,7 @@ export default function PaymentsTable() {
     [paymentMethods],
   )
 
-  const columns = useMemo(
-    () => buildColumns(tz, methodOptions, members),
-    [tz, methodOptions, members],
-  )
+  const columns = useMemo(() => buildColumns(methodOptions, members), [methodOptions, members])
 
   // Колонки переименовали (`lessonCount` → `lessons` и т.д.), а `sort` живёт в
   // адресе — по старым ссылкам и из истории браузера приезжает id, которого уже
@@ -270,7 +205,9 @@ export default function PaymentsTable() {
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getFacetedRowModel: getFacetedRowModel(),
-    // Поиск идёт по тому, что человек видит в строке: ученик, менеджер, метод.
+    // Ученик, менеджер, метод — и подпись кошелька: её в строке больше не видно,
+    // но найти все оплаты по группе через неё можно. Значит, строка может
+    // совпасть по тому, чего на экране нет.
     globalFilterFn: (row, _columnId, filterValue) => {
       const needle = String(filterValue).trim().toLowerCase()
       if (!needle) return true
