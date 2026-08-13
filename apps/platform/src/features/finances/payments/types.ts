@@ -5,8 +5,9 @@ import { Prisma } from '@repo/db'
  * связям тянул в браузер все скаляры ученика, группы, курса и локации на каждую
  * строку; список за месяц из-за этого весил мегабайты.
  *
- * Кошелёк выбирается вложенно, но узко: ровно то, что нужно `getWalletLabel`,
- * чтобы свернуть его в одну строку ещё на сервере (см. `PaymentListItem`).
+ * Кошелька здесь нет: его подпись перестала выводиться в строке, а держать ради
+ * неё вложенную выборку `wallet → studentGroups → group → course/schedules` на
+ * каждую строку — платить за то, чего никто не читает.
  */
 export const PAYMENT_LIST_SELECT = {
   id: true,
@@ -21,35 +22,20 @@ export const PAYMENT_LIST_SELECT = {
   student: { select: { id: true, firstName: true, lastName: true } },
   paymentMethod: { select: { id: true, name: true } },
   manager: { select: { id: true, name: true } },
-  wallet: {
-    select: {
-      id: true,
-      name: true,
-      studentGroups: {
-        select: {
-          status: true,
-          group: {
-            select: {
-              name: true,
-              course: { select: { name: true } },
-              schedules: { select: { dayOfWeek: true, time: true } },
-            },
-          },
-        },
-      },
-    },
-  },
 } satisfies Prisma.PaymentSelect
 
-type PaymentListRow = Prisma.PaymentGetPayload<{ select: typeof PAYMENT_LIST_SELECT }>
+/** Строка таблицы. */
+export type PaymentListItem = Prisma.PaymentGetPayload<{
+  select: typeof PAYMENT_LIST_SELECT
+}>
 
 /**
- * Строка таблицы: кошелёк уже свёрнут в подпись, каскада связей в браузере нет.
- * `walletLabel` — null у старых оплат, заведённых до кошельков.
+ * Срез плюс общее число строк по тому же `where`. `total` нужен пагинации: сама
+ * она видит только текущую страницу и посчитать количество страниц не может.
  */
-export type PaymentListItem = Omit<PaymentListRow, 'wallet'> & {
-  walletId: number | null
-  walletLabel: string | null
+export type PaymentListResult = {
+  rows: PaymentListItem[]
+  total: number
 }
 
 /** Ученик для выпадашки в форме оплаты: активные кошельки с готовыми подписями. */

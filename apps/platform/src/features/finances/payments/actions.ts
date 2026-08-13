@@ -5,7 +5,7 @@ import {
   StudentLessonsBalanceChangeReason,
   WalletEntryKind,
 } from '@repo/db/enums'
-import { prisma } from '@repo/db'
+import { Prisma, prisma } from '@repo/db'
 import {
   recordWalletEntryTx,
   settleUnpaidAttendancesTx,
@@ -23,7 +23,7 @@ import {
   PaymentListSchema,
   ResolveUnprocessedPaymentSchema,
 } from './schemas'
-import { PAYMENT_LIST_SELECT, type PaymentListItem, type StudentForPayment } from './types'
+import { PAYMENT_LIST_SELECT, type PaymentListResult, type StudentForPayment } from './types'
 
 /**
  * Оплата закрывает накопившиеся неоплаченные занятия, а каждое из них — отдельное
@@ -33,30 +33,84 @@ import { PAYMENT_LIST_SELECT, type PaymentListItem, type StudentForPayment } fro
  */
 const PAYMENT_TX_OPTIONS = { timeout: 30_000 }
 
+/**
+ * Разрешённые колонки сортировки: id колонки таблицы → как её сортировать. Каждая
+ * запись — список полей, потому что одной колонке может соответствовать несколько:
+ * в ячейке «Ученик» стоит «Имя Фамилия», и сортировка по одному `firstName`
+ * оставила бы всех Иванов в произвольном порядке, хотя стрелка обещает алфавит.
+ *
+ * Белый список, а не подстановка поля из запроса: `sort` приходит из адресной
+ * строки, то есть от пользователя. Неизвестный ключ (а в старых ссылках живут id
+ * переименованных колонок) даёт порядок по умолчанию, без ошибки.
+ */
+const PAYMENT_ORDER_BY: Record<string, (dir: Prisma.SortOrder) => PaymentOrderBy[]> = {
+  student: (dir) => [{ student: { firstName: dir } }, { student: { lastName: dir } }],
+  price: (dir) => [{ price: dir }],
+  lessons: (dir) => [{ lessonCount: dir }],
+  date: (dir) => [{ date: dir }],
+  paymentMethod: (dir) => [{ paymentMethod: { name: dir } }],
+  manager: (dir) => [{ manager: { name: dir } }],
+  status: (dir) => [{ status: dir }],
+  isAdjustment: (dir) => [{ isAdjustment: dir }],
+}
+
+type PaymentOrderBy = Prisma.PaymentOrderByWithRelationInput
+
+/**
+ * Порядок строк. Последним ключом всегда `id`: без него строки с равным значением
+ * при листании переставляются местами, и одна и та же оплата успевает показаться
+ * на двух страницах подряд.
+ */
+function resolveOrderBy(sort: { id: string; desc: boolean } | null | undefined): PaymentOrderBy[] {
+  const build = sort ? PAYMENT_ORDER_BY[sort.id] : undefined
+  if (!sort || !build) return [{ date: 'desc' }, { id: 'desc' }]
+  return [...build(sort.desc ? 'desc' : 'asc'), { id: 'desc' }]
+}
+
 export const getPayments = permissionAction({ payment: ['read'] })
   .metadata({ actionName: 'getPayments' })
   .inputSchema(PaymentListSchema)
-  .action(async ({ ctx, parsedInput }): Promise<PaymentListItem[]> => {
+  .action(async ({ ctx, parsedInput }): Promise<PaymentListResult> => {
+    const { page, pageSize, sort, methodIds, managerIds, statuses, isAdjustment } = parsedInput
+
     // Границы включительные и сравниваются как строки: `date` — date-only колонка.
     // Без явного периода отдаём текущий месяц в поясе организации, а не всю историю.
     const now = nowInTz(ctx.tz)
     const from = parsedInput.from ?? dateToYmd(startOfMonth(now))
     const to = parsedInput.to ?? dateToYmd(endOfMonth(now))
 
-    const payments = await prisma.payment.findMany({
-      where: {
-        organizationId: ctx.session.organizationId!,
-        date: { gte: from, lte: to },
-      },
-      select: PAYMENT_LIST_SELECT,
-      orderBy: [{ date: 'desc' }, { id: 'desc' }],
-    })
+    const where: Prisma.PaymentWhereInput = {
+      organizationId: ctx.session.organizationId!,
+      date: { gte: from, lte: to },
+      ...(methodIds.length > 0 && { paymentMethodId: { in: methodIds } }),
+      ...(managerIds.length > 0 && { managerId: { in: managerIds } }),
+      ...(statuses.length > 0 && { status: { in: statuses } }),
+      // Выбраны оба значения — отбирать нечего, это то же самое, что не выбрать
+      // ничего. Поэтому фильтруем только по одному-единственному.
+      ...(isAdjustment.length === 1 && { isAdjustment: isAdjustment[0] }),
+      ...((parsedInput.priceMin != null || parsedInput.priceMax != null) && {
+        price: {
+          ...(parsedInput.priceMin != null && { gte: parsedInput.priceMin }),
+          ...(parsedInput.priceMax != null && { lte: parsedInput.priceMax }),
+        },
+      }),
+    }
 
-    return payments.map(({ wallet, ...payment }) => ({
-      ...payment,
-      walletId: wallet?.id ?? null,
-      walletLabel: wallet ? getWalletLabel(wallet) : null,
-    }))
+    // Одной транзакцией: строки и их количество обязаны быть посчитаны по одному и
+    // тому же состоянию базы, иначе между запросами проходит оплата и «страница 3
+    // из 5» разъезжается с тем, что реально вернулось.
+    const [rows, total] = await prisma.$transaction([
+      prisma.payment.findMany({
+        where,
+        select: PAYMENT_LIST_SELECT,
+        orderBy: resolveOrderBy(sort),
+        skip: page * pageSize,
+        take: pageSize,
+      }),
+      prisma.payment.count({ where }),
+    ])
+
+    return { rows, total }
   })
 
 export const getStudentsForPayments = permissionAction({ payment: ['create'] })

@@ -10,25 +10,18 @@ import { useColumnVisibility } from '@/src/hooks/use-column-visibility'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { formatCurrency, getFullName } from '@/src/lib/utils'
-import {
-  type ColumnDef,
-  getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+import { type ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import Link from 'next/link'
 import { parseAsString, useQueryStates } from 'nuqs'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
 import {
-  getPaymentKind,
-  PAYMENT_KIND_BADGE,
-  PAYMENT_KIND_LABELS,
-  PAYMENT_KIND_OPTIONS,
+  ADJUSTMENT_OPTIONS,
+  PAYMENT_STATUSES,
+  PAYMENT_STATUS_BADGE,
+  PAYMENT_STATUS_LABELS,
+  PAYMENT_STATUS_OPTIONS,
+  type PaymentStatusValue,
 } from '../constants'
 import { usePaymentListQuery } from '../queries'
 import type { PaymentListItem } from '../types'
@@ -41,9 +34,9 @@ import PaymentActions from './payment-actions'
 const NUMERIC = 'text-right tabular-nums'
 
 /**
- * Ширины — в процентах, в сумме ровно 100. Проценты, а не пиксели, потому что при
- * пикселях излишек надо куда-то девать: отдашь одной колонке — раздуется она,
- * поделишь на все — раздуются все.
+ * Ширины — в процентах, у видимых по умолчанию в сумме 100. Проценты, а не пиксели,
+ * потому что при пикселях излишек надо куда-то девать: отдашь одной колонке —
+ * раздуется она, поделишь на все — раздуются все.
  *
  * Классы, а не `style`, потому что инлайновую ширину пишет сам `DataTable`;
  * `meta.flexible` её отключает, оставляя ширину этим классам. Значения обязаны
@@ -53,7 +46,8 @@ const W = {
   student: 'w-[20%]',
   price: 'w-[10%]',
   lessons: 'w-[12%]',
-  kind: 'w-[14%]',
+  status: 'w-[14%]',
+  isAdjustment: 'w-[12%]',
   date: 'w-[11%]',
   paymentMethod: 'w-[14%]',
   manager: 'w-[14%]',
@@ -67,15 +61,14 @@ const W = {
  *
  * Порог — их сумма, но каждой колонке на этой ширине достаётся только её процент.
  * Значит число здесь соблюдается лишь пока `пиксели / доля <= сумма`; где это не
- * так, колонка у порога окажется уже заявленного минимума. Сейчас запас есть у
- * всех, но правя доли, сверяйтесь с самым длинным содержимым: у «Суммы» при 10%
- * его меньше всего.
+ * так, колонка у порога окажется уже заявленного минимума.
  */
 const WIDTHS = {
   student: 120,
   price: 120,
   lessons: 50,
-  kind: 170,
+  status: 130,
+  isAdjustment: 130,
   date: 110,
   paymentMethod: 150,
   manager: 150,
@@ -86,15 +79,19 @@ const WIDTHS = {
  * Период. Контрола под него сейчас нет — пикер сняли, его переделывают, — но
  * параметры читаются и уезжают в запрос: без них таблица была бы наглухо заперта
  * в текущем месяце (серверный дефолт), и до прошлых оплат не добраться совсем.
- * Остальные фильтры описаны в `meta` своих колонок, тулбар собирает их оттуда.
  */
 const PERIOD_PARSERS = { from: parseAsString, to: parseAsString }
 
-/** Колонки, по которым фильтруем: `useTableSearchParams` держит их в URL. */
+/**
+ * Колонки, по которым фильтруем: `useTableSearchParams` держит их в URL, а отсюда
+ * они уезжают в запрос. Всё строками, включая id метода и менеджера, — значения
+ * приходят из адреса, и в числа их превращает уже сборка параметров запроса.
+ */
 const TABLE_FILTERS = {
   paymentMethod: 'string',
   manager: 'string',
-  kind: 'string',
+  status: 'string',
+  isAdjustment: 'string',
   price: 'range',
 } as const
 
@@ -137,12 +134,6 @@ function buildColumns(
         variant: 'range',
         unit: '₽',
       },
-      filterFn: (row, _id, [min, max]: [number?, number?]) => {
-        const price = row.original.price
-        if (min !== undefined && price < min) return false
-        if (max !== undefined && price > max) return false
-        return true
-      },
     },
     {
       id: 'lessons',
@@ -157,26 +148,48 @@ function buildColumns(
       meta: { title: 'Занятий', flexible: true, className: `${NUMERIC} ${W.lessons}` },
     },
     {
-      // id остался `kind` — по нему уже записаны фильтр в URL и видимость в
-      // localStorage, переименование в `status` их обнулило бы.
-      id: 'kind',
+      id: 'status',
       header: 'Статус',
-      // Сортируем по видимой подписи, а не по внутреннему ключу.
-      accessorFn: (row) => PAYMENT_KIND_LABELS[getPaymentKind(row)],
+      accessorKey: 'status',
       cell: ({ row }) => {
-        const kind = getPaymentKind(row.original)
-        return <Badge variant={PAYMENT_KIND_BADGE[kind]}>{PAYMENT_KIND_LABELS[kind]}</Badge>
+        const status = row.original.status as PaymentStatusValue
+        return <Badge variant={PAYMENT_STATUS_BADGE[status]}>{PAYMENT_STATUS_LABELS[status]}</Badge>
       },
-      size: WIDTHS.kind,
+      size: WIDTHS.status,
       meta: {
         title: 'Статус',
         flexible: true,
-        className: W.kind,
+        className: W.status,
         variant: 'multiSelect',
-        options: PAYMENT_KIND_OPTIONS,
+        options: PAYMENT_STATUS_OPTIONS,
       },
-      filterFn: (row, _id, selected: string[]) =>
-        selected.length === 0 || selected.includes(getPaymentKind(row.original)),
+    },
+    {
+      // Скрыта по умолчанию: у всех новых оплат здесь «Оплата», и колонка под
+      // булев флаг разового бэкфилла не заслуживает места. Фильтр при этом
+      // доступен — тулбар собирает контролы по всем колонкам, включая скрытые.
+      id: 'isAdjustment',
+      header: 'Корректировка',
+      accessorKey: 'isAdjustment',
+      cell: ({ row }) =>
+        row.original.isAdjustment ? (
+          <Badge
+            variant="warning"
+            title="Не оплата, а выравнивание остатка кошелька при переходе на пакеты. Денег за такой записью нет."
+          >
+            Корректировка
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">Оплата</span>
+        ),
+      size: WIDTHS.isAdjustment,
+      meta: {
+        title: 'Корректировка',
+        flexible: true,
+        className: W.isAdjustment,
+        variant: 'multiSelect',
+        options: ADJUSTMENT_OPTIONS,
+      },
     },
     {
       id: 'date',
@@ -199,9 +212,6 @@ function buildColumns(
         variant: 'multiSelect',
         options: methodOptions,
       },
-      // Сравниваем строками: значения фильтров приезжают из URL и остаются ими.
-      filterFn: (row, _id, selected: string[]) =>
-        selected.length === 0 || selected.includes(String(row.original.paymentMethod?.id)),
     },
     {
       id: 'manager',
@@ -221,8 +231,6 @@ function buildColumns(
         variant: 'multiSelect',
         options: managerOptions,
       },
-      filterFn: (row, _id, selected: string[]) =>
-        selected.length === 0 || selected.includes(String(row.original.manager?.id)),
     },
     {
       id: 'actions',
@@ -231,42 +239,80 @@ function buildColumns(
       size: WIDTHS.actions,
       // Без вертикального отступа: иконка-кнопка и так 28px со своей областью
       // нажатия, а с `p-2` ячейки она вытягивала строку до 44px. У отменённой
-      // оплаты действий нет, и та же строка выходила 36px — теперь высоту всюду
+      // оплаты действий нет, и та же строка выходила ниже — теперь высоту всюду
       // задаёт бейдж статуса, а не наличие кнопки.
       meta: { flexible: true, className: `px-2 py-0 ${W.actions}` },
     },
   ]
 }
 
+/** Значения одного колоночного фильтра из состояния таблицы. */
+function filterValues(
+  columnFilters: ReturnType<typeof useTableSearchParams>['columnFilters'],
+  id: string,
+): string[] {
+  const value = columnFilters.find((f) => f.id === id)?.value
+  return Array.isArray(value) ? (value as string[]) : []
+}
+
+/**
+ * Числовые id из фильтра. Мусор выбрасываем молча: значения приходят из адресной
+ * строки, а схема экшена ждёт положительные целые — `Number('foo')` дал бы `NaN`,
+ * валидация упала бы, и вся страница показала бы ошибку загрузки вместо таблицы.
+ */
+function filterIds(
+  columnFilters: ReturnType<typeof useTableSearchParams>['columnFilters'],
+  id: string,
+): number[] {
+  return filterValues(columnFilters, id)
+    .map(Number)
+    .filter((n) => Number.isInteger(n) && n > 0)
+}
+
 export default function PaymentsTable() {
-  const {
-    columnFilters,
-    setColumnFilters,
-    globalFilter,
-    setGlobalFilter,
-    pagination,
-    setPagination,
-    sorting,
-    setSorting,
-  } = useTableSearchParams({ filters: TABLE_FILTERS })
+  const { columnFilters, setColumnFilters, pagination, setPagination, sorting, setSorting } =
+    useTableSearchParams({ filters: TABLE_FILTERS })
 
   const [{ from, to }, setPeriodValues] = useQueryStates(PERIOD_PARSERS, {
     shallow: true,
     history: 'replace',
   })
 
-  // nuqs отдаёт `null` для незаданного параметра, схема экшена ждёт `undefined`.
-  // `from` без `to` — это один день, а не «от даты и далее»: иначе серверный
-  // дефолт дотянул бы верхнюю границу до конца текущего месяца.
-  const {
-    data: payments = [],
-    isLoading,
-    isError,
-  } = usePaymentListQuery({ from: from ?? undefined, to: to ?? from ?? undefined })
+  const priceRange = useMemo(() => {
+    const value = columnFilters.find((f) => f.id === 'price')?.value
+    return Array.isArray(value) ? (value as [number?, number?]) : []
+  }, [columnFilters])
+
+  // Всё состояние таблицы уезжает в запрос: сервер сам отбирает, сортирует и режет
+  // на страницы. `from` без `to` — это один день, а не «от даты и далее», иначе
+  // серверный дефолт дотянул бы верхнюю границу до конца текущего месяца.
+  const params = useMemo(
+    () => ({
+      page: pagination.pageIndex,
+      pageSize: pagination.pageSize,
+      sort: sorting[0] ?? null,
+      from: from ?? undefined,
+      to: to ?? from ?? undefined,
+      methodIds: filterIds(columnFilters, 'paymentMethod'),
+      managerIds: filterIds(columnFilters, 'manager'),
+      // Незнакомое значение отсеиваем по той же причине, что и нечисловые id.
+      statuses: filterValues(columnFilters, 'status').filter((v): v is PaymentStatusValue =>
+        PAYMENT_STATUSES.includes(v as PaymentStatusValue),
+      ),
+      isAdjustment: filterValues(columnFilters, 'isAdjustment').map((v) => v === 'true'),
+      priceMin: priceRange[0] ?? null,
+      priceMax: priceRange[1] ?? null,
+    }),
+    [pagination, sorting, from, to, columnFilters, priceRange],
+  )
+
+  const { data, isLoading, isFetching, isError } = usePaymentListQuery(params)
 
   const { data: paymentMethods = [] } = useActivePaymentMethodListQuery()
   const { data: members = [] } = useMappedMemberListQuery()
-  const { columnVisibility, setColumnVisibility } = useColumnVisibility('payments')
+  const { columnVisibility, setColumnVisibility } = useColumnVisibility('payments', {
+    isAdjustment: false,
+  })
 
   const methodOptions = useMemo(
     () => paymentMethods.map((m) => ({ value: String(m.id), label: m.name })),
@@ -275,56 +321,50 @@ export default function PaymentsTable() {
 
   const columns = useMemo(() => buildColumns(methodOptions, members), [methodOptions, members])
 
-  // Колонки переименовали (`lessonCount` → `lessons` и т.д.), а `sort` живёт в
-  // адресе — по старым ссылкам и из истории браузера приезжает id, которого уже
-  // нет. Сортировать по нему react-table всё равно не станет, только ругнётся в
-  // консоль на каждый рендер; выкидываем сами.
-  const safeSorting = useMemo(() => {
-    // id колонки — либо явный, либо `accessorKey`: у колонки, объявленной вторым
-    // способом, `c.id` пуст, и брать только его значило бы вычеркнуть её из
-    // разрешённых и тихо сломать ей сортировку.
-    const ids = new Set(
-      columns.map((c) => c.id ?? ('accessorKey' in c ? String(c.accessorKey) : undefined)),
-    )
-    return sorting.filter((s) => ids.has(s.id))
-  }, [sorting, columns])
+  const resetPage = () => setPagination({ ...pagination, pageIndex: 0 })
+
+  // Страница за последней: в адресе живёт `page` от прошлой, более полной выборки.
+  // При `manualPagination` react-table сам её не подтягивает, и получалась пустая
+  // таблица с «Страница 51 из 1» — при том, что оплаты есть.
+  //
+  // Зависимости — примитивы: `pagination` и `setPagination` пересоздаются на каждый
+  // рендер, и с ними эффект прокручивался бы впустую каждый раз.
+  const { pageIndex, pageSize } = pagination
+  useEffect(() => {
+    if (!data) return
+    const lastPage = Math.max(0, Math.ceil(data.total / pageSize) - 1)
+    if (pageIndex > lastPage) setPagination({ pageIndex: lastPage, pageSize })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.total, pageIndex, pageSize])
+
+  // При `manualPagination` react-table больше не сбрасывает страницу сам, а без
+  // сброса отбор в пять строк, сделанный со страницы четыре, показывает пустую
+  // таблицу и «Страница 4 из 1».
+  const setFiltersAndResetPage: typeof setColumnFilters = (updater) => {
+    setColumnFilters(updater)
+    resetPage()
+  }
 
   const table = useReactTable({
-    data: payments,
+    data: data?.rows ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-    getFacetedRowModel: getFacetedRowModel(),
-    // Ровно по тому, что видно в строке: ученик, менеджер, метод. Совпадение по
-    // невидимому полю выглядит как случайно попавшая строка.
-    globalFilterFn: (row, _columnId, filterValue) => {
-      const needle = String(filterValue).trim().toLowerCase()
-      if (!needle) return true
-      const { student, manager, paymentMethod } = row.original
-      return [
-        getFullName(student.firstName, student.lastName),
-        manager?.name,
-        paymentMethod?.name,
-      ].some((field) => field?.toLowerCase().includes(needle))
-    },
+    // Отбор, порядок и нарезка — в SQL. Клиентские модели строк выключены, поэтому
+    // `filterFn` у колонок нет: предикаты живут в `where` серверного экшена.
+    manualFiltering: true,
+    manualSorting: true,
+    manualPagination: true,
+    // Иначе пагинации не из чего считать число страниц: она видит только текущую.
+    rowCount: data?.total ?? 0,
     onPaginationChange: setPagination,
-    getPaginationRowModel: getPaginationRowModel(),
-    onColumnFiltersChange: setColumnFilters,
+    onColumnFiltersChange: setFiltersAndResetPage,
     onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
-    state: { pagination, sorting: safeSorting, globalFilter, columnFilters, columnVisibility },
+    state: { pagination, sorting, columnFilters, columnVisibility },
   })
-
-  // Любая смена фильтра возвращает на первую страницу: иначе отбор в пять строк,
-  // сделанный со страницы четыре, показывает пустую таблицу и «Страница 4 из 1».
-  // `setGlobalFilter` это делает сам, остальные сеттеры — нет.
-  const resetPage = () => setPagination({ ...pagination, pageIndex: 0 })
 
   const resetFilters = () => {
     setPeriodValues({ from: null, to: null })
-    setGlobalFilter('')
     setColumnFilters([])
     resetPage()
   }
@@ -348,15 +388,13 @@ export default function PaymentsTable() {
       emptyMessage="Нет оплат."
       showPagination
       showColumnVisibility
+      isRefreshing={isFetching}
       // Отменённая оплата остаётся в списке следом операции, но читаться должна
       // как погашенная — одного бейджа в широкой строке не видно.
       rowClassName={(row) => (row.original.status === 'CANCELLED' ? 'opacity-55' : undefined)}
       toolbar={
         <DataTableToolbar
           table={table}
-          search={globalFilter}
-          onSearchChange={setGlobalFilter}
-          searchPlaceholder="Ученик, менеджер, метод..."
           onReset={resetFilters}
           hasExtraFilters={Boolean(from) || Boolean(to)}
         />

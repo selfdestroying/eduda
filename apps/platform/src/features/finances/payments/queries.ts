@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   cancelPayment,
@@ -30,14 +30,19 @@ export const studentForPaymentKeys = {
   all: ['students-for-payments'] as const,
 }
 
-export const usePaymentListQuery = (period: PaymentListSchemaType) => {
+const EMPTY_PAGE = { rows: [], total: 0 }
+
+export const usePaymentListQuery = (params: PaymentListSchemaType) => {
   return useQuery({
-    queryKey: paymentKeys.list(period),
+    queryKey: paymentKeys.list(params),
     queryFn: async () => {
-      const { data, serverError } = await getPayments(period)
+      const { data, serverError } = await getPayments(params)
       if (serverError) throw serverError
-      return data ?? []
+      return data ?? EMPTY_PAGE
     },
+    // Пока грузится следующая страница, показываем предыдущую: иначе на каждый
+    // клик по «вперёд» таблица моргает пустотой и скачет по высоте.
+    placeholderData: keepPreviousData,
   })
 }
 

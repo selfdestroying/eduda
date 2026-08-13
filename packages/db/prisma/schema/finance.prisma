@@ -111,6 +111,10 @@ model Payment {
     @@index([walletId])
     @@index([paymentMethodId])
     @@index([walletId, date])
+    /// Список оплат школы: выборка по периоду плюс сортировка по дате по умолчанию.
+    /// Отдельного `organizationId` для этого мало — по нему пришлось бы отбирать все
+    /// оплаты школы и сортировать их каждый раз заново.
+    @@index([organizationId, date])
     @@index([managerId])
 }
 

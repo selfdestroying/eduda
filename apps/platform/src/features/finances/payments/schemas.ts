@@ -5,15 +5,32 @@ export const comboboxNumber = (error: string) =>
   z.object({ label: z.string(), value: z.number() }, error)
 
 /**
- * Период выборки оплат. Обе границы включительно и сравниваются лексикографически:
- * `Payment.date` — date-only строка `YYYY-MM-DD`.
+ * Всё состояние таблицы оплат: страница, порядок и отбор. Сервер по нему строит
+ * `where`/`orderBy`/`skip`/`take` и возвращает срез вместе с общим числом строк —
+ * браузер больше ничего не отбирает и не сортирует сам.
  *
- * Границы необязательные: без них сервер сам подставит текущий месяц в поясе
- * организации. Тянуть всю историю школы разом страница больше не умеет.
+ * `sort.id` не сужен до списка колонок намеренно: в адресах живут id, которых уже
+ * нет (колонки переименовывались), и валидация роняла бы запрос вместо того, чтобы
+ * молча отдать порядок по умолчанию. Белый список — на сервере.
  */
 export const PaymentListSchema = z.object({
+  page: z.number().int().min(0).default(0),
+  // Верхняя граница — чтобы подобранный руками `pageSize=100000` не превращался в
+  // выгрузку всей истории одним запросом.
+  pageSize: z.number().int().min(1).max(100).default(10),
+  sort: z.object({ id: z.string(), desc: z.boolean() }).nullish(),
+  // Обе границы включительно и сравниваются лексикографически: `Payment.date` —
+  // date-only строка `YYYY-MM-DD`. Без них сервер подставит текущий месяц.
   from: DateOnlySchema.optional(),
   to: DateOnlySchema.optional(),
+  methodIds: z.array(z.number().int().positive()).default([]),
+  managerIds: z.array(z.number().int().positive()).default([]),
+  statuses: z.array(z.enum(['ACTIVE', 'CANCELLED'])).default([]),
+  // Массив, а не булево: мультиселект позволяет выбрать оба значения, и тогда
+  // фильтра нет — как и когда не выбрано ничего.
+  isAdjustment: z.array(z.boolean()).default([]),
+  priceMin: z.number().int().nullish(),
+  priceMax: z.number().int().nullish(),
 })
 
 export const CreatePaymentSchema = z.object({

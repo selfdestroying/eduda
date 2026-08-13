@@ -101,6 +101,11 @@ interface DataTableProps<TData> {
    * `columnVisibility` в состоянии — иначе переключать будет нечего.
    */
   showColumnVisibility?: boolean
+  /**
+   * Данные обновляются, но прежние уже показаны: таблица приглушается вместо того,
+   * чтобы моргнуть скелетоном. Для серверных таблиц — состояние между страницами.
+   */
+  isRefreshing?: boolean
   /** Классы на строку — приглушить отменённое, подсветить просроченное. */
   rowClassName?: (row: Row<TData>) => string | undefined
 }
@@ -125,6 +130,7 @@ export default function DataTable<TData>({
   toolbar,
   isLoading = false,
   showColumnVisibility = false,
+  isRefreshing = false,
   rowClassName,
 }: DataTableProps<TData>) {
   // Именно видимые: скрытая колонка не рисуется, и colSpan по всем растянул бы
@@ -161,7 +167,7 @@ export default function DataTable<TData>({
           до нечитаемых огрызков вместо горизонтальной прокрутки, которую даёт
           обёртка `Table`. */}
       <Table
-        className="table-fixed"
+        className={cn('table-fixed transition-opacity', isRefreshing && 'opacity-60')}
         style={{ minWidth: totalSize, width: hasFlexibleColumn ? undefined : totalSize }}
       >
         <TableHeader className="bg-card sticky top-0 z-10">

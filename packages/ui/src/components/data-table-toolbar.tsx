@@ -64,8 +64,7 @@ export function DataTableToolbar<TData extends RowData>({
 
   // Сброс предлагаем, только когда есть что сбрасывать: пустая кнопка «Сбросить»
   // рядом с чистой таблицей — шум.
-  const isFiltered =
-    table.getState().columnFilters.length > 0 || Boolean(search) || hasExtraFilters
+  const isFiltered = table.getState().columnFilters.length > 0 || Boolean(search) || hasExtraFilters
 
   return (
     <div className={cn('flex flex-wrap items-center gap-2', className)}>
