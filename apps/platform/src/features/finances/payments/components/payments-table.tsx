@@ -205,18 +205,16 @@ export default function PaymentsTable() {
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getFacetedRowModel: getFacetedRowModel(),
-    // Ученик, менеджер, метод — и подпись кошелька: её в строке больше не видно,
-    // но найти все оплаты по группе через неё можно. Значит, строка может
-    // совпасть по тому, чего на экране нет.
+    // Ровно по тому, что видно в строке: ученик, менеджер, метод. Совпадение по
+    // невидимому полю выглядит как случайно попавшая строка.
     globalFilterFn: (row, _columnId, filterValue) => {
       const needle = String(filterValue).trim().toLowerCase()
       if (!needle) return true
-      const { student, manager, paymentMethod, walletLabel } = row.original
+      const { student, manager, paymentMethod } = row.original
       return [
         getFullName(student.firstName, student.lastName),
         manager?.name,
         paymentMethod?.name,
-        walletLabel,
       ].some((field) => field?.toLowerCase().includes(needle))
     },
     onPaginationChange: setPagination,
