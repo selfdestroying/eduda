@@ -97,6 +97,19 @@ interface DataTableProps<TData> {
   rowClassName?: (row: Row<TData>) => string | undefined
 }
 
+/**
+ * Заголовок сортируемой колонки — это flex-контейнер (текст плюс стрелка), и
+ * выключку из `text-*` он сам не унаследует: её нужно перевести в `justify-*`,
+ * иначе заголовок встанет слева от центрированных или прижатых вправо значений.
+ * Для колонок по левому краю остаётся `w-fit`, чтобы клик по сортировке
+ * ограничивался текстом, а не всей шириной колонки.
+ */
+function headerJustify(className?: string) {
+  if (className?.includes('text-right')) return 'justify-end'
+  if (className?.includes('text-center')) return 'justify-center'
+  return 'w-fit'
+}
+
 export default function DataTable<TData>({
   table,
   emptyMessage = 'Нет данных.',
@@ -151,11 +164,7 @@ export default function DataTable<TData>({
                       className={cn(
                         header.column.getCanSort() &&
                           'flex cursor-pointer items-center gap-2 select-none',
-                        // Числовые колонки выключены вправо — стрелка сортировки
-                        // должна ехать за заголовком, а не болтаться слева.
-                        header.column.columnDef.meta?.className?.includes('text-right')
-                          ? 'justify-end'
-                          : 'w-fit',
+                        headerJustify(header.column.columnDef.meta?.className),
                       )}
                       onClick={header.column.getToggleSortingHandler()}
                       onKeyDown={(e) => {

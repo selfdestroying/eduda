@@ -34,8 +34,11 @@ import { usePaymentListQuery } from '../queries'
 import type { PaymentListItem } from '../types'
 import PaymentActions from './payment-actions'
 
-/** Правая выключка + моноширинные цифры: колонки сумм должны читаться столбиком. */
-const NUMERIC = 'text-right tabular-nums'
+/** По центру, но моноширинными цифрами — чтобы разряды не плясали по строкам. */
+const NUMERIC = 'text-center tabular-nums'
+
+/** Всё, кроме ученика и статуса, выключено по центру. */
+const CENTERED = 'text-center'
 
 /**
  * Ширины колонок в пикселях. Свободную ширину целиком забирает «Ученик»
@@ -145,7 +148,7 @@ function buildColumns(
       accessorKey: 'date',
       cell: ({ row }) => formatDateOnly(row.original.date),
       size: WIDTHS.date,
-      meta: { title: 'Дата' },
+      meta: { title: 'Дата', className: CENTERED },
     },
     {
       id: 'paymentMethod',
@@ -153,7 +156,12 @@ function buildColumns(
       accessorFn: (row) => row.paymentMethod?.name ?? '',
       cell: ({ row }) => row.original.paymentMethod?.name ?? '—',
       size: WIDTHS.paymentMethod,
-      meta: { title: 'Метод оплаты', variant: 'multiSelect', options: methodOptions },
+      meta: {
+        title: 'Метод оплаты',
+        className: CENTERED,
+        variant: 'multiSelect',
+        options: methodOptions,
+      },
       // Сравниваем строками: значения фильтров приезжают из URL и остаются ими.
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(String(row.original.paymentMethod?.id)),
@@ -169,7 +177,12 @@ function buildColumns(
       accessorFn: (row) => row.manager?.name ?? '',
       cell: ({ row }) => row.original.manager?.name ?? '—',
       size: WIDTHS.manager,
-      meta: { title: 'Менеджер', variant: 'multiSelect', options: managerOptions },
+      meta: {
+        title: 'Менеджер',
+        className: CENTERED,
+        variant: 'multiSelect',
+        options: managerOptions,
+      },
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(String(row.original.manager?.id)),
     },
