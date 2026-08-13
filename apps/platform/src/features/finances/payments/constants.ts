@@ -15,6 +15,16 @@ export const PAYMENT_KIND_LABELS: Record<PaymentKind, string> = {
   adjustment: 'Корректировка',
 }
 
+/**
+ * Вид бейджа в колонке «Статус». Обычная оплата — `secondary`: таких строк
+ * большинство, и красить их во что-то заметное значит закрасить всю таблицу.
+ */
+export const PAYMENT_KIND_BADGE: Record<PaymentKind, 'secondary' | 'destructive' | 'outline'> = {
+  active: 'secondary',
+  cancelled: 'destructive',
+  adjustment: 'outline',
+}
+
 export const PAYMENT_KIND_OPTIONS = PAYMENT_KINDS.map((value) => ({
   value,
   label: PAYMENT_KIND_LABELS[value],

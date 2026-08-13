@@ -1,5 +1,6 @@
 'use client'
 
+import { Badge } from '@repo/ui/components/badge'
 import DataTable from '@repo/ui/components/data-table'
 import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
 import { Hint } from '@repo/ui/components/hint'
@@ -23,7 +24,12 @@ import Link from 'next/link'
 import { parseAsString, useQueryStates } from 'nuqs'
 import { useMemo } from 'react'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
-import { getPaymentKind, PAYMENT_KIND_LABELS, PAYMENT_KIND_OPTIONS } from '../constants'
+import {
+  getPaymentKind,
+  PAYMENT_KIND_BADGE,
+  PAYMENT_KIND_LABELS,
+  PAYMENT_KIND_OPTIONS,
+} from '../constants'
 import { usePaymentListQuery } from '../queries'
 import type { PaymentListItem } from '../types'
 import PaymentActions from './payment-actions'
@@ -71,6 +77,21 @@ function buildColumns(
       meta: { title: 'Ученик', className: 'max-w-64' },
       // Строка без ученика бессмысленна — прятать нечего.
       enableHiding: false,
+    },
+    {
+      // Сразу за именем: «какая из этих оплат отменена» читают вместе с тем, чья
+      // она, а не в конце строки. id остался `kind` — по нему уже записаны фильтр
+      // в URL и видимость в localStorage, переименование их обнулило бы.
+      id: 'kind',
+      header: 'Статус',
+      accessorFn: (row) => PAYMENT_KIND_LABELS[getPaymentKind(row)],
+      cell: ({ row }) => {
+        const kind = getPaymentKind(row.original)
+        return <Badge variant={PAYMENT_KIND_BADGE[kind]}>{PAYMENT_KIND_LABELS[kind]}</Badge>
+      },
+      meta: { title: 'Статус', variant: 'multiSelect', options: PAYMENT_KIND_OPTIONS },
+      filterFn: (row, _id, selected: string[]) =>
+        selected.length === 0 || selected.includes(getPaymentKind(row.original)),
     },
     {
       id: 'lessons',
@@ -128,18 +149,6 @@ function buildColumns(
         selected.length === 0 || selected.includes(String(row.original.manager?.id)),
     },
     {
-      // По умолчанию скрыта — колонка нужна прежде всего как фильтр. Включить её
-      // через «Колонки» — единственный способ прочитать статус текстом: отменённая
-      // оплата иначе отличается только приглушённой строкой.
-      id: 'kind',
-      header: 'Вид',
-      accessorFn: (row) => getPaymentKind(row),
-      cell: ({ row }) => PAYMENT_KIND_LABELS[getPaymentKind(row.original)],
-      meta: { title: 'Вид', variant: 'multiSelect', options: PAYMENT_KIND_OPTIONS },
-      filterFn: (row, _id, selected: string[]) =>
-        selected.length === 0 || selected.includes(getPaymentKind(row.original)),
-    },
-    {
       id: 'actions',
       enableSorting: false,
       cell: ({ row }) => <PaymentActions payment={row.original} />,
@@ -175,7 +184,7 @@ export default function PaymentsTable() {
 
   const { data: paymentMethods = [] } = useActivePaymentMethodListQuery()
   const { data: members = [] } = useMappedMemberListQuery()
-  const { columnVisibility, setColumnVisibility } = useColumnVisibility('payments', { kind: false })
+  const { columnVisibility, setColumnVisibility } = useColumnVisibility('payments')
 
   const methodOptions = useMemo(
     () => paymentMethods.map((m) => ({ value: String(m.id), label: m.name })),
