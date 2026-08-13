@@ -41,17 +41,13 @@ import PaymentActions from './payment-actions'
 const NUMERIC = 'text-right tabular-nums'
 
 /**
- * Ширины колонок в пикселях. Свободную ширину делят между собой три текстовые
- * колонки с `meta.flexible` — «Ученик», «Метод», «Менеджер»: там текст
- * непредсказуемой длины. Отдавать весь излишек одному «Ученику» значит растить
- * его до полутысячи пикселей под имя в сто. Дата, сумма, занятия и статус имеют
- * предсказуемый размер и не тянутся вовсе.
- *
- * У гибких колонок число работает как минимум: в сумму, ниже которой таблица
- * уходит в горизонтальную прокрутку, оно всё равно входит.
+ * Ширины колонок в пикселях, и они окончательные: гибких колонок здесь нет, так
+ * что таблица встаёт ровно на их сумму, а свободное место остаётся справа. Отдать
+ * излишек одной колонке пробовали — «Ученик» раздувался до полутысячи пикселей под
+ * имя в сто; поделить на три — то же самое случалось с «Методом».
  */
 const WIDTHS = {
-  student: 200,
+  student: 220,
   // Обе выключены вправо, поэтому расстояние между значениями задаёт ширина
   // «Занятий»: на 90px число упиралось в сумму. Заодно перестал теснить заголовок
   // «Занятий» с иконкой-подсказкой.
@@ -100,7 +96,7 @@ function buildColumns(
         </Link>
       ),
       size: WIDTHS.student,
-      meta: { title: 'Ученик', flexible: true },
+      meta: { title: 'Ученик' },
       // Строка без ученика бессмысленна — прятать нечего.
       enableHiding: false,
     },
@@ -162,12 +158,7 @@ function buildColumns(
       accessorFn: (row) => row.paymentMethod?.name ?? '',
       cell: ({ row }) => row.original.paymentMethod?.name ?? '—',
       size: WIDTHS.paymentMethod,
-      meta: {
-        title: 'Метод оплаты',
-        flexible: true,
-        variant: 'multiSelect',
-        options: methodOptions,
-      },
+      meta: { title: 'Метод оплаты', variant: 'multiSelect', options: methodOptions },
       // Сравниваем строками: значения фильтров приезжают из URL и остаются ими.
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(String(row.original.paymentMethod?.id)),
@@ -183,12 +174,7 @@ function buildColumns(
       accessorFn: (row) => row.manager?.name ?? '',
       cell: ({ row }) => row.original.manager?.name ?? '—',
       size: WIDTHS.manager,
-      meta: {
-        title: 'Менеджер',
-        flexible: true,
-        variant: 'multiSelect',
-        options: managerOptions,
-      },
+      meta: { title: 'Менеджер', variant: 'multiSelect', options: managerOptions },
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(String(row.original.manager?.id)),
     },

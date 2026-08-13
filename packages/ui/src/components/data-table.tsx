@@ -71,9 +71,11 @@ declare module '@tanstack/react-table' {
     /**
      * Колонка тянется: ей не пишется `width`, и по алгоритму фиксированной
      * раскладки свободная ширина делится поровну между всеми такими колонками.
-     * Без ни одной излишек размазывается по всем, и каждая оказывается вдвое шире
-     * содержимого; помеченная одна получает его целиком. Помечайте те, где текст
-     * непредсказуемой длины, — и столько, на сколько излишек не жалко разделить.
+     *
+     * Если гибких колонок нет ни одной, таблица не растягивается на всю ширину
+     * контейнера, а встаёт ровно на сумму `size` — тогда каждая колонка получает
+     * заявленную ширину, а свободное место остаётся справа. Это честнее, чем
+     * впихивать излишек в колонку, которой он не нужен.
      */
     flexible?: boolean
   }
@@ -125,6 +127,14 @@ export default function DataTable<TData>({
   // сразу, а `colSpan={0}` браузер понимает как «до конца группы строк».
   const columnCount = Math.max(1, table.getVisibleLeafColumns().length)
 
+  // Есть ли кому забрать свободную ширину. Нет — таблицу не растягиваем: при
+  // `table-layout: fixed` и `width: auto` браузер всё равно тянет её до ширины
+  // контейнера, поэтому ширину приходится задавать явно.
+  const hasFlexibleColumn = table
+    .getVisibleLeafColumns()
+    .some((column) => column.columnDef.meta?.flexible)
+  const totalSize = table.getTotalSize()
+
   return (
     <div className="flex h-full flex-col gap-2">
       {showColumnVisibility ? (
@@ -139,13 +149,16 @@ export default function DataTable<TData>({
           лишь подсказка, и колонка всё равно растягивается под содержимое — ширины
           прыгают от страницы к странице. Здесь, а не в самом `Table`: его собирают
           руками и в других местах, где сетка по содержимому как раз нужна.
-          Числа `size` — пиксели; свободную ширину забирает колонка с
-          `meta.flexible`, а не все понемногу.
+          Числа `size` — пиксели; свободную ширину забирают колонки с
+          `meta.flexible`, а без них таблица просто не растягивается.
 
           `minWidth` по сумме колонок: без него на узком экране колонки сжимались бы
           до нечитаемых огрызков вместо горизонтальной прокрутки, которую даёт
           обёртка `Table`. */}
-      <Table className="table-fixed" style={{ minWidth: table.getTotalSize() }}>
+      <Table
+        className="table-fixed"
+        style={{ minWidth: totalSize, width: hasFlexibleColumn ? undefined : totalSize }}
+      >
         <TableHeader className="bg-card sticky top-0 z-10">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
