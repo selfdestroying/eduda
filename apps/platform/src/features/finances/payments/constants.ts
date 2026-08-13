@@ -16,27 +16,16 @@ export const PAYMENT_KIND_LABELS: Record<PaymentKind, string> = {
 }
 
 /**
- * Бейдж статуса: подложка в 10% цвета, текст тем же цветом, точка слева, рамки
- * нет. Классы прописаны здесь, а не через `variant` бейджа, потому что варианты
- * `success`/`destructive` в дизайн-системе подложку сейчас не дают (см. `\10`
- * вместо `/10` в `badge.tsx`) — и точки у них тоже нет.
+ * Вариант бейджа статуса — из дизайн-системы, а не набор классов: `success`,
+ * `destructive` и `warning` дают ровно то же (подложка в 10% цвета, текст тем же
+ * цветом), но одинаково со всеми бейджами приложения.
  *
- * Зелёный / красный / янтарный: обычная, отменённая, и корректировка бэкфилла —
- * не ошибка, но и не живые деньги, поэтому отдельным цветом, а не серым.
+ * Корректировка бэкфилла — `warning` (янтарный): не ошибка, но и не живые деньги.
  */
-export const PAYMENT_KIND_BADGE: Record<PaymentKind, { badge: string; dot: string }> = {
-  active: {
-    badge: 'border-none bg-green-600/10 text-green-600 dark:bg-green-400/10 dark:text-green-400',
-    dot: 'bg-green-600 dark:bg-green-400',
-  },
-  cancelled: {
-    badge: 'border-none bg-red-600/10 text-red-600 dark:bg-red-400/10 dark:text-red-400',
-    dot: 'bg-red-600 dark:bg-red-400',
-  },
-  adjustment: {
-    badge: 'border-none bg-amber-600/10 text-amber-600 dark:bg-amber-400/10 dark:text-amber-400',
-    dot: 'bg-amber-600 dark:bg-amber-400',
-  },
+export const PAYMENT_KIND_BADGE: Record<PaymentKind, 'success' | 'destructive' | 'warning'> = {
+  active: 'success',
+  cancelled: 'destructive',
+  adjustment: 'warning',
 }
 
 export const PAYMENT_KIND_OPTIONS = PAYMENT_KINDS.map((value) => ({
