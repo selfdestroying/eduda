@@ -5,12 +5,11 @@ import DataTable from '@repo/ui/components/data-table'
 import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
 import { Hint } from '@repo/ui/components/hint'
 import { Skeleton } from '@repo/ui/components/skeleton'
-import DateRangeFilter from '@/src/components/date-range-filter'
 import { useMappedMemberListQuery } from '@/src/features/organization/members/queries'
 import { useColumnVisibility } from '@/src/hooks/use-column-visibility'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
-import { dateToYmd, formatDateOnly, formatDateTimeInTz, ymdToLocalDate } from '@/src/lib/timezone'
+import { formatDateOnly, formatDateTimeInTz } from '@/src/lib/timezone'
 import { formatCurrency, getFullName } from '@/src/lib/utils'
 import {
   type ColumnDef,
@@ -25,7 +24,6 @@ import {
 import Link from 'next/link'
 import { parseAsString, useQueryStates } from 'nuqs'
 import { useMemo } from 'react'
-import type { DateRange } from 'react-day-picker'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
 import { getPaymentKind, PAYMENT_KIND_LABELS, PAYMENT_KIND_OPTIONS } from '../constants'
 import { usePaymentListQuery } from '../queries'
@@ -36,9 +34,10 @@ import PaymentActions from './payment-actions'
 const NUMERIC = 'text-right tabular-nums'
 
 /**
- * Период — единственный фильтр вне колонок: он уезжает в запрос и ограничивает
- * выборку до неё. Остальные описаны в `meta` своих колонок, и тулбар собирает их
- * оттуда сам.
+ * Период. Контрола под него сейчас нет — пикер сняли, его переделывают, — но
+ * параметры читаются и уезжают в запрос: без них таблица была бы наглухо заперта
+ * в текущем месяце (серверный дефолт), и до прошлых оплат не добраться совсем.
+ * Остальные фильтры описаны в `meta` своих колонок, тулбар собирает их оттуда.
  */
 const PERIOD_PARSERS = { from: parseAsString, to: parseAsString }
 
@@ -297,18 +296,6 @@ export default function PaymentsTable() {
   // `setGlobalFilter` это делает сам, остальные сеттеры — нет.
   const resetPage = () => setPagination({ ...pagination, pageIndex: 0 })
 
-  const period: DateRange | undefined = from
-    ? { from: ymdToLocalDate(from), to: to ? ymdToLocalDate(to) : undefined }
-    : undefined
-
-  const setPeriod = (range: DateRange | undefined) => {
-    setPeriodValues({
-      from: range?.from ? dateToYmd(range.from) : null,
-      to: range?.to ? dateToYmd(range.to) : null,
-    })
-    resetPage()
-  }
-
   const resetFilters = () => {
     setPeriodValues({ from: null, to: null })
     setGlobalFilter('')
@@ -346,11 +333,7 @@ export default function PaymentsTable() {
           searchPlaceholder="Ученик, менеджер, метод..."
           onReset={resetFilters}
           hasExtraFilters={Boolean(from) || Boolean(to)}
-        >
-          {/* Период — не колоночный фильтр: он ограничивает сам запрос. Без
-              выбранного сервер отдаёт текущий месяц, так и подписан. */}
-          <DateRangeFilter value={period} onChange={setPeriod} placeholder="Текущий месяц" />
-        </DataTableToolbar>
+        />
       }
     />
   )
