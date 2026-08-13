@@ -45,9 +45,9 @@ const NUMERIC = 'text-right tabular-nums'
  */
 const WIDTHS = {
   student: 220,
-  lessons: 90,
-  price: 110,
   date: 100,
+  price: 110,
+  lessons: 90,
   paymentMethod: 130,
   manager: 140,
   kind: 120,
@@ -95,18 +95,18 @@ function buildColumns(
       enableHiding: false,
     },
     {
-      id: 'lessons',
-      header: () => (
-        <span className="flex items-center gap-0.5">
-          Занятий
-          <Hint text="Сколько уроков зачислено на баланс кошелька этой оплатой." />
-        </span>
-      ),
-      accessorKey: 'lessonCount',
-      size: WIDTHS.lessons,
-      meta: { title: 'Занятий', className: NUMERIC },
+      // Сразу за учеником: список по умолчанию отсортирован по дате, и колонка,
+      // задающая порядок строк, должна читаться сверху вниз без поиска глазами.
+      id: 'date',
+      header: 'Дата',
+      accessorKey: 'date',
+      cell: ({ row }) => formatDateOnly(row.original.date),
+      size: WIDTHS.date,
+      meta: { title: 'Дата' },
     },
     {
+      // Деньги раньше количества: на финансовой странице сумма — главная цифра, а
+      // занятия объясняют, из чего она сложилась. По сумме же фильтруют.
       id: 'price',
       header: 'Сумма',
       accessorFn: (row) => row.price,
@@ -121,12 +121,16 @@ function buildColumns(
       },
     },
     {
-      id: 'date',
-      header: 'Дата',
-      accessorKey: 'date',
-      cell: ({ row }) => formatDateOnly(row.original.date),
-      size: WIDTHS.date,
-      meta: { title: 'Дата' },
+      id: 'lessons',
+      header: () => (
+        <span className="flex items-center gap-0.5">
+          Занятий
+          <Hint text="Сколько уроков зачислено на баланс кошелька этой оплатой." />
+        </span>
+      ),
+      accessorKey: 'lessonCount',
+      size: WIDTHS.lessons,
+      meta: { title: 'Занятий', className: NUMERIC },
     },
     {
       id: 'paymentMethod',
