@@ -41,11 +41,14 @@ import PaymentActions from './payment-actions'
 const NUMERIC = 'text-right tabular-nums'
 
 /**
- * Ширины колонок в пикселях. Свободную ширину целиком забирает «Ученик»
- * (`meta.flexible`) — там текст непредсказуемой длины, а дата, сумма и статус
- * имеют предсказуемый размер и растягиваться не должны. У «Ученика» число
- * работает как минимум: в сумму, ниже которой таблица уходит в горизонтальную
- * прокрутку, оно всё равно входит.
+ * Ширины колонок в пикселях. Свободную ширину делят между собой три текстовые
+ * колонки с `meta.flexible` — «Ученик», «Метод», «Менеджер»: там текст
+ * непредсказуемой длины. Отдавать весь излишек одному «Ученику» значит растить
+ * его до полутысячи пикселей под имя в сто. Дата, сумма, занятия и статус имеют
+ * предсказуемый размер и не тянутся вовсе.
+ *
+ * У гибких колонок число работает как минимум: в сумму, ниже которой таблица
+ * уходит в горизонтальную прокрутку, оно всё равно входит.
  */
 const WIDTHS = {
   student: 200,
@@ -159,7 +162,12 @@ function buildColumns(
       accessorFn: (row) => row.paymentMethod?.name ?? '',
       cell: ({ row }) => row.original.paymentMethod?.name ?? '—',
       size: WIDTHS.paymentMethod,
-      meta: { title: 'Метод оплаты', variant: 'multiSelect', options: methodOptions },
+      meta: {
+        title: 'Метод оплаты',
+        flexible: true,
+        variant: 'multiSelect',
+        options: methodOptions,
+      },
       // Сравниваем строками: значения фильтров приезжают из URL и остаются ими.
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(String(row.original.paymentMethod?.id)),
@@ -175,7 +183,12 @@ function buildColumns(
       accessorFn: (row) => row.manager?.name ?? '',
       cell: ({ row }) => row.original.manager?.name ?? '—',
       size: WIDTHS.manager,
-      meta: { title: 'Менеджер', variant: 'multiSelect', options: managerOptions },
+      meta: {
+        title: 'Менеджер',
+        flexible: true,
+        variant: 'multiSelect',
+        options: managerOptions,
+      },
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(String(row.original.manager?.id)),
     },
