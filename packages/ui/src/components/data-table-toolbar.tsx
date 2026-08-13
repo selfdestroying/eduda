@@ -4,9 +4,7 @@ import { Badge } from '@repo/ui/components/badge'
 import { Button } from '@repo/ui/components/button'
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
   CommandSeparator,
@@ -155,10 +153,14 @@ function DataTableFacetedFilter<TData extends RowData>({
         )}
       </PopoverTrigger>
       <PopoverContent align="start" className="w-56 p-0">
+        {/* Без поля поиска: списки здесь короткие — методы оплаты, сотрудники,
+            три вида, — и строка ввода над пятью галочками только мешает.
+            `Command` оставлен ради навигации стрелками. */}
         <Command>
-          <CommandInput placeholder={title} />
           <CommandList>
-            <CommandEmpty>Ничего не найдено.</CommandEmpty>
+            {options.length === 0 && (
+              <p className="text-muted-foreground p-2 text-xs">Нет вариантов.</p>
+            )}
             <CommandGroup>
               {options.map((option) => {
                 const isSelected = selected.has(option.value)
