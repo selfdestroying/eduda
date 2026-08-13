@@ -79,21 +79,6 @@ function buildColumns(
       enableHiding: false,
     },
     {
-      // Сразу за именем: «какая из этих оплат отменена» читают вместе с тем, чья
-      // она, а не в конце строки. id остался `kind` — по нему уже записаны фильтр
-      // в URL и видимость в localStorage, переименование их обнулило бы.
-      id: 'kind',
-      header: 'Статус',
-      accessorFn: (row) => PAYMENT_KIND_LABELS[getPaymentKind(row)],
-      cell: ({ row }) => {
-        const kind = getPaymentKind(row.original)
-        return <Badge variant={PAYMENT_KIND_BADGE[kind]}>{PAYMENT_KIND_LABELS[kind]}</Badge>
-      },
-      meta: { title: 'Статус', variant: 'multiSelect', options: PAYMENT_KIND_OPTIONS },
-      filterFn: (row, _id, selected: string[]) =>
-        selected.length === 0 || selected.includes(getPaymentKind(row.original)),
-    },
-    {
       id: 'lessons',
       header: () => (
         <span className="flex items-center gap-0.5">
@@ -147,6 +132,21 @@ function buildColumns(
       meta: { title: 'Менеджер', variant: 'multiSelect', options: managerOptions },
       filterFn: (row, _id, selected: string[]) =>
         selected.length === 0 || selected.includes(String(row.original.manager?.id)),
+    },
+    {
+      // id остался `kind` — по нему уже записаны фильтр в URL и видимость в
+      // localStorage, переименование в `status` их обнулило бы.
+      id: 'kind',
+      header: 'Статус',
+      // Сортируем по видимой подписи, а не по внутреннему ключу.
+      accessorFn: (row) => PAYMENT_KIND_LABELS[getPaymentKind(row)],
+      cell: ({ row }) => {
+        const kind = getPaymentKind(row.original)
+        return <Badge variant={PAYMENT_KIND_BADGE[kind]}>{PAYMENT_KIND_LABELS[kind]}</Badge>
+      },
+      meta: { title: 'Статус', variant: 'multiSelect', options: PAYMENT_KIND_OPTIONS },
+      filterFn: (row, _id, selected: string[]) =>
+        selected.length === 0 || selected.includes(getPaymentKind(row.original)),
     },
     {
       id: 'actions',
