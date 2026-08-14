@@ -77,8 +77,9 @@ const WIDTHS = {
 
 /**
  * Период. Контрола под него сейчас нет — пикер сняли, его переделывают, — но
- * параметры читаются и уезжают в запрос: без них таблица была бы наглухо заперта
- * в текущем месяце (серверный дефолт), и до прошлых оплат не добраться совсем.
+ * параметры читаются и уезжают в запрос, так что period по ссылке работает.
+ * Без них выборка не ограничена по дате: страницу режет сервер, и вся история
+ * стоит столько же, сколько один месяц.
  */
 const PERIOD_PARSERS = { from: parseAsString, to: parseAsString }
 
@@ -284,15 +285,14 @@ export default function PaymentsTable() {
   }, [columnFilters])
 
   // Всё состояние таблицы уезжает в запрос: сервер сам отбирает, сортирует и режет
-  // на страницы. `from` без `to` — это один день, а не «от даты и далее», иначе
-  // серверный дефолт дотянул бы верхнюю границу до конца текущего месяца.
+  // на страницы. Границы независимы — одна без другой значит открытый интервал.
   const params = useMemo(
     () => ({
       page: pagination.pageIndex,
       pageSize: pagination.pageSize,
       sort: sorting[0] ?? null,
       from: from ?? undefined,
-      to: to ?? from ?? undefined,
+      to: to ?? undefined,
       methodIds: filterIds(columnFilters, 'paymentMethod'),
       managerIds: filterIds(columnFilters, 'manager'),
       // Незнакомое значение отсеиваем по той же причине, что и нечисловые id.

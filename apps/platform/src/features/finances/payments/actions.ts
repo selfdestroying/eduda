@@ -13,9 +13,8 @@ import {
 } from '@/src/features/finances/ledger.server'
 import { getWalletLabel } from '@/src/features/wallets/utils'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
-import { dateToYmd, nowInTz, todayYmdInTz } from '@/src/lib/timezone'
+import { todayYmdInTz } from '@/src/lib/timezone'
 import { permissionAction } from '@/src/lib/safe-action'
-import { endOfMonth, startOfMonth } from 'date-fns'
 import {
   CancelPaymentSchema,
   CreatePaymentSchema,
@@ -71,17 +70,19 @@ export const getPayments = permissionAction({ payment: ['read'] })
   .metadata({ actionName: 'getPayments' })
   .inputSchema(PaymentListSchema)
   .action(async ({ ctx, parsedInput }): Promise<PaymentListResult> => {
-    const { page, pageSize, sort, methodIds, managerIds, statuses, isAdjustment } = parsedInput
-
-    // Границы включительные и сравниваются как строки: `date` — date-only колонка.
-    // Без явного периода отдаём текущий месяц в поясе организации, а не всю историю.
-    const now = nowInTz(ctx.tz)
-    const from = parsedInput.from ?? dateToYmd(startOfMonth(now))
-    const to = parsedInput.to ?? dateToYmd(endOfMonth(now))
+    const { page, pageSize, sort, from, to, methodIds, managerIds, statuses, isAdjustment } =
+      parsedInput
 
     const where: Prisma.PaymentWhereInput = {
       organizationId: ctx.session.organizationId!,
-      date: { gte: from, lte: to },
+      // Период — обычный необязательный фильтр, без подстановки текущего месяца:
+      // страницу режет `skip`/`take`, и вся история стоит ровно столько же, сколько
+      // один месяц. Границы включительные и сравниваются как строки — `date` это
+      // date-only колонка `YYYY-MM-DD`, где лексикографический порядок совпадает с
+      // хронологическим.
+      ...((from || to) && {
+        date: { ...(from && { gte: from }), ...(to && { lte: to }) },
+      }),
       ...(methodIds.length > 0 && { paymentMethodId: { in: methodIds } }),
       ...(managerIds.length > 0 && { managerId: { in: managerIds } }),
       ...(statuses.length > 0 && { status: { in: statuses } }),

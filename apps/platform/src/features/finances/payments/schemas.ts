@@ -20,7 +20,8 @@ export const PaymentListSchema = z.object({
   pageSize: z.number().int().min(1).max(100).default(10),
   sort: z.object({ id: z.string(), desc: z.boolean() }).nullish(),
   // Обе границы включительно и сравниваются лексикографически: `Payment.date` —
-  // date-only строка `YYYY-MM-DD`. Без них сервер подставит текущий месяц.
+  // date-only строка `YYYY-MM-DD`. Любая может отсутствовать: «с такого-то дня» и
+  // «до такого-то» законны, а без обеих период не ограничен вовсе.
   from: DateOnlySchema.optional(),
   to: DateOnlySchema.optional(),
   methodIds: z.array(z.number().int().positive()).default([]),
