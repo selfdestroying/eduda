@@ -1,21 +1,18 @@
 'use client'
 
-import { Badge } from '@repo/ui/components/badge'
 import { Button } from '@repo/ui/components/button'
 import {
-  Command,
-  CommandGroup,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from '@repo/ui/components/command'
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@repo/ui/components/dropdown-menu'
 import { Input } from '@repo/ui/components/input'
 import { NumberInput } from '@repo/ui/components/number-input'
 import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
-import { Separator } from '@repo/ui/components/separator'
 import { cn } from '@repo/ui/lib/utils'
 import type { Column, RowData, Table as TanstackTable } from '@tanstack/react-table'
-import { Check, ListFilter, Search, X } from 'lucide-react'
+import { ListFilter, Search, X } from 'lucide-react'
 import { type ReactNode } from 'react'
 
 /**
@@ -107,9 +104,9 @@ function columnTitle<TData extends RowData>(column: Column<TData, unknown>) {
 }
 
 /**
- * Мультиселект с галочками и поиском по вариантам. Выбранное показывается на
- * самой кнопке: до двух — названиями, дальше — числом, иначе строка фильтров
- * расползается на пол-экрана.
+ * Мультиселект — тем же меню с галочками, что и «Колонки», и с тем же счётчиком
+ * «выбрано/всего» на кнопке. Раньше выбранное перечислялось бейджами с названиями,
+ * и строка фильтров расползалась тем сильнее, чем больше выбрано.
  */
 function DataTableFacetedFilter<TData extends RowData>({
   column,
@@ -129,74 +126,36 @@ function DataTableFacetedFilter<TData extends RowData>({
     column.setFilterValue(next.size > 0 ? [...next] : undefined)
   }
 
-  const selectedOptions = options.filter((o) => selected.has(o.value))
-
   return (
-    <Popover>
-      <PopoverTrigger render={<Button variant="outline" className="font-normal" />}>
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button variant="outline" className="shrink-0" />}>
         <ListFilter />
         {title}
-        {selectedOptions.length > 0 && (
-          <>
-            <Separator orientation="vertical" className="mx-0.5 h-4" />
-            {selectedOptions.length > 2 ? (
-              <Badge variant="secondary">{selectedOptions.length}</Badge>
-            ) : (
-              selectedOptions.map((o) => (
-                <Badge key={o.value} variant="secondary">
-                  {o.label}
-                </Badge>
-              ))
-            )}
-          </>
+        {/* Только когда что-то выбрано: у фильтра «ничего не выбрано» — обычное
+            состояние, и счётчик в нём ничего не сообщает. */}
+        {selected.size > 0 && (
+          <span className="text-muted-foreground tabular-nums">
+            {selected.size}/{options.length}
+          </span>
         )}
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-56 p-0">
-        {/* Без поля поиска: списки здесь короткие — методы оплаты, сотрудники,
-            три вида, — и строка ввода над пятью галочками только мешает.
-            `Command` оставлен ради навигации стрелками. */}
-        <Command>
-          <CommandList>
-            {options.length === 0 && (
-              <p className="text-muted-foreground p-2 text-xs">Нет вариантов.</p>
-            )}
-            <CommandGroup>
-              {options.map((option) => {
-                const isSelected = selected.has(option.value)
-                return (
-                  <CommandItem key={option.value} onSelect={() => toggle(option.value)}>
-                    <span
-                      className={cn(
-                        'flex size-4 items-center justify-center rounded-[4px] border',
-                        isSelected
-                          ? 'bg-primary border-primary text-primary-foreground'
-                          : 'border-input',
-                      )}
-                    >
-                      {isSelected && <Check className="size-3" />}
-                    </span>
-                    <span className="truncate">{option.label}</span>
-                  </CommandItem>
-                )
-              })}
-            </CommandGroup>
-            {selected.size > 0 && (
-              <>
-                <CommandSeparator />
-                <CommandGroup>
-                  <CommandItem
-                    onSelect={() => column.setFilterValue(undefined)}
-                    className="justify-center"
-                  >
-                    Снять фильтр
-                  </CommandItem>
-                </CommandGroup>
-              </>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-48">
+        {options.length === 0 ? (
+          <p className="text-muted-foreground p-2 text-xs">Нет вариантов.</p>
+        ) : (
+          options.map((option) => (
+            <DropdownMenuCheckboxItem
+              key={option.value}
+              checked={selected.has(option.value)}
+              onCheckedChange={() => toggle(option.value)}
+              closeOnClick={false}
+            >
+              {option.label}
+            </DropdownMenuCheckboxItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -229,17 +188,16 @@ function DataTableRangeFilter<TData extends RowData>({
 
   return (
     <Popover>
-      <PopoverTrigger render={<Button variant="outline" className="font-normal" />}>
+      {/* Значение — приглушённым текстом, как счётчик у мультиселекта: иначе один
+          фильтр в строке выглядел бы бейджем, а другой числом. */}
+      <PopoverTrigger render={<Button variant="outline" className="shrink-0" />}>
         <ListFilter />
         {title}
         {label && (
-          <>
-            <Separator orientation="vertical" className="mx-0.5 h-4" />
-            <Badge variant="secondary">
-              {label}
-              {unit ? ` ${unit}` : ''}
-            </Badge>
-          </>
+          <span className="text-muted-foreground tabular-nums">
+            {label}
+            {unit ? ` ${unit}` : ''}
+          </span>
         )}
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64">
