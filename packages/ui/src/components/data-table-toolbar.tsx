@@ -128,10 +128,10 @@ export function DataTableToolbar<TData extends RowData>({
             )}
           </DrawerTrigger>
           <DrawerContent>
-            <DrawerHeader>
+            <DrawerHeader className="pb-4">
               <DrawerTitle>Фильтры</DrawerTitle>
             </DrawerHeader>
-            <div className="thin-scrollbar flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-2">
+            <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 pt-0">
               {filters}
             </div>
             <DrawerFooter>
@@ -192,10 +192,7 @@ function DataTableFacetedFilter<TData extends RowData>({
           return (
             <label
               key={option.value}
-              className={cn(
-                'hover:bg-muted flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors',
-                active ? 'text-foreground' : 'text-muted-foreground/70',
-              )}
+              className="hover:bg-muted flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors"
             >
               <Checkbox checked={active} onCheckedChange={() => toggle(option.value)} />
               <span className="flex-1 truncate">{option.label}</span>

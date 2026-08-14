@@ -5,7 +5,6 @@ import {
   Drawer,
   DrawerClose,
   DrawerContent,
-  DrawerDescription,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
@@ -37,13 +36,12 @@ export function FiltersDrawer({ ctrl }: { ctrl: CalendarController }) {
         )}
       </DrawerTrigger>
       <DrawerContent>
-        <DrawerHeader>
+        <DrawerHeader className="pb-4">
           <DrawerTitle>Фильтры</DrawerTitle>
-          <DrawerDescription>Типы групп, курсы, локации и преподаватели</DrawerDescription>
         </DrawerHeader>
         <CalendarFilters
           ctrl={ctrl}
-          className="thin-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-2"
+          className="no-scrollbar min-h-0 flex-1 overflow-y-auto p-4 pt-0"
         />
         <DrawerFooter>
           <DrawerClose render={<Button />}>Готово</DrawerClose>

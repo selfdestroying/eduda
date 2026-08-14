@@ -48,7 +48,6 @@ function FilterSection({
         categories.map((cat) => {
           const active = ctrl.isCategoryActive(dimension, cat.id)
           const toggle = () => ctrl.toggleCategory(dimension, cat.id)
-          const tone = active ? 'text-foreground' : 'text-muted-foreground/70'
 
           // Единый паттерн: Checkbox внутри <label> — клик по всей строке переключает
           // его через скрытый <input>, имя берётся из текста метки. У типов групп
@@ -58,7 +57,7 @@ function FilterSection({
               ? { backgroundColor: hexA(cat.color, 1), borderColor: hexA(cat.color, 1) }
               : undefined
           return (
-            <label key={cat.id} className={cn(rowBase, 'cursor-pointer py-1.5', tone)}>
+            <label key={cat.id} className={cn(rowBase, 'cursor-pointer py-1.5')}>
               <Checkbox checked={active} onCheckedChange={toggle} style={checkboxStyle} />
               <span className="flex-1 truncate">{cat.name}</span>
               <span className={countBadge}>{cat.count}</span>

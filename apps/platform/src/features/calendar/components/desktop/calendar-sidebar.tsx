@@ -20,7 +20,7 @@ export function CalendarSidebar({ ctrl }: { ctrl: CalendarController }) {
 
       <CalendarFilters
         ctrl={ctrl}
-        className="thin-scrollbar min-h-0 flex-1 overflow-auto overflow-x-hidden"
+        className="no-scrollbar min-h-0 flex-1 overflow-auto overflow-x-hidden"
       />
     </aside>
   )
