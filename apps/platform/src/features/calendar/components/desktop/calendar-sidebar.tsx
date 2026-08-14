@@ -1,5 +1,6 @@
 'use client'
 
+import { ScrollArea } from '@repo/ui/components/scroll-area'
 import type { CalendarController } from '../../hooks/use-calendar'
 import { CalendarFilters } from '../calendar-filters'
 import { MiniMonth } from './mini-month'
@@ -18,10 +19,9 @@ export function CalendarSidebar({ ctrl }: { ctrl: CalendarController }) {
 
       <MiniMonth ctrl={ctrl} />
 
-      <CalendarFilters
-        ctrl={ctrl}
-        className="no-scrollbar min-h-0 flex-1 overflow-auto overflow-x-hidden"
-      />
+      <ScrollArea className="min-h-0 flex-1">
+        <CalendarFilters ctrl={ctrl} />
+      </ScrollArea>
     </aside>
   )
 }

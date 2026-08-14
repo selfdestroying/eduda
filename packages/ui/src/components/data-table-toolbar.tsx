@@ -4,6 +4,7 @@ import { Button } from '@repo/ui/components/button'
 import { Checkbox } from '@repo/ui/components/checkbox'
 import { Input } from '@repo/ui/components/input'
 import { NumberInput } from '@repo/ui/components/number-input'
+import { ScrollArea } from '@repo/ui/components/scroll-area'
 import { Separator } from '@repo/ui/components/separator'
 import {
   Drawer,
@@ -131,9 +132,9 @@ export function DataTableToolbar<TData extends RowData>({
             <DrawerHeader className="pb-4">
               <DrawerTitle>Фильтры</DrawerTitle>
             </DrawerHeader>
-            <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4">
-              {filters}
-            </div>
+            <ScrollArea className="min-h-0 flex-1">
+              <div className="flex flex-col gap-4 px-4">{filters}</div>
+            </ScrollArea>
             <DrawerFooter className="pt-4">
               {onReset && (
                 <Button variant="outline" onClick={onReset} disabled={!isFiltered}>

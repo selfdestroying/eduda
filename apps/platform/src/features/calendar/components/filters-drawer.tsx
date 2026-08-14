@@ -10,6 +10,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@repo/ui/components/drawer'
+import { ScrollArea } from '@repo/ui/components/scroll-area'
 import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { Filter } from 'lucide-react'
 import type { CalendarController } from '../hooks/use-calendar'
@@ -27,7 +28,12 @@ export function FiltersDrawer({ ctrl }: { ctrl: CalendarController }) {
     <Drawer swipeDirection={isMobile ? 'down' : 'right'} showSwipeHandle={isMobile}>
       <DrawerTrigger
         render={
-          <Button variant="ghost" size="icon" className="relative flex-none" aria-label="Фильтры" />
+          <Button
+            variant="outline"
+            size="icon"
+            className="relative flex-none"
+            aria-label="Фильтры"
+          />
         }
       >
         <Filter />
@@ -39,7 +45,9 @@ export function FiltersDrawer({ ctrl }: { ctrl: CalendarController }) {
         <DrawerHeader className="pb-4">
           <DrawerTitle>Фильтры</DrawerTitle>
         </DrawerHeader>
-        <CalendarFilters ctrl={ctrl} className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4" />
+        <ScrollArea className="min-h-0 flex-1">
+          <CalendarFilters ctrl={ctrl} className="px-4" />
+        </ScrollArea>
         <DrawerFooter className="pt-4">
           <DrawerClose render={<Button />}>Готово</DrawerClose>
         </DrawerFooter>
