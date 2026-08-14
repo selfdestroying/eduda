@@ -23,14 +23,7 @@ import { useIsMobile, useMediaQuery } from '@repo/ui/hooks/use-mobile'
 import { cn } from '@repo/ui/lib/utils'
 import type { Column, RowData, Table as TanstackTable } from '@tanstack/react-table'
 import { ListFilter, Search, X } from 'lucide-react'
-import { createContext, type ReactNode, useContext, useEffect, useState } from 'react'
-
-/**
- * Куда портировать выпадашки фильтров. Внутри vaul-drawer'а это его контент: он
- * глушит клики вне себя, и меню, оставленное в `body`, откроется, но нажать в нём
- * будет нельзя. Вне drawer'а — `null`, то есть обычный портал в `body`.
- */
-const FilterContainerContext = createContext<HTMLElement | null>(null)
+import { type ReactNode, useEffect, useState } from 'react'
 
 /**
  * Тулбар таблицы: поиск, фильтры и сброс. Набор фильтров не передаётся пропсами —
@@ -83,9 +76,6 @@ export function DataTableToolbar<TData extends RowData>({
   const filterableColumns = table.getAllColumns().filter((c) => c.columnDef.meta?.variant)
   const showInline = useMediaQuery(INLINE_FILTERS_QUERY)
   const isMobile = useIsMobile()
-  // Состоянием, а не ref: контейнер нужен на рендере дочерних меню, а изменение
-  // ref'а рендер не вызывает — при первом открытии портал уехал бы мимо.
-  const [drawerContent, setDrawerContent] = useState<HTMLElement | null>(null)
 
   const activeFilterCount = table.getState().columnFilters.length
 
@@ -124,29 +114,24 @@ export function DataTableToolbar<TData extends RowData>({
       {showInline ? (
         filters
       ) : (
-        <Drawer direction={isMobile ? 'bottom' : 'right'}>
-          <DrawerTrigger asChild>
-            <Button variant="outline" className="shrink-0">
-              <ListFilter />
-              Фильтры
-              {activeFilterCount > 0 && (
-                <>
-                  <Separator orientation="vertical" className="mx-0.5" />
-                  <span className="text-muted-foreground tabular-nums">{activeFilterCount}</span>
-                </>
-              )}
-            </Button>
+        // Снизу на телефоне, сбоку на ноутбуке — как у фильтров календаря.
+        <Drawer swipeDirection={isMobile ? 'down' : 'right'} showSwipeHandle={isMobile}>
+          <DrawerTrigger render={<Button variant="outline" className="shrink-0" />}>
+            <ListFilter />
+            Фильтры
+            {activeFilterCount > 0 && (
+              <>
+                <Separator orientation="vertical" className="mx-0.5" />
+                <span className="text-muted-foreground tabular-nums">{activeFilterCount}</span>
+              </>
+            )}
           </DrawerTrigger>
-          {/* Снизу на телефоне, сбоку на ноутбуке — как у фильтров календаря. */}
-          <DrawerContent ref={setDrawerContent}>
+          <DrawerContent>
             <DrawerHeader>
               <DrawerTitle>Фильтры</DrawerTitle>
             </DrawerHeader>
             <div className="thin-scrollbar flex min-h-0 flex-col items-start gap-3 overflow-y-auto px-4 pb-2">
-              {/* Выпадашки фильтров портируются внутрь контента drawer'а: vaul
-                  глушит клики вне него, и меню, оставленное в `body`, открылось бы,
-                  но не нажималось. */}
-              <FilterContainerContext value={drawerContent}>{filters}</FilterContainerContext>
+              {filters}
             </div>
             <DrawerFooter>
               {onReset && (
@@ -155,9 +140,7 @@ export function DataTableToolbar<TData extends RowData>({
                   Сбросить
                 </Button>
               )}
-              <DrawerClose asChild>
-                <Button>Готово</Button>
-              </DrawerClose>
+              <DrawerClose render={<Button />}>Готово</DrawerClose>
             </DrawerFooter>
           </DrawerContent>
         </Drawer>
@@ -192,7 +175,6 @@ function DataTableFacetedFilter<TData extends RowData>({
 }) {
   const options = column.columnDef.meta?.options ?? []
   const title = columnTitle(column)
-  const container = useContext(FilterContainerContext)
   // Значение колоночного фильтра — массив строк; из URL иначе и не приходит.
   const selected = new Set((column.getFilterValue() as string[] | undefined) ?? [])
 
@@ -221,7 +203,7 @@ function DataTableFacetedFilter<TData extends RowData>({
           </>
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-48" container={container}>
+      <DropdownMenuContent align="start" className="w-48">
         {options.length === 0 ? (
           <p className="text-muted-foreground p-2 text-xs">Нет вариантов.</p>
         ) : (
