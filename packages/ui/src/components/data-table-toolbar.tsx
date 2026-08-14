@@ -19,7 +19,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@repo/ui/components/drawer'
-import { useIsMobile, useMediaQuery } from '@repo/ui/hooks/use-mobile'
+import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { cn } from '@repo/ui/lib/utils'
 import type { Column, RowData, Table as TanstackTable } from '@tanstack/react-table'
 import { ListFilter, Search, X } from 'lucide-react'
@@ -57,12 +57,6 @@ interface DataTableToolbarProps<TData extends RowData> {
   className?: string
 }
 
-/**
- * Ниже этой ширины фильтры уезжают в панель: вдвоём с диапазонами они занимают
- * больше тысячи пикселей и на ноутбуке разваливались на три ряда над таблицей.
- */
-const INLINE_FILTERS_QUERY = '(min-width: 1440px)'
-
 export function DataTableToolbar<TData extends RowData>({
   table,
   search,
@@ -74,7 +68,6 @@ export function DataTableToolbar<TData extends RowData>({
   className,
 }: DataTableToolbarProps<TData>) {
   const filterableColumns = table.getAllColumns().filter((c) => c.columnDef.meta?.variant)
-  const showInline = useMediaQuery(INLINE_FILTERS_QUERY)
   const isMobile = useIsMobile()
 
   const activeFilterCount = table.getState().columnFilters.length
@@ -108,14 +101,8 @@ export function DataTableToolbar<TData extends RowData>({
 
       {children}
 
-      {/* Ветки взаимоисключающие, а не спрятанные через `hidden`: контролы держат
-          своё состояние (черновик диапазона, его отложенная запись), и два живых
-          экземпляра одного фильтра были бы двумя источниками правды. */}
-      {showInline ? (
-        filters
-      ) : (
-        // Снизу на телефоне, сбоку на ноутбуке — как у фильтров календаря.
-        <Drawer swipeDirection={isMobile ? 'down' : 'right'} showSwipeHandle={isMobile}>
+      {/* Снизу на телефоне, сбоку на остальных — как у фильтров календаря. */}
+      <Drawer swipeDirection={isMobile ? 'down' : 'right'} showSwipeHandle={isMobile}>
           <DrawerTrigger render={<Button variant="outline" className="shrink-0" />}>
             <ListFilter />
             Фильтры
@@ -143,17 +130,7 @@ export function DataTableToolbar<TData extends RowData>({
               <DrawerClose render={<Button />}>Готово</DrawerClose>
             </DrawerFooter>
           </DrawerContent>
-        </Drawer>
-      )}
-
-      {/* В свёрнутом виде сброс живёт внутри панели — снаружи он дублировал бы её
-          кнопку и занимал место, которое мы как раз освобождаем. */}
-      {showInline && isFiltered && onReset && (
-        <Button variant="ghost" className="text-muted-foreground" onClick={onReset}>
-          <X />
-          Сбросить
-        </Button>
-      )}
+      </Drawer>
     </div>
   )
 }
