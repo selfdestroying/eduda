@@ -1,12 +1,7 @@
 'use client'
 
 import { Button } from '@repo/ui/components/button'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '@repo/ui/components/dropdown-menu'
+import { Checkbox } from '@repo/ui/components/checkbox'
 import { Input } from '@repo/ui/components/input'
 import { NumberInput } from '@repo/ui/components/number-input'
 import { Separator } from '@repo/ui/components/separator'
@@ -136,7 +131,7 @@ export function DataTableToolbar<TData extends RowData>({
             <DrawerHeader>
               <DrawerTitle>Фильтры</DrawerTitle>
             </DrawerHeader>
-            <div className="thin-scrollbar flex min-h-0 flex-col items-start gap-3 overflow-y-auto px-4 pb-2">
+            <div className="thin-scrollbar flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-2">
               {filters}
             </div>
             <DrawerFooter>
@@ -159,10 +154,13 @@ function columnTitle<TData extends RowData>(column: Column<TData, unknown>) {
   return column.columnDef.meta?.title ?? column.id
 }
 
+/** Подпись секции — та же, что в панели фильтров календаря. */
+const SECTION_TITLE = 'text-muted-foreground mb-2 px-2 text-[11px] font-semibold tracking-wide uppercase'
+
 /**
- * Мультиселект — тем же меню с галочками, что и «Колонки», и с тем же счётчиком
- * «выбрано/всего» на кнопке. Раньше выбранное перечислялось бейджами с названиями,
- * и строка фильтров расползалась тем сильнее, чем больше выбрано.
+ * Мультиселект — секцией чекбоксов прямо в панели, без своей выпадашки: панель
+ * и так открыта, а меню внутри неё было бы вторым слоем поверх первого ради
+ * того же списка галочек.
  */
 function DataTableFacetedFilter<TData extends RowData>({
   column,
@@ -178,58 +176,43 @@ function DataTableFacetedFilter<TData extends RowData>({
     const next = new Set(selected)
     if (next.has(value)) next.delete(value)
     else next.add(value)
-    // Пустой фильтр снимаем целиком, чтобы он исчез и из URL, и из счётчика.
+    // Пустой фильтр снимаем целиком, чтобы он исчез и из URL, и с кнопки.
     column.setFilterValue(next.size > 0 ? [...next] : undefined)
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" className="shrink-0" />}>
-        <ListFilter />
-        {title}
-        {/* Только когда что-то выбрано: у фильтра «ничего не выбрано» — обычное
-            состояние, и счётчик в нём ничего не сообщает. Разделитель — как в
-            группе диапазона: подпись отделена от значения. */}
-        {selected.size > 0 && (
-          <>
-            <Separator orientation="vertical" className="mx-0.5" />
-            <span className="text-muted-foreground tabular-nums">
-              {selected.size}/{options.length}
-            </span>
-          </>
-        )}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-48">
-        {options.length === 0 ? (
-          <p className="text-muted-foreground p-2 text-xs">Нет вариантов.</p>
-        ) : (
-          options.map((option) => (
-            <DropdownMenuCheckboxItem
+    <div className="flex w-full flex-col">
+      <div className={SECTION_TITLE}>{title}</div>
+      {options.length === 0 ? (
+        <p className="text-muted-foreground/70 px-2 text-[12.5px]">Нет вариантов.</p>
+      ) : (
+        options.map((option) => {
+          const active = selected.has(option.value)
+          // Checkbox внутри <label>: клик по всей строке переключает галочку.
+          return (
+            <label
               key={option.value}
-              checked={selected.has(option.value)}
-              onCheckedChange={() => toggle(option.value)}
-              closeOnClick={false}
+              className={cn(
+                'hover:bg-muted flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors',
+                active ? 'text-foreground' : 'text-muted-foreground/70',
+              )}
             >
-              {option.label}
-            </DropdownMenuCheckboxItem>
-          ))
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+              <Checkbox checked={active} onCheckedChange={() => toggle(option.value)} />
+              <span className="flex-1 truncate">{option.label}</span>
+            </label>
+          )
+        })
+      )}
+    </div>
   )
 }
 
 /** Задержка перед записью введённого диапазона в фильтр. */
 const RANGE_COMMIT_DELAY_MS = 400
 
-/** Поле внутри рамки группы: без своей рамки, фона, отступов и кольца фокуса. */
-const RANGE_INPUT =
-  'h-5 w-14 rounded-none border-0 bg-transparent p-0 text-xs focus-visible:border-0 focus-visible:ring-0 dark:bg-transparent md:text-xs'
-
 /**
- * Числовой диапазон — двумя полями прямо в строке фильтров, без выпадашки.
- * Значение фильтра `[min, max]`, любая граница может быть `undefined`: «от 1000»
- * и «до 5000» одинаково законны.
+ * Числовой диапазон — двумя полями. Значение фильтра `[min, max]`, любая граница
+ * может быть `undefined`: «от 1000» и «до 5000» одинаково законны.
  */
 function DataTableRangeFilter<TData extends RowData>({
   column,
@@ -273,42 +256,25 @@ function DataTableRangeFilter<TData extends RowData>({
   }, [draftMin, draftMax, min, max])
 
   return (
-    // Рамка и высота — как у кнопок-фильтров рядом, чтобы два поля не выглядели
-    // выпавшими из строки. Обводка при фокусе переезжает на всю группу
-    // (`focus-within`), а у полей внутри своя снимается — иначе рамка в рамке.
-    <div className="border-border dark:bg-input/30 focus-within:border-ring focus-within:ring-ring/30 flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-xs transition-colors focus-within:ring-[2px]">
-      {/* Та же иконка, что у кнопок-фильтров: без неё группа не читается как
-          фильтр, хотя стоит с ними в одном ряду. Размер задан явно — правило
-          `[&_svg]:size-3.5` живёт в `Button`, а здесь его нет. */}
-      <ListFilter className="size-3.5 shrink-0" />
-      <span className="whitespace-nowrap">{title}</span>
-      {/* Отделяет неизменяемую подпись от полей ввода: без него «Сумма» читается
-          как часть первого поля. */}
-      <Separator orientation="vertical" className="mx-0.5" />
-      <NumberInput
-        aria-label={`${title}: от`}
-        placeholder="от"
-        className={RANGE_INPUT}
-        value={draftMin}
-        onChange={setDraftMin}
-      />
-      <Separator orientation="vertical" className="mx-0.5" />
-      <NumberInput
-        aria-label={`${title}: до`}
-        placeholder="до"
-        className={RANGE_INPUT}
-        value={draftMax}
-        onChange={setDraftMax}
-      />
-
-      {/* Единицы после полей, а не в подписи: читается как «от 1000 до 5000 ₽» —
-          так же, как это произносят. */}
-      {unit && (
-        <>
-          <Separator orientation="vertical" className="mx-0.5" />
-          <span>{unit}</span>
-        </>
-      )}
+    <div className="flex w-full flex-col">
+      {/* Единицы в подписи, а не отдельным элементом у полей: в колонке секций
+          подпись читается первой, и «Сумма, ₽» отвечает на вопрос сразу. */}
+      <div className={SECTION_TITLE}>{unit ? `${title}, ${unit}` : title}</div>
+      <div className="flex items-center gap-2 px-2">
+        <NumberInput
+          aria-label={`${title}: от`}
+          placeholder="от"
+          value={draftMin}
+          onChange={setDraftMin}
+        />
+        <span className="text-muted-foreground/70">—</span>
+        <NumberInput
+          aria-label={`${title}: до`}
+          placeholder="до"
+          value={draftMax}
+          onChange={setDraftMax}
+        />
+      </div>
     </div>
   )
 }
