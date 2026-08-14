@@ -29,8 +29,13 @@ const QUERY_STATES_OPTIONS = { shallow: true, history: 'replace' as const }
 const SEARCH_PARSERS = {
   q: parseAsString.withDefault('').withOptions({ shallow: true, throttleMs: 300 }),
 }
+/**
+ * `page` в адресе считается с единицы, а не с нуля: ссылками делятся и их читают
+ * глазами, а подпись под таблицей говорит «Страница 2». Внутрь react-table идёт
+ * его 0-based `pageIndex` — перевод живёт здесь, в одном месте.
+ */
 const PAGINATION_PARSERS = {
-  page: parseAsInteger.withDefault(0),
+  page: parseAsInteger.withDefault(1),
   pageSize: parseAsInteger.withDefault(DEFAULT_PAGE_SIZE),
 }
 const SORTING_PARSERS = {
@@ -104,7 +109,12 @@ export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {
   }, [config, filterValues])
 
   const pagination: PaginationState = useMemo(
-    () => ({ pageIndex: paginationValues.page, pageSize: paginationValues.pageSize }),
+    // `Math.max` не украшательство: в адресе может оказаться `page=0` или
+    // отрицательное, а `pageIndex: -1` дал бы `skip: -10` и ошибку запроса.
+    () => ({
+      pageIndex: Math.max(0, paginationValues.page - 1),
+      pageSize: paginationValues.pageSize,
+    }),
     [paginationValues.page, paginationValues.pageSize],
   )
 
@@ -145,7 +155,9 @@ export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {
   ) => {
     const next = typeof updater === 'function' ? updater(pagination) : updater
     setPaginationValues({
-      page: next.pageIndex === 0 ? null : next.pageIndex,
+      // Первая страница — дефолт, а дефолт пишем как `null`, чтобы параметра в
+      // адресе не было вовсе.
+      page: next.pageIndex === 0 ? null : next.pageIndex + 1,
       pageSize: next.pageSize === DEFAULT_PAGE_SIZE ? null : next.pageSize,
     })
   }
