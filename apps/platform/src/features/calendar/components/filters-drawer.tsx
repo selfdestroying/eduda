@@ -25,14 +25,16 @@ export function FiltersDrawer({ ctrl }: { ctrl: CalendarController }) {
   const isMobile = useIsMobile()
 
   return (
-    <Drawer direction={isMobile ? 'bottom' : 'right'}>
-      <DrawerTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative flex-none" aria-label="Фильтры">
-          <Filter />
-          {ctrl.hasActiveFilters && (
-            <span className="bg-primary border-card absolute -top-1 -right-1 size-2.5 rounded-full border-2" />
-          )}
-        </Button>
+    <Drawer swipeDirection={isMobile ? 'down' : 'right'} showSwipeHandle={isMobile}>
+      <DrawerTrigger
+        render={
+          <Button variant="ghost" size="icon" className="relative flex-none" aria-label="Фильтры" />
+        }
+      >
+        <Filter />
+        {ctrl.hasActiveFilters && (
+          <span className="bg-primary border-card absolute -top-1 -right-1 size-2.5 rounded-full border-2" />
+        )}
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>
@@ -44,9 +46,7 @@ export function FiltersDrawer({ ctrl }: { ctrl: CalendarController }) {
           className="thin-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-2"
         />
         <DrawerFooter>
-          <DrawerClose asChild>
-            <Button>Готово</Button>
-          </DrawerClose>
+          <DrawerClose render={<Button />}>Готово</DrawerClose>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
