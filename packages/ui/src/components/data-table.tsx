@@ -260,16 +260,18 @@ function DataTableViewOptions<TData>({ table }: { table: TanstackTable<TData> })
   const columns = table.getAllColumns().filter((c) => c.getCanHide() && c.columnDef.meta?.title)
   if (columns.length === 0) return null
 
-  const hiddenCount = columns.filter((c) => !c.getIsVisible()).length
+  const visibleCount = columns.filter((c) => c.getIsVisible()).length
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="outline" className="shrink-0" />}>
         <Eye />
         Колонки
-        {hiddenCount > 0 && (
+        {/* Только когда что-то скрыто: «6/6» рядом с полной таблицей ничего не
+            сообщает. */}
+        {visibleCount < columns.length && (
           <span className="text-muted-foreground tabular-nums">
-            {hiddenCount}/{columns.length}
+            {visibleCount}/{columns.length}
           </span>
         )}
       </DropdownMenuTrigger>
