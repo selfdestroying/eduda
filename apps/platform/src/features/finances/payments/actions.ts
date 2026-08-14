@@ -33,13 +33,6 @@ import { PAYMENT_LIST_SELECT, type PaymentListResult, type StudentForPayment } f
 const PAYMENT_TX_OPTIONS = { timeout: 30_000 }
 
 /**
- * ВРЕМЕННО: задержка, чтобы глазами увидеть состояние загрузки списка. Работает
- * только в разработке — забыть её и замедлить прод нельзя. Удалить, когда
- * насмотритесь: `git revert` того коммита, где она появилась.
- */
-const DEBUG_LIST_DELAY_MS = 1500
-
-/**
  * Разрешённые колонки сортировки: id колонки таблицы → как её сортировать. Каждая
  * запись — список полей, потому что одной колонке может соответствовать несколько:
  * в ячейке «Ученик» стоит «Имя Фамилия», и сортировка по одному `firstName`
@@ -77,11 +70,6 @@ export const getPayments = permissionAction({ payment: ['read'] })
   .inputSchema(PaymentListSchema)
   .action(async ({ ctx, parsedInput }): Promise<PaymentListResult> => {
     const { page, pageSize, sort, from, to, methodIds, managerIds, statuses } = parsedInput
-
-    // ВРЕМЕННО, см. `DEBUG_LIST_DELAY_MS`.
-    if (process.env.NODE_ENV !== 'production') {
-      await new Promise((resolve) => setTimeout(resolve, DEBUG_LIST_DELAY_MS))
-    }
 
     const where: Prisma.PaymentWhereInput = {
       organizationId: ctx.session.organizationId!,
