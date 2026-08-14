@@ -10,11 +10,10 @@ import {
 import { Input } from '@repo/ui/components/input'
 import { NumberInput } from '@repo/ui/components/number-input'
 import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
-import { Slider } from '@repo/ui/components/slider'
 import { cn } from '@repo/ui/lib/utils'
 import type { Column, RowData, Table as TanstackTable } from '@tanstack/react-table'
 import { ListFilter, Search, X } from 'lucide-react'
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode } from 'react'
 
 /**
  * Тулбар таблицы: поиск, фильтры и сброс. Набор фильтров не передаётся пропсами —
@@ -171,43 +170,12 @@ function DataTableRangeFilter<TData extends RowData>({
 }) {
   const title = columnTitle(column)
   const unit = column.columnDef.meta?.unit
-  const bounds = column.columnDef.meta?.range
-  const step = column.columnDef.meta?.step ?? 1
   const [min, max] = (column.getFilterValue() as [number?, number?] | undefined) ?? []
 
   const set = (next: [number | undefined, number | undefined]) =>
     // Обе границы пусты — фильтра нет: иначе он висел бы в URL и в счётчике,
     // ничего не отбирая.
     column.setFilterValue(next[0] === undefined && next[1] === undefined ? undefined : next)
-
-  const [low, high] = bounds ?? []
-
-  // Значение вне объявленной шкалы ползунок показать не может: ручка упрётся в
-  // край, а первое же касание пришлёт `onValueCommitted` из своего диапазона и
-  // молча затрёт введённое. Поэтому при таком значении показываем только поля.
-  const outOfBounds =
-    low === undefined ||
-    high === undefined ||
-    (min !== undefined && (min < low || min > high)) ||
-    (max !== undefined && (max < low || max > high))
-
-  // Ползунок ведёт свою копию значения: `onValueChange` сыплется на каждый пиксель
-  // перетаскивания, а каждая запись фильтра — это адрес и запрос к серверу. В
-  // фильтр уходит только `onValueCommitted`, то есть отпущенная мышь.
-  const [draft, setDraft] = useState<number[]>([min ?? low ?? 0, max ?? high ?? 0])
-  useEffect(() => {
-    if (low !== undefined && high !== undefined) setDraft([min ?? low, max ?? high])
-    // Зависимости — числа, а не массив `bounds`: у каллера, объявляющего колонки
-    // инлайном, он новый на каждый рендер, и эффект гонял бы `setDraft` по кругу.
-  }, [min, max, low, high])
-
-  const commit = (next: number | readonly number[]) => {
-    if (!Array.isArray(next)) return
-    const [from, to] = next as [number, number]
-    // Ручка у самого края значит «без ограничения с этой стороны»: иначе фильтр
-    // висел бы всегда, отбирая всё подряд.
-    set([from === low ? undefined : from, to === high ? undefined : to])
-  }
 
   const label =
     min !== undefined && max !== undefined
@@ -233,20 +201,7 @@ function DataTableRangeFilter<TData extends RowData>({
         )}
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64">
-        <div className="flex flex-col gap-3">
-          {!outOfBounds && (
-            <Slider
-              min={low}
-              max={high}
-              step={step}
-              value={draft}
-              onValueChange={(v) => setDraft(Array.isArray(v) ? v : [v])}
-              onValueCommitted={commit}
-              aria-label={title}
-            />
-          )}
-          {/* Поля остаются и при ползунке: шкала у него объявленная, а значение
-              за её пределами всё равно надо уметь ввести. */}
+        <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <NumberInput
               aria-label={`${title}: от`}
