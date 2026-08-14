@@ -36,8 +36,12 @@ export const usePaymentListQuery = (params: PaymentListSchemaType) => {
   return useQuery({
     queryKey: paymentKeys.list(params),
     queryFn: async () => {
-      const { data, serverError } = await getPayments(params)
+      const { data, serverError, validationErrors } = await getPayments(params)
       if (serverError) throw serverError
+      // Ошибку валидации `next-safe-action` кладёт отдельно от серверной, и без
+      // этой проверки она превращалась бы в `data === undefined`, то есть в пустую
+      // таблицу с надписью «Нет оплат» — как будто у школы и правда нет оплат.
+      if (validationErrors) throw new Error('Некорректные параметры выборки оплат')
       return data ?? EMPTY_PAGE
     },
     // Пока грузится следующая страница, показываем предыдущую: иначе на каждый

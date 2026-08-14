@@ -11,9 +11,10 @@ import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { formatCurrency, getFullName } from '@/src/lib/utils'
 import { type ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { debounce } from 'es-toolkit'
 import Link from 'next/link'
 import { parseAsString, useQueryStates } from 'nuqs'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
 import {
   PAYMENT_STATUSES,
@@ -31,6 +32,16 @@ import PaymentActions from './payment-actions'
  * значения можно сравнивать взглядом. Текстовые колонки остаются по левому краю.
  */
 const NUMERIC = 'text-right tabular-nums'
+
+/** Пауза после последнего нажатия клавиши, через которую поиск уходит на сервер. */
+const SEARCH_DELAY_MS = 300
+
+/**
+ * Столько символов принимает схема запроса. Обрезаем здесь, а не полагаемся на её
+ * отказ: вставленный в поиск абзац иначе не отбирал бы ничего, а ронял бы выборку
+ * целиком.
+ */
+const SEARCH_MAX_LENGTH = 100
 
 /**
  * Ширины — в процентах, у видимых по умолчанию в сумме 100. Проценты, а не пиксели,
@@ -240,8 +251,23 @@ function filterIds(
 }
 
 export default function PaymentsTable() {
-  const { columnFilters, setColumnFilters, pagination, setPagination, sorting, setSorting } =
-    useTableSearchParams({ filters: TABLE_FILTERS })
+  const {
+    columnFilters,
+    setColumnFilters,
+    globalFilter,
+    setGlobalFilter,
+    pagination,
+    setPagination,
+    sorting,
+    setSorting,
+  } = useTableSearchParams({ filters: TABLE_FILTERS })
+
+  // Поле реагирует сразу, запрос — с задержкой. nuqs придерживает только запись в
+  // адрес, а значение отдаёт тут же, так что без этого каждое нажатие клавиши
+  // уходило бы отдельным запросом к серверу.
+  const [searchTerm, setSearchTerm] = useState(globalFilter)
+  const commitSearch = useMemo(() => debounce(setSearchTerm, SEARCH_DELAY_MS), [])
+  useEffect(() => commitSearch(globalFilter), [globalFilter, commitSearch])
 
   const [{ from, to }, setPeriodValues] = useQueryStates(PERIOD_PARSERS, {
     shallow: true,
@@ -260,6 +286,7 @@ export default function PaymentsTable() {
       page: pagination.pageIndex,
       pageSize: pagination.pageSize,
       sort: sorting[0] ?? null,
+      search: searchTerm.slice(0, SEARCH_MAX_LENGTH) || undefined,
       from: from ?? undefined,
       to: to ?? undefined,
       methodIds: filterIds(columnFilters, 'paymentMethod'),
@@ -271,7 +298,7 @@ export default function PaymentsTable() {
       priceMin: priceRange[0] ?? null,
       priceMax: priceRange[1] ?? null,
     }),
-    [pagination, sorting, from, to, columnFilters, priceRange],
+    [pagination, sorting, searchTerm, from, to, columnFilters, priceRange],
   )
 
   const { data, isLoading, isFetching, isError } = usePaymentListQuery(params)
@@ -331,6 +358,7 @@ export default function PaymentsTable() {
 
   const resetFilters = () => {
     setPeriodValues({ from: null, to: null })
+    setGlobalFilter('')
     setColumnFilters([])
     resetPage()
   }
@@ -361,6 +389,9 @@ export default function PaymentsTable() {
       toolbar={
         <DataTableToolbar
           table={table}
+          search={globalFilter}
+          onSearchChange={setGlobalFilter}
+          searchPlaceholder="Ученик, менеджер, метод..."
           onReset={resetFilters}
           hasExtraFilters={Boolean(from) || Boolean(to)}
         />

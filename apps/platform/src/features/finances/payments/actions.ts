@@ -65,14 +65,36 @@ function resolveOrderBy(sort: { id: string; desc: boolean } | null | undefined):
   return [...build(sort.desc ? 'desc' : 'asc'), { id: 'desc' }]
 }
 
+/**
+ * Поиск по тому, что видно в строке: ученик, менеджер, метод.
+ *
+ * Слова требуются все, но каждое может найтись в любом поле — иначе «Иван Петров»
+ * не нашёл бы никого: имя и фамилия лежат в разных колонках, и `contains` по
+ * каждой в отдельности не совпадёт с целой фразой. Заодно работает «Петров Иван».
+ */
+function searchWhere(search: string | undefined): Prisma.PaymentWhereInput['AND'] {
+  const terms = search?.split(/\s+/).filter(Boolean) ?? []
+  if (terms.length === 0) return undefined
+
+  return terms.map((term) => ({
+    OR: [
+      { student: { firstName: { contains: term, mode: 'insensitive' as const } } },
+      { student: { lastName: { contains: term, mode: 'insensitive' as const } } },
+      { manager: { name: { contains: term, mode: 'insensitive' as const } } },
+      { paymentMethod: { name: { contains: term, mode: 'insensitive' as const } } },
+    ],
+  }))
+}
+
 export const getPayments = permissionAction({ payment: ['read'] })
   .metadata({ actionName: 'getPayments' })
   .inputSchema(PaymentListSchema)
   .action(async ({ ctx, parsedInput }): Promise<PaymentListResult> => {
-    const { page, pageSize, sort, from, to, methodIds, managerIds, statuses } = parsedInput
+    const { page, pageSize, sort, search, from, to, methodIds, managerIds, statuses } = parsedInput
 
     const where: Prisma.PaymentWhereInput = {
       organizationId: ctx.session.organizationId!,
+      AND: searchWhere(search),
       // Период — обычный необязательный фильтр, без подстановки текущего месяца:
       // страницу режет `skip`/`take`, и вся история стоит ровно столько же, сколько
       // один месяц. Границы включительные и сравниваются как строки — `date` это
