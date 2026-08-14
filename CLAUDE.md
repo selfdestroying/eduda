@@ -131,7 +131,8 @@ Everything reusable across apps lives in `packages/ui/` — shadcn base-mira pri
 - **Anything touching `src/features/*`, the feature registry or platform routes stays in `apps/platform/src/components/`** (`sidebar/`, `landing/`, `assistant-ui/`, `feature-gate.tsx`, `course-location-teacher-filters.tsx`). Don't move app-coupled UI into the package.
 - **CSS.** `packages/ui/src/styles/globals.css` owns tailwind/tw-animate/shadcn imports, `@theme inline`, the `:root`/`.dark` palette, the base layer and custom utilities (`thin-scrollbar`, `animate-landing-*`, `animate-tab-enter` + `--ease-tab`/`--duration-tab`). It carries its own `@source '../'` so consumers pick up the package's classes — Tailwind's auto-detection is rooted at the app's cwd and skips `node_modules`. Each app still needs its **own** entry file (`src/styles/globals.css`) for exactly that reason: `apps/platform`'s is a bare re-import, `apps/docs`' adds the fumadocs presets on top.
 - **`shadcn add` runs from the app** (`apps/platform`) — the CLI reads its `components.json`, sees `"ui": "@repo/ui/components"` and writes into the package. `style`/`baseColor`/`iconLibrary` must stay identical in both `components.json` files.
-- Deps the package owns (`@base-ui/react`, `cmdk`, `vaul`, `clsx`, `tailwind-merge`, `tw-animate-css`, …) were removed from `apps/platform/package.json` — pnpm doesn't forgive phantom deps, so add back explicitly if the app starts importing one directly.
+- Deps the package owns (`@base-ui/react`, `cmdk`, `clsx`, `tailwind-merge`, `tw-animate-css`, …) were removed from `apps/platform/package.json` — pnpm doesn't forgive phantom deps, so add back explicitly if the app starts importing one directly. `shadcn add` re-adds `@base-ui/react` to the app's `package.json`; revert that hunk.
+- **`Drawer` is Base UI**, not vaul (`@base-ui/react/drawer` — `Drawer.Root` is a `Dialog` underneath). So popovers, dropdowns and selects inside a drawer portal to `document.body` like anywhere else: no `container` prop needed. `swipeDirection` (`down`/`up`/`left`/`right`), `showSwipeHandle` for the grabber, `render` instead of `asChild` on trigger/close.
 
 ## Documentation (`apps/docs`)
 
@@ -144,10 +145,6 @@ Public docs live in their **own Next app** (fumadocs, port 3001) — no auth, no
 - **Same design as the dashboard** via `@repo/ui/globals.css` + `fumadocs-ui/css/shadcn.css`, which makes fumadocs read the project's shadcn tokens. Don't restyle fumadocs by hand.
 - Text endpoints: `/llms.txt`, `/llms-full.txt`, and `/llms-user.txt` (the `user/` section only). The last one is **consumed by the platform**: `apps/platform/src/features/assistant/system-prompt.ts` fetches it once, caches it in process memory and falls back to a built-in blurb when docs are unreachable. Adding user docs therefore improves the AI assistant for free.
 - The dashboard links to docs via `docsUrl` (`apps/platform/src/lib/utils.ts`) — `NEXT_PUBLIC_DOCS_URL`, defaulting to `docs.{rootDomain}`. Set it to `http://localhost:3001` in local dev.
-
-## Popovers/dropdowns inside drawers
-
-`PopoverContent` and `DropdownMenuContent` accept a `container` prop (forwarded to the Base UI `Portal`). Inside a vaul `Drawer`, portal them into the drawer content (pass its ref) — otherwise vaul's overlay swallows outside clicks and the popover can't be interacted with. See the lesson detail drawer + `AttendanceStatusSwitcher` / `AttendanceCommentPopover`.
 
 ## Деньги: пакеты и журнал движений
 

@@ -26,8 +26,6 @@ export type AttendanceForStatusSwitcher = Pick<
 interface AttendanceStatusSwitcherProps {
   attendance: AttendanceForStatusSwitcher
   disabled?: boolean
-  /** Контейнер для портала popover'а — нужен внутри модальных drawer'ов (vaul блокирует клики вне контента). */
-  popoverContainer?: HTMLElement | null
 }
 
 const switcherVariant = cva(['cursor-pointer'], {
@@ -77,11 +75,7 @@ const switcherVariant = cva(['cursor-pointer'], {
   ],
 })
 
-export function AttendanceStatusSwitcher({
-  attendance,
-  disabled,
-  popoverContainer,
-}: AttendanceStatusSwitcherProps) {
+export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceStatusSwitcherProps) {
   const { data: hasPermission } = useOrganizationPermissionQuery({
     studentLesson: ['selectWarned'],
   })
@@ -149,7 +143,7 @@ export function AttendanceStatusSwitcher({
               </TooltipContent>
             </Tooltip>
 
-            <PopoverContent className="w-fit" container={popoverContainer}>
+            <PopoverContent className="w-fit">
               <div className="flex items-center justify-center gap-2">
                 <Button
                   variant={'destructive'}
