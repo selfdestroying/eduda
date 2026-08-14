@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@repo/ui/components/dropdown-menu'
 import { Label } from '@repo/ui/components/label'
+import { Separator } from '@repo/ui/components/separator'
 import {
   Select,
   SelectContent,
@@ -270,9 +271,12 @@ function DataTableViewOptions<TData>({ table }: { table: TanstackTable<TData> })
         {/* Только когда что-то скрыто: «6/6» рядом с полной таблицей ничего не
             сообщает. */}
         {visibleCount < columns.length && (
-          <span className="text-muted-foreground tabular-nums">
-            {visibleCount}/{columns.length}
-          </span>
+          <>
+            <Separator orientation="vertical" className="mx-0.5" />
+            <span className="text-muted-foreground tabular-nums">
+              {visibleCount}/{columns.length}
+            </span>
+          </>
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
