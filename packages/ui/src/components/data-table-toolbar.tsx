@@ -9,6 +9,7 @@ import {
 } from '@repo/ui/components/dropdown-menu'
 import { Input } from '@repo/ui/components/input'
 import { NumberInput } from '@repo/ui/components/number-input'
+import { Separator } from '@repo/ui/components/separator'
 import { cn } from '@repo/ui/lib/utils'
 import type { Column, RowData, Table as TanstackTable } from '@tanstack/react-table'
 import { ListFilter, Search, X } from 'lucide-react'
@@ -217,6 +218,9 @@ function DataTableRangeFilter<TData extends RowData>({
     // (`focus-within`), а у полей внутри своя снимается — иначе рамка в рамке.
     <div className="border-border dark:bg-input/30 focus-within:border-ring focus-within:ring-ring/30 flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-xs transition-colors focus-within:ring-[2px]">
       <span className="text-muted-foreground whitespace-nowrap">{title}</span>
+      {/* Отделяет неизменяемую подпись от полей ввода: без него «Сумма» читается
+          как часть первого поля. */}
+      <Separator orientation="vertical" className="h-4" />
       <NumberInput
         aria-label={`${title}: от`}
         placeholder="от"
