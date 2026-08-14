@@ -161,6 +161,10 @@ function DataTableFacetedFilter<TData extends RowData>({
 /** Задержка перед записью введённого диапазона в фильтр. */
 const RANGE_COMMIT_DELAY_MS = 400
 
+/** Поле внутри рамки группы: без своей рамки, фона, отступов и кольца фокуса. */
+const RANGE_INPUT =
+  'h-5 w-14 rounded-none border-0 bg-transparent p-0 text-xs focus-visible:border-0 focus-visible:ring-0 dark:bg-transparent md:text-xs'
+
 /**
  * Числовой диапазон — двумя полями прямо в строке фильтров, без выпадашки.
  * Значение фильтра `[min, max]`, любая граница может быть `undefined`: «от 1000»
@@ -208,26 +212,29 @@ function DataTableRangeFilter<TData extends RowData>({
   }, [draftMin, draftMax, min, max])
 
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-muted-foreground text-xs whitespace-nowrap">{title}</span>
+    // Рамка и высота — как у кнопок-фильтров рядом, чтобы два поля не выглядели
+    // выпавшими из строки. Обводка при фокусе переезжает на всю группу
+    // (`focus-within`), а у полей внутри своя снимается — иначе рамка в рамке.
+    <div className="border-border dark:bg-input/30 focus-within:border-ring focus-within:ring-ring/30 flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-xs transition-colors focus-within:ring-[2px]">
+      <span className="text-muted-foreground whitespace-nowrap">{title}</span>
       <NumberInput
         aria-label={`${title}: от`}
         placeholder="от"
-        className="w-20"
+        className={RANGE_INPUT}
         value={draftMin}
         onChange={setDraftMin}
       />
-      <span className="text-muted-foreground text-xs">–</span>
+      <span className="text-muted-foreground">–</span>
       <NumberInput
         aria-label={`${title}: до`}
         placeholder="до"
-        className="w-20"
+        className={RANGE_INPUT}
         value={draftMax}
         onChange={setDraftMax}
       />
       {/* Единицы после полей, а не в подписи: читается как «от 1000 до 5000 ₽» —
           так же, как это произносят. */}
-      {unit && <span className="text-muted-foreground text-xs">{unit}</span>}
+      {unit && <span className="text-muted-foreground">{unit}</span>}
     </div>
   )
 }
