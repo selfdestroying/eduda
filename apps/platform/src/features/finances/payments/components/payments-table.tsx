@@ -101,6 +101,7 @@ const TABLE_FILTERS = {
   manager: 'string',
   status: 'string',
   price: 'range',
+  lessons: 'range',
 } as const
 
 type FilterOption = { label: string; value: string }
@@ -153,7 +154,14 @@ function buildColumns(
       ),
       accessorKey: 'lessonCount',
       size: WIDTHS.lessons,
-      meta: { title: 'Занятий', flexible: true, className: `${NUMERIC} ${W.lessons}` },
+      meta: {
+        title: 'Занятий',
+        flexible: true,
+        className: `${NUMERIC} ${W.lessons}`,
+        variant: 'range',
+        // Без `unit`: подпись группы и так «Занятий», приписывать «уроков» после
+        // полей значило бы сказать то же самое дважды.
+      },
     },
     {
       id: 'status',
@@ -236,6 +244,15 @@ function filterValues(
   return Array.isArray(value) ? (value as string[]) : []
 }
 
+/** Границы диапазонного фильтра: `[min, max]`, любая может отсутствовать. */
+function rangeValues(
+  columnFilters: ReturnType<typeof useTableSearchParams>['columnFilters'],
+  id: string,
+): [number?, number?] {
+  const value = columnFilters.find((f) => f.id === id)?.value
+  return Array.isArray(value) ? (value as [number?, number?]) : []
+}
+
 /**
  * Числовые id из фильтра. Мусор выбрасываем молча: значения приходят из адресной
  * строки, а схема экшена ждёт положительные целые — `Number('foo')` дал бы `NaN`,
@@ -274,10 +291,8 @@ export default function PaymentsTable() {
     history: 'replace',
   })
 
-  const priceRange = useMemo(() => {
-    const value = columnFilters.find((f) => f.id === 'price')?.value
-    return Array.isArray(value) ? (value as [number?, number?]) : []
-  }, [columnFilters])
+  const priceRange = useMemo(() => rangeValues(columnFilters, 'price'), [columnFilters])
+  const lessonsRange = useMemo(() => rangeValues(columnFilters, 'lessons'), [columnFilters])
 
   // Всё состояние таблицы уезжает в запрос: сервер сам отбирает, сортирует и режет
   // на страницы. Границы независимы — одна без другой значит открытый интервал.
@@ -297,8 +312,10 @@ export default function PaymentsTable() {
       ),
       priceMin: priceRange[0] ?? null,
       priceMax: priceRange[1] ?? null,
+      lessonsMin: lessonsRange[0] ?? null,
+      lessonsMax: lessonsRange[1] ?? null,
     }),
-    [pagination, sorting, searchTerm, from, to, columnFilters, priceRange],
+    [pagination, sorting, searchTerm, from, to, columnFilters, priceRange, lessonsRange],
   )
 
   const { data, isLoading, isFetching, isError } = usePaymentListQuery(params)

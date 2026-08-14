@@ -32,6 +32,8 @@ export const PaymentListSchema = z.object({
   statuses: z.array(z.enum(['ACTIVE', 'CANCELLED'])).default([]),
   priceMin: z.number().int().nullish(),
   priceMax: z.number().int().nullish(),
+  lessonsMin: z.number().int().nullish(),
+  lessonsMax: z.number().int().nullish(),
 })
 
 export const CreatePaymentSchema = z.object({

@@ -66,6 +66,21 @@ function resolveOrderBy(sort: { id: string; desc: boolean } | null | undefined):
 }
 
 /**
+ * Условие по числовой колонке. Пустой диапазон не даёт ключа вовсе — `{}` в `where`
+ * Prisma поняла бы как «поле есть», а не как «ограничения нет».
+ */
+function rangeWhere(
+  field: 'price' | 'lessonCount',
+  min: number | null | undefined,
+  max: number | null | undefined,
+): Prisma.PaymentWhereInput {
+  if (min == null && max == null) return {}
+  return {
+    [field]: { ...(min != null && { gte: min }), ...(max != null && { lte: max }) },
+  }
+}
+
+/**
  * Поиск по тому, что видно в строке: ученик, менеджер, метод.
  *
  * Слова требуются все, но каждое может найтись в любом поле — иначе «Иван Петров»
@@ -106,12 +121,8 @@ export const getPayments = permissionAction({ payment: ['read'] })
       ...(methodIds.length > 0 && { paymentMethodId: { in: methodIds } }),
       ...(managerIds.length > 0 && { managerId: { in: managerIds } }),
       ...(statuses.length > 0 && { status: { in: statuses } }),
-      ...((parsedInput.priceMin != null || parsedInput.priceMax != null) && {
-        price: {
-          ...(parsedInput.priceMin != null && { gte: parsedInput.priceMin }),
-          ...(parsedInput.priceMax != null && { lte: parsedInput.priceMax }),
-        },
-      }),
+      ...rangeWhere('price', parsedInput.priceMin, parsedInput.priceMax),
+      ...rangeWhere('lessonCount', parsedInput.lessonsMin, parsedInput.lessonsMax),
     }
 
     // Одной транзакцией: строки и их количество обязаны быть посчитаны по одному и
