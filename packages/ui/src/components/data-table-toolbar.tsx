@@ -11,18 +11,26 @@ import { Input } from '@repo/ui/components/input'
 import { NumberInput } from '@repo/ui/components/number-input'
 import { Separator } from '@repo/ui/components/separator'
 import {
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@repo/ui/components/sheet'
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@repo/ui/components/drawer'
 import { useIsMobile, useMediaQuery } from '@repo/ui/hooks/use-mobile'
 import { cn } from '@repo/ui/lib/utils'
 import type { Column, RowData, Table as TanstackTable } from '@tanstack/react-table'
 import { ListFilter, Search, X } from 'lucide-react'
-import { type ReactNode, useEffect, useState } from 'react'
+import { createContext, type ReactNode, useContext, useEffect, useState } from 'react'
+
+/**
+ * Куда портировать выпадашки фильтров. Внутри vaul-drawer'а это его контент: он
+ * глушит клики вне себя, и меню, оставленное в `body`, откроется, но нажать в нём
+ * будет нельзя. Вне drawer'а — `null`, то есть обычный портал в `body`.
+ */
+const FilterContainerContext = createContext<HTMLElement | null>(null)
 
 /**
  * Тулбар таблицы: поиск, фильтры и сброс. Набор фильтров не передаётся пропсами —
@@ -75,6 +83,9 @@ export function DataTableToolbar<TData extends RowData>({
   const filterableColumns = table.getAllColumns().filter((c) => c.columnDef.meta?.variant)
   const showInline = useMediaQuery(INLINE_FILTERS_QUERY)
   const isMobile = useIsMobile()
+  // Состоянием, а не ref: контейнер нужен на рендере дочерних меню, а изменение
+  // ref'а рендер не вызывает — при первом открытии портал уехал бы мимо.
+  const [drawerContent, setDrawerContent] = useState<HTMLElement | null>(null)
 
   const activeFilterCount = table.getState().columnFilters.length
 
@@ -113,38 +124,43 @@ export function DataTableToolbar<TData extends RowData>({
       {showInline ? (
         filters
       ) : (
-        <Sheet>
-          <SheetTrigger render={<Button variant="outline" className="shrink-0" />}>
-            <ListFilter />
-            Фильтры
-            {activeFilterCount > 0 && (
-              <>
-                <Separator orientation="vertical" className="mx-0.5" />
-                <span className="text-muted-foreground tabular-nums">{activeFilterCount}</span>
-              </>
-            )}
-          </SheetTrigger>
-          {/* Снизу на телефоне, сбоку на ноутбуке — как в остальных формах проекта.
-              Высота нижней панели ограничена явно: по умолчанию она `h-auto`, и
-              список фильтров растил бы её за верх экрана, а `overflow-y-auto` внутри
-              безграничной коробки не прокручивает ничего. */}
-          <SheetContent side={isMobile ? 'bottom' : 'right'} className="max-h-[80vh]">
-            <SheetHeader>
-              <SheetTitle>Фильтры</SheetTitle>
-            </SheetHeader>
-            <div className="flex min-h-0 flex-col items-start gap-3 overflow-y-auto px-6">
-              {filters}
+        <Drawer direction={isMobile ? 'bottom' : 'right'}>
+          <DrawerTrigger asChild>
+            <Button variant="outline" className="shrink-0">
+              <ListFilter />
+              Фильтры
+              {activeFilterCount > 0 && (
+                <>
+                  <Separator orientation="vertical" className="mx-0.5" />
+                  <span className="text-muted-foreground tabular-nums">{activeFilterCount}</span>
+                </>
+              )}
+            </Button>
+          </DrawerTrigger>
+          {/* Снизу на телефоне, сбоку на ноутбуке — как у фильтров календаря. */}
+          <DrawerContent ref={setDrawerContent}>
+            <DrawerHeader>
+              <DrawerTitle>Фильтры</DrawerTitle>
+            </DrawerHeader>
+            <div className="thin-scrollbar flex min-h-0 flex-col items-start gap-3 overflow-y-auto px-4 pb-2">
+              {/* Выпадашки фильтров портируются внутрь контента drawer'а: vaul
+                  глушит клики вне него, и меню, оставленное в `body`, открылось бы,
+                  но не нажималось. */}
+              <FilterContainerContext value={drawerContent}>{filters}</FilterContainerContext>
             </div>
-            {onReset && (
-              <SheetFooter>
+            <DrawerFooter>
+              {onReset && (
                 <Button variant="outline" onClick={onReset} disabled={!isFiltered}>
                   <X />
                   Сбросить
                 </Button>
-              </SheetFooter>
-            )}
-          </SheetContent>
-        </Sheet>
+              )}
+              <DrawerClose asChild>
+                <Button>Готово</Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
       )}
 
       {/* В свёрнутом виде сброс живёт внутри панели — снаружи он дублировал бы её
@@ -176,6 +192,7 @@ function DataTableFacetedFilter<TData extends RowData>({
 }) {
   const options = column.columnDef.meta?.options ?? []
   const title = columnTitle(column)
+  const container = useContext(FilterContainerContext)
   // Значение колоночного фильтра — массив строк; из URL иначе и не приходит.
   const selected = new Set((column.getFilterValue() as string[] | undefined) ?? [])
 
@@ -204,7 +221,7 @@ function DataTableFacetedFilter<TData extends RowData>({
           </>
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-48">
+      <DropdownMenuContent align="start" className="w-48" container={container}>
         {options.length === 0 ? (
           <p className="text-muted-foreground p-2 text-xs">Нет вариантов.</p>
         ) : (
