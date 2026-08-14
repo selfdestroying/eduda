@@ -18,7 +18,6 @@ export const PAYMENT_LIST_SELECT = {
   date: true,
   status: true,
   cancelledAt: true,
-  isAdjustment: true,
   student: { select: { id: true, firstName: true, lastName: true } },
   paymentMethod: { select: { id: true, name: true } },
   manager: { select: { id: true, name: true } },

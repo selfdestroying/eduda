@@ -57,7 +57,6 @@ const PAYMENT_ORDER_BY: Record<string, (dir: Prisma.SortOrder) => PaymentOrderBy
   paymentMethod: (dir) => [{ paymentMethod: { name: dir } }],
   manager: (dir) => [{ manager: { name: dir } }],
   status: (dir) => [{ status: dir }],
-  isAdjustment: (dir) => [{ isAdjustment: dir }],
 }
 
 type PaymentOrderBy = Prisma.PaymentOrderByWithRelationInput
@@ -77,8 +76,7 @@ export const getPayments = permissionAction({ payment: ['read'] })
   .metadata({ actionName: 'getPayments' })
   .inputSchema(PaymentListSchema)
   .action(async ({ ctx, parsedInput }): Promise<PaymentListResult> => {
-    const { page, pageSize, sort, from, to, methodIds, managerIds, statuses, isAdjustment } =
-      parsedInput
+    const { page, pageSize, sort, from, to, methodIds, managerIds, statuses } = parsedInput
 
     // ВРЕМЕННО, см. `DEBUG_LIST_DELAY_MS`.
     if (process.env.NODE_ENV !== 'production') {
@@ -98,9 +96,6 @@ export const getPayments = permissionAction({ payment: ['read'] })
       ...(methodIds.length > 0 && { paymentMethodId: { in: methodIds } }),
       ...(managerIds.length > 0 && { managerId: { in: managerIds } }),
       ...(statuses.length > 0 && { status: { in: statuses } }),
-      // Выбраны оба значения — отбирать нечего, это то же самое, что не выбрать
-      // ничего. Поэтому фильтруем только по одному-единственному.
-      ...(isAdjustment.length === 1 && { isAdjustment: isAdjustment[0] }),
       ...((parsedInput.priceMin != null || parsedInput.priceMax != null) && {
         price: {
           ...(parsedInput.priceMin != null && { gte: parsedInput.priceMin }),

@@ -27,9 +27,6 @@ export const PaymentListSchema = z.object({
   methodIds: z.array(z.number().int().positive()).default([]),
   managerIds: z.array(z.number().int().positive()).default([]),
   statuses: z.array(z.enum(['ACTIVE', 'CANCELLED'])).default([]),
-  // Массив, а не булево: мультиселект позволяет выбрать оба значения, и тогда
-  // фильтра нет — как и когда не выбрано ничего.
-  isAdjustment: z.array(z.boolean()).default([]),
   priceMin: z.number().int().nullish(),
   priceMax: z.number().int().nullish(),
 })

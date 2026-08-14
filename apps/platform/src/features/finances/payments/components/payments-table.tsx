@@ -16,7 +16,6 @@ import { parseAsString, useQueryStates } from 'nuqs'
 import { useEffect, useMemo } from 'react'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
 import {
-  ADJUSTMENT_OPTIONS,
   PAYMENT_STATUSES,
   PAYMENT_STATUS_BADGE,
   PAYMENT_STATUS_LABELS,
@@ -47,7 +46,6 @@ const W = {
   price: 'w-[10%]',
   lessons: 'w-[12%]',
   status: 'w-[14%]',
-  isAdjustment: 'w-[12%]',
   date: 'w-[11%]',
   paymentMethod: 'w-[14%]',
   manager: 'w-[14%]',
@@ -68,7 +66,6 @@ const WIDTHS = {
   price: 120,
   lessons: 50,
   status: 130,
-  isAdjustment: 130,
   date: 110,
   paymentMethod: 150,
   manager: 150,
@@ -92,7 +89,6 @@ const TABLE_FILTERS = {
   paymentMethod: 'string',
   manager: 'string',
   status: 'string',
-  isAdjustment: 'string',
   price: 'range',
 } as const
 
@@ -163,33 +159,6 @@ function buildColumns(
         className: W.status,
         variant: 'multiSelect',
         options: PAYMENT_STATUS_OPTIONS,
-      },
-    },
-    {
-      // Скрыта по умолчанию: у всех новых оплат здесь «Оплата», и колонка под
-      // булев флаг разового бэкфилла не заслуживает места. Фильтр при этом
-      // доступен — тулбар собирает контролы по всем колонкам, включая скрытые.
-      id: 'isAdjustment',
-      header: 'Корректировка',
-      accessorKey: 'isAdjustment',
-      cell: ({ row }) =>
-        row.original.isAdjustment ? (
-          <Badge
-            variant="warning"
-            title="Не оплата, а выравнивание остатка кошелька при переходе на пакеты. Денег за такой записью нет."
-          >
-            Корректировка
-          </Badge>
-        ) : (
-          <span className="text-muted-foreground">Оплата</span>
-        ),
-      size: WIDTHS.isAdjustment,
-      meta: {
-        title: 'Корректировка',
-        flexible: true,
-        className: W.isAdjustment,
-        variant: 'multiSelect',
-        options: ADJUSTMENT_OPTIONS,
       },
     },
     {
@@ -299,7 +268,6 @@ export default function PaymentsTable() {
       statuses: filterValues(columnFilters, 'status').filter((v): v is PaymentStatusValue =>
         PAYMENT_STATUSES.includes(v as PaymentStatusValue),
       ),
-      isAdjustment: filterValues(columnFilters, 'isAdjustment').map((v) => v === 'true'),
       priceMin: priceRange[0] ?? null,
       priceMax: priceRange[1] ?? null,
     }),
@@ -310,9 +278,7 @@ export default function PaymentsTable() {
 
   const { data: paymentMethods = [] } = useActivePaymentMethodListQuery()
   const { data: members = [] } = useMappedMemberListQuery()
-  const { columnVisibility, setColumnVisibility } = useColumnVisibility('payments', {
-    isAdjustment: false,
-  })
+  const { columnVisibility, setColumnVisibility } = useColumnVisibility('payments')
 
   const methodOptions = useMemo(
     () => paymentMethods.map((m) => ({ value: String(m.id), label: m.name })),
