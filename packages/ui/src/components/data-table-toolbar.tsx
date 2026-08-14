@@ -220,7 +220,7 @@ function DataTableRangeFilter<TData extends RowData>({
       <span className="text-muted-foreground whitespace-nowrap">{title}</span>
       {/* Отделяет неизменяемую подпись от полей ввода: без него «Сумма» читается
           как часть первого поля. */}
-      <Separator orientation="vertical" className="h-4" />
+      <Separator orientation="vertical" className="mx-0.5" />
       <NumberInput
         aria-label={`${title}: от`}
         placeholder="от"
@@ -228,7 +228,7 @@ function DataTableRangeFilter<TData extends RowData>({
         value={draftMin}
         onChange={setDraftMin}
       />
-      <span className="text-muted-foreground">–</span>
+      <Separator orientation="vertical" className="mx-0.5" />
       <NumberInput
         aria-label={`${title}: до`}
         placeholder="до"
@@ -236,9 +236,15 @@ function DataTableRangeFilter<TData extends RowData>({
         value={draftMax}
         onChange={setDraftMax}
       />
+
       {/* Единицы после полей, а не в подписи: читается как «от 1000 до 5000 ₽» —
           так же, как это произносят. */}
-      {unit && <span className="text-muted-foreground">{unit}</span>}
+      {unit && (
+        <>
+          <Separator orientation="vertical" className="mx-0.5" />
+          <span className="text-muted-foreground">{unit}</span>
+        </>
+      )}
     </div>
   )
 }
