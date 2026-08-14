@@ -132,11 +132,15 @@ function DataTableFacetedFilter<TData extends RowData>({
         <ListFilter />
         {title}
         {/* Только когда что-то выбрано: у фильтра «ничего не выбрано» — обычное
-            состояние, и счётчик в нём ничего не сообщает. */}
+            состояние, и счётчик в нём ничего не сообщает. Разделитель — как в
+            группе диапазона: подпись отделена от значения. */}
         {selected.size > 0 && (
-          <span className="text-muted-foreground tabular-nums">
-            {selected.size}/{options.length}
-          </span>
+          <>
+            <Separator orientation="vertical" className="mx-0.5" />
+            <span className="tabular-nums">
+              {selected.size}/{options.length}
+            </span>
+          </>
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">
