@@ -10,6 +10,15 @@ import {
 import { Input } from '@repo/ui/components/input'
 import { NumberInput } from '@repo/ui/components/number-input'
 import { Separator } from '@repo/ui/components/separator'
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@repo/ui/components/sheet'
+import { useIsMobile, useMediaQuery } from '@repo/ui/hooks/use-mobile'
 import { cn } from '@repo/ui/lib/utils'
 import type { Column, RowData, Table as TanstackTable } from '@tanstack/react-table'
 import { ListFilter, Search, X } from 'lucide-react'
@@ -47,6 +56,12 @@ interface DataTableToolbarProps<TData extends RowData> {
   className?: string
 }
 
+/**
+ * Ниже этой ширины фильтры уезжают в панель: вдвоём с диапазонами они занимают
+ * больше тысячи пикселей и на ноутбуке разваливались на три ряда над таблицей.
+ */
+const INLINE_FILTERS_QUERY = '(min-width: 1440px)'
+
 export function DataTableToolbar<TData extends RowData>({
   table,
   search,
@@ -58,10 +73,22 @@ export function DataTableToolbar<TData extends RowData>({
   className,
 }: DataTableToolbarProps<TData>) {
   const filterableColumns = table.getAllColumns().filter((c) => c.columnDef.meta?.variant)
+  const showInline = useMediaQuery(INLINE_FILTERS_QUERY)
+  const isMobile = useIsMobile()
+
+  const activeFilterCount = table.getState().columnFilters.length
 
   // Сброс предлагаем, только когда есть что сбрасывать: пустая кнопка «Сбросить»
   // рядом с чистой таблицей — шум.
-  const isFiltered = table.getState().columnFilters.length > 0 || Boolean(search) || hasExtraFilters
+  const isFiltered = activeFilterCount > 0 || Boolean(search) || hasExtraFilters
+
+  const filters = filterableColumns.map((column) =>
+    column.columnDef.meta?.variant === 'range' ? (
+      <DataTableRangeFilter key={column.id} column={column} />
+    ) : (
+      <DataTableFacetedFilter key={column.id} column={column} />
+    ),
+  )
 
   return (
     <div className={cn('flex flex-wrap items-center gap-2', className)}>
@@ -80,15 +107,49 @@ export function DataTableToolbar<TData extends RowData>({
 
       {children}
 
-      {filterableColumns.map((column) =>
-        column.columnDef.meta?.variant === 'range' ? (
-          <DataTableRangeFilter key={column.id} column={column} />
-        ) : (
-          <DataTableFacetedFilter key={column.id} column={column} />
-        ),
+      {/* Ветки взаимоисключающие, а не спрятанные через `hidden`: контролы держат
+          своё состояние (черновик диапазона, его отложенная запись), и два живых
+          экземпляра одного фильтра были бы двумя источниками правды. */}
+      {showInline ? (
+        filters
+      ) : (
+        <Sheet>
+          <SheetTrigger render={<Button variant="outline" className="shrink-0" />}>
+            <ListFilter />
+            Фильтры
+            {activeFilterCount > 0 && (
+              <>
+                <Separator orientation="vertical" className="mx-0.5" />
+                <span className="text-muted-foreground tabular-nums">{activeFilterCount}</span>
+              </>
+            )}
+          </SheetTrigger>
+          {/* Снизу на телефоне, сбоку на ноутбуке — как в остальных формах проекта.
+              Высота нижней панели ограничена явно: по умолчанию она `h-auto`, и
+              список фильтров растил бы её за верх экрана, а `overflow-y-auto` внутри
+              безграничной коробки не прокручивает ничего. */}
+          <SheetContent side={isMobile ? 'bottom' : 'right'} className="max-h-[80vh]">
+            <SheetHeader>
+              <SheetTitle>Фильтры</SheetTitle>
+            </SheetHeader>
+            <div className="flex min-h-0 flex-col items-start gap-3 overflow-y-auto px-6">
+              {filters}
+            </div>
+            {onReset && (
+              <SheetFooter>
+                <Button variant="outline" onClick={onReset} disabled={!isFiltered}>
+                  <X />
+                  Сбросить
+                </Button>
+              </SheetFooter>
+            )}
+          </SheetContent>
+        </Sheet>
       )}
 
-      {isFiltered && onReset && (
+      {/* В свёрнутом виде сброс живёт внутри панели — снаружи он дублировал бы её
+          кнопку и занимал место, которое мы как раз освобождаем. */}
+      {showInline && isFiltered && onReset && (
         <Button variant="ghost" className="text-muted-foreground" onClick={onReset}>
           <X />
           Сбросить
