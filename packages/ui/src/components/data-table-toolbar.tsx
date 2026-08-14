@@ -9,11 +9,10 @@ import {
 } from '@repo/ui/components/dropdown-menu'
 import { Input } from '@repo/ui/components/input'
 import { NumberInput } from '@repo/ui/components/number-input'
-import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
 import { cn } from '@repo/ui/lib/utils'
 import type { Column, RowData, Table as TanstackTable } from '@tanstack/react-table'
 import { ListFilter, Search, X } from 'lucide-react'
-import { type ReactNode } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 
 /**
  * Тулбар таблицы: поиск, фильтры и сброс. Набор фильтров не передаётся пропсами —
@@ -159,9 +158,13 @@ function DataTableFacetedFilter<TData extends RowData>({
   )
 }
 
+/** Задержка перед записью введённого диапазона в фильтр. */
+const RANGE_COMMIT_DELAY_MS = 400
+
 /**
- * Числовой диапазон. Значение фильтра — `[min, max]`, любая граница может быть
- * `undefined`: «от 1000» и «до 5000» одинаково законны.
+ * Числовой диапазон — двумя полями прямо в строке фильтров, без выпадашки.
+ * Значение фильтра `[min, max]`, любая граница может быть `undefined`: «от 1000»
+ * и «до 5000» одинаково законны.
  */
 function DataTableRangeFilter<TData extends RowData>({
   column,
@@ -172,62 +175,59 @@ function DataTableRangeFilter<TData extends RowData>({
   const unit = column.columnDef.meta?.unit
   const [min, max] = (column.getFilterValue() as [number?, number?] | undefined) ?? []
 
-  const set = (next: [number | undefined, number | undefined]) =>
-    // Обе границы пусты — фильтра нет: иначе он висел бы в URL и в счётчике,
-    // ничего не отбирая.
-    column.setFilterValue(next[0] === undefined && next[1] === undefined ? undefined : next)
+  // Черновик: «12000» — это пять нажатий, и без задержки каждое ушло бы отдельным
+  // запросом на сервер. В фильтр пишем, когда ввод затих.
+  const [draftMin, setDraftMin] = useState<number | ''>(min ?? '')
+  const [draftMax, setDraftMax] = useState<number | ''>(max ?? '')
 
-  const label =
-    min !== undefined && max !== undefined
-      ? `${min} – ${max}`
-      : min !== undefined
-        ? `от ${min}`
-        : max !== undefined
-          ? `до ${max}`
-          : null
+  // Внешние изменения — «Сбросить», переход по ссылке — подхватываем в черновик.
+  useEffect(() => {
+    setDraftMin(min ?? '')
+    setDraftMax(max ?? '')
+  }, [min, max])
+
+  useEffect(() => {
+    const nextMin = draftMin === '' ? undefined : draftMin
+    const nextMax = draftMax === '' ? undefined : draftMax
+    // Черновик уже совпал с фильтром — писать нечего. Без этой проверки эффект
+    // синхронизации выше и этот гоняли бы записи по кругу.
+    if (nextMin === min && nextMax === max) return
+
+    const timer = setTimeout(() => {
+      // Обе границы пусты — фильтра нет: иначе он висел бы в URL и в счётчике,
+      // ничего не отбирая.
+      column.setFilterValue(
+        nextMin === undefined && nextMax === undefined ? undefined : [nextMin, nextMax],
+      )
+    }, RANGE_COMMIT_DELAY_MS)
+    return () => clearTimeout(timer)
+    // `column` намеренно вне зависимостей: у каллера, объявляющего колонки инлайном,
+    // его объект новый на каждый рендер — таймер сбрасывался бы, не успев сработать,
+    // и фильтр не записался бы никогда.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftMin, draftMax, min, max])
 
   return (
-    <Popover>
-      {/* Значение — приглушённым текстом, как счётчик у мультиселекта: иначе один
-          фильтр в строке выглядел бы бейджем, а другой числом. */}
-      <PopoverTrigger render={<Button variant="outline" className="shrink-0" />}>
-        <ListFilter />
+    <div className="flex items-center gap-1.5">
+      <span className="text-muted-foreground text-xs whitespace-nowrap">
         {title}
-        {label && (
-          <span className="text-muted-foreground tabular-nums">
-            {label}
-            {unit ? ` ${unit}` : ''}
-          </span>
-        )}
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-64">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <NumberInput
-              aria-label={`${title}: от`}
-              placeholder="от"
-              value={min ?? ''}
-              onChange={(v) => set([v === '' ? undefined : v, max])}
-            />
-            <span className="text-muted-foreground text-xs">—</span>
-            <NumberInput
-              aria-label={`${title}: до`}
-              placeholder="до"
-              value={max ?? ''}
-              onChange={(v) => set([min, v === '' ? undefined : v])}
-            />
-          </div>
-          {label && (
-            <Button
-              variant="ghost"
-              className="text-muted-foreground"
-              onClick={() => column.setFilterValue(undefined)}
-            >
-              Снять фильтр
-            </Button>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+        {unit ? `, ${unit}` : ''}
+      </span>
+      <NumberInput
+        aria-label={`${title}: от`}
+        placeholder="от"
+        className="w-20"
+        value={draftMin}
+        onChange={setDraftMin}
+      />
+      <span className="text-muted-foreground text-xs">–</span>
+      <NumberInput
+        aria-label={`${title}: до`}
+        placeholder="до"
+        className="w-20"
+        value={draftMax}
+        onChange={setDraftMax}
+      />
+    </div>
   )
 }
