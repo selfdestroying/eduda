@@ -146,10 +146,15 @@ export default function DataTable<TData>({
 
   return (
     <div className="flex h-full flex-col gap-2">
+      {/* Один переносящийся ряд, а не колонка на узком и строка на широком: при
+          `flex-col` кнопка «Колонки» растягивалась во всю ширину экрана, потому что
+          по умолчанию элементы колонки тянутся по поперечной оси. `ml-auto` прижимает
+          её вправо и когда она рядом с фильтрами, и когда перенеслась на свою
+          строку, — `justify-between` для одиночного элемента на строке не сработал бы. */}
       {showColumnVisibility ? (
-        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
           {toolbar}
-          <DataTableViewOptions table={table} />
+          <DataTableViewOptions table={table} className="ml-auto" />
         </div>
       ) : (
         toolbar
@@ -257,7 +262,13 @@ export default function DataTable<TData>({
   )
 }
 
-function DataTableViewOptions<TData>({ table }: { table: TanstackTable<TData> }) {
+function DataTableViewOptions<TData>({
+  table,
+  className,
+}: {
+  table: TanstackTable<TData>
+  className?: string
+}) {
   const columns = table.getAllColumns().filter((c) => c.getCanHide() && c.columnDef.meta?.title)
   if (columns.length === 0) return null
 
@@ -265,7 +276,9 @@ function DataTableViewOptions<TData>({ table }: { table: TanstackTable<TData> })
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" className="shrink-0" />}>
+      <DropdownMenuTrigger
+        render={<Button variant="outline" className={cn('shrink-0', className)} />}
+      >
         <Eye />
         Колонки
         {/* Только когда что-то скрыто: «6/6» рядом с полной таблицей ничего не
