@@ -131,10 +131,10 @@ export function DataTableToolbar<TData extends RowData>({
             <DrawerHeader className="pb-4">
               <DrawerTitle>Фильтры</DrawerTitle>
             </DrawerHeader>
-            <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 pt-0">
+            <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4">
               {filters}
             </div>
-            <DrawerFooter>
+            <DrawerFooter className="pt-4">
               {onReset && (
                 <Button variant="outline" onClick={onReset} disabled={!isFiltered}>
                   <X />

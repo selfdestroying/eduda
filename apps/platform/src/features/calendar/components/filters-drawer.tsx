@@ -39,11 +39,8 @@ export function FiltersDrawer({ ctrl }: { ctrl: CalendarController }) {
         <DrawerHeader className="pb-4">
           <DrawerTitle>Фильтры</DrawerTitle>
         </DrawerHeader>
-        <CalendarFilters
-          ctrl={ctrl}
-          className="no-scrollbar min-h-0 flex-1 overflow-y-auto p-4 pt-0"
-        />
-        <DrawerFooter>
+        <CalendarFilters ctrl={ctrl} className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4" />
+        <DrawerFooter className="pt-4">
           <DrawerClose render={<Button />}>Готово</DrawerClose>
         </DrawerFooter>
       </DrawerContent>
