@@ -137,7 +137,7 @@ function DataTableFacetedFilter<TData extends RowData>({
         {selected.size > 0 && (
           <>
             <Separator orientation="vertical" className="mx-0.5" />
-            <span className="tabular-nums">
+            <span className="text-muted-foreground tabular-nums">
               {selected.size}/{options.length}
             </span>
           </>
