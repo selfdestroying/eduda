@@ -209,10 +209,7 @@ function DataTableRangeFilter<TData extends RowData>({
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-muted-foreground text-xs whitespace-nowrap">
-        {title}
-        {unit ? `, ${unit}` : ''}
-      </span>
+      <span className="text-muted-foreground text-xs whitespace-nowrap">{title}</span>
       <NumberInput
         aria-label={`${title}: от`}
         placeholder="от"
@@ -228,6 +225,9 @@ function DataTableRangeFilter<TData extends RowData>({
         value={draftMax}
         onChange={setDraftMax}
       />
+      {/* Единицы после полей, а не в подписи: читается как «от 1000 до 5000 ₽» —
+          так же, как это произносят. */}
+      {unit && <span className="text-muted-foreground text-xs">{unit}</span>}
     </div>
   )
 }
