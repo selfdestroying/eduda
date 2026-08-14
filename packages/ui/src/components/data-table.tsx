@@ -41,8 +41,8 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Eye,
   Loader,
-  Settings2,
 } from 'lucide-react'
 import { type ReactNode } from 'react'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@repo/ui/components/empty'
@@ -268,7 +268,7 @@ function DataTableViewOptions<TData>({ table }: { table: TanstackTable<TData> })
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="outline" className="shrink-0" />}>
-        <Settings2 />
+        <Eye />
         Колонки
         {hiddenCount > 0 && <span className="text-muted-foreground">({hiddenCount} скрыто)</span>}
       </DropdownMenuTrigger>
