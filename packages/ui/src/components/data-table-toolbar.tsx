@@ -217,7 +217,11 @@ function DataTableRangeFilter<TData extends RowData>({
     // выпавшими из строки. Обводка при фокусе переезжает на всю группу
     // (`focus-within`), а у полей внутри своя снимается — иначе рамка в рамке.
     <div className="border-border dark:bg-input/30 focus-within:border-ring focus-within:ring-ring/30 flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-xs transition-colors focus-within:ring-[2px]">
-      <span className="text-muted-foreground whitespace-nowrap">{title}</span>
+      {/* Та же иконка, что у кнопок-фильтров: без неё группа не читается как
+          фильтр, хотя стоит с ними в одном ряду. Размер задан явно — правило
+          `[&_svg]:size-3.5` живёт в `Button`, а здесь его нет. */}
+      <ListFilter className="size-3.5 shrink-0" />
+      <span className="whitespace-nowrap">{title}</span>
       {/* Отделяет неизменяемую подпись от полей ввода: без него «Сумма» читается
           как часть первого поля. */}
       <Separator orientation="vertical" className="mx-0.5" />
@@ -242,7 +246,7 @@ function DataTableRangeFilter<TData extends RowData>({
       {unit && (
         <>
           <Separator orientation="vertical" className="mx-0.5" />
-          <span className="text-muted-foreground">{unit}</span>
+          <span>{unit}</span>
         </>
       )}
     </div>
