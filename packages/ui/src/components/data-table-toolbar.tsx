@@ -57,6 +57,12 @@ interface DataTableToolbarProps<TData extends RowData> {
   className?: string
 }
 
+/**
+ * Сколько названий фильтров помещается на кнопке до «+N». Третье уже уводит
+ * кнопку в перенос строки на узком экране.
+ */
+const VISIBLE_FILTER_TITLES = 2
+
 export function DataTableToolbar<TData extends RowData>({
   table,
   search,
@@ -75,6 +81,15 @@ export function DataTableToolbar<TData extends RowData>({
   // Сброс предлагаем, только когда есть что сбрасывать: пустая кнопка «Сбросить»
   // рядом с чистой таблицей — шум.
   const isFiltered = activeFilterCount > 0 || Boolean(search) || hasExtraFilters
+
+  // Включённые фильтры называем поимённо: панель закрыта, и цифра «2» на кнопке
+  // не говорит, по чему именно отобрано, — а таблица показывает подмножество, и
+  // не заметить этого на странице с деньгами дороже всего остального.
+  const activeTitles = table
+    .getState()
+    .columnFilters.map(({ id }) => table.getColumn(id))
+    .filter((column) => column !== undefined)
+    .map(columnTitle)
 
   const filters = filterableColumns.map((column) =>
     column.columnDef.meta?.variant === 'range' ? (
@@ -106,10 +121,14 @@ export function DataTableToolbar<TData extends RowData>({
           <DrawerTrigger render={<Button variant="outline" className="shrink-0" />}>
             <ListFilter />
             Фильтры
-            {activeFilterCount > 0 && (
+            {activeTitles.length > 0 && (
               <>
                 <Separator orientation="vertical" className="mx-0.5" />
-                <span className="text-muted-foreground tabular-nums">{activeFilterCount}</span>
+                <span className="text-muted-foreground max-w-48 truncate">
+                  {activeTitles.slice(0, VISIBLE_FILTER_TITLES).join(', ')}
+                  {activeTitles.length > VISIBLE_FILTER_TITLES &&
+                    ` +${activeTitles.length - VISIBLE_FILTER_TITLES}`}
+                </span>
               </>
             )}
           </DrawerTrigger>
