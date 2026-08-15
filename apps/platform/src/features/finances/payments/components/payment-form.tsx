@@ -29,11 +29,10 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@repo/ui/components/select'
-import { Loader, Plus } from 'lucide-react'
+import { Loader, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
@@ -137,7 +136,27 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
 
   const createWallet = useCreateWalletMutation()
   const [pendingWalletId, setPendingWalletId] = useState<number | null>(null)
-  const [walletSelectOpen, setWalletSelectOpen] = useState(false)
+  const [creatingWallet, setCreatingWallet] = useState(false)
+  const [newWalletName, setNewWalletName] = useState('')
+
+  const closeNewWallet = () => {
+    setCreatingWallet(false)
+    setNewWalletName('')
+  }
+
+  const submitNewWallet = () => {
+    if (studentId == null || createWallet.isPending) return
+    const name = newWalletName.trim()
+    createWallet.mutate(
+      { studentId, name: name || undefined },
+      {
+        onSuccess: (wallet) => {
+          if (wallet) setPendingWalletId(wallet.id)
+          closeNewWallet()
+        },
+      },
+    )
+  }
   const walletId = useWatch({ control: form.control, name: 'walletId' })
   const lessonCount = useWatch({ control: form.control, name: 'lessonCount' })
   const price = useWatch({ control: form.control, name: 'price' })
@@ -251,8 +270,6 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 value={field.value != null ? String(field.value) : null}
                 onValueChange={(v) => field.onChange(v ? Number(v) : undefined)}
                 disabled={disabled || !studentId}
-                open={walletSelectOpen}
-                onOpenChange={setWalletSelectOpen}
               >
                 <SelectTrigger
                   id={`${formId}-wallet`}
@@ -278,28 +295,6 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                       </SelectItem>
                     ))}
                   </SelectGroup>
-                  {/* Кошелька может не быть вовсе — тогда оплату некуда класть, а
-                      уходить за этим в карточку ученика и терять заполненную форму
-                      незачем. Создаём безымянный: назвать его можно потом, а вот
-                      без него не двинуться. */}
-                  <SelectSeparator />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="w-full justify-start font-normal"
-                    disabled={createWallet.isPending}
-                    onClick={() => {
-                      if (studentId == null) return
-                      setWalletSelectOpen(false)
-                      createWallet.mutate(
-                        { studentId },
-                        { onSuccess: (wallet) => wallet && setPendingWalletId(wallet.id) },
-                      )
-                    }}
-                  >
-                    {createWallet.isPending ? <Loader className="animate-spin" /> : <Plus />}
-                    Создать кошелёк
-                  </Button>
                 </SelectContent>
               </Select>
               {/* Остаток до и после: главный вопрос при вводе оплаты — не «сколько
@@ -316,6 +311,60 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                   </FieldDescription>
                 )
               )}
+
+              {/* Строка создания живёт под полем, а не внутри попапа селекта: у
+                  того своя клавиатурная навигация с поиском по буквам, и поле
+                  ввода дралось бы с ней за каждую нажатую клавишу. */}
+              {studentId != null &&
+                (creatingWallet ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      autoFocus
+                      value={newWalletName}
+                      onChange={(e) => setNewWalletName(e.target.value)}
+                      onKeyDown={(e) => {
+                        // Enter внутри формы отправил бы саму оплату — перехватываем.
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          submitNewWallet()
+                        }
+                        if (e.key === 'Escape') closeNewWallet()
+                      }}
+                      placeholder="Название кошелька"
+                      disabled={createWallet.isPending}
+                      aria-label="Название нового кошелька"
+                    />
+                    <Button
+                      type="button"
+                      onClick={submitNewWallet}
+                      disabled={createWallet.isPending}
+                    >
+                      {createWallet.isPending && <Loader className="animate-spin" />}
+                      Создать
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={closeNewWallet}
+                      disabled={createWallet.isPending}
+                      aria-label="Отменить создание кошелька"
+                    >
+                      <X />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-muted-foreground w-fit px-1"
+                    onClick={() => setCreatingWallet(true)}
+                    disabled={disabled}
+                  >
+                    <Plus />
+                    Создать кошелёк
+                  </Button>
+                ))}
             </Field>
           )}
         />
