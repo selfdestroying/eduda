@@ -1,5 +1,8 @@
 'use client'
 
+import { STUDENT_STATUS } from '@/src/features/students/status'
+import type { StudentStatus } from '@repo/db/enums'
+import { Badge } from '@repo/ui/components/badge'
 import { Separator } from '@repo/ui/components/separator'
 import { formatDate } from '@/src/lib/timezone'
 import { formatCurrency, getGroupName } from '@/src/lib/utils'
@@ -34,6 +37,7 @@ export interface WalletPreviewData {
   totalLessons: number
   totalPayments: number
   studentGroups: Array<{
+    status: StudentStatus
     group: {
       name: string | null
       course: { name: string }
@@ -76,7 +80,8 @@ export function WalletPreview({ wallet }: { wallet: WalletPreviewData | null }) 
     <div className={`${BOX} flex flex-col gap-2`}>
       <div className="flex flex-col gap-0.5">
         <span className="font-medium">{wallet.name || 'Без названия'}</span>
-        <div className="text-muted-foreground flex h-4 items-center gap-2 tabular-nums">
+        {/* На всю ширину: занятия слева, деньги справа, разделитель посередине. */}
+        <div className="text-muted-foreground flex h-4 items-center justify-between gap-2 tabular-nums">
           {formatLessons(wallet.totalLessons)}
           <Separator orientation="vertical" />
           {formatCurrency(wallet.totalPayments)}
@@ -88,8 +93,11 @@ export function WalletPreview({ wallet }: { wallet: WalletPreviewData | null }) 
           <span className={HEADING}>Группы</span>
           <ul className="text-muted-foreground flex flex-col gap-0.5">
             {wallet.studentGroups.map((sg, i) => (
-              <li key={i} className="truncate">
-                {getGroupName(sg.group)}
+              <li key={i} className="flex items-center justify-between gap-2">
+                <span className="truncate">{getGroupName(sg.group)}</span>
+                <Badge variant={STUDENT_STATUS[sg.status].variant} className="shrink-0">
+                  {STUDENT_STATUS[sg.status].label}
+                </Badge>
               </li>
             ))}
           </ul>
