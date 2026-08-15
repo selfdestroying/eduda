@@ -16,8 +16,15 @@ import {
 } from '@repo/ui/components/field'
 import { Hint } from '@repo/ui/components/hint'
 import { Input } from '@repo/ui/components/input'
-import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
 import { NumberInput } from '@repo/ui/components/number-input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@repo/ui/components/select'
 import { useEffect, useMemo, useRef } from 'react'
 import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
@@ -48,6 +55,12 @@ export function usePaymentForm() {
     },
   })
 }
+
+/**
+ * «Метод не выбран» в селекте. Значение пункта — строка, а `null` пунктом быть
+ * не может, поэтому пустоту приходится называть; в форму она уходит как `null`.
+ */
+const NO_PAYMENT_METHOD = 'none'
 
 /** «1 занятие», «2 занятия», «5 занятий» — иначе остаток читается как телеграмма. */
 function formatLessons(count: number) {
@@ -122,6 +135,21 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
       ? Math.floor(price / lessonCount)
       : null
 
+  // Списки для `Select` мемоизируем не для скорости: `Select.Root` кладёт `items`
+  // в свой стор эффектом, зависящим от ссылки на массив, — новый массив на каждый
+  // рендер уводит его в бесконечное обновление («Maximum update depth exceeded»).
+  const walletItems = useMemo(
+    () => wallets.map((w) => ({ value: String(w.id), label: w.label })),
+    [wallets],
+  )
+  const paymentMethodItems = useMemo(
+    () => [
+      { value: NO_PAYMENT_METHOD, label: 'Не указан' },
+      ...paymentMethods.map((m) => ({ value: String(m.id), label: m.name })),
+    ],
+    [paymentMethods],
+  )
+
   const selectedWallet = wallets.find((w) => w.id === walletId) ?? null
   const paymentMethodId = useWatch({ control: form.control, name: 'paymentMethodId' })
   const selectedMethod = paymentMethods.find((m) => m.id === paymentMethodId) ?? null
@@ -165,28 +193,39 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor={`${formId}-wallet`}>Кошелёк</FieldLabel>
-              <CustomCombobox
-                items={wallets}
-                getKey={(w) => w.id}
-                getLabel={(w) => w.label}
-                value={wallets.find((w) => w.id === field.value) ?? null}
-                onValueChange={(w) => field.onChange(w?.id ?? undefined)}
-                id={`${formId}-wallet`}
-                placeholder="Выберите кошелёк"
-                emptyText="У ученика нет активных кошельков"
+              {/* Селект, а не комбобокс: кошельков у ученика один-три, искать
+                  среди них нечего, а поле ввода предлагает печатать там, где
+                  печатать нельзя. */}
+              <Select
+                items={walletItems}
+                value={field.value != null ? String(field.value) : null}
+                onValueChange={(v) => field.onChange(v ? Number(v) : undefined)}
                 disabled={disabled || !studentId}
-                ariaInvalid={fieldState.invalid}
-                // Остаток прямо в списке: у ученика с двумя кошельками выбирают
-                // как раз по нему, а не по названию группы.
-                renderItem={(w) => (
-                  <Item size="xs" className="p-0">
-                    <ItemContent>
-                      <ItemTitle className="whitespace-nowrap">{w.label}</ItemTitle>
-                      <ItemDescription>{formatLessons(w.lessonsBalance)}</ItemDescription>
-                    </ItemContent>
-                  </Item>
-                )}
-              />
+              >
+                <SelectTrigger
+                  id={`${formId}-wallet`}
+                  className="w-full"
+                  aria-invalid={fieldState.invalid}
+                >
+                  <SelectValue
+                    placeholder={studentId ? 'Выберите кошелёк' : 'Сначала выберите ученика'}
+                  />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    {wallets.map((w) => (
+                      // Остаток прямо в списке: у ученика с двумя кошельками
+                      // выбирают как раз по нему, а не по названию группы.
+                      <SelectItem key={w.id} value={String(w.id)}>
+                        <span className="flex-1 truncate">{w.label}</span>
+                        <span className="text-muted-foreground">
+                          {formatLessons(w.lessonsBalance)}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
               {/* Остаток до и после: главный вопрос при вводе оплаты — не «сколько
                   занятий в пакете», а «сколько их станет у ученика». */}
               {fieldState.invalid ? (
@@ -303,34 +342,42 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 Метод оплаты (необязательно)
                 <Hint text="Если нужного метода нет в списке, обратитесь к владельцу для создания нового метода оплаты" />
               </FieldLabel>
-              {/* Пустое значение — это `null`, а не пункт-пустышка «Неизвестно» с
-                  `id: 0`: очистка живёт в самом комбобоксе, и подменять её опцией,
-                  которой нет в базе, незачем. */}
-              <CustomCombobox
-                items={paymentMethods}
-                getKey={(m) => m.id}
-                getLabel={(m) => m.name}
-                value={paymentMethods.find((m) => m.id === field.value) ?? null}
-                onValueChange={(m) => field.onChange(m?.id ?? null)}
-                id={`${formId}-paymentMethod`}
-                placeholder="Не указан"
-                emptyText="Нет доступных методов оплаты"
+              {/* Методов три-пять, их заводит владелец школы — здесь тоже нечего
+                  искать. «Не указан» — обычный пункт списка: поле необязательное,
+                  и выбор «никакой» должен быть виден наравне с остальными. */}
+              <Select
+                items={paymentMethodItems}
+                value={field.value != null ? String(field.value) : NO_PAYMENT_METHOD}
+                onValueChange={(v) =>
+                  field.onChange(v && v !== NO_PAYMENT_METHOD ? Number(v) : null)
+                }
                 disabled={disabled}
-                showClear
-                ariaInvalid={fieldState.invalid}
-                renderItem={(item) => (
-                  <Item size="xs" className="p-0">
-                    <ItemContent>
-                      <ItemTitle className="whitespace-nowrap">{item.name}</ItemTitle>
-                      {item.commission > 0 && (
-                        <ItemDescription>
-                          <span className="tabular-nums">{item.commission} %</span>
-                        </ItemDescription>
-                      )}
-                    </ItemContent>
-                  </Item>
-                )}
-              />
+              >
+                <SelectTrigger
+                  id={`${formId}-paymentMethod`}
+                  className="w-full"
+                  aria-invalid={fieldState.invalid}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    <SelectItem value={NO_PAYMENT_METHOD}>
+                      <span className="text-muted-foreground">Не указан</span>
+                    </SelectItem>
+                    {paymentMethods.map((m) => (
+                      <SelectItem key={m.id} value={String(m.id)}>
+                        <span className="flex-1 truncate">{m.name}</span>
+                        {m.commission > 0 && (
+                          <span className="text-muted-foreground tabular-nums">
+                            {m.commission} %
+                          </span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
               {fieldState.invalid ? (
                 <FieldError errors={[fieldState.error]} />
               ) : (
