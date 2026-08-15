@@ -64,12 +64,14 @@ export function WalletPreview({ wallet }: { wallet: WalletPreviewData | null }) 
   const hiddenPayments = wallet._count.payments - wallet.payments.length
 
   return (
-    <div className={`${BOX} flex flex-col gap-2`}>
-      <span className="font-medium">{wallet.name || 'Без названия'}</span>
+    // Части разделены линиями, а не отступами: в блоке из семи строк одного
+    // расстояния мало, чтобы имя, группы и оплаты читались как разные вещи.
+    <div className={`${BOX} divide-border flex flex-col divide-y`}>
+      <div className="pb-2 font-medium">{wallet.name || 'Без названия'}</div>
 
       {/* Обе секции стоят всегда: пустая «Оплаты» — это сообщение, что кошелёк
           новый, а не повод убрать заголовок и оставить читателя гадать. */}
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-0.5 py-2">
         <span className={HEADING}>Группы</span>
         {wallet.studentGroups.length === 0 ? (
           <span className="text-muted-foreground">Нет групп</span>
@@ -87,7 +89,7 @@ export function WalletPreview({ wallet }: { wallet: WalletPreviewData | null }) 
         )}
       </div>
 
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-0.5 pt-2">
         <span className={HEADING}>Оплаты</span>
         {wallet.payments.length === 0 ? (
           <span className="text-muted-foreground">Нет оплат</span>
@@ -96,9 +98,14 @@ export function WalletPreview({ wallet }: { wallet: WalletPreviewData | null }) 
             {wallet.payments.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-2 tabular-nums">
                 <span className="truncate">
-                  {formatDate(p.date)} · {p.lessonCount} зан. · {formatCurrency(p.price)}
+                  {formatDate(p.date)} · {formatCurrency(p.price)}
                 </span>
-                <span className="text-muted-foreground shrink-0">остаток {p.remaining ?? '—'}</span>
+                {/* Остаток к размеру пакета: «4/8» — из восьми занятий не потрачено
+                    четыре. Само число занятий из левой части ушло, чтобы не стоять
+                    в строке дважды. */}
+                <span className="text-muted-foreground shrink-0">
+                  {p.remaining ?? '—'}/{p.lessonCount}
+                </span>
               </li>
             ))}
             {hiddenPayments > 0 && (
