@@ -23,6 +23,7 @@ function formatMorePayments(count: number) {
  */
 export interface WalletPreviewData {
   name: string | null
+  lessonsBalance: number
   studentGroups: Array<{
     status: StudentStatus
     group: {
@@ -52,7 +53,14 @@ const HEADING = 'text-muted-foreground text-[11px] font-semibold tracking-wide u
  * кошельке уже есть. Пустой блок с пунктиром держит место, чтобы форма не
  * прыгала на высоту предпросмотра в момент выбора.
  */
-export function WalletPreview({ wallet }: { wallet: WalletPreviewData | null }) {
+export function WalletPreview({
+  wallet,
+  addedLessons,
+}: {
+  wallet: WalletPreviewData | null
+  /** Занятия из заполняемой оплаты — чтобы показать, каким станет остаток. */
+  addedLessons?: number
+}) {
   if (!wallet) {
     return (
       <div className={`${BOX} text-muted-foreground border-dashed text-center`}>
@@ -67,7 +75,20 @@ export function WalletPreview({ wallet }: { wallet: WalletPreviewData | null }) 
     // Части разделены линиями, а не отступами: в блоке из семи строк одного
     // расстояния мало, чтобы имя, группы и оплаты читались как разные вещи.
     <div className={`${BOX} divide-border flex flex-col divide-y`}>
-      <div className="pb-2 font-medium">{wallet.name || 'Без названия'}</div>
+      <div className="flex items-center justify-between gap-2 pb-2">
+        <span className="truncate font-medium">{wallet.name || 'Без названия'}</span>
+        {/* Главная цифра кошелька: сколько занятий у ученика на руках. Стрелка —
+            каким остаток станет с этой оплатой.
+
+            ponytail: занятия, которые уже проведены и ждут оплаты, эта оплата
+            закроет (`settleUnpaidAttendancesTx`), и тогда остаток вырастет
+            меньше показанного. Считать их — ещё один запрос; если начнёт путать,
+            брать `UNPAID_ATTENDANCE_WHERE` и вычитать. */}
+        <span className="text-muted-foreground shrink-0 tabular-nums">
+          Остаток {wallet.lessonsBalance}
+          {addedLessons ? ` → ${wallet.lessonsBalance + addedLessons}` : ''}
+        </span>
+      </div>
 
       {/* Обе секции стоят всегда: пустая «Оплаты» — это сообщение, что кошелёк
           новый, а не повод убрать заголовок и оставить читателя гадать. */}

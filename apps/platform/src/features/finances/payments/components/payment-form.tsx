@@ -356,7 +356,12 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                   </Button>
                 </div>
               )}
-              <WalletPreview wallet={selectedWallet} />
+              <WalletPreview
+                wallet={selectedWallet}
+                addedLessons={
+                  typeof lessonCount === 'number' && lessonCount > 0 ? lessonCount : undefined
+                }
+              />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}
