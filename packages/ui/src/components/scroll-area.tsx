@@ -14,10 +14,18 @@ import { cn } from '@repo/ui/lib/utils'
  */
 function ScrollArea({ className, children, ...props }: ScrollAreaPrimitive.Root.Props) {
   return (
-    <ScrollAreaPrimitive.Root data-slot="scroll-area" className={cn('relative', className)} {...props}>
+    // Колонка флексом, а не `size-full` у вьюпорта: высота корня приходит от
+    // `flex-1` родителя, то есть свойство `height` у него `auto`, и процент
+    // внутри резолвится в `auto` — вьюпорт вырастал по содержимому и уезжал под
+    // футер drawer'а вместо прокрутки.
+    <ScrollAreaPrimitive.Root
+      data-slot="scroll-area"
+      className={cn('relative flex flex-col', className)}
+      {...props}
+    >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="focus-visible:ring-ring/30 size-full overscroll-contain rounded-[inherit] outline-none focus-visible:ring-[2px]"
+        className="focus-visible:ring-ring/30 min-h-0 w-full flex-1 overscroll-contain rounded-[inherit] outline-none focus-visible:ring-[2px]"
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
