@@ -12,7 +12,7 @@ import {
   AlertDialogTitle,
 } from '@repo/ui/components/alert-dialog'
 import { Button } from '@repo/ui/components/button'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Field, FieldError, FieldGroup, FieldLabel, FieldOptional } from '@repo/ui/components/field'
 import { Input } from '@repo/ui/components/input'
 import {
   Sheet,
@@ -74,14 +74,6 @@ interface ParentsSectionProps {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
-
-function RequiredMark() {
-  return <span className="text-destructive">*</span>
-}
-
-function OptionalMark() {
-  return <span className="text-muted-foreground text-xs font-normal">(необязательно)</span>
-}
 
 function getParentFullName(parent: ParentData) {
   return [parent.firstName, parent.lastName].filter(Boolean).join(' ')
@@ -266,9 +258,7 @@ function EditParentSheet({
               disabled={updateMutation.isPending}
               render={({ field, fieldState }) => (
                 <Field>
-                  <FieldLabel htmlFor="edit-parent-firstName">
-                    Имя <RequiredMark />
-                  </FieldLabel>
+                  <FieldLabel htmlFor="edit-parent-firstName">Имя</FieldLabel>
                   <Input
                     id="edit-parent-firstName"
                     placeholder="Введите имя"
@@ -286,7 +276,7 @@ function EditParentSheet({
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel htmlFor="edit-parent-lastName">
-                    Фамилия <OptionalMark />
+                    Фамилия <FieldOptional />
                   </FieldLabel>
                   <Input
                     id="edit-parent-lastName"
@@ -307,7 +297,7 @@ function EditParentSheet({
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel htmlFor="edit-parent-phone">
-                    Телефон <OptionalMark />
+                    Телефон <FieldOptional />
                   </FieldLabel>
                   <Input
                     id="edit-parent-phone"
@@ -329,7 +319,7 @@ function EditParentSheet({
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel htmlFor="edit-parent-email">
-                    Email <OptionalMark />
+                    Email <FieldOptional />
                   </FieldLabel>
                   <Input
                     id="edit-parent-email"
@@ -445,9 +435,7 @@ function AddParentSheet({
                     disabled={isPending}
                     render={({ field, fieldState }) => (
                       <Field>
-                        <FieldLabel htmlFor="add-parent-firstName">
-                          Имя <RequiredMark />
-                        </FieldLabel>
+                        <FieldLabel htmlFor="add-parent-firstName">Имя</FieldLabel>
                         <Input
                           id="add-parent-firstName"
                           placeholder="Введите имя"
@@ -465,7 +453,7 @@ function AddParentSheet({
                     render={({ field, fieldState }) => (
                       <Field>
                         <FieldLabel htmlFor="add-parent-lastName">
-                          Фамилия <OptionalMark />
+                          Фамилия <FieldOptional />
                         </FieldLabel>
                         <Input
                           id="add-parent-lastName"
@@ -486,7 +474,7 @@ function AddParentSheet({
                     render={({ field, fieldState }) => (
                       <Field>
                         <FieldLabel htmlFor="add-parent-phone">
-                          Телефон <OptionalMark />
+                          Телефон <FieldOptional />
                         </FieldLabel>
                         <Input
                           id="add-parent-phone"
@@ -508,7 +496,7 @@ function AddParentSheet({
                     render={({ field, fieldState }) => (
                       <Field>
                         <FieldLabel htmlFor="add-parent-email">
-                          Email <OptionalMark />
+                          Email <FieldOptional />
                         </FieldLabel>
                         <Input
                           id="add-parent-email"

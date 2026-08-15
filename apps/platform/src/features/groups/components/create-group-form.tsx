@@ -20,6 +20,7 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
+  FieldOptional,
 } from '@repo/ui/components/field'
 import { Input } from '@repo/ui/components/input'
 import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
@@ -305,8 +306,7 @@ export default function CreateGroupForm() {
                   render={({ field }) => (
                     <Field>
                       <FieldLabel htmlFor="name-field">
-                        Название{' '}
-                        <span className="text-muted-foreground font-normal">— необязательно</span>
+                        Название <FieldOptional />
                       </FieldLabel>
                       <Input
                         id="name-field"
@@ -328,7 +328,7 @@ export default function CreateGroupForm() {
                     disabled={isPending}
                     render={({ field, fieldState }) => (
                       <Field>
-                        <FieldLabel htmlFor="form-rhf-select-course">Курс *</FieldLabel>
+                        <FieldLabel htmlFor="form-rhf-select-course">Курс</FieldLabel>
                         <CustomCombobox
                           id="form-rhf-select-course"
                           items={courses || []}
@@ -356,7 +356,7 @@ export default function CreateGroupForm() {
                     control={form.control}
                     render={({ field, fieldState }) => (
                       <Field>
-                        <FieldLabel htmlFor="form-rhf-select-groupType">Тип группы *</FieldLabel>
+                        <FieldLabel htmlFor="form-rhf-select-groupType">Тип группы</FieldLabel>
                         <Select
                           items={groupTypeItems}
                           value={field.value ?? null}
@@ -390,7 +390,7 @@ export default function CreateGroupForm() {
                     disabled={isPending}
                     render={({ field, fieldState }) => (
                       <Field>
-                        <FieldLabel htmlFor="form-rhf-select-location">Локация *</FieldLabel>
+                        <FieldLabel htmlFor="form-rhf-select-location">Локация</FieldLabel>
                         <Select
                           items={locationItems}
                           value={field.value ?? null}
@@ -452,8 +452,7 @@ export default function CreateGroupForm() {
                   render={({ field, fieldState }) => (
                     <Field>
                       <FieldLabel htmlFor="url-field">
-                        Ссылка{' '}
-                        <span className="text-muted-foreground font-normal">— необязательно</span>
+                        Ссылка <FieldOptional />
                       </FieldLabel>
                       <div className="relative">
                         <Link2 className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
@@ -485,7 +484,7 @@ export default function CreateGroupForm() {
             </CardHeader>
             <CardContent>
               <Field>
-                <FieldLabel>Преподаватели *</FieldLabel>
+                <FieldLabel>Преподаватели</FieldLabel>
 
                 {teacherFields.length > 0 && (
                   <div className="text-muted-foreground grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px] gap-2 px-0.5 text-[0.625rem] tracking-wide uppercase">
@@ -612,7 +611,7 @@ export default function CreateGroupForm() {
                     disabled={isPending}
                     render={({ field, fieldState }) => (
                       <Field>
-                        <FieldLabel htmlFor="startDate-field">Дата старта *</FieldLabel>
+                        <FieldLabel htmlFor="startDate-field">Дата старта</FieldLabel>
                         <Input
                           id="startDate-field"
                           type="date"
@@ -637,7 +636,7 @@ export default function CreateGroupForm() {
                     disabled={isPending}
                     render={({ field, fieldState }) => (
                       <Field>
-                        <FieldLabel htmlFor="lessonCount-field">Количество занятий *</FieldLabel>
+                        <FieldLabel htmlFor="lessonCount-field">Количество занятий</FieldLabel>
                         <NumberField
                           id="lessonCount-field"
                           size="sm"
@@ -665,7 +664,7 @@ export default function CreateGroupForm() {
 
                 <Field>
                   <div className="flex items-center justify-between gap-3">
-                    <FieldLabel>Расписание *</FieldLabel>
+                    <FieldLabel>Расписание</FieldLabel>
                   </div>
 
                   {fields.length > 0 && (
@@ -889,8 +888,7 @@ export default function CreateGroupForm() {
             </CardContent>
           </Card>
           <p className="text-muted-foreground px-1 text-xs leading-relaxed">
-            Поля со звёздочкой <span className="text-destructive">*</span> обязательны. Расписание и
-            учеников можно изменить после создания.
+            Расписание и учеников можно изменить после создания.
           </p>
         </div>
       </div>

@@ -7,6 +7,7 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
+  FieldOptional,
   FieldSeparator,
 } from '@repo/ui/components/field'
 import { Input } from '@repo/ui/components/input'
@@ -30,14 +31,6 @@ import { Controller, useForm } from 'react-hook-form'
 import { useStudentUpdateMutation } from '../../queries'
 import { EditStudentSchema, EditStudentSchemaType } from '../../schemas'
 import type { StudentDetail } from '../../types'
-
-function RequiredMark() {
-  return <span className="text-destructive">*</span>
-}
-
-function OptionalMark() {
-  return <span className="text-muted-foreground text-xs font-normal">(необязательно)</span>
-}
 
 export default function EditStudentDialog({ student }: { student: StudentDetail }) {
   const isMobile = useIsMobile()
@@ -105,9 +98,7 @@ export default function EditStudentDialog({ student }: { student: StudentDetail 
               disabled={mutation.isPending}
               render={({ field, fieldState }) => (
                 <Field>
-                  <FieldLabel htmlFor="edit-firstName-field">
-                    Имя <RequiredMark />
-                  </FieldLabel>
+                  <FieldLabel htmlFor="edit-firstName-field">Имя</FieldLabel>
                   <Input
                     id="edit-firstName-field"
                     placeholder="Введите имя"
@@ -124,9 +115,7 @@ export default function EditStudentDialog({ student }: { student: StudentDetail 
               disabled={mutation.isPending}
               render={({ field, fieldState }) => (
                 <Field>
-                  <FieldLabel htmlFor="edit-lastName-field">
-                    Фамилия <RequiredMark />
-                  </FieldLabel>
+                  <FieldLabel htmlFor="edit-lastName-field">Фамилия</FieldLabel>
                   <Input
                     id="edit-lastName-field"
                     placeholder="Введите фамилию"
@@ -147,7 +136,7 @@ export default function EditStudentDialog({ student }: { student: StudentDetail 
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel htmlFor="edit-birthDate-field">
-                    Дата рождения <OptionalMark />
+                    Дата рождения <FieldOptional />
                   </FieldLabel>
                   <Input
                     id="edit-birthDate-field"
@@ -173,7 +162,7 @@ export default function EditStudentDialog({ student }: { student: StudentDetail 
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel htmlFor="edit-url-field">
-                    Ссылка <OptionalMark />
+                    Ссылка <FieldOptional />
                   </FieldLabel>
                   <Input
                     id="edit-url-field"

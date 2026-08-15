@@ -3,7 +3,7 @@
 import { NumberInput } from '@repo/ui/components/number-input'
 import { Button } from '@repo/ui/components/button'
 import { Calendar } from '@repo/ui/components/calendar'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Field, FieldError, FieldGroup, FieldLabel, FieldOptional } from '@repo/ui/components/field'
 import { Input } from '@repo/ui/components/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
 import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
@@ -96,7 +96,7 @@ export default function ExpenseForm<T extends FieldValues>({ form, formId }: Exp
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor={`${formId}-comment`}>
-                Комментарий <span className="text-muted-foreground">(необязательно)</span>
+                Комментарий <FieldOptional />
               </FieldLabel>
               <Input
                 id={`${formId}-comment`}

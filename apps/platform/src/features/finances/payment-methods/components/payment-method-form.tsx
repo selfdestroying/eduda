@@ -1,7 +1,7 @@
 'use client'
 
 import { NumberInput } from '@repo/ui/components/number-input'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { Field, FieldError, FieldGroup, FieldLabel, FieldOptional } from '@repo/ui/components/field'
 import { Input } from '@repo/ui/components/input'
 import { Switch } from '@repo/ui/components/switch'
 import { Controller, type FieldValues, type Path, type UseFormReturn } from 'react-hook-form'
@@ -58,7 +58,7 @@ export default function PaymentMethodForm<T extends FieldValues>({
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor={`${formId}-description`}>
-                Описание <span className="text-muted-foreground">(необязательно)</span>
+                Описание <FieldOptional />
               </FieldLabel>
               <Input
                 id={`${formId}-description`}
