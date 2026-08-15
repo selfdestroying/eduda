@@ -72,6 +72,15 @@ function formatLessons(count: number) {
   return `${count} занятий`
 }
 
+/**
+ * Одна ссылка на пустой список для всех запросов, что ещё не ответили. `= []`
+ * прямо в деструктуризации создаёт новый массив на каждый рендер, а он уходит в
+ * зависимости `useMemo` ниже: пока запрос в пути, список для `Select` пересобирается
+ * заново, `Select.Root` пишет его в стор, стор перерисовывает — и это не успевает
+ * закончиться до ответа сервера, React падает раньше.
+ */
+const EMPTY: never[] = []
+
 interface PaymentFormProps {
   form: UseFormReturn<CreatePaymentSchemaType>
   /** Связывает форму с кнопкой отправки, которая стоит вне неё — в футере панели. */
@@ -81,9 +90,9 @@ interface PaymentFormProps {
 }
 
 export default function PaymentForm({ form, formId, onSubmit, disabled }: PaymentFormProps) {
-  const { data: students = [] } = useStudentForPaymentListQuery()
-  const { data: paymentMethods = [] } = useActivePaymentMethodListQuery()
-  const { data: memberList = [] } = useMemberListQuery()
+  const { data: students = EMPTY } = useStudentForPaymentListQuery()
+  const { data: paymentMethods = EMPTY } = useActivePaymentMethodListQuery()
+  const { data: memberList = EMPTY } = useMemberListQuery()
   const { data: session } = useSessionQuery()
 
   const members = useMemo(
