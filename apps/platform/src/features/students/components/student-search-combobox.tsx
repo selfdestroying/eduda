@@ -30,6 +30,7 @@ interface StudentSearchComboboxProps {
   disabled?: boolean
   id?: string
   ariaInvalid?: boolean
+  ariaRequired?: boolean
   /**
    * Куда раскрывать список. По умолчанию вверх — поле стоит последним в форме
    * создания группы, и вниз ему некуда. Первым полем в панели наоборот: вверх
@@ -46,6 +47,7 @@ export function StudentSearchCombobox({
   disabled,
   id,
   ariaInvalid,
+  ariaRequired,
   side = 'top',
 }: StudentSearchComboboxProps) {
   const holdsValue = value !== undefined
@@ -91,6 +93,7 @@ export function StudentSearchCombobox({
         placeholder="Поиск ученика по имени…"
         disabled={disabled}
         aria-invalid={ariaInvalid}
+        aria-required={ariaRequired}
       />
       <ComboboxContent side={side}>
         <ComboboxEmpty>{emptyText}</ComboboxEmpty>

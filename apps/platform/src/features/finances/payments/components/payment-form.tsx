@@ -21,6 +21,7 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
+  FieldOptional,
 } from '@repo/ui/components/field'
 import { Input } from '@repo/ui/components/input'
 import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
@@ -251,6 +252,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 }}
                 disabled={disabled}
                 ariaInvalid={fieldState.invalid}
+                ariaRequired
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
@@ -310,10 +312,14 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                     onValueChange={(v) => field.onChange(v ? Number(v) : undefined)}
                     disabled={disabled || !studentId}
                   >
+                    {/* `aria-required`, а не нативный `required`: валидацию ведут
+                        zod и react-hook-form, а нативная перехватила бы отправку
+                        своим пузырём вместо наших сообщений. */}
                     <SelectTrigger
                       id={`${formId}-wallet`}
                       className="min-w-0 flex-1"
                       aria-invalid={fieldState.invalid}
+                      aria-required
                     >
                       <SelectValue
                         placeholder={studentId ? 'Выберите кошелёк' : 'Сначала выберите ученика'}
@@ -367,6 +373,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 value={field.value ?? ''}
                 disabled={disabled}
                 aria-invalid={fieldState.invalid}
+                aria-required
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
@@ -384,6 +391,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 value={field.value ?? ''}
                 disabled={disabled}
                 aria-invalid={fieldState.invalid}
+                aria-required
               />
               {fieldState.invalid ? (
                 <FieldError errors={[fieldState.error]} />
@@ -412,6 +420,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 value={field.value ?? ''}
                 onChange={(e) => field.onChange(e.target.value || undefined)}
                 onBlur={field.onBlur}
+                aria-required
                 disabled={disabled}
                 aria-invalid={fieldState.invalid}
               />
@@ -424,7 +433,10 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
           name="managerId"
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={`${formId}-manager`}>Менеджер</FieldLabel>
+              <FieldLabel htmlFor={`${formId}-manager`}>
+                Менеджер
+                <FieldOptional />
+              </FieldLabel>
               {/* «Не указан» — обычный пункт списка, как и у метода оплаты: поле
                   необязательное, и отказ от продавца должен выбираться наравне с
                   людьми, а не прятаться в крестик очистки. */}
@@ -461,7 +473,10 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
           name="paymentMethodId"
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={`${formId}-paymentMethod`}>Метод оплаты</FieldLabel>
+              <FieldLabel htmlFor={`${formId}-paymentMethod`}>
+                Метод оплаты
+                <FieldOptional />
+              </FieldLabel>
               {/* Методов три-пять, их заводит владелец школы — здесь тоже нечего
                   искать. «Не указан» — обычный пункт списка: поле необязательное,
                   и выбор «никакой» должен быть виден наравне с остальными. */}
