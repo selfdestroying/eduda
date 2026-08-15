@@ -7,7 +7,6 @@ import {
 } from '@/src/features/students/components/student-search-combobox'
 import { useSessionQuery } from '@/src/features/users/me/queries'
 import { useCreateWalletMutation, useStudentWalletsQuery } from '@/src/features/wallets/queries'
-import { getWalletLabel } from '@/src/features/wallets/utils'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import { formatCurrency } from '@/src/lib/utils'
@@ -167,11 +166,17 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
   const { data: studentWallets = EMPTY } = useStudentWalletsQuery(studentId ?? 0, {
     enabled: studentId != null,
   })
+  // Только имя кошелька, без привязанных групп: их перечисление удлиняло подпись
+  // втрое и повторялось у каждого пункта, а различают кошельки по имени.
   const wallets = useMemo(
     () =>
       studentWallets
         .filter((w) => w.status === 'ACTIVE')
-        .map((w) => ({ id: w.id, label: getWalletLabel(w), lessonsBalance: w.lessonsBalance })),
+        .map((w) => ({
+          id: w.id,
+          label: w.name || `Кошелёк #${w.id}`,
+          lessonsBalance: w.lessonsBalance,
+        })),
     [studentWallets],
   )
 
@@ -328,7 +333,9 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                             <Item size="xs" className="p-0">
                               <ItemContent>
                                 <ItemTitle>{w.label}</ItemTitle>
-                                <ItemDescription>{formatLessons(w.lessonsBalance)}</ItemDescription>
+                                <ItemDescription className="tabular-nums">
+                                  Остаток: {w.lessonsBalance}
+                                </ItemDescription>
                               </ItemContent>
                             </Item>
                           </SelectItem>
@@ -488,8 +495,8 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                           <ItemContent>
                             <ItemTitle>{m.name}</ItemTitle>
                             {m.commission > 0 && (
-                              <ItemDescription>
-                                <span className="tabular-nums">{m.commission} %</span>
+                              <ItemDescription className="tabular-nums">
+                                Комиссия: {m.commission}%
                               </ItemDescription>
                             )}
                           </ItemContent>
