@@ -199,12 +199,13 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
     setPendingWalletId(null)
   }, [pendingWalletId, wallets, form])
 
-  // Ровно та цена занятия, которую посчитает сервер (`bidForLesson`), — целочисленным
-  // делением. Показываем её здесь, чтобы опечатка в сумме или в занятиях была видна
-  // до сохранения, а не в отчёте через месяц.
+  // Честное деление с одной цифрой после запятой — чтобы опечатка в сумме или в
+  // занятиях была видна до сохранения, а не в отчёте через месяц. Сервер округляет
+  // вниз (`bidForLesson`), и повтори мы здесь то же округление, 1000 ₽ за 3 занятия
+  // показались бы ровными 333 — остаток от деления исчез бы с экрана.
   const bidForLesson =
     typeof price === 'number' && typeof lessonCount === 'number' && lessonCount > 0
-      ? Math.floor(price / lessonCount)
+      ? price / lessonCount
       : null
 
   // Списки для `Select` мемоизируем не для скорости: `Select.Root` кладёт `items`
@@ -408,7 +409,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 <FieldError errors={[fieldState.error]} />
               ) : (
                 bidForLesson !== null && (
-                  <FieldDescription>{formatCurrency(bidForLesson)} за занятие</FieldDescription>
+                  <FieldDescription>{formatCurrency(bidForLesson, 1)} за занятие</FieldDescription>
                 )
               )}
             </Field>
