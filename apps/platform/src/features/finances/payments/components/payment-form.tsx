@@ -1,10 +1,16 @@
 'use client'
 
 import { useMemberListQuery } from '@/src/features/organization/members/queries'
+import {
+  StudentSearchCombobox,
+  type StudentOption,
+} from '@/src/features/students/components/student-search-combobox'
 import { useSessionQuery } from '@/src/features/users/me/queries'
+import { useStudentWalletsQuery } from '@/src/features/wallets/queries'
+import { getWalletLabel } from '@/src/features/wallets/utils'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { todayYmdInTz } from '@/src/lib/timezone'
-import { formatCurrency, getFullName } from '@/src/lib/utils'
+import { formatCurrency } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CustomCombobox } from '@repo/ui/components/custom-combobox'
 import {
@@ -26,10 +32,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@repo/ui/components/select'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
-import { useStudentForPaymentListQuery } from '../queries'
 import { CreatePaymentSchema, type CreatePaymentSchemaType } from '../schemas'
 
 /**
@@ -91,7 +96,6 @@ interface PaymentFormProps {
 }
 
 export default function PaymentForm({ form, formId, onSubmit, disabled }: PaymentFormProps) {
-  const { data: students = EMPTY } = useStudentForPaymentListQuery()
   const { data: paymentMethods = EMPTY } = useActivePaymentMethodListQuery()
   const { data: memberList = EMPTY } = useMemberListQuery()
   const { data: session } = useSessionQuery()
@@ -115,15 +119,29 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
   }, [memberList, session, form])
 
   const studentId = useWatch({ control: form.control, name: 'studentId' })
+
+  // Схема хранит только `studentId`, а полю нужно ещё и имя — держим выбранного
+  // рядом. После сохранения форма сбрасывается, и здесь его тоже надо забыть.
+  const [selectedStudent, setSelectedStudent] = useState<StudentOption | null>(null)
+  useEffect(() => {
+    if (studentId == null) setSelectedStudent(null)
+  }, [studentId])
   const walletId = useWatch({ control: form.control, name: 'walletId' })
   const lessonCount = useWatch({ control: form.control, name: 'lessonCount' })
   const price = useWatch({ control: form.control, name: 'price' })
 
-  // Подписи кошельков собирает сервер (`getWalletLabel`) — здесь остаётся только
-  // выбрать нужного ученика.
+  // Кошельки тянем для выбранного ученика, а не списком на всю школу: их нужен
+  // ровно один набор, а вместе со списком приезжали группы, курсы и расписания
+  // пяти сотен человек — join ради подписи, которую увидят один раз.
+  const { data: studentWallets = EMPTY } = useStudentWalletsQuery(studentId ?? 0, {
+    enabled: studentId != null,
+  })
   const wallets = useMemo(
-    () => students.find((s) => s.id === studentId)?.wallets ?? [],
-    [students, studentId],
+    () =>
+      studentWallets
+        .filter((w) => w.status === 'ACTIVE')
+        .map((w) => ({ id: w.id, label: getWalletLabel(w), lessonsBalance: w.lessonsBalance })),
+    [studentWallets],
   )
 
   // Кошелёк принадлежит ученику, и со сменой ученика прежний выбор становится
@@ -181,15 +199,17 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor={`${formId}-student`}>Ученик</FieldLabel>
-              <CustomCombobox
-                items={students}
-                getKey={(s) => s.id}
-                getLabel={(s) => getFullName(s.firstName, s.lastName)}
-                value={students.find((s) => s.id === field.value) ?? null}
-                onValueChange={(s) => s && field.onChange(s.id)}
+              {/* Поиск на сервере, а не список на всю школу: учеников счёт идёт
+                  на сотни, и все они приезжали в браузер ради одного выбора. */}
+              <StudentSearchCombobox
                 id={`${formId}-student`}
-                placeholder="Выберите ученика"
-                emptyText="Нет доступных учеников"
+                excludeIds={EMPTY}
+                value={selectedStudent}
+                side="bottom"
+                onSelect={(s) => {
+                  setSelectedStudent(s)
+                  field.onChange(s.id)
+                }}
                 disabled={disabled}
                 ariaInvalid={fieldState.invalid}
               />
@@ -401,7 +421,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 selectedMethod.commission > 0 && (
                   <FieldDescription>
                     Комиссия {selectedMethod.commission}%
-                    {acquiringFee !== null && ` — эквайринг ${formatCurrency(acquiringFee)}`}
+                    {acquiringFee !== null && ` - ${formatCurrency(acquiringFee)}`}
                   </FieldDescription>
                 )
               )}

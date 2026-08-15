@@ -5,7 +5,6 @@ import {
   createPaymentWithBalance,
   deleteUnprocessedPayment,
   getPayments,
-  getStudentsForPayments,
   getUnprocessedPayments,
   resolveUnprocessedPayment,
 } from './actions'
@@ -26,10 +25,6 @@ export const unprocessedPaymentKeys = {
   all: ['unprocessed-payments'] as const,
 }
 
-export const studentForPaymentKeys = {
-  all: ['students-for-payments'] as const,
-}
-
 const EMPTY_PAGE = { rows: [], total: 0 }
 
 export const usePaymentListQuery = (params: PaymentListSchemaType) => {
@@ -47,17 +42,6 @@ export const usePaymentListQuery = (params: PaymentListSchemaType) => {
     // Пока грузится следующая страница, показываем предыдущую: иначе на каждый
     // клик по «вперёд» таблица моргает пустотой и скачет по высоте.
     placeholderData: keepPreviousData,
-  })
-}
-
-export const useStudentForPaymentListQuery = () => {
-  return useQuery({
-    queryKey: studentForPaymentKeys.all,
-    queryFn: async () => {
-      const { data, serverError } = await getStudentsForPayments()
-      if (serverError) throw serverError
-      return data ?? []
-    },
   })
 }
 

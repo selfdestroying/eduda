@@ -11,7 +11,6 @@ import {
   settleUnpaidAttendancesTx,
   writeFinancialHistoryTx,
 } from '@/src/features/finances/ledger.server'
-import { getWalletLabel } from '@/src/features/wallets/utils'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import { permissionAction } from '@/src/lib/safe-action'
@@ -22,7 +21,7 @@ import {
   PaymentListSchema,
   ResolveUnprocessedPaymentSchema,
 } from './schemas'
-import { PAYMENT_LIST_SELECT, type PaymentListResult, type StudentForPayment } from './types'
+import { PAYMENT_LIST_SELECT, type PaymentListResult } from './types'
 
 /**
  * Оплата закрывает накопившиеся неоплаченные занятия, а каждое из них — отдельное
@@ -140,53 +139,6 @@ export const getPayments = permissionAction({ payment: ['read'] })
     ])
 
     return { rows, total }
-  })
-
-export const getStudentsForPayments = permissionAction({ payment: ['create'] })
-  .metadata({ actionName: 'getStudentsForPayments' })
-  .action(async ({ ctx }): Promise<StudentForPayment[]> => {
-    const students = await prisma.student.findMany({
-      where: { organizationId: ctx.session.organizationId! },
-      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        // Только активные: форма всё равно показывает лишь их, и фильтровать
-        // выгоднее в БД, чем возить архив по сети.
-        wallets: {
-          where: { status: 'ACTIVE' },
-          select: {
-            id: true,
-            name: true,
-            lessonsBalance: true,
-            studentGroups: {
-              select: {
-                status: true,
-                group: {
-                  select: {
-                    name: true,
-                    course: { select: { name: true } },
-                    schedules: { select: { dayOfWeek: true, time: true } },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    })
-
-    return students.map((s) => ({
-      id: s.id,
-      firstName: s.firstName,
-      lastName: s.lastName,
-      wallets: s.wallets.map((w) => ({
-        id: w.id,
-        label: getWalletLabel(w),
-        lessonsBalance: w.lessonsBalance,
-      })),
-    }))
   })
 
 export const createPaymentWithBalance = permissionAction({ payment: ['create'] })

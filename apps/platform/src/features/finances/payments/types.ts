@@ -36,15 +36,3 @@ export type PaymentListResult = {
   rows: PaymentListItem[]
   total: number
 }
-
-/**
- * Ученик для выпадашки в форме оплаты: активные кошельки с готовыми подписями.
- * `lessonsBalance` — остаток занятий на кошельке; форма показывает, каким он
- * станет после этой оплаты.
- */
-export type StudentForPayment = {
-  id: number
-  firstName: string
-  lastName: string | null
-  wallets: Array<{ id: number; label: string; lessonsBalance: number }>
-}
