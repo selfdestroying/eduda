@@ -80,8 +80,8 @@ export function WalletPreview({ wallet }: { wallet: WalletPreviewData | null }) 
     <div className={`${BOX} flex flex-col gap-2`}>
       <div className="flex flex-col gap-0.5">
         <span className="font-medium">{wallet.name || 'Без названия'}</span>
-        {/* На всю ширину: занятия слева, деньги справа, разделитель посередине. */}
-        <div className="text-muted-foreground flex h-4 items-center justify-between gap-2 tabular-nums">
+        {/* Строка во всю ширину, содержимое по центру. */}
+        <div className="text-muted-foreground flex h-4 items-center justify-center gap-2 tabular-nums">
           {formatLessons(wallet.totalLessons)}
           <Separator orientation="vertical" />
           {formatCurrency(wallet.totalPayments)}
