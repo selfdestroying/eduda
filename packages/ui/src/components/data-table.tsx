@@ -150,9 +150,14 @@ export default function DataTable<TData>({
           `flex-col` кнопка «Колонки» растягивалась во всю ширину экрана, потому что
           по умолчанию элементы колонки тянутся по поперечной оси. `ml-auto` прижимает
           её вправо и когда она рядом с фильтрами, и когда перенеслась на свою
-          строку, — `justify-between` для одиночного элемента на строке не сработал бы. */}
+          строку, — `justify-between` для одиночного элемента на строке не сработал бы.
+
+          Тулбар здесь раскрывается в `contents`, то есть его содержимое встаёт в
+          этот же ряд напрямую. Иначе он остаётся отдельным элементом, а поиск
+          внутри него на телефоне занимает всю ширину — тулбар растягивается на
+          строку целиком, и «Колонки» уезжает в третью строку одна. */}
       {showColumnVisibility ? (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 *:data-[slot=table-toolbar]:contents">
           {toolbar}
           <DataTableViewOptions table={table} className="ml-auto" />
         </div>

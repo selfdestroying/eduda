@@ -96,7 +96,7 @@ export function DataTableToolbar<TData extends RowData>({
   )
 
   return (
-    <div className={cn('flex flex-wrap items-center gap-2', className)}>
+    <div data-slot="table-toolbar" className={cn('flex flex-wrap items-center gap-2', className)}>
       {onSearchChange && (
         <div className="relative w-full sm:w-56">
           <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
