@@ -262,41 +262,92 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor={`${formId}-wallet`}>Кошелёк</FieldLabel>
-              {/* Селект, а не комбобокс: кошельков у ученика один-три, искать
-                  среди них нечего, а поле ввода предлагает печатать там, где
-                  печатать нельзя. */}
-              <Select
-                items={walletItems}
-                value={field.value != null ? String(field.value) : null}
-                onValueChange={(v) => field.onChange(v ? Number(v) : undefined)}
-                disabled={disabled || !studentId}
-              >
-                <SelectTrigger
-                  id={`${formId}-wallet`}
-                  className="w-full"
-                  aria-invalid={fieldState.invalid}
-                >
-                  <SelectValue
-                    placeholder={studentId ? 'Выберите кошелёк' : 'Сначала выберите ученика'}
+              {/* Создание занимает место выбора, а не встаёт под ним: это одно и то
+                  же поле в двух состояниях, и форма от переключения не прыгает.
+                  Поле ввода живёт здесь, а не в попапе селекта, — у того своя
+                  навигация с поиском по буквам, и они дрались бы за каждую клавишу. */}
+              {creatingWallet ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    autoFocus
+                    value={newWalletName}
+                    onChange={(e) => setNewWalletName(e.target.value)}
+                    onKeyDown={(e) => {
+                      // Enter внутри формы отправил бы саму оплату — перехватываем.
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        submitNewWallet()
+                      }
+                      if (e.key === 'Escape') closeNewWallet()
+                    }}
+                    placeholder="Название кошелька"
+                    disabled={createWallet.isPending}
+                    aria-label="Название нового кошелька"
                   />
-                </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
-                  <SelectGroup>
-                    {wallets.map((w) => (
-                      // Остаток прямо в списке: у ученика с двумя кошельками
-                      // выбирают как раз по нему, а не по названию группы.
-                      <SelectItem key={w.id} value={String(w.id)}>
-                        <Item size="xs" className="p-0">
-                          <ItemContent>
-                            <ItemTitle>{w.label}</ItemTitle>
-                            <ItemDescription>{formatLessons(w.lessonsBalance)}</ItemDescription>
-                          </ItemContent>
-                        </Item>
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+                  <Button type="button" onClick={submitNewWallet} disabled={createWallet.isPending}>
+                    {createWallet.isPending && <Loader className="animate-spin" />}
+                    Создать
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={closeNewWallet}
+                    disabled={createWallet.isPending}
+                    aria-label="Отменить создание кошелька"
+                  >
+                    <X />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  {/* Селект, а не комбобокс: кошельков у ученика один-три, искать
+                      среди них нечего, а поле ввода предлагает печатать там, где
+                      печатать нельзя. */}
+                  <Select
+                    items={walletItems}
+                    value={field.value != null ? String(field.value) : null}
+                    onValueChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                    disabled={disabled || !studentId}
+                  >
+                    <SelectTrigger
+                      id={`${formId}-wallet`}
+                      className="min-w-0 flex-1"
+                      aria-invalid={fieldState.invalid}
+                    >
+                      <SelectValue
+                        placeholder={studentId ? 'Выберите кошелёк' : 'Сначала выберите ученика'}
+                      />
+                    </SelectTrigger>
+                    <SelectContent alignItemWithTrigger={false}>
+                      <SelectGroup>
+                        {wallets.map((w) => (
+                          // Остаток прямо в списке: у ученика с двумя кошельками
+                          // выбирают как раз по нему, а не по названию группы.
+                          <SelectItem key={w.id} value={String(w.id)}>
+                            <Item size="xs" className="p-0">
+                              <ItemContent>
+                                <ItemTitle>{w.label}</ItemTitle>
+                                <ItemDescription>{formatLessons(w.lessonsBalance)}</ItemDescription>
+                              </ItemContent>
+                            </Item>
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCreatingWallet(true)}
+                    disabled={disabled || !studentId}
+                    aria-label="Создать кошелёк"
+                  >
+                    <Plus />
+                  </Button>
+                </div>
+              )}
               {/* Остаток до и после: главный вопрос при вводе оплаты — не «сколько
                   занятий в пакете», а «сколько их станет у ученика». */}
               {fieldState.invalid ? (
@@ -311,60 +362,6 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                   </FieldDescription>
                 )
               )}
-
-              {/* Строка создания живёт под полем, а не внутри попапа селекта: у
-                  того своя клавиатурная навигация с поиском по буквам, и поле
-                  ввода дралось бы с ней за каждую нажатую клавишу. */}
-              {studentId != null &&
-                (creatingWallet ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      autoFocus
-                      value={newWalletName}
-                      onChange={(e) => setNewWalletName(e.target.value)}
-                      onKeyDown={(e) => {
-                        // Enter внутри формы отправил бы саму оплату — перехватываем.
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          submitNewWallet()
-                        }
-                        if (e.key === 'Escape') closeNewWallet()
-                      }}
-                      placeholder="Название кошелька"
-                      disabled={createWallet.isPending}
-                      aria-label="Название нового кошелька"
-                    />
-                    <Button
-                      type="button"
-                      onClick={submitNewWallet}
-                      disabled={createWallet.isPending}
-                    >
-                      {createWallet.isPending && <Loader className="animate-spin" />}
-                      Создать
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={closeNewWallet}
-                      disabled={createWallet.isPending}
-                      aria-label="Отменить создание кошелька"
-                    >
-                      <X />
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="text-muted-foreground w-fit px-1"
-                    onClick={() => setCreatingWallet(true)}
-                    disabled={disabled}
-                  >
-                    <Plus />
-                    Создать кошелёк
-                  </Button>
-                ))}
             </Field>
           )}
         />
