@@ -159,6 +159,7 @@ export const getStudentsForPayments = permissionAction({ payment: ['create'] })
           select: {
             id: true,
             name: true,
+            lessonsBalance: true,
             studentGroups: {
               select: {
                 status: true,
@@ -180,7 +181,11 @@ export const getStudentsForPayments = permissionAction({ payment: ['create'] })
       id: s.id,
       firstName: s.firstName,
       lastName: s.lastName,
-      wallets: s.wallets.map((w) => ({ id: w.id, label: getWalletLabel(w) })),
+      wallets: s.wallets.map((w) => ({
+        id: w.id,
+        label: getWalletLabel(w),
+        lessonsBalance: w.lessonsBalance,
+      })),
     }))
   })
 

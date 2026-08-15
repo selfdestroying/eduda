@@ -53,6 +53,16 @@ export function usePaymentForm() {
   })
 }
 
+/** «1 занятие», «2 занятия», «5 занятий» — иначе остаток читается как телеграмма. */
+function formatLessons(count: number) {
+  const mod100 = Math.abs(count) % 100
+  const mod10 = mod100 % 10
+  if (mod100 >= 11 && mod100 <= 14) return `${count} занятий`
+  if (mod10 === 1) return `${count} занятие`
+  if (mod10 >= 2 && mod10 <= 4) return `${count} занятия`
+  return `${count} занятий`
+}
+
 interface PaymentFormProps {
   form: UseFormReturn<CreatePaymentSchemaType>
   /** Связывает форму с кнопкой отправки, которая стоит вне неё — в футере панели. */
@@ -116,6 +126,18 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
       ? Math.floor(price / lessonCount)
       : null
 
+  const selectedWallet = wallets.find((w) => w.id === walletId) ?? null
+  const paymentMethodId = useWatch({ control: form.control, name: 'paymentMethodId' })
+  const selectedMethod = paymentMethods.find((m) => m.id === paymentMethodId) ?? null
+
+  // Комиссия — не украшение: в отчёте о прибыли эквайринг считается ровно так
+  // (`price * commission / 100`) и вычитается из выручки. Пусть та же цифра будет
+  // видна в момент, когда метод выбирают.
+  const acquiringFee =
+    selectedMethod && selectedMethod.commission > 0 && typeof price === 'number'
+      ? Math.round(price * (selectedMethod.commission / 100))
+      : null
+
   return (
     <form id={formId} onSubmit={form.handleSubmit(onSubmit)}>
       <FieldGroup className="gap-2">
@@ -158,8 +180,31 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 emptyText="У ученика нет активных кошельков"
                 disabled={disabled || !studentId}
                 ariaInvalid={fieldState.invalid}
+                // Остаток прямо в списке: у ученика с двумя кошельками выбирают
+                // как раз по нему, а не по названию группы.
+                renderItem={(w) => (
+                  <Item size="xs" className="p-0">
+                    <ItemContent>
+                      <ItemTitle className="whitespace-nowrap">{w.label}</ItemTitle>
+                      <ItemDescription>{formatLessons(w.lessonsBalance)}</ItemDescription>
+                    </ItemContent>
+                  </Item>
+                )}
               />
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+              {/* Остаток до и после: главный вопрос при вводе оплаты — не «сколько
+                  занятий в пакете», а «сколько их станет у ученика». */}
+              {fieldState.invalid ? (
+                <FieldError errors={[fieldState.error]} />
+              ) : (
+                selectedWallet && (
+                  <FieldDescription>
+                    Остаток: {formatLessons(selectedWallet.lessonsBalance)}
+                    {typeof lessonCount === 'number' &&
+                      lessonCount > 0 &&
+                      ` → ${formatLessons(selectedWallet.lessonsBalance + lessonCount)}`}
+                  </FieldDescription>
+                )
+              )}
             </Field>
           )}
         />
@@ -294,7 +339,17 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                   </Item>
                 )}
               />
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+              {fieldState.invalid ? (
+                <FieldError errors={[fieldState.error]} />
+              ) : (
+                selectedMethod &&
+                selectedMethod.commission > 0 && (
+                  <FieldDescription>
+                    Комиссия {selectedMethod.commission}%
+                    {acquiringFee !== null && ` — эквайринг ${formatCurrency(acquiringFee)}`}
+                  </FieldDescription>
+                )
+              )}
             </Field>
           )}
         />
