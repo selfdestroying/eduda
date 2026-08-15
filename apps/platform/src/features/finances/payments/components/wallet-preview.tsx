@@ -67,10 +67,14 @@ export function WalletPreview({ wallet }: { wallet: WalletPreviewData | null }) 
     <div className={`${BOX} flex flex-col gap-2`}>
       <span className="font-medium">{wallet.name || 'Без названия'}</span>
 
-      {wallet.studentGroups.length > 0 && (
-        <div className="flex flex-col gap-0.5">
-          <span className={HEADING}>Группы</span>
-          <ul className="text-muted-foreground flex flex-col gap-0.5">
+      {/* Обе секции стоят всегда: пустая «Оплаты» — это сообщение, что кошелёк
+          новый, а не повод убрать заголовок и оставить читателя гадать. */}
+      <div className="flex flex-col gap-0.5">
+        <span className={HEADING}>Группы</span>
+        {wallet.studentGroups.length === 0 ? (
+          <span className="text-muted-foreground">Нет групп</span>
+        ) : (
+          <ul className="flex flex-col gap-0.5">
             {wallet.studentGroups.map((sg, i) => (
               <li key={i} className="flex items-center justify-between gap-2">
                 <span className="truncate">{getGroupName(sg.group)}</span>
@@ -80,12 +84,14 @@ export function WalletPreview({ wallet }: { wallet: WalletPreviewData | null }) 
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        )}
+      </div>
 
-      {wallet.payments.length > 0 && (
-        <div className="flex flex-col gap-0.5">
-          <span className={HEADING}>Оплаты</span>
+      <div className="flex flex-col gap-0.5">
+        <span className={HEADING}>Оплаты</span>
+        {wallet.payments.length === 0 ? (
+          <span className="text-muted-foreground">Нет оплат</span>
+        ) : (
           <ul className="flex flex-col gap-0.5">
             {wallet.payments.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-2 tabular-nums">
@@ -99,8 +105,8 @@ export function WalletPreview({ wallet }: { wallet: WalletPreviewData | null }) 
               <li className="text-muted-foreground">{formatMorePayments(hiddenPayments)}</li>
             )}
           </ul>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
