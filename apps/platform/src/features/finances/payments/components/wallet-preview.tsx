@@ -104,9 +104,7 @@ export function WalletPreview({
 
       {/* Долг объясняет, почему остаток вырастет не на всю оплату: эти занятия
           уже проведены, и оплата закроет их первыми. */}
-      {unpaidLessons > 0 && (
-        <div className="text-warning py-2">{formatWaiting(unpaidLessons)} — оплата их закроет</div>
-      )}
+      {unpaidLessons > 0 && <div className="text-warning py-2">{formatWaiting(unpaidLessons)}</div>}
 
       {/* Обе секции стоят всегда: пустая «Оплаты» — это сообщение, что кошелёк
           новый, а не повод убрать заголовок и оставить читателя гадать. */}

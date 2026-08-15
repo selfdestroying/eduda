@@ -41,6 +41,20 @@ export default function AddPaymentButton() {
     })
   }
 
+  /**
+   * Закрытие панели очищает форму.
+   *
+   * Форма живёт здесь и закрытие переживает, а содержимое панели размонтируется
+   * вместе со своим состоянием — там лежит имя выбранного ученика. Без сброса
+   * при повторном открытии оставался кошелёк без ученика: id в форме есть, имени
+   * показать нечем. Чинить это переносом имени наверх было бы хуже: черновик
+   * оплаты, тихо переживший «Отмену», — плохая находка в форме про деньги.
+   */
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (!next) form.reset()
+  }
+
   // Сервер всё равно откажет (`permissionAction`), но показывать кнопку, которая
   // гарантированно упрётся в «Недостаточно прав», незачем.
   if (!canCreate) return null
@@ -48,7 +62,7 @@ export default function AddPaymentButton() {
   return (
     <Drawer
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={handleOpenChange}
       swipeDirection={isMobile ? 'down' : 'right'}
       showSwipeHandle={isMobile}
     >

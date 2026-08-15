@@ -77,6 +77,14 @@ export default function UnprocessedPaymentActions({
     deleteMutation.mutate({ id: unprocessedPayment.id }, { onSuccess: () => setConfirmOpen(false) })
   }
 
+  // Закрытие очищает форму: она живёт здесь, а содержимое диалога размонтируется
+  // со своим состоянием — иначе при повторном открытии остаётся кошелёк без
+  // ученика. Подробнее в `add-payment-button.tsx`.
+  const handleDialogOpenChange = (next: boolean) => {
+    setDialogOpen(next)
+    if (!next) form.reset()
+  }
+
   // Ни разобрать, ни удалить — меню пустое, показывать нечего.
   if (!canCreate && !canDelete) return null
 
@@ -138,7 +146,7 @@ export default function UnprocessedPaymentActions({
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Добавить оплату</DialogTitle>
@@ -150,7 +158,7 @@ export default function UnprocessedPaymentActions({
             disabled={resolveMutation.isPending}
           />
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setDialogOpen(false)}>
+            <Button variant="secondary" onClick={() => handleDialogOpenChange(false)}>
               Отмена
             </Button>
             <Button type="submit" form={FORM_ID} disabled={resolveMutation.isPending}>
