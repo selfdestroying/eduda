@@ -1,5 +1,6 @@
 'use client'
 
+import { memberRoleLabels } from '@/src/components/sidebar/nav-user'
 import { useMemberListQuery } from '@/src/features/organization/members/queries'
 import {
   StudentSearchCombobox,
@@ -8,6 +9,7 @@ import {
 import { useSessionQuery } from '@/src/features/users/me/queries'
 import { useCreateWalletMutation, useStudentWalletsQuery } from '@/src/features/wallets/queries'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import type { OrganizationRole } from '@/src/lib/auth/server'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import { formatCurrency } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -71,16 +73,6 @@ const NO_PAYMENT_METHOD = 'none'
 /** «Не указан» в списке продавцов; в форму уходит как `null`. */
 const NO_MANAGER = 0
 
-/** «1 занятие», «2 занятия», «5 занятий» — иначе остаток читается как телеграмма. */
-function formatLessons(count: number) {
-  const mod100 = Math.abs(count) % 100
-  const mod10 = mod100 % 10
-  if (mod100 >= 11 && mod100 <= 14) return `${count} занятий`
-  if (mod10 === 1) return `${count} занятие`
-  if (mod10 >= 2 && mod10 <= 4) return `${count} занятия`
-  return `${count} занятий`
-}
-
 /**
  * Одна ссылка на пустой список для всех запросов, что ещё не ответили. `= []`
  * прямо в деструктуризации создаёт новый массив на каждый рендер, а он уходит в
@@ -105,8 +97,12 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
 
   const managerItems = useMemo(
     () => [
-      { id: NO_MANAGER, name: 'Не указан' },
-      ...memberList.map((m) => ({ id: m.userId, name: m.user.name })),
+      { id: NO_MANAGER, name: 'Не указан', role: null },
+      ...memberList.map((m) => ({
+        id: m.userId,
+        name: m.user.name,
+        role: m.role as OrganizationRole,
+      })),
     ],
     [memberList],
   )
@@ -222,7 +218,6 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
     [paymentMethods],
   )
 
-  const selectedWallet = wallets.find((w) => w.id === walletId) ?? null
   const paymentMethodId = useWatch({ control: form.control, name: 'paymentMethodId' })
   const selectedMethod = paymentMethods.find((m) => m.id === paymentMethodId) ?? null
 
@@ -355,20 +350,8 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                   </Button>
                 </div>
               )}
-              {/* Остаток до и после: главный вопрос при вводе оплаты — не «сколько
-                  занятий в пакете», а «сколько их станет у ученика». */}
-              {fieldState.invalid ? (
-                <FieldError errors={[fieldState.error]} />
-              ) : (
-                selectedWallet && (
-                  <FieldDescription>
-                    Остаток: {formatLessons(selectedWallet.lessonsBalance)}
-                    {typeof lessonCount === 'number' &&
-                      lessonCount > 0 &&
-                      ` → ${formatLessons(selectedWallet.lessonsBalance + lessonCount)}`}
-                  </FieldDescription>
-                )
-              )}
+              {/* Здесь будет предпросмотр кошелька. */}
+              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}
         />
@@ -455,6 +438,19 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 emptyText="Нет сотрудников"
                 disabled={disabled}
                 ariaInvalid={fieldState.invalid}
+                // «Не указан» приглушён, как и у методов оплаты: это не сотрудник,
+                // а отказ от выбора, и в списке имён он не должен читаться именем.
+                // Роль второй строкой — тёзок в школе больше, чем кажется.
+                renderItem={(m) => (
+                  <Item size="xs" className="p-0">
+                    <ItemContent>
+                      <ItemTitle className={m.role ? undefined : 'text-muted-foreground'}>
+                        {m.name}
+                      </ItemTitle>
+                      {m.role && <ItemDescription>{memberRoleLabels[m.role]}</ItemDescription>}
+                    </ItemContent>
+                  </Item>
+                )}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
@@ -512,7 +508,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 selectedMethod &&
                 selectedMethod.commission > 0 && (
                   <FieldDescription>
-                    Комиссия {selectedMethod.commission}%
+                    Комиссия: {selectedMethod.commission}%
                     {acquiringFee !== null && ` - ${formatCurrency(acquiringFee)}`}
                   </FieldDescription>
                 )
