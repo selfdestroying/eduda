@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@repo/db'
+import { countUnpaidAttendancesOfWallet } from '@/src/features/finances/ledger.server'
 import { authAction } from '@/src/lib/safe-action'
 import * as z from 'zod'
 import {
@@ -47,6 +48,21 @@ export const getStudentWallets = authAction
         _count: { select: { payments: { where: { status: 'ACTIVE' } } } },
       },
       orderBy: { createdAt: 'asc' },
+    })
+  })
+
+/**
+ * Сколько занятий кошелька ждёт оплаты. Отдельным экшеном, а не полем в списке
+ * кошельков: считать это нужно только форме оплаты и только для выбранного
+ * кошелька, а список тянут ещё три экрана, которым счётчик не нужен.
+ */
+export const getWalletUnpaidCount = authAction
+  .metadata({ actionName: 'getWalletUnpaidCount' })
+  .inputSchema(z.object({ walletId: z.number().int().positive() }))
+  .action(async ({ ctx, parsedInput }) => {
+    return await countUnpaidAttendancesOfWallet({
+      walletId: parsedInput.walletId,
+      organizationId: ctx.session.organizationId!,
     })
   })
 

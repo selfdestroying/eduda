@@ -6,6 +6,16 @@ import { Badge } from '@repo/ui/components/badge'
 import { formatDate } from '@/src/lib/timezone'
 import { formatCurrency, getGroupName } from '@/src/lib/utils'
 
+/** «1 занятие ждёт оплаты», «3 занятия ждут оплаты». */
+function formatWaiting(count: number) {
+  const mod100 = Math.abs(count) % 100
+  const mod10 = mod100 % 10
+  if (mod100 >= 11 && mod100 <= 14) return `${count} занятий ждут оплаты`
+  if (mod10 === 1) return `${count} занятие ждёт оплаты`
+  if (mod10 >= 2 && mod10 <= 4) return `${count} занятия ждут оплаты`
+  return `${count} занятий ждут оплаты`
+}
+
 /** «ещё 1 оплата», «ещё 3 оплаты», «ещё 7 оплат». */
 function formatMorePayments(count: number) {
   const mod100 = Math.abs(count) % 100
@@ -56,10 +66,13 @@ const HEADING = 'text-muted-foreground text-[11px] font-semibold tracking-wide u
 export function WalletPreview({
   wallet,
   addedLessons,
+  unpaidLessons = 0,
 }: {
   wallet: WalletPreviewData | null
   /** Занятия из заполняемой оплаты — чтобы показать, каким станет остаток. */
   addedLessons?: number
+  /** Проведённые занятия кошелька, которые эта оплата закроет. */
+  unpaidLessons?: number
 }) {
   if (!wallet) {
     return (
@@ -78,17 +91,22 @@ export function WalletPreview({
       <div className="flex items-center justify-between gap-2 pb-2">
         <span className="truncate font-medium">{wallet.name || 'Без названия'}</span>
         {/* Главная цифра кошелька: сколько занятий у ученика на руках. Стрелка —
-            каким остаток станет с этой оплатой.
-
-            Стрелка намеренно приблизительная. Занятия, уже проведённые и ждущие
-            оплаты, эта оплата закроет (`settleUnpaidAttendancesTx`), и остаток
-            вырастет меньше показанного. Считать их здесь решено не считать: это
-            отдельный запрос ради случая, которого в базе пока не бывает. */}
+            каким остаток станет с этой оплатой, с поправкой на занятия, которые
+            она закроет: сервер спишет их сразу (`settleUnpaidAttendancesTx`),
+            и без поправки стрелка обещала бы остаток, которого не будет. */}
         <span className="text-muted-foreground shrink-0 tabular-nums">
           Остаток {wallet.lessonsBalance}
-          {addedLessons ? ` → ${wallet.lessonsBalance + addedLessons}` : ''}
+          {addedLessons
+            ? ` → ${wallet.lessonsBalance + addedLessons - Math.min(unpaidLessons, addedLessons)}`
+            : ''}
         </span>
       </div>
+
+      {/* Долг объясняет, почему остаток вырастет не на всю оплату: эти занятия
+          уже проведены, и оплата закроет их первыми. */}
+      {unpaidLessons > 0 && (
+        <div className="text-warning py-2">{formatWaiting(unpaidLessons)} — оплата их закроет</div>
+      )}
 
       {/* Обе секции стоят всегда: пустая «Оплаты» — это сообщение, что кошелёк
           новый, а не повод убрать заголовок и оставить читателя гадать. */}

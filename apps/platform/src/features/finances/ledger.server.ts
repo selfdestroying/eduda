@@ -1,4 +1,4 @@
-import type { Prisma } from '@repo/db'
+import { type Prisma, prisma } from '@repo/db'
 import {
   AttendanceStatus,
   StudentFinancialField,
@@ -309,57 +309,92 @@ export async function recordWalletEntryTx(
  * Если ученика вывели из группы, его неоплаченные занятия отсюда не видны —
  * связи с кошельком больше нет. В общем счётчике неоплаченных они останутся.
  */
+function unpaidAttendancesOfWalletWhere(args: {
+  walletId: number
+  organizationId: number
+  studentId: number
+  groupIds: number[]
+}): Prisma.AttendanceWhereInput {
+  const { walletId, organizationId, studentId, groupIds } = args
+
+  return {
+    ...UNPAID_ATTENDANCE_WHERE,
+    OR: undefined,
+    organizationId,
+    // Группа общая для всех её учеников, поэтому одного условия по группе мало:
+    // без ученика оплата подхватила бы чужие неоплаченные занятия.
+    studentId,
+    AND: [
+      { OR: UNPAID_ATTENDANCE_WHERE.OR },
+      {
+        OR: [
+          { walletId },
+          ...(groupIds.length > 0
+            ? [
+                {
+                  walletId: null,
+                  makeupForAttendanceId: null,
+                  lesson: { groupId: { in: groupIds } },
+                },
+                {
+                  walletId: null,
+                  makeupForAttendance: { lesson: { groupId: { in: groupIds } } },
+                },
+              ]
+            : []),
+        ],
+      },
+    ],
+  }
+}
+
+/** Ученик и группы кошелька — вход для предиката выше. */
+async function walletScopeTx(
+  tx: Prisma.TransactionClient,
+  args: { walletId: number; organizationId: number },
+): Promise<{ studentId: number; groupIds: number[] } | null> {
+  const wallet = await tx.wallet.findFirst({
+    where: { id: args.walletId, organizationId: args.organizationId },
+    select: { studentId: true },
+  })
+  if (!wallet) return null
+
+  const groups = await tx.studentGroup.findMany({
+    where: { walletId: args.walletId },
+    select: { groupId: true },
+  })
+  return { studentId: wallet.studentId, groupIds: groups.map((g) => g.groupId) }
+}
+
 async function unpaidAttendancesOfWalletTx(
   tx: Prisma.TransactionClient,
   args: { walletId: number; organizationId: number; take: number },
 ): Promise<{ id: number }[]> {
-  const { walletId, organizationId, take } = args
-
-  const wallet = await tx.wallet.findFirst({
-    where: { id: walletId, organizationId },
-    select: { studentId: true },
-  })
-  if (!wallet) return []
-
-  const groups = await tx.studentGroup.findMany({
-    where: { walletId },
-    select: { groupId: true },
-  })
-  const groupIds = groups.map((g) => g.groupId)
+  const scope = await walletScopeTx(tx, args)
+  if (!scope) return []
 
   return await tx.attendance.findMany({
-    where: {
-      ...UNPAID_ATTENDANCE_WHERE,
-      OR: undefined,
-      organizationId,
-      // Группа общая для всех её учеников, поэтому одного условия по группе мало:
-      // без ученика оплата подхватила бы чужие неоплаченные занятия.
-      studentId: wallet.studentId,
-      AND: [
-        { OR: UNPAID_ATTENDANCE_WHERE.OR },
-        {
-          OR: [
-            { walletId },
-            ...(groupIds.length > 0
-              ? [
-                  {
-                    walletId: null,
-                    makeupForAttendanceId: null,
-                    lesson: { groupId: { in: groupIds } },
-                  },
-                  {
-                    walletId: null,
-                    makeupForAttendance: { lesson: { groupId: { in: groupIds } } },
-                  },
-                ]
-              : []),
-          ],
-        },
-      ],
-    },
+    where: unpaidAttendancesOfWalletWhere({ ...args, ...scope }),
     orderBy: [{ lesson: { date: 'asc' } }, { id: 'asc' }],
-    take,
+    take: args.take,
     select: { id: true },
+  })
+}
+
+/**
+ * Сколько занятий кошелька ждёт оплаты. Только чтение: считает ровно то, что
+ * закроет следующая оплата, тем же предикатом, что и списание, — иначе цифра в
+ * форме и поведение сохранения разъедутся.
+ */
+export async function countUnpaidAttendancesOfWallet(args: {
+  walletId: number
+  organizationId: number
+}): Promise<number> {
+  const scope = await walletScopeTx(prisma, args)
+  if (!scope) return 0
+
+  return await prisma.attendance.count({
+    where: unpaidAttendancesOfWalletWhere({ ...args, ...scope }),
   })
 }
 

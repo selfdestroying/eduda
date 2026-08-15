@@ -7,7 +7,11 @@ import {
   type StudentOption,
 } from '@/src/features/students/components/student-search-combobox'
 import { useSessionQuery } from '@/src/features/users/me/queries'
-import { useCreateWalletMutation, useStudentWalletsQuery } from '@/src/features/wallets/queries'
+import {
+  useCreateWalletMutation,
+  useStudentWalletsQuery,
+  useWalletUnpaidCountQuery,
+} from '@/src/features/wallets/queries'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import type { OrganizationRole } from '@/src/lib/auth/server'
 import { todayYmdInTz } from '@/src/lib/timezone'
@@ -219,6 +223,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
   )
 
   const selectedWallet = studentWallets.find((w) => w.id === walletId) ?? null
+  const { data: unpaidLessons = 0 } = useWalletUnpaidCountQuery(walletId ?? null)
   const paymentMethodId = useWatch({ control: form.control, name: 'paymentMethodId' })
   const selectedMethod = paymentMethods.find((m) => m.id === paymentMethodId) ?? null
 
@@ -361,6 +366,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 addedLessons={
                   typeof lessonCount === 'number' && lessonCount > 0 ? lessonCount : undefined
                 }
+                unpaidLessons={unpaidLessons}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>

@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { archiveWallet, createWallet, getStudentWallets, linkGroupToWallet } from './actions'
+import {
+  archiveWallet,
+  createWallet,
+  getStudentWallets,
+  getWalletUnpaidCount,
+  linkGroupToWallet,
+} from './actions'
 import type {
   ArchiveWalletSchemaType,
   CreateWalletSchemaType,
@@ -21,6 +27,18 @@ export const useStudentWalletsQuery = (studentId: number, options?: { enabled?: 
       return data ?? []
     },
     enabled: options?.enabled,
+  })
+}
+
+export const useWalletUnpaidCountQuery = (walletId: number | null) => {
+  return useQuery({
+    queryKey: [...walletKeys.all, 'unpaid', walletId] as const,
+    queryFn: async () => {
+      const { data, serverError } = await getWalletUnpaidCount({ walletId: walletId! })
+      if (serverError) throw serverError
+      return data ?? 0
+    },
+    enabled: walletId != null,
   })
 }
 
