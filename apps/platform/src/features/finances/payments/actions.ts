@@ -151,23 +151,29 @@ export const createPaymentWithBalance = permissionAction({ payment: ['create'] }
     const paymentMeta = { lessonCount, price, walletId }
 
     await prisma.$transaction(async (tx) => {
-      const wallet = await tx.wallet.findUnique({
-        where: { id: walletId },
+      // Кошелёк ищем в своей организации: `walletId` приходит из запроса, и без
+      // этого условия чужой id нашёлся бы, а оплата легла бы в чужую школу —
+      // `organizationId` для неё брался из самого кошелька.
+      const wallet = await tx.wallet.findFirst({
+        where: { id: walletId, organizationId: ctx.session.organizationId! },
         select: {
           lessonsBalance: true,
           totalPayments: true,
           totalLessons: true,
-          organizationId: true,
           studentId: true,
+          status: true,
         },
       })
-      if (!wallet) throw new Error('Кошелёк не найден')
-      if (wallet.studentId !== studentId) throw new Error('Кошелёк не принадлежит этому ученику')
+      if (!wallet) throw new NotFoundError('Кошелёк не найден')
+      if (wallet.studentId !== studentId)
+        throw new ConflictError('Кошелёк не принадлежит этому ученику')
+      // Архивный кошелёк из интерфейса не выбрать, но запросом — можно.
+      if (wallet.status !== 'ACTIVE') throw new ConflictError('Кошелёк архивирован')
 
       const payment = await tx.payment.create({
         select: { id: true },
         data: {
-          organizationId: wallet.organizationId,
+          organizationId: ctx.session.organizationId!,
           studentId,
           walletId,
           lessonCount,
@@ -184,7 +190,7 @@ export const createPaymentWithBalance = permissionAction({ payment: ['create'] }
 
       // Журнал: оплата — приход уроков в кошелёк, встаёт в очередь по своей дате.
       await recordWalletEntryTx(tx, {
-        organizationId: wallet.organizationId,
+        organizationId: ctx.session.organizationId!,
         walletId,
         studentId,
         kind: WalletEntryKind.PURCHASE,
@@ -414,23 +420,29 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
     }
 
     await prisma.$transaction(async (tx) => {
-      const wallet = await tx.wallet.findUnique({
-        where: { id: walletId },
+      // Кошелёк ищем в своей организации: `walletId` приходит из запроса, и без
+      // этого условия чужой id нашёлся бы, а оплата легла бы в чужую школу —
+      // `organizationId` для неё брался из самого кошелька.
+      const wallet = await tx.wallet.findFirst({
+        where: { id: walletId, organizationId: ctx.session.organizationId! },
         select: {
           lessonsBalance: true,
           totalPayments: true,
           totalLessons: true,
-          organizationId: true,
           studentId: true,
+          status: true,
         },
       })
-      if (!wallet) throw new Error('Кошелёк не найден')
-      if (wallet.studentId !== studentId) throw new Error('Кошелёк не принадлежит этому ученику')
+      if (!wallet) throw new NotFoundError('Кошелёк не найден')
+      if (wallet.studentId !== studentId)
+        throw new ConflictError('Кошелёк не принадлежит этому ученику')
+      // Архивный кошелёк из интерфейса не выбрать, но запросом — можно.
+      if (wallet.status !== 'ACTIVE') throw new ConflictError('Кошелёк архивирован')
 
       const payment = await tx.payment.create({
         select: { id: true },
         data: {
-          organizationId: wallet.organizationId,
+          organizationId: ctx.session.organizationId!,
           studentId,
           walletId,
           lessonCount,
@@ -447,7 +459,7 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
 
       // Журнал: оплата — приход уроков в кошелёк, встаёт в очередь по своей дате.
       await recordWalletEntryTx(tx, {
-        organizationId: wallet.organizationId,
+        organizationId: ctx.session.organizationId!,
         walletId,
         studentId,
         kind: WalletEntryKind.PURCHASE,

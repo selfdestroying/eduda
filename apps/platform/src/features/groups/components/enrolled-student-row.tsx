@@ -39,12 +39,9 @@ export function EnrolledStudentRow({
   invalid,
 }: EnrolledStudentRowProps) {
   const { data: wallets, isLoading } = useStudentWalletsQuery(entry.studentId, { enabled: true })
-  // Тоже мемо, и по той же причине, что `walletItems` ниже: без этого `filter`
-  // отдаёт новый массив на каждый рендер, и мемоизация списка по нему бессмысленна.
-  const activeWallets = useMemo(
-    () => (wallets ?? []).filter((w) => w.status === 'ACTIVE'),
-    [wallets],
-  )
+  // Архивные отсеивает сам запрос. Мемо — чтобы `?? []` не отдавал новый массив
+  // на каждый рендер: на нём держится мемоизация `walletItems` ниже.
+  const activeWallets = useMemo(() => wallets ?? [], [wallets])
   const walletsLoaded = wallets !== undefined
 
   // Кошелёк обязателен: один активный — выбираем его, нет ни одного — создаём новый

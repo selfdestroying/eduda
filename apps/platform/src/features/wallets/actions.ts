@@ -21,9 +21,13 @@ export const getStudentWallets = authAction
   )
   .action(async ({ ctx, parsedInput }) => {
     return await prisma.wallet.findMany({
+      // Только активные: всем четырём потребителям — форме оплаты, посещаемости,
+      // зачислению в группу и привязке группы — нужны именно они, и каждый
+      // отсеивал архивные у себя. Одно условие в базе вместо четырёх в браузерах.
       where: {
         studentId: parsedInput.studentId,
         organizationId: ctx.session.organizationId!,
+        status: 'ACTIVE',
       },
       include: {
         studentGroups: {

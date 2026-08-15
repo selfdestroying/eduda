@@ -167,13 +167,11 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
   // втрое и повторялось у каждого пункта, а различают кошельки по имени.
   const wallets = useMemo(
     () =>
-      studentWallets
-        .filter((w) => w.status === 'ACTIVE')
-        .map((w) => ({
-          id: w.id,
-          label: w.name || `Кошелёк #${w.id}`,
-          lessonsBalance: w.lessonsBalance,
-        })),
+      studentWallets.map((w) => ({
+        id: w.id,
+        label: w.name || `Кошелёк #${w.id}`,
+        lessonsBalance: w.lessonsBalance,
+      })),
     [studentWallets],
   )
 
