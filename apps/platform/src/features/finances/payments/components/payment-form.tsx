@@ -67,7 +67,7 @@ export function usePaymentForm() {
  */
 const NO_PAYMENT_METHOD = 'none'
 
-/** «Без менеджера» в списке продавцов; в форму уходит как `null`. */
+/** «Не указан» в списке продавцов; в форму уходит как `null`. */
 const NO_MANAGER = 0
 
 /** «1 занятие», «2 занятия», «5 занятий» — иначе остаток читается как телеграмма. */
@@ -104,7 +104,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
 
   const managerItems = useMemo(
     () => [
-      { id: NO_MANAGER, name: 'Без менеджера' },
+      { id: NO_MANAGER, name: 'Не указан' },
       ...memberList.map((m) => ({ id: m.userId, name: m.user.name })),
     ],
     [memberList],
@@ -348,9 +348,9 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor={`${formId}-manager`}>Менеджер</FieldLabel>
-              {/* «Без менеджера» — обычный пункт списка, как «Не указан» у метода:
-                  поле необязательное, и отказ от продавца должен выбираться наравне
-                  с людьми, а не прятаться в крестик очистки. */}
+              {/* «Не указан» — обычный пункт списка, как и у метода оплаты: поле
+                  необязательное, и отказ от продавца должен выбираться наравне с
+                  людьми, а не прятаться в крестик очистки. */}
               <CustomCombobox
                 items={managerItems}
                 getKey={(m) => m.id}
