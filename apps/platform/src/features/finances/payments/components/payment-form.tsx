@@ -39,6 +39,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
 import { CreatePaymentSchema, type CreatePaymentSchemaType } from '../schemas'
+import { WalletPreview } from './wallet-preview'
 
 /**
  * Пустая форма оплаты. Живёт здесь, а не у каждого потребителя: набор значений
@@ -217,6 +218,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
     [paymentMethods],
   )
 
+  const selectedWallet = studentWallets.find((w) => w.id === walletId) ?? null
   const paymentMethodId = useWatch({ control: form.control, name: 'paymentMethodId' })
   const selectedMethod = paymentMethods.find((m) => m.id === paymentMethodId) ?? null
 
@@ -354,7 +356,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                   </Button>
                 </div>
               )}
-              {/* Здесь будет предпросмотр кошелька. */}
+              <WalletPreview wallet={selectedWallet} />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}

@@ -35,6 +35,16 @@ export const getStudentWallets = authAction
             group: { include: { course: true, location: true, schedules: true } },
           },
         },
+        // Две последние оплаты и сколько их всего — для предпросмотра кошелька в
+        // форме оплаты. Две строки на кошелёк дешевле отдельного запроса, а
+        // отменённые в эту картину не входят: их остаток уже снят с баланса.
+        payments: {
+          where: { status: 'ACTIVE' },
+          orderBy: [{ date: 'desc' }, { id: 'desc' }],
+          take: 2,
+          select: { id: true, date: true, price: true, lessonCount: true, remaining: true },
+        },
+        _count: { select: { payments: { where: { status: 'ACTIVE' } } } },
       },
       orderBy: { createdAt: 'asc' },
     })
