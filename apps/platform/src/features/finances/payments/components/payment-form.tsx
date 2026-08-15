@@ -20,7 +20,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from '@repo/ui/components/field'
-import { Hint } from '@repo/ui/components/hint'
 import { Input } from '@repo/ui/components/input'
 import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
 import { NumberInput } from '@repo/ui/components/number-input'
@@ -68,6 +67,9 @@ export function usePaymentForm() {
  */
 const NO_PAYMENT_METHOD = 'none'
 
+/** «Без менеджера» в списке продавцов; в форму уходит как `null`. */
+const NO_MANAGER = 0
+
 /** «1 занятие», «2 занятия», «5 занятий» — иначе остаток читается как телеграмма. */
 function formatLessons(count: number) {
   const mod100 = Math.abs(count) % 100
@@ -100,8 +102,11 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
   const { data: memberList = EMPTY } = useMemberListQuery()
   const { data: session } = useSessionQuery()
 
-  const members = useMemo(
-    () => memberList.map((m) => ({ id: m.userId, name: m.user.name })),
+  const managerItems = useMemo(
+    () => [
+      { id: NO_MANAGER, name: 'Без менеджера' },
+      ...memberList.map((m) => ({ id: m.userId, name: m.user.name })),
+    ],
     [memberList],
   )
 
@@ -146,13 +151,11 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
 
   // Кошелёк принадлежит ученику, и со сменой ученика прежний выбор становится
   // чужим — сервер такой оплате откажет («Кошелёк не принадлежит этому ученику»),
-  // а в форме он до сих пор выглядел выбранным. Единственный кошелёк заодно
-  // подставляем сам: у большинства учеников он один и выбирать не из чего.
+  // а в форме он до сих пор выглядел выбранным. Сам ничего не подставляем: кошелёк
+  // выбирают руками, даже когда он один.
   useEffect(() => {
     if (walletId != null && wallets.some((w) => w.id === walletId)) return
-    const only = wallets.length === 1 ? wallets[0] : undefined
-    if (only) form.setValue('walletId', only.id, { shouldValidate: false })
-    else form.resetField('walletId')
+    form.resetField('walletId')
   }, [wallets, walletId, form])
 
   // Ровно та цена занятия, которую посчитает сервер (`bidForLesson`), — целочисленным
@@ -344,21 +347,19 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
           name="managerId"
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={`${formId}-manager`}>
-                Менеджер
-                <Hint text="Кто продал этот пакет. По умолчанию — вы; поменяйте, если оплату вносите за коллегу." />
-              </FieldLabel>
+              <FieldLabel htmlFor={`${formId}-manager`}>Менеджер</FieldLabel>
+              {/* «Без менеджера» — обычный пункт списка, как «Не указан» у метода:
+                  поле необязательное, и отказ от продавца должен выбираться наравне
+                  с людьми, а не прятаться в крестик очистки. */}
               <CustomCombobox
-                items={members}
+                items={managerItems}
                 getKey={(m) => m.id}
                 getLabel={(m) => m.name}
-                value={members.find((m) => m.id === field.value) ?? null}
-                onValueChange={(m) => field.onChange(m?.id ?? null)}
+                value={managerItems.find((m) => m.id === (field.value ?? NO_MANAGER)) ?? null}
+                onValueChange={(m) => field.onChange(m && m.id !== NO_MANAGER ? m.id : null)}
                 id={`${formId}-manager`}
-                placeholder="Выберите менеджера"
                 emptyText="Нет сотрудников"
                 disabled={disabled}
-                showClear
                 ariaInvalid={fieldState.invalid}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
@@ -370,10 +371,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
           name="paymentMethodId"
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={`${formId}-paymentMethod`}>
-                Метод оплаты (необязательно)
-                <Hint text="Если нужного метода нет в списке, обратитесь к владельцу для создания нового метода оплаты" />
-              </FieldLabel>
+              <FieldLabel htmlFor={`${formId}-paymentMethod`}>Метод оплаты</FieldLabel>
               {/* Методов три-пять, их заводит владелец школы — здесь тоже нечего
                   искать. «Не указан» — обычный пункт списка: поле необязательное,
                   и выбор «никакой» должен быть виден наравне с остальными. */}
