@@ -16,6 +16,7 @@ import {
 } from '@repo/ui/components/field'
 import { Hint } from '@repo/ui/components/hint'
 import { Input } from '@repo/ui/components/input'
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
 import { NumberInput } from '@repo/ui/components/number-input'
 import {
   Select,
@@ -226,10 +227,12 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                       // Остаток прямо в списке: у ученика с двумя кошельками
                       // выбирают как раз по нему, а не по названию группы.
                       <SelectItem key={w.id} value={String(w.id)}>
-                        <span className="flex-1 truncate">{w.label}</span>
-                        <span className="text-muted-foreground">
-                          {formatLessons(w.lessonsBalance)}
-                        </span>
+                        <Item size="xs" className="p-0">
+                          <ItemContent>
+                            <ItemTitle>{w.label}</ItemTitle>
+                            <ItemDescription>{formatLessons(w.lessonsBalance)}</ItemDescription>
+                          </ItemContent>
+                        </Item>
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -376,12 +379,16 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                     </SelectItem>
                     {paymentMethods.map((m) => (
                       <SelectItem key={m.id} value={String(m.id)}>
-                        <span className="flex-1 truncate">{m.name}</span>
-                        {m.commission > 0 && (
-                          <span className="text-muted-foreground tabular-nums">
-                            {m.commission} %
-                          </span>
-                        )}
+                        <Item size="xs" className="p-0">
+                          <ItemContent>
+                            <ItemTitle>{m.name}</ItemTitle>
+                            {m.commission > 0 && (
+                              <ItemDescription>
+                                <span className="tabular-nums">{m.commission} %</span>
+                              </ItemDescription>
+                            )}
+                          </ItemContent>
+                        </Item>
                       </SelectItem>
                     ))}
                   </SelectGroup>
