@@ -2,14 +2,16 @@
 
 import { Button } from '@repo/ui/components/button'
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@repo/ui/components/dialog'
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@repo/ui/components/drawer'
+import { ScrollArea } from '@repo/ui/components/scroll-area'
+import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, Plus } from 'lucide-react'
@@ -24,7 +26,8 @@ const CAN_CREATE = { payment: ['create'] } as const
 
 export default function AddPaymentButton() {
   const canCreate = useHasPermission(CAN_CREATE)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [open, setOpen] = useState(false)
+  const isMobile = useIsMobile()
   const createMutation = usePaymentCreateMutation()
 
   const form = useForm<CreatePaymentSchemaType>({
@@ -41,7 +44,7 @@ export default function AddPaymentButton() {
     createMutation.mutate(values, {
       onSuccess: () => {
         form.reset()
-        setDialogOpen(false)
+        setOpen(false)
       },
     })
   }
@@ -51,17 +54,32 @@ export default function AddPaymentButton() {
   if (!canCreate) return null
 
   return (
-    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      <DialogTrigger render={<Button size={'icon'} />}>
+    <Drawer
+      open={open}
+      onOpenChange={setOpen}
+      swipeDirection={isMobile ? 'down' : 'right'}
+      showSwipeHandle={isMobile}
+    >
+      <DrawerTrigger render={<Button size={'icon'} />}>
         <Plus />
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Добавить оплату</DialogTitle>
-        </DialogHeader>
-        <PaymentForm form={form} formId="create-payment-form" disabled={createMutation.isPending} />
-        <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Отмена</DialogClose>
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader className="pb-4">
+          <DrawerTitle>Добавить оплату</DrawerTitle>
+        </DrawerHeader>
+        {/* Полей семь, и на телефоне они не влезают в `100dvh - 6rem` — форма
+            прокручивается внутри панели, а шапка и кнопки остаются на месте. */}
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="px-4">
+            <PaymentForm
+              form={form}
+              formId="create-payment-form"
+              disabled={createMutation.isPending}
+            />
+          </div>
+        </ScrollArea>
+        <DrawerFooter className="pt-4">
+          <DrawerClose render={<Button variant="outline" />}>Отмена</DrawerClose>
           <Button
             type="button"
             disabled={createMutation.isPending}
@@ -70,8 +88,8 @@ export default function AddPaymentButton() {
             {createMutation.isPending && <Loader className="animate-spin" />}
             Добавить
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   )
 }
