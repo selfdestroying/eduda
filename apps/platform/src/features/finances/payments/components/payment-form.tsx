@@ -6,8 +6,6 @@ import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { dateToYmd, todayYmdInTz, ymdToLocalDate } from '@/src/lib/timezone'
 import { formatCurrency, getFullName } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Button } from '@repo/ui/components/button'
-import { Calendar } from '@repo/ui/components/calendar'
 import { CustomCombobox } from '@repo/ui/components/custom-combobox'
 import {
   Field,
@@ -17,11 +15,9 @@ import {
   FieldLabel,
 } from '@repo/ui/components/field'
 import { Hint } from '@repo/ui/components/hint'
+import { Input } from '@repo/ui/components/input'
 import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
 import { NumberInput } from '@repo/ui/components/number-input'
-import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
-import { ru } from 'date-fns/locale'
-import { CalendarIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
@@ -253,25 +249,21 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
           name="date"
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel>Дата</FieldLabel>
-              <Popover>
-                <PopoverTrigger
-                  render={
-                    <Button variant="outline" className="w-full font-normal" disabled={disabled} />
-                  }
-                >
-                  <CalendarIcon />
-                  {field.value ? field.value : 'Выберите день'}
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    onSelect={(value) => value && field.onChange(dateToYmd(value))}
-                    locale={ru}
-                    selected={field.value ? ymdToLocalDate(field.value) : undefined}
-                  />
-                </PopoverContent>
-              </Popover>
+              <FieldLabel htmlFor={`${formId}-date`}>Дата</FieldLabel>
+              {/* Нативное поле, а не попап с календарём: его `value` — уже
+                  `YYYY-MM-DD`, то есть ровно то, что лежит в `Payment.date`,
+                  преобразовывать нечего. Дату можно набрать с клавиатуры, формат
+                  показа берётся из системы, а на телефоне открывается системный
+                  барабан вместо нашего календаря. */}
+              <Input
+                id={`${formId}-date`}
+                type="date"
+                value={field.value ?? ''}
+                onChange={(e) => field.onChange(e.target.value || undefined)}
+                onBlur={field.onBlur}
+                disabled={disabled}
+                aria-invalid={fieldState.invalid}
+              />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}

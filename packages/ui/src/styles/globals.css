@@ -58,6 +58,9 @@
 }
 
 :root {
+  /* Нативные контролы (календарь у `input[type=date]`, системные меню) красит
+     браузер, и без этой строки он красит их светлыми поверх нашей тёмной темы. */
+  color-scheme: light;
   --radius: 0.625rem;
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -96,6 +99,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
