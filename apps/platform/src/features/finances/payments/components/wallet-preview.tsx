@@ -53,6 +53,9 @@ export interface WalletPreviewData {
 
 const BOX = 'rounded-md border p-2.5 text-xs'
 
+/** Та же подпись раздела, что у секций в панели фильтров таблицы. */
+const HEADING = 'text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'
+
 /**
  * Кошелёк одним блоком под полем выбора: во что превратится оплата и что в этом
  * кошельке уже есть. Пустой блок с пунктиром держит место, чтобы форма не
@@ -81,29 +84,35 @@ export function WalletPreview({ wallet }: { wallet: WalletPreviewData | null }) 
       </div>
 
       {wallet.studentGroups.length > 0 && (
-        <ul className="text-muted-foreground flex flex-col gap-0.5">
-          {wallet.studentGroups.map((sg, i) => (
-            <li key={i} className="truncate">
-              {getGroupName(sg.group)}
-            </li>
-          ))}
-        </ul>
+        <div className="flex flex-col gap-0.5">
+          <span className={HEADING}>Группы</span>
+          <ul className="text-muted-foreground flex flex-col gap-0.5">
+            {wallet.studentGroups.map((sg, i) => (
+              <li key={i} className="truncate">
+                {getGroupName(sg.group)}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {wallet.payments.length > 0 && (
-        <ul className="flex flex-col gap-0.5">
-          {wallet.payments.map((p) => (
-            <li key={p.id} className="flex items-center justify-between gap-2 tabular-nums">
-              <span className="truncate">
-                {formatDate(p.date)} · {p.lessonCount} зан. · {formatCurrency(p.price)}
-              </span>
-              <span className="text-muted-foreground shrink-0">остаток {p.remaining ?? '—'}</span>
-            </li>
-          ))}
-          {hiddenPayments > 0 && (
-            <li className="text-muted-foreground">{formatMorePayments(hiddenPayments)}</li>
-          )}
-        </ul>
+        <div className="flex flex-col gap-0.5">
+          <span className={HEADING}>Оплаты</span>
+          <ul className="flex flex-col gap-0.5">
+            {wallet.payments.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-2 tabular-nums">
+                <span className="truncate">
+                  {formatDate(p.date)} · {p.lessonCount} зан. · {formatCurrency(p.price)}
+                </span>
+                <span className="text-muted-foreground shrink-0">остаток {p.remaining ?? '—'}</span>
+              </li>
+            ))}
+            {hiddenPayments > 0 && (
+              <li className="text-muted-foreground">{formatMorePayments(hiddenPayments)}</li>
+            )}
+          </ul>
+        </div>
       )}
     </div>
   )
