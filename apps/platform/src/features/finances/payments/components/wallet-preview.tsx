@@ -3,19 +3,8 @@
 import { STUDENT_STATUS } from '@/src/features/students/status'
 import type { StudentStatus } from '@repo/db/enums'
 import { Badge } from '@repo/ui/components/badge'
-import { Separator } from '@repo/ui/components/separator'
 import { formatDate } from '@/src/lib/timezone'
 import { formatCurrency, getGroupName } from '@/src/lib/utils'
-
-/** «1 занятие», «2 занятия», «5 занятий». */
-function formatLessons(count: number) {
-  const mod100 = Math.abs(count) % 100
-  const mod10 = mod100 % 10
-  if (mod100 >= 11 && mod100 <= 14) return `${count} занятий`
-  if (mod10 === 1) return `${count} занятие`
-  if (mod10 >= 2 && mod10 <= 4) return `${count} занятия`
-  return `${count} занятий`
-}
 
 /** «ещё 1 оплата», «ещё 3 оплаты», «ещё 7 оплат». */
 function formatMorePayments(count: number) {
@@ -34,8 +23,6 @@ function formatMorePayments(count: number) {
  */
 export interface WalletPreviewData {
   name: string | null
-  totalLessons: number
-  totalPayments: number
   studentGroups: Array<{
     status: StudentStatus
     group: {
@@ -78,15 +65,7 @@ export function WalletPreview({ wallet }: { wallet: WalletPreviewData | null }) 
 
   return (
     <div className={`${BOX} flex flex-col gap-2`}>
-      <div className="flex flex-col gap-0.5">
-        <span className="font-medium">{wallet.name || 'Без названия'}</span>
-        {/* Две равные половины, в каждой значение по центру, разделитель между. */}
-        <div className="text-muted-foreground flex h-4 items-center gap-2 tabular-nums">
-          <span className="flex-1 text-center">{formatLessons(wallet.totalLessons)}</span>
-          <Separator orientation="vertical" />
-          <span className="flex-1 text-center">{formatCurrency(wallet.totalPayments)}</span>
-        </div>
-      </div>
+      <span className="font-medium">{wallet.name || 'Без названия'}</span>
 
       {wallet.studentGroups.length > 0 && (
         <div className="flex flex-col gap-0.5">
