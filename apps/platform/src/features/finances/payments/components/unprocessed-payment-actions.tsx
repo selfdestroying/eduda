@@ -25,16 +25,14 @@ import {
   DropdownMenuTrigger,
 } from '@repo/ui/components/dropdown-menu'
 import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { Check, CircleX, Loader, MoreVertical } from 'lucide-react'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
 import {
   useUnprocessedPaymentDeleteMutation,
   useUnprocessedPaymentResolveMutation,
 } from '../queries'
-import { CreatePaymentSchema, type CreatePaymentSchemaType } from '../schemas'
-import PaymentForm from './payment-form'
+import { type CreatePaymentSchemaType } from '../schemas'
+import PaymentForm, { usePaymentForm } from './payment-form'
 
 interface UnprocessedPaymentActionsProps {
   unprocessedPayment: UnprocessedPayment
@@ -43,6 +41,8 @@ interface UnprocessedPaymentActionsProps {
 // Вне компонента: `useHasPermission` мемоизирует по ссылке на объект прав.
 const CAN_CREATE = { payment: ['create'] } as const
 const CAN_DELETE = { payment: ['delete'] } as const
+
+const FORM_ID = 'resolve-payment-form'
 
 export default function UnprocessedPaymentActions({
   unprocessedPayment,
@@ -56,15 +56,7 @@ export default function UnprocessedPaymentActions({
   const resolveMutation = useUnprocessedPaymentResolveMutation()
   const deleteMutation = useUnprocessedPaymentDeleteMutation()
 
-  const form = useForm<CreatePaymentSchemaType>({
-    resolver: zodResolver(CreatePaymentSchema),
-    defaultValues: {
-      price: undefined,
-      lessonCount: undefined,
-      date: undefined,
-      paymentMethodId: null,
-    },
-  })
+  const form = usePaymentForm()
 
   const onSubmit = (values: CreatePaymentSchemaType) => {
     resolveMutation.mutate(
@@ -153,14 +145,15 @@ export default function UnprocessedPaymentActions({
           </DialogHeader>
           <PaymentForm
             form={form}
-            formId="resolve-payment-form"
+            formId={FORM_ID}
+            onSubmit={onSubmit}
             disabled={resolveMutation.isPending}
           />
           <DialogFooter>
             <Button variant="secondary" onClick={() => setDialogOpen(false)}>
               Отмена
             </Button>
-            <Button disabled={resolveMutation.isPending} onClick={form.handleSubmit(onSubmit)}>
+            <Button type="submit" form={FORM_ID} disabled={resolveMutation.isPending}>
               {resolveMutation.isPending && <Loader className="animate-spin" />}
               Добавить
             </Button>

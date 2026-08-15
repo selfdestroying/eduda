@@ -188,16 +188,8 @@ export const createPaymentWithBalance = permissionAction({ payment: ['create'] }
   .metadata({ actionName: 'createPaymentWithBalance' })
   .inputSchema(CreatePaymentSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const {
-      studentId,
-      wallet: walletInput,
-      lessonCount,
-      price,
-      date,
-      paymentMethodId,
-      managerId,
-    } = parsedInput
-    const walletId = walletInput.value
+    const { studentId, walletId, lessonCount, price, date, paymentMethodId, managerId } =
+      parsedInput
 
     const paymentMeta = { lessonCount, price, walletId }
 
@@ -449,14 +441,13 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
     const {
       unprocessedPaymentId,
       studentId,
-      wallet: walletInput,
+      walletId,
       lessonCount,
       price,
       date,
       paymentMethodId,
       managerId,
     } = parsedInput
-    const walletId = walletInput.value
 
     const paymentMeta = {
       lessonCount,

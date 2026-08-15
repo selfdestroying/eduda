@@ -13,16 +13,16 @@ import {
 import { ScrollArea } from '@repo/ui/components/scroll-area'
 import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
 import { usePaymentCreateMutation } from '../queries'
-import { CreatePaymentSchema, type CreatePaymentSchemaType } from '../schemas'
-import PaymentForm from './payment-form'
+import { type CreatePaymentSchemaType } from '../schemas'
+import PaymentForm, { usePaymentForm } from './payment-form'
 
 // Вне компонента: `useHasPermission` мемоизирует по ссылке на объект прав.
 const CAN_CREATE = { payment: ['create'] } as const
+
+const FORM_ID = 'create-payment-form'
 
 export default function AddPaymentButton() {
   const canCreate = useHasPermission(CAN_CREATE)
@@ -30,15 +30,7 @@ export default function AddPaymentButton() {
   const isMobile = useIsMobile()
   const createMutation = usePaymentCreateMutation()
 
-  const form = useForm<CreatePaymentSchemaType>({
-    resolver: zodResolver(CreatePaymentSchema),
-    defaultValues: {
-      price: undefined,
-      lessonCount: undefined,
-      date: undefined,
-      paymentMethodId: null,
-    },
-  })
+  const form = usePaymentForm()
 
   const onSubmit = (values: CreatePaymentSchemaType) => {
     createMutation.mutate(values, {
@@ -73,18 +65,17 @@ export default function AddPaymentButton() {
           <div className="px-4">
             <PaymentForm
               form={form}
-              formId="create-payment-form"
+              formId={FORM_ID}
+              onSubmit={onSubmit}
               disabled={createMutation.isPending}
             />
           </div>
         </ScrollArea>
         <DrawerFooter className="pt-4">
           <DrawerClose render={<Button variant="outline" />}>Отмена</DrawerClose>
-          <Button
-            type="button"
-            disabled={createMutation.isPending}
-            onClick={form.handleSubmit(onSubmit)}
-          >
+          {/* Кнопка вне формы, поэтому связь через `form` — заодно Enter в поле
+              отправляет форму сам, без отдельного обработчика. */}
+          <Button type="submit" form={FORM_ID} disabled={createMutation.isPending}>
             {createMutation.isPending && <Loader className="animate-spin" />}
             Добавить
           </Button>

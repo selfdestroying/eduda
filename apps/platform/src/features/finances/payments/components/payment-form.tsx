@@ -1,47 +1,76 @@
 'use client'
 
-import { CustomCombobox } from '@repo/ui/components/custom-combobox'
-import { Hint } from '@repo/ui/components/hint'
-import { NumberInput } from '@repo/ui/components/number-input'
+import { useMemberListQuery } from '@/src/features/organization/members/queries'
+import { useSessionQuery } from '@/src/features/users/me/queries'
+import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import { dateToYmd, todayYmdInTz, ymdToLocalDate } from '@/src/lib/timezone'
+import { formatCurrency, getFullName } from '@/src/lib/utils'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@repo/ui/components/button'
 import { Calendar } from '@repo/ui/components/calendar'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import { CustomCombobox } from '@repo/ui/components/custom-combobox'
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@repo/ui/components/field'
+import { Hint } from '@repo/ui/components/hint'
 import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
+import { NumberInput } from '@repo/ui/components/number-input'
 import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
-import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
-import { getFullName } from '@/src/lib/utils'
 import { ru } from 'date-fns/locale'
 import { CalendarIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
-import {
-  Controller,
-  type FieldValues,
-  type Path,
-  type UseFormReturn,
-  useWatch,
-} from 'react-hook-form'
-import { useMemberListQuery } from '@/src/features/organization/members/queries'
-import { useSessionQuery } from '@/src/features/users/me/queries'
+import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
 import { useStudentForPaymentListQuery } from '../queries'
+import { CreatePaymentSchema, type CreatePaymentSchemaType } from '../schemas'
 
-interface PaymentFormProps<T extends FieldValues> {
-  form: UseFormReturn<T>
+/**
+ * Пустая форма оплаты. Живёт здесь, а не у каждого потребителя: набор значений
+ * по умолчанию обязан совпадать с полями формы, а потребителя два — создание
+ * оплаты и разбор неразобранной.
+ *
+ * Дата — сегодняшний день школы. Задним числом оплату завести по-прежнему можно,
+ * но вносят её обычно в тот же день, и пустое поле каждый раз требовало клика.
+ */
+export function usePaymentForm() {
+  const tz = useOrgTimezone()
+
+  return useForm<CreatePaymentSchemaType>({
+    resolver: zodResolver(CreatePaymentSchema),
+    defaultValues: {
+      studentId: undefined,
+      walletId: undefined,
+      lessonCount: undefined,
+      price: undefined,
+      date: todayYmdInTz(tz),
+      paymentMethodId: null,
+      managerId: null,
+    },
+  })
+}
+
+interface PaymentFormProps {
+  form: UseFormReturn<CreatePaymentSchemaType>
+  /** Связывает форму с кнопкой отправки, которая стоит вне неё — в футере панели. */
   formId: string
+  onSubmit: (values: CreatePaymentSchemaType) => void
   disabled?: boolean
 }
 
-export default function PaymentForm<T extends FieldValues>({
-  form,
-  formId,
-  disabled,
-}: PaymentFormProps<T>) {
+export default function PaymentForm({ form, formId, onSubmit, disabled }: PaymentFormProps) {
   const { data: students = [] } = useStudentForPaymentListQuery()
   const { data: paymentMethods = [] } = useActivePaymentMethodListQuery()
   const { data: memberList = [] } = useMemberListQuery()
   const { data: session } = useSessionQuery()
 
-  const members = memberList.map((m) => ({ id: m.userId, name: m.user.name }))
+  const members = useMemo(
+    () => memberList.map((m) => ({ id: m.userId, name: m.user.name })),
+    [memberList],
+  )
 
   // По умолчанию продавец — тот, кто вносит оплату. Подставляем ровно один раз, когда
   // список сотрудников приехал: следить за самим полем нельзя — очистка вернула бы
@@ -53,74 +82,82 @@ export default function PaymentForm<T extends FieldValues>({
     if (!currentUserId || !memberList.some((m) => m.userId === currentUserId)) return
 
     prefilled.current = true
-    if (form.getValues('managerId' as Path<T>) == null) {
-      form.setValue('managerId' as Path<T>, currentUserId as never)
-    }
+    if (form.getValues('managerId') == null) form.setValue('managerId', currentUserId)
   }, [memberList, session, form])
 
-  const selectedStudent = useWatch({ control: form.control, name: 'studentId' as Path<T> }) as
-    | number
-    | undefined
+  const studentId = useWatch({ control: form.control, name: 'studentId' })
+  const walletId = useWatch({ control: form.control, name: 'walletId' })
+  const lessonCount = useWatch({ control: form.control, name: 'lessonCount' })
+  const price = useWatch({ control: form.control, name: 'price' })
 
   // Подписи кошельков собирает сервер (`getWalletLabel`) — здесь остаётся только
-  // разложить их в форму комбобокса.
-  const mappedWallets = useMemo(() => {
-    if (!selectedStudent) return []
-    const student = students.find((s) => s.id === selectedStudent)
-    if (!student) return []
-    return student.wallets.map((w) => ({ label: w.label, value: w.id }))
-  }, [selectedStudent, students])
+  // выбрать нужного ученика.
+  const wallets = useMemo(
+    () => students.find((s) => s.id === studentId)?.wallets ?? [],
+    [students, studentId],
+  )
 
-  interface PaymentMethodOption {
-    id: number
-    name: string
-    commission: number
-  }
+  // Кошелёк принадлежит ученику, и со сменой ученика прежний выбор становится
+  // чужим — сервер такой оплате откажет («Кошелёк не принадлежит этому ученику»),
+  // а в форме он до сих пор выглядел выбранным. Единственный кошелёк заодно
+  // подставляем сам: у большинства учеников он один и выбирать не из чего.
+  useEffect(() => {
+    if (walletId != null && wallets.some((w) => w.id === walletId)) return
+    const only = wallets.length === 1 ? wallets[0] : undefined
+    if (only) form.setValue('walletId', only.id, { shouldValidate: false })
+    else form.resetField('walletId')
+  }, [wallets, walletId, form])
 
-  const mappedPaymentMethods = useMemo<PaymentMethodOption[]>(() => {
-    return [
-      { id: 0, name: 'Неизвестно', commission: 0 },
-      ...paymentMethods.map((m) => ({ id: m.id, name: m.name, commission: m.commission })),
-    ]
-  }, [paymentMethods])
+  // Ровно та цена занятия, которую посчитает сервер (`bidForLesson`), — целочисленным
+  // делением. Показываем её здесь, чтобы опечатка в сумме или в занятиях была видна
+  // до сохранения, а не в отчёте через месяц.
+  const bidForLesson =
+    typeof price === 'number' && typeof lessonCount === 'number' && lessonCount > 0
+      ? Math.floor(price / lessonCount)
+      : null
 
   return (
-    <form id={formId}>
+    <form id={formId} onSubmit={form.handleSubmit(onSubmit)}>
       <FieldGroup className="gap-2">
         <Controller
-          name={'studentId' as Path<T>}
+          name="studentId"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={`${formId}-student`}>Студент</FieldLabel>
+              <FieldLabel htmlFor={`${formId}-student`}>Ученик</FieldLabel>
               <CustomCombobox
                 items={students}
                 getKey={(s) => s.id}
                 getLabel={(s) => getFullName(s.firstName, s.lastName)}
-                value={students.find((s) => s.id === field.value) || null}
+                value={students.find((s) => s.id === field.value) ?? null}
                 onValueChange={(s) => s && field.onChange(s.id)}
                 id={`${formId}-student`}
-                placeholder="Выберите студента"
-                emptyText="Нет доступных студентов"
+                placeholder="Выберите ученика"
+                emptyText="Нет доступных учеников"
+                disabled={disabled}
+                ariaInvalid={fieldState.invalid}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}
         />
         <Controller
-          name={'wallet' as Path<T>}
+          name="walletId"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor={`${formId}-wallet`}>Кошелёк</FieldLabel>
               <CustomCombobox
-                items={mappedWallets}
-                value={(field.value || null) as { value: number; label: string } | null}
-                onValueChange={field.onChange}
-                isItemEqualToValue={(a, b) => a?.value === b?.value}
+                items={wallets}
+                getKey={(w) => w.id}
+                getLabel={(w) => w.label}
+                value={wallets.find((w) => w.id === field.value) ?? null}
+                onValueChange={(w) => field.onChange(w?.id ?? undefined)}
                 id={`${formId}-wallet`}
-                disabled={!selectedStudent}
-                emptyText="Нет доступных кошельков"
+                placeholder="Выберите кошелёк"
+                emptyText="У ученика нет активных кошельков"
+                disabled={disabled || !studentId}
+                ariaInvalid={fieldState.invalid}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
@@ -128,16 +165,15 @@ export default function PaymentForm<T extends FieldValues>({
         />
         <Controller
           control={form.control}
-          name={'lessonCount' as Path<T>}
-          disabled={disabled}
+          name="lessonCount"
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor={`${formId}-lessonCount`}>Количество занятий</FieldLabel>
               <NumberInput
                 id={`${formId}-lessonCount`}
                 {...field}
-                onChange={field.onChange}
                 value={field.value ?? ''}
+                disabled={disabled}
                 aria-invalid={fieldState.invalid}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
@@ -146,31 +182,38 @@ export default function PaymentForm<T extends FieldValues>({
         />
         <Controller
           control={form.control}
-          name={'price' as Path<T>}
-          disabled={disabled}
+          name="price"
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor={`${formId}-price`}>Сумма</FieldLabel>
               <NumberInput
                 id={`${formId}-price`}
                 {...field}
-                onChange={field.onChange}
                 value={field.value ?? ''}
+                disabled={disabled}
                 aria-invalid={fieldState.invalid}
               />
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+              {fieldState.invalid ? (
+                <FieldError errors={[fieldState.error]} />
+              ) : (
+                bidForLesson !== null && (
+                  <FieldDescription>{formatCurrency(bidForLesson)} за занятие</FieldDescription>
+                )
+              )}
             </Field>
           )}
         />
         <Controller
           control={form.control}
-          name={'date' as Path<T>}
+          name="date"
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel>Дата</FieldLabel>
               <Popover>
                 <PopoverTrigger
-                  render={<Button variant="outline" className="w-full font-normal" />}
+                  render={
+                    <Button variant="outline" className="w-full font-normal" disabled={disabled} />
+                  }
                 >
                   <CalendarIcon />
                   {field.value ? field.value : 'Выберите день'}
@@ -190,7 +233,7 @@ export default function PaymentForm<T extends FieldValues>({
         />
         <Controller
           control={form.control}
-          name={'managerId' as Path<T>}
+          name="managerId"
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor={`${formId}-manager`}>
@@ -199,13 +242,16 @@ export default function PaymentForm<T extends FieldValues>({
               </FieldLabel>
               <CustomCombobox
                 items={members}
-                getKey={(m) => m!.id}
-                getLabel={(m) => m!.name}
+                getKey={(m) => m.id}
+                getLabel={(m) => m.name}
                 value={members.find((m) => m.id === field.value) ?? null}
                 onValueChange={(m) => field.onChange(m?.id ?? null)}
                 id={`${formId}-manager`}
                 placeholder="Выберите менеджера"
                 emptyText="Нет сотрудников"
+                disabled={disabled}
+                showClear
+                ariaInvalid={fieldState.invalid}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
@@ -213,32 +259,35 @@ export default function PaymentForm<T extends FieldValues>({
         />
         <Controller
           control={form.control}
-          name={'paymentMethodId' as Path<T>}
+          name="paymentMethodId"
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor={`${formId}-paymentMethod`}>
                 Метод оплаты (необязательно)
                 <Hint text="Если нужного метода нет в списке, обратитесь к владельцу для создания нового метода оплаты" />
               </FieldLabel>
+              {/* Пустое значение — это `null`, а не пункт-пустышка «Неизвестно» с
+                  `id: 0`: очистка живёт в самом комбобоксе, и подменять её опцией,
+                  которой нет в базе, незачем. */}
               <CustomCombobox
-                items={mappedPaymentMethods}
-                value={
-                  mappedPaymentMethods.find((m) => m.id === (field.value ?? 0)) ??
-                  mappedPaymentMethods[0]
-                }
-                getKey={(item) => item!.id}
-                getLabel={(item) => item!.name}
-                onValueChange={(item) => field.onChange(item && item.id !== 0 ? item.id : null)}
+                items={paymentMethods}
+                getKey={(m) => m.id}
+                getLabel={(m) => m.name}
+                value={paymentMethods.find((m) => m.id === field.value) ?? null}
+                onValueChange={(m) => field.onChange(m?.id ?? null)}
                 id={`${formId}-paymentMethod`}
-                placeholder="Выберите метод оплаты"
+                placeholder="Не указан"
                 emptyText="Нет доступных методов оплаты"
+                disabled={disabled}
+                showClear
+                ariaInvalid={fieldState.invalid}
                 renderItem={(item) => (
                   <Item size="xs" className="p-0">
                     <ItemContent>
-                      <ItemTitle className="whitespace-nowrap">{item!.name}</ItemTitle>
-                      {item!.commission > 0 && (
+                      <ItemTitle className="whitespace-nowrap">{item.name}</ItemTitle>
+                      {item.commission > 0 && (
                         <ItemDescription>
-                          <span className="tabular-nums">{item!.commission} %</span>
+                          <span className="tabular-nums">{item.commission} %</span>
                         </ItemDescription>
                       )}
                     </ItemContent>
