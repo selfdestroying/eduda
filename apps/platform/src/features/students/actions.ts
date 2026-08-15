@@ -188,6 +188,12 @@ export const getStudentDetail = authAction
                 group: { include: { course: true, location: true, schedules: true } },
               },
             },
+            // Непотраченные пакеты — из чего сложился баланс кошелька. Потраченные
+            // и отменённые не грузим: они уже в истории оплат, а карточка про остаток.
+            payments: {
+              where: { status: 'ACTIVE', remaining: { gt: 0 } },
+              orderBy: { date: 'asc' },
+            },
           },
         },
       },

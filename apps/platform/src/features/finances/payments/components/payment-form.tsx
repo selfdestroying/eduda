@@ -6,12 +6,13 @@ import {
   type StudentOption,
 } from '@/src/features/students/components/student-search-combobox'
 import { useSessionQuery } from '@/src/features/users/me/queries'
-import { useStudentWalletsQuery } from '@/src/features/wallets/queries'
+import { useCreateWalletMutation, useStudentWalletsQuery } from '@/src/features/wallets/queries'
 import { getWalletLabel } from '@/src/features/wallets/utils'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import { formatCurrency } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Button } from '@repo/ui/components/button'
 import { CustomCombobox } from '@repo/ui/components/custom-combobox'
 import {
   Field,
@@ -28,9 +29,11 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@repo/ui/components/select'
+import { Loader, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
@@ -131,6 +134,10 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
   useEffect(() => {
     if (studentId == null) setSelectedStudent(null)
   }, [studentId])
+
+  const createWallet = useCreateWalletMutation()
+  const [pendingWalletId, setPendingWalletId] = useState<number | null>(null)
+  const [walletSelectOpen, setWalletSelectOpen] = useState(false)
   const walletId = useWatch({ control: form.control, name: 'walletId' })
   const lessonCount = useWatch({ control: form.control, name: 'lessonCount' })
   const price = useWatch({ control: form.control, name: 'price' })
@@ -155,8 +162,18 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
   // выбирают руками, даже когда он один.
   useEffect(() => {
     if (walletId != null && wallets.some((w) => w.id === walletId)) return
+    if (walletId != null && walletId === pendingWalletId) return
     form.resetField('walletId')
-  }, [wallets, walletId, form])
+  }, [wallets, walletId, pendingWalletId, form])
+
+  // Только что созданный кошелёк выбираем не сразу, а когда он доедет в списке:
+  // список перезапрашивается после создания, и выбор, поставленный раньше, снёс бы
+  // эффект выше — для него этот id ещё чужой.
+  useEffect(() => {
+    if (pendingWalletId == null || !wallets.some((w) => w.id === pendingWalletId)) return
+    form.setValue('walletId', pendingWalletId, { shouldValidate: true })
+    setPendingWalletId(null)
+  }, [pendingWalletId, wallets, form])
 
   // Ровно та цена занятия, которую посчитает сервер (`bidForLesson`), — целочисленным
   // делением. Показываем её здесь, чтобы опечатка в сумме или в занятиях была видна
@@ -234,6 +251,8 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 value={field.value != null ? String(field.value) : null}
                 onValueChange={(v) => field.onChange(v ? Number(v) : undefined)}
                 disabled={disabled || !studentId}
+                open={walletSelectOpen}
+                onOpenChange={setWalletSelectOpen}
               >
                 <SelectTrigger
                   id={`${formId}-wallet`}
@@ -259,6 +278,28 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                       </SelectItem>
                     ))}
                   </SelectGroup>
+                  {/* Кошелька может не быть вовсе — тогда оплату некуда класть, а
+                      уходить за этим в карточку ученика и терять заполненную форму
+                      незачем. Создаём безымянный: назвать его можно потом, а вот
+                      без него не двинуться. */}
+                  <SelectSeparator />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full justify-start font-normal"
+                    disabled={createWallet.isPending}
+                    onClick={() => {
+                      if (studentId == null) return
+                      setWalletSelectOpen(false)
+                      createWallet.mutate(
+                        { studentId },
+                        { onSuccess: (wallet) => wallet && setPendingWalletId(wallet.id) },
+                      )
+                    }}
+                  >
+                    {createWallet.isPending ? <Loader className="animate-spin" /> : <Plus />}
+                    Создать кошелёк
+                  </Button>
                 </SelectContent>
               </Select>
               {/* Остаток до и после: главный вопрос при вводе оплаты — не «сколько
