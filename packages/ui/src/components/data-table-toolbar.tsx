@@ -120,10 +120,16 @@ export function DataTableToolbar<TData extends RowData>({
             {activeTitles.length > 0 && (
               <>
                 <Separator orientation="vertical" className="mx-0.5" />
-                <span className="text-muted-foreground max-w-48 truncate">
+                {/* На телефоне имена сжимаются до счётчика: с ними кнопка не влезает
+                    в ряд с «Колонками» и переносит её на отдельную строку, а
+                    обрезанное «Мет…» всё равно ничего не сообщает. */}
+                <span className="text-muted-foreground max-w-48 truncate max-sm:hidden">
                   {activeTitles.slice(0, VISIBLE_FILTER_TITLES).join(', ')}
                   {activeTitles.length > VISIBLE_FILTER_TITLES &&
                     ` +${activeTitles.length - VISIBLE_FILTER_TITLES}`}
+                </span>
+                <span className="text-muted-foreground tabular-nums sm:hidden">
+                  {activeTitles.length}
                 </span>
               </>
             )}
