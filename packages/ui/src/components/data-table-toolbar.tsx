@@ -39,17 +39,20 @@ interface DataTableToolbarProps<TData extends RowData> {
   searchPlaceholder?: string
   /**
    * Фильтры, которых нет среди колонок, — например период, уезжающий на сервер.
-   * Встают слева от колоночных.
+   * Встают в панели над колоночными, там же, где и все остальные: панель — это
+   * место, куда идут фильтровать, и держать один из них снаружи значит завести
+   * второе такое место.
    */
   children?: ReactNode
   /** Сброс всего сразу: колоночные фильтры таблица снимет сама, остальное — здесь. */
   onReset?: () => void
   /**
-   * Активен ли хоть один фильтр из `children`. Про них тулбар знать не может, а
-   * `onReset` их чистит — без этого флага кнопка сброса пряталась бы, когда
-   * сбрасывать как раз есть что.
+   * Названия включённых фильтров из `children`. Про них тулбар знать не может, а
+   * показать обязан наравне с колоночными: панель закрыта, и активный период,
+   * никак не названный на кнопке, — это молча урезанная таблица. Пустой массив
+   * значит «ничего из своего не включено», и кнопка сброса тогда не появляется.
    */
-  hasExtraFilters?: boolean
+  extraFilterTitles?: string[]
   className?: string
 }
 
@@ -66,7 +69,7 @@ export function DataTableToolbar<TData extends RowData>({
   searchPlaceholder = 'Поиск...',
   children,
   onReset,
-  hasExtraFilters = false,
+  extraFilterTitles = [],
   className,
 }: DataTableToolbarProps<TData>) {
   const filterableColumns = table.getAllColumns().filter((c) => c.columnDef.meta?.variant)
@@ -76,16 +79,20 @@ export function DataTableToolbar<TData extends RowData>({
 
   // Сброс предлагаем, только когда есть что сбрасывать: пустая кнопка «Сбросить»
   // рядом с чистой таблицей — шум.
-  const isFiltered = activeFilterCount > 0 || Boolean(search) || hasExtraFilters
+  const isFiltered = activeFilterCount > 0 || Boolean(search) || extraFilterTitles.length > 0
 
   // Включённые фильтры называем поимённо: панель закрыта, и цифра «2» на кнопке
   // не говорит, по чему именно отобрано, — а таблица показывает подмножество, и
   // не заметить этого на странице с деньгами дороже всего остального.
-  const activeTitles = table
-    .getState()
-    .columnFilters.map(({ id }) => table.getColumn(id))
-    .filter((column) => column !== undefined)
-    .map(columnTitle)
+  // Свои — первыми, в том же порядке, в каком стоят в панели.
+  const activeTitles = [
+    ...extraFilterTitles,
+    ...table
+      .getState()
+      .columnFilters.map(({ id }) => table.getColumn(id))
+      .filter((column) => column !== undefined)
+      .map(columnTitle),
+  ]
 
   const filters = filterableColumns.map((column) =>
     column.columnDef.meta?.variant === 'range' ? (
@@ -110,47 +117,48 @@ export function DataTableToolbar<TData extends RowData>({
         </div>
       )}
 
-      {children}
-
       {/* Снизу на телефоне, сбоку на остальных — как у фильтров календаря. */}
       <Drawer swipeDirection={isMobile ? 'down' : 'right'} showSwipeHandle={isMobile}>
-          <DrawerTrigger render={<Button variant="outline" className="shrink-0" />}>
-            <ListFilter />
-            Фильтры
-            {activeTitles.length > 0 && (
-              <>
-                <Separator orientation="vertical" className="mx-0.5" />
-                {/* На телефоне имена сжимаются до счётчика: с ними кнопка не влезает
+        <DrawerTrigger render={<Button variant="outline" className="shrink-0" />}>
+          <ListFilter />
+          Фильтры
+          {activeTitles.length > 0 && (
+            <>
+              <Separator orientation="vertical" className="mx-0.5" />
+              {/* На телефоне имена сжимаются до счётчика: с ними кнопка не влезает
                     в ряд с «Колонками» и переносит её на отдельную строку, а
                     обрезанное «Мет…» всё равно ничего не сообщает. */}
-                <span className="text-muted-foreground max-w-48 truncate max-sm:hidden">
-                  {activeTitles.slice(0, VISIBLE_FILTER_TITLES).join(', ')}
-                  {activeTitles.length > VISIBLE_FILTER_TITLES &&
-                    ` +${activeTitles.length - VISIBLE_FILTER_TITLES}`}
-                </span>
-                <span className="text-muted-foreground tabular-nums sm:hidden">
-                  {activeTitles.length}
-                </span>
-              </>
+              <span className="text-muted-foreground max-w-48 truncate max-sm:hidden">
+                {activeTitles.slice(0, VISIBLE_FILTER_TITLES).join(', ')}
+                {activeTitles.length > VISIBLE_FILTER_TITLES &&
+                  ` +${activeTitles.length - VISIBLE_FILTER_TITLES}`}
+              </span>
+              <span className="text-muted-foreground tabular-nums sm:hidden">
+                {activeTitles.length}
+              </span>
+            </>
+          )}
+        </DrawerTrigger>
+        <DrawerContent>
+          <DrawerHeader className="pb-4">
+            <DrawerTitle>Фильтры</DrawerTitle>
+          </DrawerHeader>
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="flex flex-col gap-4 px-4">
+              {children}
+              {filters}
+            </div>
+          </ScrollArea>
+          <DrawerFooter className="pt-4">
+            {onReset && (
+              <Button variant="outline" onClick={onReset} disabled={!isFiltered}>
+                <X />
+                Сбросить
+              </Button>
             )}
-          </DrawerTrigger>
-          <DrawerContent>
-            <DrawerHeader className="pb-4">
-              <DrawerTitle>Фильтры</DrawerTitle>
-            </DrawerHeader>
-            <ScrollArea className="min-h-0 flex-1">
-              <div className="flex flex-col gap-4 px-4">{filters}</div>
-            </ScrollArea>
-            <DrawerFooter className="pt-4">
-              {onReset && (
-                <Button variant="outline" onClick={onReset} disabled={!isFiltered}>
-                  <X />
-                  Сбросить
-                </Button>
-              )}
-              <DrawerClose render={<Button />}>Готово</DrawerClose>
-            </DrawerFooter>
-          </DrawerContent>
+            <DrawerClose render={<Button />}>Готово</DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
       </Drawer>
     </div>
   )
@@ -161,8 +169,13 @@ function columnTitle<TData extends RowData>(column: Column<TData, unknown>) {
   return column.columnDef.meta?.title ?? column.id
 }
 
-/** Подпись секции — та же, что в панели фильтров календаря. */
-const SECTION_TITLE = 'text-muted-foreground mb-2 px-2 text-[11px] font-semibold tracking-wide uppercase'
+/**
+ * Подпись секции — та же, что в панели фильтров календаря. Экспортируется, чтобы
+ * фильтры из `children` выглядели секциями, а не гостями: иначе класс переписали
+ * бы у себя и он разъехался бы с колоночными при первой же правке.
+ */
+export const SECTION_TITLE =
+  'text-muted-foreground mb-2 px-2 text-[11px] font-semibold tracking-wide uppercase'
 
 /**
  * Мультиселект — секцией чекбоксов прямо в панели, без своей выпадашки: панель

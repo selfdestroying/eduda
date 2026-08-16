@@ -26,6 +26,7 @@ import {
 import { usePaymentListQuery } from '../queries'
 import type { PaymentListItem } from '../types'
 import PaymentActions from './payment-actions'
+import PeriodFilter, { PERIOD_TITLE, type Period } from './period-filter'
 
 /**
  * Цифры — по правому краю и моноширинными: только так разряды встают в столбик и
@@ -84,10 +85,10 @@ const WIDTHS = {
 } as const
 
 /**
- * Период. Контрола под него сейчас нет — пикер сняли, его переделывают, — но
- * параметры читаются и уезжают в запрос, так что period по ссылке работает.
- * Без них выборка не ограничена по дате: страницу режет сервер, и вся история
- * стоит столько же, сколько один месяц.
+ * Период. Живёт в URL отдельно от колоночных фильтров: колонки `date` в списке
+ * фильтруемых нет — по дате отбирают диапазоном, а не галочками. Без границ
+ * выборка не ограничена по дате: страницу режет сервер, и вся история стоит
+ * столько же, сколько один месяц.
  */
 const PERIOD_PARSERS = { from: parseAsString, to: parseAsString }
 
@@ -355,6 +356,13 @@ export default function PaymentsTable() {
     resetPage()
   }
 
+  // По той же причине, что и колоночные: период — такой же отбор, просто живёт
+  // не в состоянии таблицы.
+  const setPeriod = (next: Period) => {
+    setPeriodValues(next)
+    resetPage()
+  }
+
   const table = useReactTable({
     data: data?.rows ?? [],
     columns,
@@ -410,8 +418,10 @@ export default function PaymentsTable() {
           onSearchChange={setGlobalFilter}
           searchPlaceholder="Ученик, менеджер, метод..."
           onReset={resetFilters}
-          hasExtraFilters={Boolean(from) || Boolean(to)}
-        />
+          extraFilterTitles={from || to ? [PERIOD_TITLE] : []}
+        >
+          <PeriodFilter value={{ from, to }} onChange={setPeriod} />
+        </DataTableToolbar>
       }
     />
   )
