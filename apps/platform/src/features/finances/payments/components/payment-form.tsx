@@ -424,22 +424,28 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 pending={createWallet.isPending}
                 onSubmit={submitNewWallet}
               >
-                <Input
-                  autoFocus
-                  value={newWalletName}
-                  onChange={(e) => setNewWalletName(e.target.value)}
-                  onKeyDown={(e) => {
-                    // Enter внутри формы отправил бы саму оплату — перехватываем.
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      submitNewWallet()
-                    }
-                    if (e.key === 'Escape') closeNewWallet()
-                  }}
-                  placeholder="Название кошелька"
-                  disabled={createWallet.isPending}
-                  aria-label="Название нового кошелька"
-                />
+                <Field>
+                  <FieldLabel htmlFor={`${formId}-new-wallet-name`}>
+                    Название
+                    <FieldOptional />
+                  </FieldLabel>
+                  <Input
+                    id={`${formId}-new-wallet-name`}
+                    autoFocus
+                    value={newWalletName}
+                    onChange={(e) => setNewWalletName(e.target.value)}
+                    onKeyDown={(e) => {
+                      // Enter внутри формы отправил бы саму оплату — перехватываем.
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        submitNewWallet()
+                      }
+                      if (e.key === 'Escape') closeNewWallet()
+                    }}
+                    placeholder="Например: Английский"
+                    disabled={createWallet.isPending}
+                  />
+                </Field>
               </QuickCreate>
               <WalletPreview
                 wallet={selectedWallet}
@@ -519,38 +525,45 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 pending={createProduct.isPending}
                 onSubmit={submitNewProduct}
               >
-                <Input
-                  autoFocus
-                  value={newProduct.name}
-                  onChange={(e) => setNewProduct((p) => ({ ...p, name: e.target.value }))}
-                  onKeyDown={(e) => {
-                    // Enter внутри формы отправил бы саму оплату — перехватываем.
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      submitNewProduct()
-                    }
-                    if (e.key === 'Escape') closeNewProduct()
-                  }}
-                  placeholder="Название продукта"
-                  disabled={createProduct.isPending}
-                  aria-label="Название нового продукта"
-                />
-                <div className="flex items-center gap-2">
+                <Field>
+                  <FieldLabel htmlFor={`${formId}-new-product-name`}>Название</FieldLabel>
+                  <Input
+                    id={`${formId}-new-product-name`}
+                    autoFocus
+                    value={newProduct.name}
+                    onChange={(e) => setNewProduct((p) => ({ ...p, name: e.target.value }))}
+                    onKeyDown={(e) => {
+                      // Enter внутри формы отправил бы саму оплату — перехватываем.
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        submitNewProduct()
+                      }
+                      if (e.key === 'Escape') closeNewProduct()
+                    }}
+                    placeholder="Например: Абонемент 8 занятий"
+                    disabled={createProduct.isPending}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={`${formId}-new-product-lessons`}>
+                    Количество занятий
+                  </FieldLabel>
                   <NumberInput
+                    id={`${formId}-new-product-lessons`}
                     value={newProduct.lessonCount}
                     onChange={(v) => setNewProduct((p) => ({ ...p, lessonCount: v }))}
-                    placeholder="Занятий"
                     disabled={createProduct.isPending}
-                    aria-label="Количество занятий в новом продукте"
                   />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={`${formId}-new-product-price`}>Цена пакета</FieldLabel>
                   <NumberInput
+                    id={`${formId}-new-product-price`}
                     value={newProduct.price}
                     onChange={(v) => setNewProduct((p) => ({ ...p, price: v }))}
-                    placeholder="Цена пакета"
                     disabled={createProduct.isPending}
-                    aria-label="Цена нового продукта"
                   />
-                </div>
+                </Field>
               </QuickCreate>
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
