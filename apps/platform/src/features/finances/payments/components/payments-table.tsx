@@ -16,7 +16,6 @@ import Link from 'next/link'
 import { parseAsString, useQueryStates } from 'nuqs'
 import { useEffect, useMemo, useState } from 'react'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
-import { useActiveProductListQuery } from '../../products/queries'
 import {
   PAYMENT_STATUSES,
   PAYMENT_STATUS_BADGE,
@@ -55,14 +54,13 @@ const SEARCH_MAX_LENGTH = 100
  * быть литералами — Tailwind ищет их в исходнике, из переменной класс не родится.
  */
 const W = {
-  student: 'w-[14%]',
+  student: 'w-[20%]',
   price: 'w-[10%]',
-  lessons: 'w-[10%]',
-  product: 'w-[12%]',
-  status: 'w-[12%]',
+  lessons: 'w-[12%]',
+  status: 'w-[14%]',
   date: 'w-[11%]',
   paymentMethod: 'w-[14%]',
-  manager: 'w-[12%]',
+  manager: 'w-[14%]',
   actions: 'w-[5%]',
 } as const
 
@@ -79,7 +77,6 @@ const WIDTHS = {
   student: 120,
   price: 120,
   lessons: 50,
-  product: 150,
   status: 130,
   date: 110,
   paymentMethod: 150,
@@ -102,7 +99,6 @@ const PERIOD_PARSERS = { from: parseAsString, to: parseAsString }
  */
 const TABLE_FILTERS = {
   paymentMethod: 'string',
-  product: 'string',
   manager: 'string',
   status: 'string',
   price: 'range',
@@ -113,7 +109,6 @@ type FilterOption = { label: string; value: string }
 
 function buildColumns(
   methodOptions: FilterOption[],
-  productOptions: FilterOption[],
   managerOptions: FilterOption[],
 ): ColumnDef<PaymentListItem>[] {
   return [
@@ -167,25 +162,6 @@ function buildColumns(
         variant: 'range',
         // Без `unit`: подпись группы и так «Занятий», приписывать «уроков» после
         // полей значило бы сказать то же самое дважды.
-      },
-    },
-    {
-      id: 'product',
-      header: () => (
-        <span className="flex items-center gap-0.5">
-          Продукт
-          <Hint text="Что продали — строка прайс-листа. У оплат, заведённых до появления справочника, продукт не указан." />
-        </span>
-      ),
-      accessorFn: (row) => row.product?.name ?? '',
-      cell: ({ row }) => row.original.product?.name ?? '—',
-      size: WIDTHS.product,
-      meta: {
-        title: 'Продукт',
-        flexible: true,
-        className: W.product,
-        variant: 'multiSelect',
-        options: productOptions,
       },
     },
     {
@@ -330,7 +306,6 @@ export default function PaymentsTable() {
       from: from ?? undefined,
       to: to ?? undefined,
       methodIds: filterIds(columnFilters, 'paymentMethod'),
-      productIds: filterIds(columnFilters, 'product'),
       managerIds: filterIds(columnFilters, 'manager'),
       // Незнакомое значение отсеиваем по той же причине, что и нечисловые id.
       statuses: filterValues(columnFilters, 'status').filter((v): v is PaymentStatusValue =>
@@ -347,7 +322,6 @@ export default function PaymentsTable() {
   const { data, isLoading, isFetching, isError } = usePaymentListQuery(params)
 
   const { data: paymentMethods = [] } = useActivePaymentMethodListQuery()
-  const { data: products = [] } = useActiveProductListQuery()
   const { data: members = [] } = useMappedMemberListQuery()
   const { columnVisibility, setColumnVisibility } = useColumnVisibility('payments')
 
@@ -355,15 +329,8 @@ export default function PaymentsTable() {
     () => paymentMethods.map((m) => ({ value: String(m.id), label: m.name })),
     [paymentMethods],
   )
-  const productOptions = useMemo(
-    () => products.map((p) => ({ value: String(p.id), label: p.name })),
-    [products],
-  )
 
-  const columns = useMemo(
-    () => buildColumns(methodOptions, productOptions, members),
-    [methodOptions, productOptions, members],
-  )
+  const columns = useMemo(() => buildColumns(methodOptions, members), [methodOptions, members])
 
   const resetPage = () => setPagination({ ...pagination, pageIndex: 0 })
 
@@ -449,7 +416,7 @@ export default function PaymentsTable() {
           table={table}
           search={globalFilter}
           onSearchChange={setGlobalFilter}
-          searchPlaceholder="Ученик, менеджер, метод, продукт..."
+          searchPlaceholder="Ученик, менеджер, метод..."
           onReset={resetFilters}
           extraFilterTitles={from || to ? [PERIOD_TITLE] : []}
         >

@@ -48,7 +48,6 @@ const PAYMENT_ORDER_BY: Record<string, (dir: Prisma.SortOrder) => PaymentOrderBy
   lessons: (dir) => [{ lessonCount: dir }],
   date: (dir) => [{ date: dir }],
   paymentMethod: (dir) => [{ paymentMethod: { name: dir } }],
-  product: (dir) => [{ product: { name: dir } }],
   manager: (dir) => [{ manager: { name: dir } }],
   status: (dir) => [{ status: dir }],
 }
@@ -98,7 +97,6 @@ function searchWhere(search: string | undefined): Prisma.PaymentWhereInput['AND'
       { student: { lastName: { contains: term, mode: 'insensitive' as const } } },
       { manager: { name: { contains: term, mode: 'insensitive' as const } } },
       { paymentMethod: { name: { contains: term, mode: 'insensitive' as const } } },
-      { product: { name: { contains: term, mode: 'insensitive' as const } } },
     ],
   }))
 }
@@ -107,8 +105,7 @@ export const getPayments = permissionAction({ payment: ['read'] })
   .metadata({ actionName: 'getPayments' })
   .inputSchema(PaymentListSchema)
   .action(async ({ ctx, parsedInput }): Promise<PaymentListResult> => {
-    const { page, pageSize, sort, search, from, to, methodIds, productIds, managerIds, statuses } =
-      parsedInput
+    const { page, pageSize, sort, search, from, to, methodIds, managerIds, statuses } = parsedInput
 
     const where: Prisma.PaymentWhereInput = {
       organizationId: ctx.session.organizationId!,
@@ -122,7 +119,6 @@ export const getPayments = permissionAction({ payment: ['read'] })
         date: { ...(from && { gte: from }), ...(to && { lte: to }) },
       }),
       ...(methodIds.length > 0 && { paymentMethodId: { in: methodIds } }),
-      ...(productIds.length > 0 && { productId: { in: productIds } }),
       ...(managerIds.length > 0 && { managerId: { in: managerIds } }),
       ...(statuses.length > 0 && { status: { in: statuses } }),
       ...rangeWhere('price', parsedInput.priceMin, parsedInput.priceMax),

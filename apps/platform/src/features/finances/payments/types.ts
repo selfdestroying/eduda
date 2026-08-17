@@ -20,11 +20,6 @@ export const PAYMENT_LIST_SELECT = {
   cancelledAt: true,
   student: { select: { id: true, firstName: true, lastName: true } },
   paymentMethod: { select: { id: true, name: true } },
-  // Продукт — связью, а не снимком `productName`: по нему фильтруют и сортируют, и
-  // отбор должен идти по той же строке прайса, что стоит в фильтре. Удалённый
-  // продукт (`SetNull`) в ячейке даёт прочерк, название такой оплаты живёт в
-  // `productName` и видно в карточке ученика.
-  product: { select: { id: true, name: true } },
   manager: { select: { id: true, name: true } },
 } satisfies Prisma.PaymentSelect
 
