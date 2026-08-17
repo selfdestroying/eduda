@@ -42,8 +42,8 @@ export const updateCategory = featureAction('shop')
 /**
  * Категорию можно удалить, только пока в ней нет товаров.
  *
- * `Product.category` — каскад, поэтому раньше удаление категории тихо сносило
- * её товары вместе с заказами. Теперь `OrderItem.product` стоит на `Restrict`,
+ * `ShopItem.category` — каскад, поэтому раньше удаление категории тихо сносило
+ * её товары вместе с заказами. Теперь `OrderItem.shopItem` стоит на `Restrict`,
  * и такой каскад упирается в невнятную ошибку БД, а товары без заказов всё ещё
  * стирались бы физически — ровно то, ради чего вводился `archivedAt`.
  * Поэтому проверяем заранее и объясняем, что делать.
@@ -54,10 +54,10 @@ export const deleteCategory = featureAction('shop')
   .action(async ({ ctx, parsedInput }) => {
     const organizationId = ctx.session.organizationId!
 
-    const products = await prisma.product.count({
+    const shopItems = await prisma.shopItem.count({
       where: { categoryId: parsedInput.id, organizationId },
     })
-    if (products > 0) {
+    if (shopItems > 0) {
       throw new ConflictError(
         'В категории есть товары. Перенесите их в другую категорию или архивируйте.',
       )

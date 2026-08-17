@@ -19,7 +19,7 @@ export const getCatalog = shopAction
   .metadata({ actionName: 'getCatalog' })
   .inputSchema(z.object({ categoryId: z.number().int().positive().optional() }))
   .action(async ({ ctx, parsedInput }) => {
-    return await prisma.product.findMany({
+    return await prisma.shopItem.findMany({
       where: {
         organizationId: ctx.student.organizationId,
         archivedAt: null,
@@ -37,7 +37,7 @@ export const getCategories = shopAction
       where: {
         organizationId: ctx.student.organizationId,
         // Пустые категории в фильтре не нужны — по ним всё равно ничего не найдётся.
-        Product: { some: { archivedAt: null } },
+        shopItems: { some: { archivedAt: null } },
       },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
@@ -57,7 +57,7 @@ export const getProduct = shopAction
     // чтобы не дать добавить сверх остатка, и дешевле посчитать здесь, чем
     // тянуть всю корзину запросом с клиента.
     const [product, cartItem] = await Promise.all([
-      prisma.product.findFirst({
+      prisma.shopItem.findFirst({
         where: {
           id: parsedInput.id,
           organizationId: ctx.student.organizationId,
@@ -67,7 +67,7 @@ export const getProduct = shopAction
       }),
       prisma.cartItem.findFirst({
         where: {
-          productId: parsedInput.id,
+          shopItemId: parsedInput.id,
           organizationId: ctx.student.organizationId,
           Cart: { studentId: ctx.student.id, organizationId: ctx.student.organizationId },
         },

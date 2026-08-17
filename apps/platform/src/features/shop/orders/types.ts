@@ -1,7 +1,7 @@
 import { Prisma } from '@repo/db'
 
 export type OrderWithItemsAndStudent = Prisma.OrderGetPayload<{
-  include: { student: true; items: { include: { product: true } } }
+  include: { student: true; items: { include: { shopItem: true } } }
 }>
 
 /** Сумма заказа по снимку цены в позициях, а не по текущей цене товара. */

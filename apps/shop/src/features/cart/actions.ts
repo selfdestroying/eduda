@@ -27,7 +27,7 @@ async function findCart(studentId: number, organizationId: number) {
 }
 
 type CartLine = {
-  productId: number
+  shopItemId: number
   name: string
   price: number
   quantity: number
@@ -47,12 +47,12 @@ type CartLine = {
  */
 function classifyLine(item: CartLine, expectedPrice?: number): CheckoutIssue | null {
   if (item.archived) {
-    return { kind: 'UNAVAILABLE', productId: item.productId, name: item.name }
+    return { kind: 'UNAVAILABLE', shopItemId: item.shopItemId, name: item.name }
   }
   if (item.available < item.quantity) {
     return {
       kind: 'OUT_OF_STOCK',
-      productId: item.productId,
+      shopItemId: item.shopItemId,
       name: item.name,
       available: item.available,
     }
@@ -60,7 +60,7 @@ function classifyLine(item: CartLine, expectedPrice?: number): CheckoutIssue | n
   if (expectedPrice !== undefined && expectedPrice !== item.price) {
     return {
       kind: 'PRICE_CHANGED',
-      productId: item.productId,
+      shopItemId: item.shopItemId,
       name: item.name,
       oldPrice: expectedPrice,
       newPrice: item.price,
@@ -78,7 +78,7 @@ function collectIssues(
   let total = 0
 
   for (const item of items) {
-    const issue = classifyLine(item, expectedPrice?.get(item.productId))
+    const issue = classifyLine(item, expectedPrice?.get(item.shopItemId))
     if (issue) issues.push(issue)
     // Подорожавший товар купить всё ещё можно — по новой цене, поэтому он
     // остаётся в сумме. Архивный и кончившийся — нет.
@@ -104,7 +104,7 @@ export const getCart = shopAction.metadata({ actionName: 'getCart' }).action(asy
         CartItem: {
           select: {
             quantity: true,
-            Product: {
+            shopItem: {
               select: {
                 id: true,
                 name: true,
@@ -127,13 +127,13 @@ export const getCart = shopAction.metadata({ actionName: 'getCart' }).action(asy
 
   const coins = account?.coins ?? 0
   const items = (cart?.CartItem ?? []).map((item) => ({
-    productId: item.Product.id,
-    name: item.Product.name,
-    imageUrl: item.Product.imageUrl,
-    price: item.Product.price,
+    shopItemId: item.shopItem.id,
+    name: item.shopItem.name,
+    imageUrl: item.shopItem.imageUrl,
+    price: item.shopItem.price,
     quantity: item.quantity,
-    available: item.Product.quantity,
-    archived: item.Product.archivedAt !== null,
+    available: item.shopItem.quantity,
+    archived: item.shopItem.archivedAt !== null,
   }))
 
   const { issues, total } = collectIssues(items, coins)
@@ -145,19 +145,19 @@ export const addToCart = shopAction
   .metadata({ actionName: 'addToCart' })
   .inputSchema(AddToCartSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { productId, quantity } = parsedInput
+    const { shopItemId, quantity } = parsedInput
 
     // Товар обязан принадлежать школе ученика и не быть архивным — иначе чужой
     // id, подставленный руками, попал бы в корзину.
-    const product = await prisma.product.findFirst({
+    const shopItem = await prisma.shopItem.findFirst({
       where: {
-        id: productId,
+        id: shopItemId,
         organizationId: ctx.student.organizationId,
         archivedAt: null,
       },
       select: { id: true },
     })
-    if (!product) throw new NotFoundError('Товар не найден')
+    if (!shopItem) throw new NotFoundError('Товар не найден')
 
     // Корзина создаётся лениво: у большинства учеников её просто нет.
     const cart = await prisma.cart.upsert({
@@ -168,12 +168,12 @@ export const addToCart = shopAction
     })
 
     // Повторное добавление того же товара суммируется в одну строку — за это
-    // отвечает @@unique([cartId, productId]) (§11.14).
+    // отвечает @@unique([cartId, shopItemId]) (§11.14).
     await prisma.cartItem.upsert({
-      where: { cartId_productId: { cartId: cart.id, productId } },
+      where: { cartId_shopItemId: { cartId: cart.id, shopItemId } },
       create: {
         cartId: cart.id,
-        productId,
+        shopItemId,
         quantity,
         organizationId: ctx.student.organizationId,
       },
@@ -191,7 +191,7 @@ export const setCartItemQuantity = shopAction
     await prisma.cartItem.updateMany({
       where: {
         cartId: cart.id,
-        productId: parsedInput.productId,
+        shopItemId: parsedInput.shopItemId,
         organizationId: ctx.student.organizationId,
       },
       data: { quantity: parsedInput.quantity },
@@ -208,7 +208,7 @@ export const removeCartItem = shopAction
     await prisma.cartItem.deleteMany({
       where: {
         cartId: cart.id,
-        productId: parsedInput.productId,
+        shopItemId: parsedInput.shopItemId,
         organizationId: ctx.student.organizationId,
       },
     })
@@ -249,7 +249,7 @@ export const checkout = shopAction
   .inputSchema(CheckoutSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { id: studentId, organizationId } = ctx.student
-    const expectedPrice = new Map(parsedInput.expected.map((e) => [e.productId, e.price]))
+    const expectedPrice = new Map(parsedInput.expected.map((e) => [e.shopItemId, e.price]))
 
     try {
       const orderId = await prisma.$transaction(async (tx) => {
@@ -260,7 +260,7 @@ export const checkout = shopAction
             CartItem: {
               select: {
                 quantity: true,
-                Product: {
+                shopItem: {
                   select: { id: true, name: true, price: true, quantity: true, archivedAt: true },
                 },
               },
@@ -272,17 +272,17 @@ export const checkout = shopAction
           throw new NotFoundError('Корзина пуста')
         }
 
-        // Позиции упорядочены по productId: блокировки строк товаров берутся в
+        // Позиции упорядочены по shopItemId: блокировки строк товаров берутся в
         // одном и том же порядке во всех транзакциях, иначе два одновременных
         // чекаута с пересекающимися корзинами могут встать в дедлок.
-        const items = cart.CartItem.map(({ quantity, Product: product }) => ({
-          productId: product.id,
-          name: product.name,
-          price: product.price,
+        const items = cart.CartItem.map(({ quantity, shopItem }) => ({
+          shopItemId: shopItem.id,
+          name: shopItem.name,
+          price: shopItem.price,
           quantity,
-          available: product.quantity,
-          archived: product.archivedAt !== null,
-        })).sort((a, b) => a.productId - b.productId)
+          available: shopItem.quantity,
+          archived: shopItem.archivedAt !== null,
+        })).sort((a, b) => a.shopItemId - b.shopItemId)
 
         const account = await tx.studentAccount.findFirst({
           where: { studentId, organizationId },
@@ -308,9 +308,9 @@ export const checkout = shopAction
           let mustExplain = false
 
           if (debiting) {
-            const { count } = await tx.product.updateMany({
+            const { count } = await tx.shopItem.updateMany({
               where: {
-                id: item.productId,
+                id: item.shopItemId,
                 organizationId,
                 quantity: { gte: item.quantity },
                 // Цена — часть условия, а не только остаток: под READ COMMITTED
@@ -325,8 +325,8 @@ export const checkout = shopAction
             mustExplain = true
           }
 
-          const fresh = await tx.product.findFirst({
-            where: { id: item.productId, organizationId },
+          const fresh = await tx.shopItem.findFirst({
+            where: { id: item.shopItemId, organizationId },
             select: { name: true, price: true, quantity: true, archivedAt: true },
           })
           const line: CartLine = fresh
@@ -350,7 +350,7 @@ export const checkout = shopAction
             // равно не проводим — остаток не списан.
             failures.push({
               kind: 'OUT_OF_STOCK',
-              productId: item.productId,
+              shopItemId: item.shopItemId,
               name: line.name,
               available: line.available,
             })
@@ -385,7 +385,7 @@ export const checkout = shopAction
             items: {
               create: items.map((item) => ({
                 organizationId,
-                productId: item.productId,
+                shopItemId: item.shopItemId,
                 quantity: item.quantity,
                 priceAtPurchase: item.price,
               })),

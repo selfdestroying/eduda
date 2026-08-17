@@ -125,7 +125,7 @@ export default function ShopSection({ coins, studentId }: ShopSectionProps) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-medium">
-                        {first?.product.name ?? 'Заказ'}
+                        {first?.shopItem.name ?? 'Заказ'}
                       </span>
                       {first && first.quantity > 1 ? (
                         <span className="text-muted-foreground text-xs">×{first.quantity}</span>

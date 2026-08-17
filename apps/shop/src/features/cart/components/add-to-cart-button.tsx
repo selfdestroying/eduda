@@ -15,11 +15,11 @@ import { toast } from 'sonner'
 import { useAddToCartMutation } from '../queries'
 
 export function AddToCartButton({
-  productId,
+  shopItemId,
   available,
   inCart,
 }: {
-  productId: number
+  shopItemId: number
   available: number
   /** Сколько этого товара уже лежит в корзине — считает серверная страница. */
   inCart: number
@@ -51,7 +51,7 @@ export function AddToCartButton({
 
   const submit = () =>
     add.mutate(
-      { productId, quantity: Math.min(quantity, remaining) },
+      { shopItemId, quantity: Math.min(quantity, remaining) },
       {
         onSuccess: () => {
           toast.success('Добавлено в корзину')

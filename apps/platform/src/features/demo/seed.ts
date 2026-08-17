@@ -279,7 +279,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     },
   })
 
-  await prisma.paymentProduct.createMany({
+  await prisma.product.createMany({
     data: [
       { organizationId: orgId, name: 'Абонемент 8 занятий', price: 6400, lessonCount: 8 },
       { organizationId: orgId, name: 'Абонемент 12 занятий', price: 9000, lessonCount: 12 },
@@ -714,7 +714,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     { name: 'Значок-эмодзи', price: 120, categoryId: catMerch.id },
     { name: 'Стикерпак', price: 200, categoryId: catMerch.id },
   ]
-  const products = await prisma.product.createManyAndReturn({
+  const shopItems = await prisma.shopItem.createManyAndReturn({
     data: PRODUCTS.map((pr) => ({
       organizationId: orgId,
       name: pr.name,
@@ -747,13 +747,13 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
   // Заказ — шапка с позициями; цена фиксируется снимком на момент покупки.
   await prisma.orderItem.createMany({
     data: orders.map((order) => {
-      const product = pick(products)
+      const shopItem = pick(shopItems)
       return {
         organizationId: orgId,
         orderId: order.id,
-        productId: product.id,
+        shopItemId: shopItem.id,
         quantity: int(1, 3),
-        priceAtPurchase: product.price,
+        priceAtPurchase: shopItem.price,
       }
     }),
   })

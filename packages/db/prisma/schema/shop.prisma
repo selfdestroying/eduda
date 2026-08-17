@@ -15,16 +15,16 @@ model CartItem {
     id             Int          @id @default(autoincrement())
     organizationId Int          @default(1)
     cartId         Int
-    productId      Int
+    shopItemId     Int
     quantity       Int
     createdAt      DateTime     @default(now())
     organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     Cart           Cart         @relation(fields: [cartId], references: [id], onDelete: Cascade)
-    Product        Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+    shopItem       ShopItem     @relation(fields: [shopItemId], references: [id], onDelete: Cascade)
 
-    @@unique([cartId, productId])
+    @@unique([cartId, shopItemId])
     @@index([cartId])
-    @@index([productId])
+    @@index([shopItemId])
 }
 
 model Category {
@@ -33,12 +33,14 @@ model Category {
     name           String
 
     organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-    Product      Product[]
+    shopItems    ShopItem[]
 
     @@index([organizationId])
 }
 
-model Product {
+/// Товар магазина — то, что ученик покупает за астрокоины. Не путать с `Product`
+/// из финансов: тот про то, что школа продаёт родителю за деньги.
+model ShopItem {
     id             Int        @id @default(autoincrement())
     organizationId Int        @default(1)
     name           String
@@ -113,7 +115,7 @@ model OrderItem {
     id             Int          @id @default(autoincrement())
     organizationId Int
     orderId        Int
-    productId      Int
+    shopItemId     Int
     quantity       Int
     /// Снимок цены на момент покупки: цену товара школа меняет, а сумма, за
     /// которую заказ уже оплачен коинами, меняться не должна.
@@ -122,10 +124,10 @@ model OrderItem {
     organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
     /// Restrict, а не Cascade: удаление товара не имеет права стереть историю
-    /// заказов. Товары не удаляются, а архивируются (Product.archivedAt).
-    product      Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+    /// заказов. Товары не удаляются, а архивируются (ShopItem.archivedAt).
+    shopItem     ShopItem     @relation(fields: [shopItemId], references: [id], onDelete: Restrict)
 
     @@index([orderId])
-    @@index([productId])
+    @@index([shopItemId])
     @@index([organizationId])
 }

@@ -87,7 +87,7 @@ export default function OrderActions({ order }: OrderActionsProps) {
                 {order.items.map((item) => (
                   <li key={item.id} className="flex justify-between gap-3 px-3 py-2">
                     <span className="truncate">
-                      {item.product.name}
+                      {item.shopItem.name}
                       {item.quantity > 1 && (
                         <span className="text-muted-foreground"> ×{item.quantity}</span>
                       )}

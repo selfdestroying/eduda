@@ -59,7 +59,7 @@ export default function OrdersTable() {
         header: 'Товары',
         // accessorFn нужен не для отрисовки, а чтобы колонка осталась
         // сортируемой: DataTable показывает сортировку только при getCanSort().
-        accessorFn: (order) => order.items[0]?.product.name ?? '',
+        accessorFn: (order) => order.items[0]?.shopItem.name ?? '',
         // Заказ теперь из нескольких позиций: в строке — первый товар и счётчик
         // остальных, полный состав виден в диалоге смены статуса.
         cell: ({ row }) => {
@@ -68,7 +68,7 @@ export default function OrdersTable() {
           const first = items[0]!
           return (
             <span className="flex items-center gap-1.5">
-              <span>{first.product.name}</span>
+              <span>{first.shopItem.name}</span>
               {first.quantity > 1 && (
                 <span className="text-muted-foreground text-xs">×{first.quantity}</span>
               )}

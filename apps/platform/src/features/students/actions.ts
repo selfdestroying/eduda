@@ -597,7 +597,7 @@ export const getStudentShopStats = featureAction('shop')
       }),
       prisma.order.findMany({
         where: { studentId, organizationId },
-        include: { items: { include: { product: true } } },
+        include: { items: { include: { shopItem: true } } },
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),

@@ -13,7 +13,7 @@ const IMAGE_PATH = process.env.IMAGE_PATH ?? ''
 export const getProducts = featureAction('shop')
   .metadata({ actionName: 'getProducts' })
   .action(async ({ ctx }) => {
-    return await prisma.product.findMany({
+    return await prisma.shopItem.findMany({
       where: {
         organizationId: ctx.session.organizationId!,
       },
@@ -44,7 +44,7 @@ export const createProduct = featureAction('shop')
     const fileUrl = new URL(fileName, IMAGE_URL)
 
     await fs.writeFile(filePath, buffer)
-    await prisma.product.create({
+    await prisma.shopItem.create({
       data: {
         ...data,
         imageUrl: fileUrl.href,
@@ -61,7 +61,7 @@ export const updateProduct = featureAction('shop')
     let imageUrl: string | undefined
 
     if (image) {
-      const existing = await prisma.product.findUnique({
+      const existing = await prisma.shopItem.findUnique({
         where: { id, organizationId: ctx.session.organizationId! },
         select: { imageUrl: true },
       })
@@ -79,7 +79,7 @@ export const updateProduct = featureAction('shop')
       }
     }
 
-    await prisma.product.update({
+    await prisma.shopItem.update({
       where: {
         organizationId: ctx.session.organizationId!,
         id,
@@ -100,7 +100,7 @@ export const archiveProduct = featureAction('shop')
   .metadata({ actionName: 'archiveProduct' })
   .inputSchema(ArchiveProductSchema)
   .action(async ({ ctx, parsedInput }) => {
-    await prisma.product.update({
+    await prisma.shopItem.update({
       where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
       data: { archivedAt: new Date() },
     })
@@ -110,7 +110,7 @@ export const restoreProduct = featureAction('shop')
   .metadata({ actionName: 'restoreProduct' })
   .inputSchema(ArchiveProductSchema)
   .action(async ({ ctx, parsedInput }) => {
-    await prisma.product.update({
+    await prisma.shopItem.update({
       where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
       data: { archivedAt: null },
     })

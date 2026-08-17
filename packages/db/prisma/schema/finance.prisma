@@ -194,10 +194,12 @@ model UnprocessedPayment {
     @@index([studentId])
 }
 
-model PaymentProduct {
+/// Продукт — то, что школа продаёт родителю: абонемент на N занятий за такую-то
+/// цену. Прайс-лист, из которого собирается оплата. Товар магазина — это
+/// `ShopItem`, другая сущность и другие деньги (астрокоины).
+model Product {
     id          Int    @id @default(autoincrement())
     name        String
-    productId   Int?
     price       Int
     lessonCount Int
 

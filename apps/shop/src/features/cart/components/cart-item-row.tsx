@@ -15,7 +15,7 @@ import Image from 'next/image'
 import { useRemoveCartItemMutation, useSetCartItemQuantityMutation } from '../queries'
 
 export interface CartItem {
-  productId: number
+  shopItemId: number
   name: string
   imageUrl: string
   price: number
@@ -66,7 +66,7 @@ export function CartItemRow({ item }: { item: CartItem }) {
         disabled={busy || item.archived}
         onValueCommitted={(value) => {
           if (value === null || value === item.quantity) return
-          setQuantity.mutate({ productId: item.productId, quantity: value })
+          setQuantity.mutate({ shopItemId: item.shopItemId, quantity: value })
         }}
       >
         <NumberFieldGroup>
@@ -82,7 +82,7 @@ export function CartItemRow({ item }: { item: CartItem }) {
         size="icon-lg"
         disabled={busy}
         title="Убрать"
-        onClick={() => remove.mutate({ productId: item.productId })}
+        onClick={() => remove.mutate({ shopItemId: item.shopItemId })}
       >
         <X />
       </Button>
