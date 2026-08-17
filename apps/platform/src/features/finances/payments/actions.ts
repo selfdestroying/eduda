@@ -146,13 +146,11 @@ export const createPaymentWithBalance = permissionAction({ payment: ['create'] }
   .metadata({ actionName: 'createPaymentWithBalance' })
   .inputSchema(CreatePaymentSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { studentId, walletId, date, paymentMethodId, productId, managerId } = parsedInput
+    const { studentId, walletId, lessonCount, price, date, paymentMethodId, productId, managerId } =
+      parsedInput
 
     await prisma.$transaction(async (tx) => {
-      // Сумма и количество занятий — из прайс-листа, а не из запроса: в форме этих
-      // полей нет, и подделать их нечем.
       const product = await loadPaymentProductTx(tx, productId, ctx.session.organizationId!)
-      const { price, lessonCount } = product
       // `productName` попадает и в историю: её читает карточка ученика
       // (`students/components/detail/lessons-balance-history.tsx`).
       const paymentMeta = { lessonCount, price, walletId, productName: product.name }
@@ -415,6 +413,8 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
       unprocessedPaymentId,
       studentId,
       walletId,
+      lessonCount,
+      price,
       date,
       paymentMethodId,
       productId,
@@ -422,10 +422,7 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
     } = parsedInput
 
     await prisma.$transaction(async (tx) => {
-      // Сумма и количество занятий — из прайс-листа; форма разбора та же, что у
-      // создания вручную, и полей под них в ней нет.
       const product = await loadPaymentProductTx(tx, productId, ctx.session.organizationId!)
-      const { price, lessonCount } = product
       const paymentMeta = {
         lessonCount,
         price,

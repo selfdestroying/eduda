@@ -39,7 +39,7 @@ import {
   SelectValue,
 } from '@repo/ui/components/select'
 import { Loader, Plus, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
 import { useActiveProductListQuery, useProductCreateMutation } from '../../products/queries'
@@ -63,6 +63,8 @@ export function usePaymentForm() {
       studentId: undefined,
       walletId: undefined,
       productId: undefined,
+      lessonCount: undefined,
+      price: undefined,
       date: todayYmdInTz(tz),
       paymentMethodId: null,
       managerId: null,
@@ -204,6 +206,8 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
 
   const walletId = useWatch({ control: form.control, name: 'walletId' })
   const productId = useWatch({ control: form.control, name: 'productId' })
+  const lessonCount = useWatch({ control: form.control, name: 'lessonCount' })
+  const price = useWatch({ control: form.control, name: 'price' })
 
   // Кошельки тянем для выбранного ученика, а не списком на всю школу: их нужен
   // ровно один набор, а вместе со списком приезжали группы, курсы и расписания
@@ -242,26 +246,41 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
     setPendingWalletId(null)
   }, [pendingWalletId, wallets, form])
 
+  /**
+   * Выбор продукта: ссылка плюс его цифры в поля. Оба поля до этого момента
+   * скрыты — заполнять сумму и занятия руками с нуля больше не нужно, они всегда
+   * приходят из прайса, а правка идёт уже поверх.
+   *
+   * Подставляем и при смене продукта: выбрали другую строку прайса — значит
+   * продаём другое, и прежние цифры к ней отношения не имеют.
+   */
+  const applyProduct = useCallback(
+    (id: number) => {
+      form.setValue('productId', id, { shouldValidate: true })
+      const product = products.find((p) => p.id === id)
+      if (!product) return
+      form.setValue('lessonCount', product.lessonCount, { shouldValidate: true })
+      form.setValue('price', product.price, { shouldValidate: true })
+    },
+    [products, form],
+  )
+
   // Только что созданный продукт выбираем не сразу, а когда он доедет в списке:
   // список перезапрашивается после создания, и `Select` со значением, которого нет
   // среди его пунктов, показал бы пустой триггер.
   useEffect(() => {
     if (pendingProductId == null || !products.some((p) => p.id === pendingProductId)) return
-    form.setValue('productId', pendingProductId, { shouldValidate: true })
+    applyProduct(pendingProductId)
     setPendingProductId(null)
-  }, [pendingProductId, products, form])
+  }, [pendingProductId, products, applyProduct])
 
-  // Что именно продаём: сумма и количество занятий берутся отсюда — своих полей у
-  // них в форме больше нет, и сервер читает их из этой же строки прайса.
-  const selectedProduct = products.find((p) => p.id === productId) ?? null
-
-  // Честное деление с одной цифрой после запятой — чтобы кривая строка прайса была
-  // видна до сохранения, а не в отчёте через месяц. Сервер округляет вниз
-  // (`bidForLesson`), и повтори мы здесь то же округление, 1000 ₽ за 3 занятия
+  // Честное деление с одной цифрой после запятой — чтобы опечатка в сумме или в
+  // занятиях была видна до сохранения, а не в отчёте через месяц. Сервер округляет
+  // вниз (`bidForLesson`), и повтори мы здесь то же округление, 1000 ₽ за 3 занятия
   // показались бы ровными 333 — остаток от деления исчез бы с экрана.
   const bidForLesson =
-    selectedProduct && selectedProduct.lessonCount > 0
-      ? selectedProduct.price / selectedProduct.lessonCount
+    typeof price === 'number' && typeof lessonCount === 'number' && lessonCount > 0
+      ? price / lessonCount
       : null
 
   // Списки для `Select` мемоизируем не для скорости: `Select.Root` кладёт `items`
@@ -292,8 +311,8 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
   // (`price * commission / 100`) и вычитается из выручки. Пусть та же цифра будет
   // видна в момент, когда метод выбирают.
   const acquiringFee =
-    selectedMethod && selectedMethod.commission > 0 && selectedProduct
-      ? Math.round(selectedProduct.price * (selectedMethod.commission / 100))
+    selectedMethod && selectedMethod.commission > 0 && typeof price === 'number'
+      ? Math.round(price * (selectedMethod.commission / 100))
       : null
 
   return (
@@ -424,7 +443,9 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
               )}
               <WalletPreview
                 wallet={selectedWallet}
-                addedLessons={selectedProduct?.lessonCount}
+                addedLessons={
+                  typeof lessonCount === 'number' && lessonCount > 0 ? lessonCount : undefined
+                }
                 unpaidLessons={unpaidLessons}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
@@ -506,7 +527,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                   <Select
                     items={productItems}
                     value={field.value != null ? String(field.value) : null}
-                    onValueChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                    onValueChange={(v) => (v ? applyProduct(Number(v)) : field.onChange(undefined))}
                     disabled={disabled}
                   >
                     <SelectTrigger
@@ -547,20 +568,62 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                   </Button>
                 </div>
               )}
-              {fieldState.invalid ? (
-                <FieldError errors={[fieldState.error]} />
-              ) : (
-                selectedProduct &&
-                bidForLesson !== null && (
-                  <FieldDescription className="tabular-nums">
-                    {formatCurrency(selectedProduct.price)} за {selectedProduct.lessonCount} зан. —{' '}
-                    {formatCurrency(bidForLesson, 1)} за занятие
-                  </FieldDescription>
-                )
-              )}
+              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}
         />
+        {/* Сумма и занятия появляются только после выбора продукта: до него их нечем
+            заполнить, а пустые поля предлагали бы вводить руками то, что и так
+            приедет из прайса. Дальше они обычные — разовую скидку или доплату
+            правят здесь, не заводя ради неё строку прайс-листа. */}
+        {productId != null && (
+          <>
+            <Controller
+              control={form.control}
+              name="lessonCount"
+              render={({ field, fieldState }) => (
+                <Field>
+                  <FieldLabel htmlFor={`${formId}-lessonCount`}>Количество занятий</FieldLabel>
+                  <NumberInput
+                    id={`${formId}-lessonCount`}
+                    {...field}
+                    value={field.value ?? ''}
+                    disabled={disabled}
+                    aria-invalid={fieldState.invalid}
+                    aria-required
+                  />
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+            <Controller
+              control={form.control}
+              name="price"
+              render={({ field, fieldState }) => (
+                <Field>
+                  <FieldLabel htmlFor={`${formId}-price`}>Сумма</FieldLabel>
+                  <NumberInput
+                    id={`${formId}-price`}
+                    {...field}
+                    value={field.value ?? ''}
+                    disabled={disabled}
+                    aria-invalid={fieldState.invalid}
+                    aria-required
+                  />
+                  {fieldState.invalid ? (
+                    <FieldError errors={[fieldState.error]} />
+                  ) : (
+                    bidForLesson !== null && (
+                      <FieldDescription>
+                        {formatCurrency(bidForLesson, 1)} за занятие
+                      </FieldDescription>
+                    )
+                  )}
+                </Field>
+              )}
+            />
+          </>
+        )}
         <Controller
           control={form.control}
           name="date"

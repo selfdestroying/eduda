@@ -52,13 +52,13 @@ async function main() {
         select: { id: true },
       })
 
-      // ─── Свой продукт даёт цену, занятия и снимок названия ─────────────
+      // ─── Свой продукт даёт ссылку и снимок названия ────────────────────
       assert.deepEqual(
         await loadPaymentProductTx(tx, mine.id, organizationId),
-        { id: mine.id, name: 'Абонемент 8 занятий', price: 6400, lessonCount: 8 },
-        'сумма, занятия и название должны читаться из базы, а не приходить из запроса',
+        { id: mine.id, name: 'Абонемент 8 занятий' },
+        'название снимка должно читаться из базы, а не приходить из запроса',
       )
-      ok('свой продукт даёт цену, занятия и название')
+      ok('свой продукт даёт ссылку и название')
 
       // ─── Чужой продукт не прицепляется ─────────────────────────────────
       await assert.rejects(
@@ -87,8 +87,9 @@ async function main() {
         data: { organizationId, studentId: student.id },
         select: { id: true },
       })
-      // Оплата собирается ровно так, как её собирает экшен: сумма и занятия — из
-      // продукта, форма их больше не присылает.
+      // Оплата собирается ровно так, как её собирает экшен: продукт даёт ссылку и
+      // название, а сумма приходит из формы — здесь со скидкой в 500 ₽, какую и
+      // правят руками поверх прайса.
       const resolved = await loadPaymentProductTx(tx, mine.id, organizationId)
       const payment = await tx.payment.create({
         data: {
@@ -96,10 +97,10 @@ async function main() {
           studentId: student.id,
           walletId: wallet.id,
           date: '2026-09-01',
-          price: resolved.price,
-          lessonCount: resolved.lessonCount,
-          bidForLesson: Math.floor(resolved.price / resolved.lessonCount),
-          remaining: resolved.lessonCount,
+          price: 5900,
+          lessonCount: 8,
+          bidForLesson: Math.floor(5900 / 8),
+          remaining: 8,
           productId: resolved.id,
           productName: resolved.name,
         },
@@ -108,12 +109,12 @@ async function main() {
       assert.deepEqual(
         await tx.payment.findUniqueOrThrow({
           where: { id: payment.id },
-          select: { price: true, lessonCount: true, bidForLesson: true },
+          select: { price: true, productId: true },
         }),
-        { price: 6400, lessonCount: 8, bidForLesson: 800 },
-        'оплата должна получить сумму и занятия из прайс-листа',
+        { price: 5900, productId: mine.id },
+        'правка суммы должна доезжать до базы, не отвязывая оплату от продукта',
       )
-      ok('сумма и занятия оплаты приходят из продукта')
+      ok('сумма правится поверх прайса, ссылка на продукт остаётся')
 
       await tx.product.delete({ where: { id: mine.id } })
       assert.deepEqual(
