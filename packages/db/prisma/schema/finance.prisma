@@ -90,6 +90,11 @@ model Payment {
     groupId         Int?
     walletId        Int?
     paymentMethodId Int?
+    /// Что продали — строка прайс-листа. Необязательное: у оплат до появления
+    /// справочника продукта нет. Рядом лежит `productName` — снимок названия на
+    /// момент продажи: продукт можно переименовать или удалить, а подпись прошлой
+    /// оплаты обязана остаться прежней.
+    productId       Int?
     /// Кто продал. Не автор записи: оплаты часто вносит один администратор за всех,
     /// а премия причитается тому, кто договорился. Поле необязательное — у оплат до
     /// его появления менеджера нет, и расчёты это переживают.
@@ -99,6 +104,7 @@ model Payment {
     group           Group?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
     wallet          Wallet?        @relation(fields: [walletId], references: [id], onDelete: SetNull)
     paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+    product         Product?       @relation(fields: [productId], references: [id], onDelete: SetNull)
     manager         User?          @relation(fields: [managerId], references: [id], onDelete: SetNull)
 
     attendances Attendance[]
@@ -110,6 +116,7 @@ model Payment {
     @@index([groupId])
     @@index([walletId])
     @@index([paymentMethodId])
+    @@index([productId])
     @@index([walletId, date])
     /// Список оплат школы: выборка по периоду плюс сортировка по дате по умолчанию.
     /// Отдельного `organizationId` для этого мало — по нему пришлось бы отбирать все
@@ -198,14 +205,22 @@ model UnprocessedPayment {
 /// цену. Прайс-лист, из которого собирается оплата. Товар магазина — это
 /// `ShopItem`, другая сущность и другие деньги (астрокоины).
 model Product {
-    id          Int    @id @default(autoincrement())
+    id          Int     @id @default(autoincrement())
     name        String
     price       Int
     lessonCount Int
+    description String?
+
+    /// Снятый с продажи продукт не удаляют: на него ссылаются прошлые оплаты, и в
+    /// форме новой оплаты он просто больше не предлагается. Как у `PaymentMethod`.
+    isActive  Boolean  @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
 
     // Relations
     organizationId Int
     organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    payments       Payment[]
 
     @@index([organizationId])
 }
