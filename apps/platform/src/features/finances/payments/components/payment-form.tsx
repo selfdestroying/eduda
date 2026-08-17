@@ -38,12 +38,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@repo/ui/components/select'
-import { Loader, Plus, X } from 'lucide-react'
+import { useIsMobile } from '@repo/ui/hooks/use-mobile'
+import { Plus } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
 import { useActiveProductListQuery, useProductCreateMutation } from '../../products/queries'
 import { CreatePaymentSchema, type CreatePaymentSchemaType } from '../schemas'
+import { QuickCreate } from './quick-create'
 import { WalletPreview } from './wallet-preview'
 
 /**
@@ -99,6 +101,9 @@ interface PaymentFormProps {
 }
 
 export default function PaymentForm({ form, formId, onSubmit, disabled }: PaymentFormProps) {
+  // Решает, чем открывается создание кошелька и продукта: блоком под полем или
+  // вложенной панелью. См. `QuickCreate`.
+  const isMobile = useIsMobile()
   const { data: paymentMethods = EMPTY } = useActivePaymentMethodListQuery()
   const { data: products = EMPTY } = useActiveProductListQuery()
   const { data: memberList = EMPTY } = useMemberListQuery()
@@ -349,44 +354,13 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor={`${formId}-wallet`}>Кошелёк</FieldLabel>
-              {/* Создание занимает место выбора, а не встаёт под ним: это одно и то
-                  же поле в двух состояниях, и форма от переключения не прыгает.
-                  Поле ввода живёт здесь, а не в попапе селекта, — у того своя
-                  навигация с поиском по буквам, и они дрались бы за каждую клавишу. */}
-              {creatingWallet ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    autoFocus
-                    value={newWalletName}
-                    onChange={(e) => setNewWalletName(e.target.value)}
-                    onKeyDown={(e) => {
-                      // Enter внутри формы отправил бы саму оплату — перехватываем.
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        submitNewWallet()
-                      }
-                      if (e.key === 'Escape') closeNewWallet()
-                    }}
-                    placeholder="Название кошелька"
-                    disabled={createWallet.isPending}
-                    aria-label="Название нового кошелька"
-                  />
-                  <Button type="button" onClick={submitNewWallet} disabled={createWallet.isPending}>
-                    {createWallet.isPending && <Loader className="animate-spin" />}
-                    Создать
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={closeNewWallet}
-                    disabled={createWallet.isPending}
-                    aria-label="Отменить создание кошелька"
-                  >
-                    <X />
-                  </Button>
-                </div>
-              ) : (
+              {/* На десктопе создание занимает место выбора, а не встаёт под ним:
+                  это одно и то же поле в двух состояниях, и форма от переключения
+                  не прыгает. На телефоне — вложенная панель поверх формы оплаты
+                  (см. `QuickCreate`). Поле ввода в обоих случаях живёт здесь, а не
+                  в попапе селекта, — у того своя навигация с поиском по буквам, и
+                  они дрались бы за каждую клавишу. */}
+              {creatingWallet && !isMobile ? null : (
                 <div className="flex items-center gap-2">
                   {/* Селект, а не комбобокс: кошельков у ученика один-три, искать
                       среди них нечего, а поле ввода предлагает печатать там, где
@@ -441,6 +415,32 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                   </Button>
                 </div>
               )}
+              <QuickCreate
+                asDrawer={isMobile}
+                open={creatingWallet}
+                onOpenChange={(next) => (next ? setCreatingWallet(true) : closeNewWallet())}
+                title="Новый кошелёк"
+                canSubmit={studentId != null}
+                pending={createWallet.isPending}
+                onSubmit={submitNewWallet}
+              >
+                <Input
+                  autoFocus
+                  value={newWalletName}
+                  onChange={(e) => setNewWalletName(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Enter внутри формы отправил бы саму оплату — перехватываем.
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      submitNewWallet()
+                    }
+                    if (e.key === 'Escape') closeNewWallet()
+                  }}
+                  placeholder="Название кошелька"
+                  disabled={createWallet.isPending}
+                  aria-label="Название нового кошелька"
+                />
+              </QuickCreate>
               <WalletPreview
                 wallet={selectedWallet}
                 addedLessons={
@@ -458,69 +458,11 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor={`${formId}-product`}>Продукт</FieldLabel>
-              {/* Продукт заменил собой «Количество занятий» и «Сумму»: и то и другое
-                  — свойства строки прайса, а не отдельные решения по каждой оплате.
-                  Нужна другая цена — заводится другой продукт, здесь же, кнопкой
-                  рядом. Устройство поля повторяет кошелёк: создание занимает место
-                  выбора, а не встаёт под ним, и поля ввода живут здесь, а не в
-                  попапе селекта, — у того своя навигация с поиском по буквам, и они
-                  дрались бы за каждую клавишу. */}
-              {creatingProduct ? (
-                <div className="flex flex-col gap-2">
-                  <Input
-                    autoFocus
-                    value={newProduct.name}
-                    onChange={(e) => setNewProduct((p) => ({ ...p, name: e.target.value }))}
-                    onKeyDown={(e) => {
-                      // Enter внутри формы отправил бы саму оплату — перехватываем.
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        submitNewProduct()
-                      }
-                      if (e.key === 'Escape') closeNewProduct()
-                    }}
-                    placeholder="Название продукта"
-                    disabled={createProduct.isPending}
-                    aria-label="Название нового продукта"
-                  />
-                  <div className="flex items-center gap-2">
-                    <NumberInput
-                      value={newProduct.lessonCount}
-                      onChange={(v) => setNewProduct((p) => ({ ...p, lessonCount: v }))}
-                      placeholder="Занятий"
-                      disabled={createProduct.isPending}
-                      aria-label="Количество занятий в новом продукте"
-                    />
-                    <NumberInput
-                      value={newProduct.price}
-                      onChange={(v) => setNewProduct((p) => ({ ...p, price: v }))}
-                      placeholder="Цена пакета"
-                      disabled={createProduct.isPending}
-                      aria-label="Цена нового продукта"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      onClick={submitNewProduct}
-                      disabled={createProduct.isPending || !newProductValid}
-                    >
-                      {createProduct.isPending && <Loader className="animate-spin" />}
-                      Создать
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={closeNewProduct}
-                      disabled={createProduct.isPending}
-                      aria-label="Отменить создание продукта"
-                    >
-                      <X />
-                    </Button>
-                  </div>
-                </div>
-              ) : (
+              {/* Устройство поля повторяет кошелёк: на десктопе создание занимает
+                  место выбора, на телефоне открывается вложенной панелью. Три поля
+                  внутри формы, которая на телефоне и сама панель, иначе выталкивали
+                  бы за край всё, что ниже. */}
+              {creatingProduct && !isMobile ? null : (
                 <div className="flex items-center gap-2">
                   {/* Снятые с продажи продукты в списке не появляются
                       (`getActiveProducts`). */}
@@ -568,6 +510,48 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                   </Button>
                 </div>
               )}
+              <QuickCreate
+                asDrawer={isMobile}
+                open={creatingProduct}
+                onOpenChange={(next) => (next ? setCreatingProduct(true) : closeNewProduct())}
+                title="Новый продукт"
+                canSubmit={newProductValid}
+                pending={createProduct.isPending}
+                onSubmit={submitNewProduct}
+              >
+                <Input
+                  autoFocus
+                  value={newProduct.name}
+                  onChange={(e) => setNewProduct((p) => ({ ...p, name: e.target.value }))}
+                  onKeyDown={(e) => {
+                    // Enter внутри формы отправил бы саму оплату — перехватываем.
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      submitNewProduct()
+                    }
+                    if (e.key === 'Escape') closeNewProduct()
+                  }}
+                  placeholder="Название продукта"
+                  disabled={createProduct.isPending}
+                  aria-label="Название нового продукта"
+                />
+                <div className="flex items-center gap-2">
+                  <NumberInput
+                    value={newProduct.lessonCount}
+                    onChange={(v) => setNewProduct((p) => ({ ...p, lessonCount: v }))}
+                    placeholder="Занятий"
+                    disabled={createProduct.isPending}
+                    aria-label="Количество занятий в новом продукте"
+                  />
+                  <NumberInput
+                    value={newProduct.price}
+                    onChange={(v) => setNewProduct((p) => ({ ...p, price: v }))}
+                    placeholder="Цена пакета"
+                    disabled={createProduct.isPending}
+                    aria-label="Цена нового продукта"
+                  />
+                </div>
+              </QuickCreate>
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}
