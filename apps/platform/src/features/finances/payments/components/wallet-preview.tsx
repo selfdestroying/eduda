@@ -5,6 +5,8 @@ import type { StudentStatus } from '@repo/db/enums'
 import { Badge } from '@repo/ui/components/badge'
 import { formatDate } from '@/src/lib/timezone'
 import { formatCurrency, getGroupName } from '@/src/lib/utils'
+import { ChevronDown, ChevronUp } from 'lucide-react'
+import { useState } from 'react'
 
 /** «1 занятие ждёт оплаты», «3 занятия ждут оплаты». */
 function formatWaiting(count: number) {
@@ -26,40 +28,12 @@ function formatMorePayments(count: number) {
   return `ещё ${count} оплат`
 }
 
-/** «ещё 1 группа», «ещё 3 группы», «ещё 7 групп». */
-function formatMoreGroups(count: number) {
-  const mod100 = Math.abs(count) % 100
-  const mod10 = mod100 % 10
-  if (mod100 >= 11 && mod100 <= 14) return `ещё ${count} групп`
-  if (mod10 === 1) return `ещё ${count} группа`
-  if (mod10 >= 2 && mod10 <= 4) return `ещё ${count} группы`
-  return `ещё ${count} групп`
-}
-
-/**
- * Сколько строк отведено каждой секции. Высота блока не должна зависеть от того,
- * какой кошелёк выбран: он стоит посреди формы, и прыжок на строку-другую при смене
- * уводит поля из-под курсора. Поэтому не «сколько получилось», а всегда столько:
- * лишнее сворачивается в «ещё N», недостающее добирается пустыми строками.
- *
- * Три — потому что сервер отдаёт две последние оплаты (`getStudentWallets`), и с
- * «ещё N» это ровно три.
- */
-const ROW_SLOTS = 3
-
 /**
  * Строки обеих секций. Высота задана явно и равна высоте `Badge` (`h-5`): бейдж
  * статуса выше строки текста, и без этого строка с группой была бы выше строки с
  * оплатой, а обе — выше распорки. Всё остальное центрируется внутри.
  */
 const ROWS = '[&>li]:flex [&>li]:h-5 [&>li]:items-center'
-
-/** Пустые строки-распорки до `ROW_SLOTS`. Высоту им даёт `ROWS`, содержимого не надо. */
-function fillerRows(used: number) {
-  return Array.from({ length: Math.max(0, ROW_SLOTS - used) }, (_, i) => (
-    <li key={`filler-${i}`} aria-hidden />
-  ))
-}
 
 /**
  * Ровно те поля, которые показывает предпросмотр. Структурный тип, а не вывод из
@@ -97,11 +71,11 @@ const HEADING = 'text-muted-foreground text-[11px] font-semibold tracking-wide u
  * Кошелёк одним блоком под полем выбора: во что превратится оплата и что в этом
  * кошельке уже есть.
  *
- * Высота блока постоянная и не зависит от выбранного кошелька — ни от числа групп
- * и пакетов, ни от того, выбран ли кошелёк вообще. Блок стоит посреди формы, и
- * прыжок при смене уводил бы поля из-под курсора. Отсюда `ROW_SLOTS` и распорки, а
- * заодно и то, что строка долга живёт внутри шапки, а не отдельной секцией: секция
- * принесла бы с собой ещё и разделительную линию, которой в остальных случаях нет.
+ * Свёрнутый блок — одна строка на секцию, и его высота не зависит от выбранного
+ * кошелька: он стоит посреди формы, и прыжок при смене уводил бы поля из-под
+ * курсора. Отсюда распорка вместо недостающей строки, строка долга внутри шапки
+ * (отдельной секцией она принесла бы с собой ещё и разделительную линию) и кнопка,
+ * которая держит своё место даже когда разворачивать нечего.
  */
 export function WalletPreview({
   wallet,
@@ -114,18 +88,26 @@ export function WalletPreview({
   /** Проведённые занятия кошелька, которые эта оплата закроет. */
   unpaidLessons?: number
 }) {
+  // Развёрнутое состояние переживает смену кошелька: раскрыв его один раз, человек
+  // обычно сравнивает кошельки как раз по этим спискам.
+  const [expanded, setExpanded] = useState(false)
+
   const groups = wallet?.studentGroups ?? []
-  // Умещаемся в отведённые строки: при переполнении показываем на одну меньше,
-  // последнюю строку занимает «ещё N». Пакеты приходят с сервера уже обрезанными
-  // (`take: 2`), группы — нет.
-  const shownGroups = groups.length > ROW_SLOTS ? groups.slice(0, ROW_SLOTS - 1) : groups
-  const hiddenGroups = groups.length - shownGroups.length
   const payments = wallet?.payments ?? []
-  const hiddenPayments = wallet ? wallet._count.payments - payments.length : 0
+  const totalPayments = wallet?._count.payments ?? 0
+
+  // Свёрнутый вид — по одной, самой свежей строке. Развёрнутый показывает все
+  // группы и те оплаты, что приехали с сервера (`take: 2`); остальные считаются в
+  // «ещё N» — ради них отдельный запрос не делаем.
+  const shownGroups = expanded ? groups : groups.slice(0, 1)
+  const shownPayments = expanded ? payments : payments.slice(0, 1)
+  const hiddenPayments = totalPayments - shownPayments.length
+
+  const canExpand = groups.length > 1 || totalPayments > 1
 
   return (
-    // Части разделены линиями, а не отступами: в блоке из десяти строк одного
-    // расстояния мало, чтобы имя, группы и оплаты читались как разные вещи.
+    // Части разделены линиями, а не отступами: одного расстояния мало, чтобы имя,
+    // группы и оплаты читались как разные вещи — тем более в развёрнутом виде.
     // Пунктир — знак, что кошелёк ещё не выбран, а размер тот же.
     <div className={`${BOX} divide-border flex flex-col divide-y ${wallet ? '' : 'border-dashed'}`}>
       <div className="flex flex-col gap-0.5 pb-2">
@@ -159,9 +141,10 @@ export function WalletPreview({
       </div>
 
       {/* Обе секции стоят всегда: пустая «Оплаты» — это сообщение, что кошелёк
-          новый, а не повод убрать заголовок и оставить читателя гадать. */}
+          новый, а не повод убрать заголовок и оставить читателя гадать. Число в
+          заголовке говорит, сколько скрыто, не тратя на это строку. */}
       <div className="flex flex-col gap-0.5 py-2">
-        <span className={HEADING}>Группы</span>
+        <SectionHeading title="Группы" count={groups.length} />
         <ul className={`flex flex-col gap-0.5 ${ROWS}`}>
           {wallet && groups.length === 0 && <li className="text-muted-foreground">Нет групп</li>}
           {shownGroups.map((sg, i) => (
@@ -172,22 +155,16 @@ export function WalletPreview({
               </Badge>
             </li>
           ))}
-          {hiddenGroups > 0 && (
-            <li className="text-muted-foreground">{formatMoreGroups(hiddenGroups)}</li>
-          )}
-          {fillerRows(
-            wallet
-              ? (groups.length === 0 ? 1 : shownGroups.length) + (hiddenGroups > 0 ? 1 : 0)
-              : 0,
-          )}
+          {/* Пока кошелёк не выбран, строку держит распорка — рамка та же по высоте. */}
+          {!wallet && <li aria-hidden />}
         </ul>
       </div>
 
-      <div className="flex flex-col gap-0.5 pt-2">
-        <span className={HEADING}>Оплаты</span>
+      <div className="flex flex-col gap-0.5 py-2">
+        <SectionHeading title="Оплаты" count={totalPayments} />
         <ul className={`flex flex-col gap-0.5 ${ROWS}`}>
           {wallet && payments.length === 0 && <li className="text-muted-foreground">Нет оплат</li>}
-          {payments.map((p) => (
+          {shownPayments.map((p) => (
             <li key={p.id} className="flex items-center justify-between gap-2 tabular-nums">
               <span className="truncate">
                 {formatDate(p.date)} · {formatCurrency(p.price)}
@@ -200,16 +177,37 @@ export function WalletPreview({
               </span>
             </li>
           ))}
-          {hiddenPayments > 0 && (
+          {expanded && hiddenPayments > 0 && (
             <li className="text-muted-foreground">{formatMorePayments(hiddenPayments)}</li>
           )}
-          {fillerRows(
-            wallet
-              ? (payments.length === 0 ? 1 : payments.length) + (hiddenPayments > 0 ? 1 : 0)
-              : 0,
-          )}
+          {!wallet && <li aria-hidden />}
         </ul>
       </div>
+
+      {/* Кнопка стоит всегда, даже когда разворачивать нечего: пропади она —
+          свёрнутый блок менял бы высоту от кошелька к кошельку, а его постоянство
+          и есть весь смысл здешних распорок. */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        disabled={!canExpand}
+        className={`text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 pt-2 transition-colors ${
+          canExpand ? '' : 'invisible'
+        }`}
+      >
+        {expanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+        {expanded ? 'Свернуть' : 'Показать все'}
+      </button>
     </div>
+  )
+}
+
+/** Заголовок секции со счётчиком: «ОПЛАТЫ 5». Единица не показывается — считать нечего. */
+function SectionHeading({ title, count }: { title: string; count: number }) {
+  return (
+    <span className={HEADING}>
+      {title}
+      {count > 1 && <span className="ml-1 tabular-nums opacity-70">{count}</span>}
+    </span>
   )
 }
