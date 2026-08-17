@@ -279,12 +279,27 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     },
   })
 
-  await prisma.product.createMany({
+  // Прайс-лист: демо-оплаты ниже ссылаются на эти строки, поэтому нужны их id.
+  const createdProducts = await prisma.product.createManyAndReturn({
     data: [
-      { organizationId: orgId, name: 'Абонемент 8 занятий', price: 6400, lessonCount: 8 },
-      { organizationId: orgId, name: 'Абонемент 12 занятий', price: 9000, lessonCount: 12 },
+      {
+        organizationId: orgId,
+        name: 'Абонемент 8 занятий',
+        price: 6400,
+        lessonCount: 8,
+        description: 'Месяц занятий два раза в неделю',
+      },
+      {
+        organizationId: orgId,
+        name: 'Абонемент 12 занятий',
+        price: 9000,
+        lessonCount: 12,
+        description: 'Полтора месяца со скидкой за объём',
+      },
     ],
+    select: { id: true, name: true, lessonCount: true },
   })
+  const productByLessons = new Map(createdProducts.map((p) => [p.lessonCount, p]))
 
   // 5. Расходы / аренда / зарплаты ──────────────────────────────────────
   await prisma.expense.createMany({
@@ -529,6 +544,9 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     for (let p = 0; p < s.paymentsCount; p++) {
       const lessonCount = pick([8, 12] as const)
       const price = lessonCount === 8 ? 6400 : 9000
+      // Пакеты сида — ровно два продукта прайс-листа, поэтому продукт находится по
+      // количеству занятий. `productName` — снимок названия, как в живом экшене.
+      const product = productByLessons.get(lessonCount)!
       payments.push({
         organizationId: orgId,
         studentId: st.id,
@@ -538,7 +556,8 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
         lessonCount,
         price,
         bidForLesson: Math.round(price / lessonCount),
-        productName: `Абонемент ${lessonCount} занятий`,
+        productId: product.id,
+        productName: product.name,
         date: ymd(addUTCDays(today, -int(1, 40))),
         // Пакет встаёт в очередь целиком: без остатка демо-посещения списывались бы
         // «в долг» и демо-выручка не показывала бы разбор по пакетам.
