@@ -42,6 +42,7 @@ export const PaymentListSchema = z.object({
   from: DateOnlySchema.optional(),
   to: DateOnlySchema.optional(),
   methodIds: z.array(z.number().int().positive()).default([]),
+  productIds: z.array(z.number().int().positive()).default([]),
   managerIds: z.array(z.number().int().positive()).default([]),
   statuses: z.array(z.enum(['ACTIVE', 'CANCELLED'])).default([]),
   priceMin: z.number().int().nullish(),
@@ -57,6 +58,12 @@ export const CreatePaymentSchema = z.object({
   price: z.number('Укажите сумму').int().positive(),
   date: PaymentDateSchema,
   paymentMethodId: z.number().int().positive().nullable().optional(),
+  /**
+   * Что продали — строка прайс-листа. Необязательное: оплату можно завести и без
+   * продукта. Название сюда не приходит — снимок `Payment.productName` сервер
+   * берёт из самого продукта, чтобы клиент не мог прислать чужое.
+   */
+  productId: z.number().int().positive().nullable().optional(),
   /** Кто продал: не автор записи, а тот, кто договорился. */
   managerId: z.number().int().positive().nullable().optional(),
 })

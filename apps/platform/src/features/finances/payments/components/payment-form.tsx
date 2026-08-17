@@ -42,6 +42,7 @@ import { Loader, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
+import { useActiveProductListQuery } from '../../products/queries'
 import { CreatePaymentSchema, type CreatePaymentSchemaType } from '../schemas'
 import { WalletPreview } from './wallet-preview'
 
@@ -65,6 +66,7 @@ export function usePaymentForm() {
       price: undefined,
       date: todayYmdInTz(tz),
       paymentMethodId: null,
+      productId: null,
       managerId: null,
     },
   })
@@ -75,6 +77,9 @@ export function usePaymentForm() {
  * не может, поэтому пустоту приходится называть; в форму она уходит как `null`.
  */
 const NO_PAYMENT_METHOD = 'none'
+
+/** «Продукт не выбран» в селекте; в форму уходит как `null`. По тем же причинам. */
+const NO_PRODUCT = 'none'
 
 /** «Не указан» в списке продавцов; в форму уходит как `null`. */
 const NO_MANAGER = 0
@@ -98,6 +103,7 @@ interface PaymentFormProps {
 
 export default function PaymentForm({ form, formId, onSubmit, disabled }: PaymentFormProps) {
   const { data: paymentMethods = EMPTY } = useActivePaymentMethodListQuery()
+  const { data: products = EMPTY } = useActiveProductListQuery()
   const { data: memberList = EMPTY } = useMemberListQuery()
   const { data: session } = useSessionQuery()
 
@@ -221,6 +227,13 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
       ...paymentMethods.map((m) => ({ value: String(m.id), label: m.name })),
     ],
     [paymentMethods],
+  )
+  const productItems = useMemo(
+    () => [
+      { value: NO_PRODUCT, label: 'Не указан' },
+      ...products.map((p) => ({ value: String(p.id), label: p.name })),
+    ],
+    [products],
   )
 
   const selectedWallet = studentWallets.find((w) => w.id === walletId) ?? null
@@ -369,6 +382,67 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 }
                 unpaidLessons={unpaidLessons}
               />
+              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+            </Field>
+          )}
+        />
+        <Controller
+          control={form.control}
+          name="productId"
+          render={({ field, fieldState }) => (
+            <Field>
+              <FieldLabel htmlFor={`${formId}-product`}>
+                Продукт
+                <FieldOptional />
+              </FieldLabel>
+              {/* Стоит над количеством и суммой — теми полями, которые заполняет:
+                  подстановка течёт вниз, а не назад. Снятые с продажи продукты в
+                  списке не появляются (`getActiveProducts`). */}
+              <Select
+                items={productItems}
+                value={field.value != null ? String(field.value) : NO_PRODUCT}
+                onValueChange={(v) => {
+                  const id = v && v !== NO_PRODUCT ? Number(v) : null
+                  field.onChange(id)
+                  // Цифры продукта подставляются, но остаются редактируемыми: скидку
+                  // и «доплату за пропуск» правят руками поверх прайса. Отказ от
+                  // продукта («Не указан») введённое не чистит — иначе случайный
+                  // клик стирал бы уже набранную сумму.
+                  const product = id != null ? products.find((p) => p.id === id) : undefined
+                  if (!product) return
+                  form.setValue('lessonCount', product.lessonCount, { shouldValidate: true })
+                  form.setValue('price', product.price, { shouldValidate: true })
+                }}
+                disabled={disabled}
+              >
+                <SelectTrigger
+                  id={`${formId}-product`}
+                  className="w-full"
+                  aria-invalid={fieldState.invalid}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    <SelectItem value={NO_PRODUCT}>
+                      <span className="text-muted-foreground">Не указан</span>
+                    </SelectItem>
+                    {products.map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        <Item size="xs" className="p-0">
+                          <ItemContent>
+                            <ItemTitle>{p.name}</ItemTitle>
+                            {/* Что подставится, видно до выбора. */}
+                            <ItemDescription className="tabular-nums">
+                              {p.lessonCount} зан. · {formatCurrency(p.price)}
+                            </ItemDescription>
+                          </ItemContent>
+                        </Item>
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}

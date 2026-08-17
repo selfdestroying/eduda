@@ -11,6 +11,7 @@ import {
   settleUnpaidAttendancesTx,
   writeFinancialHistoryTx,
 } from '@/src/features/finances/ledger.server'
+import { resolveProductTx } from '@/src/features/finances/products/resolve.server'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import { permissionAction } from '@/src/lib/safe-action'
@@ -47,6 +48,7 @@ const PAYMENT_ORDER_BY: Record<string, (dir: Prisma.SortOrder) => PaymentOrderBy
   lessons: (dir) => [{ lessonCount: dir }],
   date: (dir) => [{ date: dir }],
   paymentMethod: (dir) => [{ paymentMethod: { name: dir } }],
+  product: (dir) => [{ product: { name: dir } }],
   manager: (dir) => [{ manager: { name: dir } }],
   status: (dir) => [{ status: dir }],
 }
@@ -96,6 +98,7 @@ function searchWhere(search: string | undefined): Prisma.PaymentWhereInput['AND'
       { student: { lastName: { contains: term, mode: 'insensitive' as const } } },
       { manager: { name: { contains: term, mode: 'insensitive' as const } } },
       { paymentMethod: { name: { contains: term, mode: 'insensitive' as const } } },
+      { product: { name: { contains: term, mode: 'insensitive' as const } } },
     ],
   }))
 }
@@ -104,7 +107,8 @@ export const getPayments = permissionAction({ payment: ['read'] })
   .metadata({ actionName: 'getPayments' })
   .inputSchema(PaymentListSchema)
   .action(async ({ ctx, parsedInput }): Promise<PaymentListResult> => {
-    const { page, pageSize, sort, search, from, to, methodIds, managerIds, statuses } = parsedInput
+    const { page, pageSize, sort, search, from, to, methodIds, productIds, managerIds, statuses } =
+      parsedInput
 
     const where: Prisma.PaymentWhereInput = {
       organizationId: ctx.session.organizationId!,
@@ -118,6 +122,7 @@ export const getPayments = permissionAction({ payment: ['read'] })
         date: { ...(from && { gte: from }), ...(to && { lte: to }) },
       }),
       ...(methodIds.length > 0 && { paymentMethodId: { in: methodIds } }),
+      ...(productIds.length > 0 && { productId: { in: productIds } }),
       ...(managerIds.length > 0 && { managerId: { in: managerIds } }),
       ...(statuses.length > 0 && { status: { in: statuses } }),
       ...rangeWhere('price', parsedInput.priceMin, parsedInput.priceMax),
@@ -145,12 +150,15 @@ export const createPaymentWithBalance = permissionAction({ payment: ['create'] }
   .metadata({ actionName: 'createPaymentWithBalance' })
   .inputSchema(CreatePaymentSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { studentId, walletId, lessonCount, price, date, paymentMethodId, managerId } =
+    const { studentId, walletId, lessonCount, price, date, paymentMethodId, productId, managerId } =
       parsedInput
 
-    const paymentMeta = { lessonCount, price, walletId }
-
     await prisma.$transaction(async (tx) => {
+      const product = await resolveProductTx(tx, productId, ctx.session.organizationId!)
+      // `productName` попадает и в историю: её читает карточка ученика
+      // (`students/components/detail/lessons-balance-history.tsx`).
+      const paymentMeta = { lessonCount, price, walletId, productName: product.productName }
+
       // Кошелёк ищем в своей организации: `walletId` приходит из запроса, и без
       // этого условия чужой id нашёлся бы, а оплата легла бы в чужую школу —
       // `organizationId` для неё брался из самого кошелька.
@@ -184,6 +192,11 @@ export const createPaymentWithBalance = permissionAction({ payment: ['create'] }
           remaining: lessonCount,
           date,
           paymentMethodId: paymentMethodId ?? null,
+          productId: product.productId,
+          // Снимок названия: продукт потом переименуют или удалят, а подпись этой
+          // оплаты обязана остаться прежней. Без продукта колонка пустая — так же,
+          // как у оплат до появления справочника.
+          ...(product.productName != null && { productName: product.productName }),
           managerId: managerId ?? null,
         },
       })
@@ -409,17 +422,20 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
       price,
       date,
       paymentMethodId,
+      productId,
       managerId,
     } = parsedInput
 
-    const paymentMeta = {
-      lessonCount,
-      price,
-      walletId,
-      unprocessedPaymentId,
-    }
-
     await prisma.$transaction(async (tx) => {
+      const product = await resolveProductTx(tx, productId, ctx.session.organizationId!)
+      const paymentMeta = {
+        lessonCount,
+        price,
+        walletId,
+        unprocessedPaymentId,
+        productName: product.productName,
+      }
+
       // Кошелёк ищем в своей организации: `walletId` приходит из запроса, и без
       // этого условия чужой id нашёлся бы, а оплата легла бы в чужую школу —
       // `organizationId` для неё брался из самого кошелька.
@@ -453,6 +469,9 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
           remaining: lessonCount,
           date,
           paymentMethodId: paymentMethodId ?? null,
+          productId: product.productId,
+          // Снимок названия — см. `createPaymentWithBalance`.
+          ...(product.productName != null && { productName: product.productName }),
           managerId: managerId ?? null,
         },
       })
