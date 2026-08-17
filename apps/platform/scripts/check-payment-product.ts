@@ -13,7 +13,7 @@ import './load-env'
 
 import assert from 'node:assert/strict'
 import { prisma } from '@repo/db'
-import { resolveProductTx } from '../src/features/finances/products/resolve.server'
+import { loadPaymentProductTx } from '../src/features/finances/products/resolve.server'
 import { NotFoundError } from '../src/lib/error'
 
 class Rollback extends Error {}
@@ -52,25 +52,17 @@ async function main() {
         select: { id: true },
       })
 
-      // ─── Без продукта оплата законна ───────────────────────────────────
+      // ─── Свой продукт даёт цену, занятия и снимок названия ─────────────
       assert.deepEqual(
-        await resolveProductTx(tx, null, organizationId),
-        { productId: null },
-        'оплата без продукта должна проходить: ссылка необязательная',
+        await loadPaymentProductTx(tx, mine.id, organizationId),
+        { id: mine.id, name: 'Абонемент 8 занятий', price: 6400, lessonCount: 8 },
+        'сумма, занятия и название должны читаться из базы, а не приходить из запроса',
       )
-      ok('оплата без продукта проходит')
-
-      // ─── Свой продукт даёт ссылку и снимок названия ────────────────────
-      assert.deepEqual(
-        await resolveProductTx(tx, mine.id, organizationId),
-        { productId: mine.id, productName: 'Абонемент 8 занятий' },
-        'название снимка должно читаться из базы, а не приходить из запроса',
-      )
-      ok('свой продукт даёт ссылку и название')
+      ok('свой продукт даёт цену, занятия и название')
 
       // ─── Чужой продукт не прицепляется ─────────────────────────────────
       await assert.rejects(
-        () => resolveProductTx(tx, foreign.id, organizationId),
+        () => loadPaymentProductTx(tx, foreign.id, organizationId),
         NotFoundError,
         'продукт чужой школы не должен находиться',
       )
@@ -79,7 +71,7 @@ async function main() {
       // ─── Снятый с продажи принимается ──────────────────────────────────
       await tx.product.update({ where: { id: mine.id }, data: { isActive: false } })
       assert.equal(
-        (await resolveProductTx(tx, mine.id, organizationId)).productName,
+        (await loadPaymentProductTx(tx, mine.id, organizationId)).name,
         'Абонемент 8 занятий',
         'снятый с продажи продукт должен приниматься: разбор старой оплаты законен',
       )
@@ -95,22 +87,33 @@ async function main() {
         data: { organizationId, studentId: student.id },
         select: { id: true },
       })
-      const resolved = await resolveProductTx(tx, mine.id, organizationId)
+      // Оплата собирается ровно так, как её собирает экшен: сумма и занятия — из
+      // продукта, форма их больше не присылает.
+      const resolved = await loadPaymentProductTx(tx, mine.id, organizationId)
       const payment = await tx.payment.create({
         data: {
           organizationId,
           studentId: student.id,
           walletId: wallet.id,
           date: '2026-09-01',
-          price: 6400,
-          lessonCount: 8,
-          bidForLesson: 800,
-          remaining: 8,
-          productId: resolved.productId,
-          ...(resolved.productName != null && { productName: resolved.productName }),
+          price: resolved.price,
+          lessonCount: resolved.lessonCount,
+          bidForLesson: Math.floor(resolved.price / resolved.lessonCount),
+          remaining: resolved.lessonCount,
+          productId: resolved.id,
+          productName: resolved.name,
         },
         select: { id: true },
       })
+      assert.deepEqual(
+        await tx.payment.findUniqueOrThrow({
+          where: { id: payment.id },
+          select: { price: true, lessonCount: true, bidForLesson: true },
+        }),
+        { price: 6400, lessonCount: 8, bidForLesson: 800 },
+        'оплата должна получить сумму и занятия из прайс-листа',
+      )
+      ok('сумма и занятия оплаты приходят из продукта')
 
       await tx.product.delete({ where: { id: mine.id } })
       assert.deepEqual(

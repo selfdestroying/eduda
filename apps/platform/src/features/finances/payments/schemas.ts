@@ -53,16 +53,19 @@ export const PaymentListSchema = z.object({
 export const CreatePaymentSchema = z.object({
   studentId: z.int('Выберите студента').positive('Выберите студента'),
   walletId: z.int('Выберите кошелёк').positive('Выберите кошелёк'),
-  lessonCount: z.number('Укажите количество занятий').int().positive(),
-  price: z.number('Укажите сумму').int().positive(),
+  /**
+   * Что продали — строка прайс-листа, и единственный источник суммы и количества
+   * занятий: обоих полей в форме больше нет, сервер берёт их из самого продукта.
+   * Поэтому здесь продукт обязателен — цену новой оплате взять больше неоткуда.
+   * (В базе `Payment.productId` по-прежнему nullable: у оплат, заведённых до
+   * появления справочника, продукта нет.)
+   *
+   * Название сюда не приходит: снимок `Payment.productName` сервер читает из
+   * продукта, чтобы клиент не мог прислать чужое.
+   */
+  productId: z.int('Выберите продукт').positive('Выберите продукт'),
   date: PaymentDateSchema,
   paymentMethodId: z.number().int().positive().nullable().optional(),
-  /**
-   * Что продали — строка прайс-листа. Необязательное: оплату можно завести и без
-   * продукта. Название сюда не приходит — снимок `Payment.productName` сервер
-   * берёт из самого продукта, чтобы клиент не мог прислать чужое.
-   */
-  productId: z.number().int().positive().nullable().optional(),
   /** Кто продал: не автор записи, а тот, кто договорился. */
   managerId: z.number().int().positive().nullable().optional(),
 })

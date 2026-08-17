@@ -33,8 +33,11 @@ export const createProduct = permissionAction({ payment: ['create'] })
   .metadata({ actionName: 'createProduct' })
   .inputSchema(CreateProductSchema)
   .action(async ({ ctx, parsedInput }) => {
-    await prisma.product.create({
+    // Возвращаем созданную строку: продукт заводят прямо из формы оплаты, и её
+    // селекту нужен id, чтобы тут же его выбрать.
+    return await prisma.product.create({
       data: { ...parsedInput, organizationId: ctx.session.organizationId! },
+      select: { id: true, name: true, price: true, lessonCount: true },
     })
   })
 

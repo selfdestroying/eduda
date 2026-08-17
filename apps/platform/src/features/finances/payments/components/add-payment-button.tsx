@@ -73,8 +73,8 @@ export default function AddPaymentButton() {
         <DrawerHeader className="pb-4">
           <DrawerTitle>Добавить оплату</DrawerTitle>
         </DrawerHeader>
-        {/* Полей семь, и на телефоне они не влезают в `100dvh - 6rem` — форма
-            прокручивается внутри панели, а шапка и кнопки остаются на месте. */}
+        {/* На телефоне поля не влезают в `100dvh - 6rem` — форма прокручивается
+            внутри панели, а шапка и кнопки остаются на месте. */}
         <ScrollArea className="min-h-0 flex-1">
           <div className="px-4">
             <PaymentForm

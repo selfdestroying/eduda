@@ -42,7 +42,7 @@ import { Loader, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
-import { useActiveProductListQuery } from '../../products/queries'
+import { useActiveProductListQuery, useProductCreateMutation } from '../../products/queries'
 import { CreatePaymentSchema, type CreatePaymentSchemaType } from '../schemas'
 import { WalletPreview } from './wallet-preview'
 
@@ -62,11 +62,9 @@ export function usePaymentForm() {
     defaultValues: {
       studentId: undefined,
       walletId: undefined,
-      lessonCount: undefined,
-      price: undefined,
+      productId: undefined,
       date: todayYmdInTz(tz),
       paymentMethodId: null,
-      productId: null,
       managerId: null,
     },
   })
@@ -77,9 +75,6 @@ export function usePaymentForm() {
  * не может, поэтому пустоту приходится называть; в форму она уходит как `null`.
  */
 const NO_PAYMENT_METHOD = 'none'
-
-/** «Продукт не выбран» в селекте; в форму уходит как `null`. По тем же причинам. */
-const NO_PRODUCT = 'none'
 
 /** «Не указан» в списке продавцов; в форму уходит как `null`. */
 const NO_MANAGER = 0
@@ -164,9 +159,51 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
       },
     )
   }
+  // Новый продукт заводится прямо отсюда, как и кошелёк: у школы прайс живой, и
+  // уходить за ним в настройки посреди заполнения оплаты значит потерять форму.
+  const createProduct = useProductCreateMutation()
+  const [pendingProductId, setPendingProductId] = useState<number | null>(null)
+  const [creatingProduct, setCreatingProduct] = useState(false)
+  const [newProduct, setNewProduct] = useState<{
+    name: string
+    lessonCount: number | ''
+    price: number | ''
+  }>({ name: '', lessonCount: '', price: '' })
+
+  const closeNewProduct = () => {
+    setCreatingProduct(false)
+    setNewProduct({ name: '', lessonCount: '', price: '' })
+  }
+
+  // Условия — те же, что в `CreateProductSchema`: кнопка не должна предлагать
+  // отправку, которой сервер откажет.
+  const newProductValid =
+    newProduct.name.trim().length > 0 &&
+    typeof newProduct.lessonCount === 'number' &&
+    newProduct.lessonCount > 0 &&
+    typeof newProduct.price === 'number' &&
+    newProduct.price > 0
+
+  const submitNewProduct = () => {
+    if (!newProductValid || createProduct.isPending) return
+    createProduct.mutate(
+      {
+        name: newProduct.name.trim(),
+        lessonCount: newProduct.lessonCount as number,
+        price: newProduct.price as number,
+        isActive: true,
+      },
+      {
+        onSuccess: (product) => {
+          if (product) setPendingProductId(product.id)
+          closeNewProduct()
+        },
+      },
+    )
+  }
+
   const walletId = useWatch({ control: form.control, name: 'walletId' })
-  const lessonCount = useWatch({ control: form.control, name: 'lessonCount' })
-  const price = useWatch({ control: form.control, name: 'price' })
+  const productId = useWatch({ control: form.control, name: 'productId' })
 
   // Кошельки тянем для выбранного ученика, а не списком на всю школу: их нужен
   // ровно один набор, а вместе со списком приезжали группы, курсы и расписания
@@ -205,13 +242,26 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
     setPendingWalletId(null)
   }, [pendingWalletId, wallets, form])
 
-  // Честное деление с одной цифрой после запятой — чтобы опечатка в сумме или в
-  // занятиях была видна до сохранения, а не в отчёте через месяц. Сервер округляет
-  // вниз (`bidForLesson`), и повтори мы здесь то же округление, 1000 ₽ за 3 занятия
+  // Только что созданный продукт выбираем не сразу, а когда он доедет в списке:
+  // список перезапрашивается после создания, и `Select` со значением, которого нет
+  // среди его пунктов, показал бы пустой триггер.
+  useEffect(() => {
+    if (pendingProductId == null || !products.some((p) => p.id === pendingProductId)) return
+    form.setValue('productId', pendingProductId, { shouldValidate: true })
+    setPendingProductId(null)
+  }, [pendingProductId, products, form])
+
+  // Что именно продаём: сумма и количество занятий берутся отсюда — своих полей у
+  // них в форме больше нет, и сервер читает их из этой же строки прайса.
+  const selectedProduct = products.find((p) => p.id === productId) ?? null
+
+  // Честное деление с одной цифрой после запятой — чтобы кривая строка прайса была
+  // видна до сохранения, а не в отчёте через месяц. Сервер округляет вниз
+  // (`bidForLesson`), и повтори мы здесь то же округление, 1000 ₽ за 3 занятия
   // показались бы ровными 333 — остаток от деления исчез бы с экрана.
   const bidForLesson =
-    typeof price === 'number' && typeof lessonCount === 'number' && lessonCount > 0
-      ? price / lessonCount
+    selectedProduct && selectedProduct.lessonCount > 0
+      ? selectedProduct.price / selectedProduct.lessonCount
       : null
 
   // Списки для `Select` мемоизируем не для скорости: `Select.Root` кладёт `items`
@@ -229,10 +279,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
     [paymentMethods],
   )
   const productItems = useMemo(
-    () => [
-      { value: NO_PRODUCT, label: 'Не указан' },
-      ...products.map((p) => ({ value: String(p.id), label: p.name })),
-    ],
+    () => products.map((p) => ({ value: String(p.id), label: p.name })),
     [products],
   )
 
@@ -245,8 +292,8 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
   // (`price * commission / 100`) и вычитается из выручки. Пусть та же цифра будет
   // видна в момент, когда метод выбирают.
   const acquiringFee =
-    selectedMethod && selectedMethod.commission > 0 && typeof price === 'number'
-      ? Math.round(price * (selectedMethod.commission / 100))
+    selectedMethod && selectedMethod.commission > 0 && selectedProduct
+      ? Math.round(selectedProduct.price * (selectedMethod.commission / 100))
       : null
 
   return (
@@ -377,9 +424,7 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
               )}
               <WalletPreview
                 wallet={selectedWallet}
-                addedLessons={
-                  typeof lessonCount === 'number' && lessonCount > 0 ? lessonCount : undefined
-                }
+                addedLessons={selectedProduct?.lessonCount}
                 unpaidLessons={unpaidLessons}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
@@ -391,99 +436,126 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
           name="productId"
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={`${formId}-product`}>
-                Продукт
-                <FieldOptional />
-              </FieldLabel>
-              {/* Стоит над количеством и суммой — теми полями, которые заполняет:
-                  подстановка течёт вниз, а не назад. Снятые с продажи продукты в
-                  списке не появляются (`getActiveProducts`). */}
-              <Select
-                items={productItems}
-                value={field.value != null ? String(field.value) : NO_PRODUCT}
-                onValueChange={(v) => {
-                  const id = v && v !== NO_PRODUCT ? Number(v) : null
-                  field.onChange(id)
-                  // Цифры продукта подставляются, но остаются редактируемыми: скидку
-                  // и «доплату за пропуск» правят руками поверх прайса. Отказ от
-                  // продукта («Не указан») введённое не чистит — иначе случайный
-                  // клик стирал бы уже набранную сумму.
-                  const product = id != null ? products.find((p) => p.id === id) : undefined
-                  if (!product) return
-                  form.setValue('lessonCount', product.lessonCount, { shouldValidate: true })
-                  form.setValue('price', product.price, { shouldValidate: true })
-                }}
-                disabled={disabled}
-              >
-                <SelectTrigger
-                  id={`${formId}-product`}
-                  className="w-full"
-                  aria-invalid={fieldState.invalid}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
-                  <SelectGroup>
-                    <SelectItem value={NO_PRODUCT}>
-                      <span className="text-muted-foreground">Не указан</span>
-                    </SelectItem>
-                    {products.map((p) => (
-                      <SelectItem key={p.id} value={String(p.id)}>
-                        <Item size="xs" className="p-0">
-                          <ItemContent>
-                            <ItemTitle>{p.name}</ItemTitle>
-                            {/* Что подставится, видно до выбора. */}
-                            <ItemDescription className="tabular-nums">
-                              {p.lessonCount} зан. · {formatCurrency(p.price)}
-                            </ItemDescription>
-                          </ItemContent>
-                        </Item>
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-            </Field>
-          )}
-        />
-        <Controller
-          control={form.control}
-          name="lessonCount"
-          render={({ field, fieldState }) => (
-            <Field>
-              <FieldLabel htmlFor={`${formId}-lessonCount`}>Количество занятий</FieldLabel>
-              <NumberInput
-                id={`${formId}-lessonCount`}
-                {...field}
-                value={field.value ?? ''}
-                disabled={disabled}
-                aria-invalid={fieldState.invalid}
-                aria-required
-              />
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-            </Field>
-          )}
-        />
-        <Controller
-          control={form.control}
-          name="price"
-          render={({ field, fieldState }) => (
-            <Field>
-              <FieldLabel htmlFor={`${formId}-price`}>Сумма</FieldLabel>
-              <NumberInput
-                id={`${formId}-price`}
-                {...field}
-                value={field.value ?? ''}
-                disabled={disabled}
-                aria-invalid={fieldState.invalid}
-                aria-required
-              />
+              <FieldLabel htmlFor={`${formId}-product`}>Продукт</FieldLabel>
+              {/* Продукт заменил собой «Количество занятий» и «Сумму»: и то и другое
+                  — свойства строки прайса, а не отдельные решения по каждой оплате.
+                  Нужна другая цена — заводится другой продукт, здесь же, кнопкой
+                  рядом. Устройство поля повторяет кошелёк: создание занимает место
+                  выбора, а не встаёт под ним, и поля ввода живут здесь, а не в
+                  попапе селекта, — у того своя навигация с поиском по буквам, и они
+                  дрались бы за каждую клавишу. */}
+              {creatingProduct ? (
+                <div className="flex flex-col gap-2">
+                  <Input
+                    autoFocus
+                    value={newProduct.name}
+                    onChange={(e) => setNewProduct((p) => ({ ...p, name: e.target.value }))}
+                    onKeyDown={(e) => {
+                      // Enter внутри формы отправил бы саму оплату — перехватываем.
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        submitNewProduct()
+                      }
+                      if (e.key === 'Escape') closeNewProduct()
+                    }}
+                    placeholder="Название продукта"
+                    disabled={createProduct.isPending}
+                    aria-label="Название нового продукта"
+                  />
+                  <div className="flex items-center gap-2">
+                    <NumberInput
+                      value={newProduct.lessonCount}
+                      onChange={(v) => setNewProduct((p) => ({ ...p, lessonCount: v }))}
+                      placeholder="Занятий"
+                      disabled={createProduct.isPending}
+                      aria-label="Количество занятий в новом продукте"
+                    />
+                    <NumberInput
+                      value={newProduct.price}
+                      onChange={(v) => setNewProduct((p) => ({ ...p, price: v }))}
+                      placeholder="Цена пакета"
+                      disabled={createProduct.isPending}
+                      aria-label="Цена нового продукта"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      onClick={submitNewProduct}
+                      disabled={createProduct.isPending || !newProductValid}
+                    >
+                      {createProduct.isPending && <Loader className="animate-spin" />}
+                      Создать
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={closeNewProduct}
+                      disabled={createProduct.isPending}
+                      aria-label="Отменить создание продукта"
+                    >
+                      <X />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  {/* Снятые с продажи продукты в списке не появляются
+                      (`getActiveProducts`). */}
+                  <Select
+                    items={productItems}
+                    value={field.value != null ? String(field.value) : null}
+                    onValueChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                    disabled={disabled}
+                  >
+                    <SelectTrigger
+                      id={`${formId}-product`}
+                      className="min-w-0 flex-1"
+                      aria-invalid={fieldState.invalid}
+                      aria-required
+                    >
+                      <SelectValue placeholder="Выберите продукт" />
+                    </SelectTrigger>
+                    <SelectContent alignItemWithTrigger={false}>
+                      <SelectGroup>
+                        {products.map((p) => (
+                          <SelectItem key={p.id} value={String(p.id)}>
+                            <Item size="xs" className="p-0">
+                              <ItemContent>
+                                <ItemTitle>{p.name}</ItemTitle>
+                                {/* Что уйдёт в оплату, видно до выбора. */}
+                                <ItemDescription className="tabular-nums">
+                                  {p.lessonCount} зан. · {formatCurrency(p.price)}
+                                </ItemDescription>
+                              </ItemContent>
+                            </Item>
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCreatingProduct(true)}
+                    disabled={disabled}
+                    aria-label="Создать продукт"
+                  >
+                    <Plus />
+                  </Button>
+                </div>
+              )}
               {fieldState.invalid ? (
                 <FieldError errors={[fieldState.error]} />
               ) : (
+                selectedProduct &&
                 bidForLesson !== null && (
-                  <FieldDescription>{formatCurrency(bidForLesson, 1)} за занятие</FieldDescription>
+                  <FieldDescription className="tabular-nums">
+                    {formatCurrency(selectedProduct.price)} за {selectedProduct.lessonCount} зан. —{' '}
+                    {formatCurrency(bidForLesson, 1)} за занятие
+                  </FieldDescription>
                 )
               )}
             </Field>

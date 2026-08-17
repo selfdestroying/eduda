@@ -11,7 +11,7 @@ import {
   settleUnpaidAttendancesTx,
   writeFinancialHistoryTx,
 } from '@/src/features/finances/ledger.server'
-import { resolveProductTx } from '@/src/features/finances/products/resolve.server'
+import { loadPaymentProductTx } from '@/src/features/finances/products/resolve.server'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import { permissionAction } from '@/src/lib/safe-action'
@@ -146,14 +146,16 @@ export const createPaymentWithBalance = permissionAction({ payment: ['create'] }
   .metadata({ actionName: 'createPaymentWithBalance' })
   .inputSchema(CreatePaymentSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { studentId, walletId, lessonCount, price, date, paymentMethodId, productId, managerId } =
-      parsedInput
+    const { studentId, walletId, date, paymentMethodId, productId, managerId } = parsedInput
 
     await prisma.$transaction(async (tx) => {
-      const product = await resolveProductTx(tx, productId, ctx.session.organizationId!)
+      // Сумма и количество занятий — из прайс-листа, а не из запроса: в форме этих
+      // полей нет, и подделать их нечем.
+      const product = await loadPaymentProductTx(tx, productId, ctx.session.organizationId!)
+      const { price, lessonCount } = product
       // `productName` попадает и в историю: её читает карточка ученика
       // (`students/components/detail/lessons-balance-history.tsx`).
-      const paymentMeta = { lessonCount, price, walletId, productName: product.productName }
+      const paymentMeta = { lessonCount, price, walletId, productName: product.name }
 
       // Кошелёк ищем в своей организации: `walletId` приходит из запроса, и без
       // этого условия чужой id нашёлся бы, а оплата легла бы в чужую школу —
@@ -188,11 +190,10 @@ export const createPaymentWithBalance = permissionAction({ payment: ['create'] }
           remaining: lessonCount,
           date,
           paymentMethodId: paymentMethodId ?? null,
-          productId: product.productId,
+          productId: product.id,
           // Снимок названия: продукт потом переименуют или удалят, а подпись этой
-          // оплаты обязана остаться прежней. Без продукта колонка пустая — так же,
-          // как у оплат до появления справочника.
-          ...(product.productName != null && { productName: product.productName }),
+          // оплаты обязана остаться прежней.
+          productName: product.name,
           managerId: managerId ?? null,
         },
       })
@@ -414,8 +415,6 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
       unprocessedPaymentId,
       studentId,
       walletId,
-      lessonCount,
-      price,
       date,
       paymentMethodId,
       productId,
@@ -423,13 +422,16 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
     } = parsedInput
 
     await prisma.$transaction(async (tx) => {
-      const product = await resolveProductTx(tx, productId, ctx.session.organizationId!)
+      // Сумма и количество занятий — из прайс-листа; форма разбора та же, что у
+      // создания вручную, и полей под них в ней нет.
+      const product = await loadPaymentProductTx(tx, productId, ctx.session.organizationId!)
+      const { price, lessonCount } = product
       const paymentMeta = {
         lessonCount,
         price,
         walletId,
         unprocessedPaymentId,
-        productName: product.productName,
+        productName: product.name,
       }
 
       // Кошелёк ищем в своей организации: `walletId` приходит из запроса, и без
@@ -465,9 +467,9 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
           remaining: lessonCount,
           date,
           paymentMethodId: paymentMethodId ?? null,
-          productId: product.productId,
+          productId: product.id,
           // Снимок названия — см. `createPaymentWithBalance`.
-          ...(product.productName != null && { productName: product.productName }),
+          productName: product.name,
           managerId: managerId ?? null,
         },
       })
