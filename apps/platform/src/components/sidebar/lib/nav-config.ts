@@ -267,6 +267,7 @@ const EXTRA_TITLES: Record<string, string> = {
   '/organization/rates/manager': 'Ставки менеджеров',
   '/organization/tax-systems': 'Налоги',
   '/finances/payment-methods': 'Методы оплаты',
+  '/finances/products': 'Продукты',
 }
 
 export function getPageTitle(pathname: string, fallback = 'ЕДУДА'): string {

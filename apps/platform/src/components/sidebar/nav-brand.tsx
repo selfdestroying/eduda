@@ -15,6 +15,7 @@ import {
   Coins,
   CreditCard,
   type LucideIcon,
+  Package,
   Percent,
   ShieldCheck,
   Users,
@@ -91,6 +92,13 @@ const ORG_MENU_ITEMS: OrgMenuItem[] = [
     icon: CreditCard,
     roles: ['owner'],
     featureKey: 'finances.paymentMethods',
+  },
+  {
+    title: 'Продукты',
+    url: '/finances/products',
+    icon: Package,
+    roles: ['owner'],
+    featureKey: 'finances.products',
   },
   { title: 'Налоги', url: '/organization/tax-systems', icon: Percent, roles: ['owner'] },
   {

@@ -24,6 +24,7 @@ export const FEATURE_KEYS = [
   'finances.advances',
   'finances.rent',
   'finances.paymentMethods',
+  'finances.products',
   'finances.profit',
   'finances.profitMonthly',
   'shop',
@@ -88,6 +89,12 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureEntry> = {
     label: 'Методы оплаты',
     parent: 'finances',
     routes: ['/finances/payment-methods'],
+  },
+  'finances.products': {
+    label: 'Продукты',
+    description: 'Прайс-лист школы: продукт выбирается при создании оплаты.',
+    parent: 'finances',
+    routes: ['/finances/products'],
   },
   'finances.profit': { label: 'Прибыль', parent: 'finances', routes: ['/finances/profit'] },
   'finances.profitMonthly': {
