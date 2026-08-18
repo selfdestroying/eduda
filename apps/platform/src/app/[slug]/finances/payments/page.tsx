@@ -1,5 +1,5 @@
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
-import SellPackageButton from '@/src/features/finances/payments/components/sell-package-button'
+import AddPackageButton from '@/src/features/finances/payments/components/add-package-button'
 import PackagesTable from '@/src/features/finances/payments/components/packages-table'
 
 export const metadata = { title: 'Пакеты' }
@@ -11,7 +11,7 @@ export default function Page() {
         <CardHeader className="flex items-center justify-between">
           <CardTitle>Пакеты</CardTitle>
           <CardAction>
-            <SellPackageButton />
+            <AddPackageButton />
           </CardAction>
         </CardHeader>
         <CardContent>

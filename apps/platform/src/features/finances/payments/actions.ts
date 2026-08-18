@@ -15,7 +15,7 @@ import {
   DeleteUnprocessedPaymentSchema,
   PackageListSchema,
   ResolveUnprocessedPaymentSchema,
-  SellPackageSchema,
+  CreatePackageSchema,
 } from './schemas'
 import { PACKAGE_LIST_SELECT, type PackageListResult } from './types'
 
@@ -27,16 +27,6 @@ import { PACKAGE_LIST_SELECT, type PackageListResult } from './types'
  */
 const PAYMENT_TX_OPTIONS = { timeout: 30_000 }
 
-/**
- * Разрешённые колонки сортировки: id колонки таблицы → как её сортировать. Каждая
- * запись — список полей, потому что одной колонке может соответствовать несколько:
- * в ячейке «Ученик» стоит «Имя Фамилия», и сортировка по одному `firstName`
- * оставила бы всех Иванов в произвольном порядке, хотя стрелка обещает алфавит.
- *
- * Белый список, а не подстановка поля из запроса: `sort` приходит из адресной
- * строки, то есть от пользователя. Неизвестный ключ (а в старых ссылках живут id
- * переименованных колонок) даёт порядок по умолчанию, без ошибки.
- */
 /**
  * Разрешённые колонки сортировки: id колонки таблицы → как её сортировать. Каждая
  * запись — список полей, потому что одной колонке может соответствовать несколько:
@@ -92,7 +82,7 @@ function rangeWhere(
  * каждой в отдельности не совпадёт с целой фразой. Заодно работает «Петров Иван».
  */
 function searchWhere(search: string | undefined): Prisma.PackageWhereInput['AND'] {
-  const terms = search?.split(/s+/).filter(Boolean) ?? []
+  const terms = search?.split(/\s+/).filter(Boolean) ?? []
   if (terms.length === 0) return undefined
 
   return terms.map((term) => ({
@@ -105,7 +95,7 @@ function searchWhere(search: string | undefined): Prisma.PackageWhereInput['AND'
   }))
 }
 
-/** Список проданных пакетов: то, что школа продала, с деньгами на самом пакете. */
+/** Список пакетов: что школа выдала ученикам, с деньгами на самом пакете. */
 export const getPackages = permissionAction({ payment: ['read'] })
   .metadata({ actionName: 'getPackages' })
   .inputSchema(PackageListSchema)
@@ -154,13 +144,14 @@ export const getPackages = permissionAction({ payment: ['read'] })
 
     return { rows, total }
   })
+
 /**
- * Продажа пакета: заводит счёт и пакет одной парой. Уроки выдаёт только если
+ * Новый пакет: заводит его вместе со счётом, одной парой. Уроки выдаёт только если
  * деньги уже получены — иначе счёт остаётся ждать подтверждения.
  */
-export const sellPackage = permissionAction({ payment: ['create'] })
-  .metadata({ actionName: 'sellPackage' })
-  .inputSchema(SellPackageSchema)
+export const createPackage = permissionAction({ payment: ['create'] })
+  .metadata({ actionName: 'createPackage' })
+  .inputSchema(CreatePackageSchema)
   .action(async ({ ctx, parsedInput }) => {
     const {
       studentId,

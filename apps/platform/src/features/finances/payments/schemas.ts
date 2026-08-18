@@ -49,7 +49,7 @@ export const PackageListSchema = z.object({
   lessonsMax: z.number().int().nullish(),
 })
 
-export const SellPackageSchema = z.object({
+export const CreatePackageSchema = z.object({
   studentId: z.int('Выберите студента').positive('Выберите студента'),
   walletId: z.int('Выберите кошелёк').positive('Выберите кошелёк'),
   /**
@@ -90,7 +90,7 @@ export const CancelPaymentSchema = z.object({
  * Разбор неразобранной оплаты — та же продажа плюс ссылка на исходную строку:
  * форма у них одна, и расходиться этим двум наборам полей нельзя.
  */
-export const ResolveUnprocessedPaymentSchema = SellPackageSchema.extend({
+export const ResolveUnprocessedPaymentSchema = CreatePackageSchema.extend({
   unprocessedPaymentId: z.number().int().positive(),
 })
 
@@ -99,7 +99,7 @@ export const DeleteUnprocessedPaymentSchema = z.object({
 })
 
 export type PackageListSchemaType = z.infer<typeof PackageListSchema>
-export type SellPackageSchemaType = z.infer<typeof SellPackageSchema>
+export type CreatePackageSchemaType = z.infer<typeof CreatePackageSchema>
 export type CancelPaymentSchemaType = z.infer<typeof CancelPaymentSchema>
 export type ResolveUnprocessedPaymentSchemaType = z.infer<typeof ResolveUnprocessedPaymentSchema>
 export type DeleteUnprocessedPaymentSchemaType = z.infer<typeof DeleteUnprocessedPaymentSchema>

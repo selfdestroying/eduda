@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { toast } from 'sonner'
 import {
   cancelPackage,
-  sellPackage,
+  createPackage,
   deleteUnprocessedPayment,
   getPackages,
   getUnprocessedPayments,
@@ -10,7 +10,7 @@ import {
 } from './actions'
 import type {
   CancelPaymentSchemaType,
-  SellPackageSchemaType,
+  CreatePackageSchemaType,
   DeleteUnprocessedPaymentSchemaType,
   PackageListSchemaType,
   ResolveUnprocessedPaymentSchemaType,
@@ -56,11 +56,11 @@ export const useUnprocessedPaymentListQuery = () => {
   })
 }
 
-export const useSellPackageMutation = () => {
+export const useCreatePackageMutation = () => {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (values: SellPackageSchemaType) => {
-      const { data, serverError } = await sellPackage(values)
+    mutationFn: async (values: CreatePackageSchemaType) => {
+      const { data, serverError } = await createPackage(values)
       if (serverError) throw serverError
       return data
     },

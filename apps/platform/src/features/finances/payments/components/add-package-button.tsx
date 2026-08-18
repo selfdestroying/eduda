@@ -15,24 +15,24 @@ import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
 import { Loader, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { useSellPackageMutation } from '../queries'
-import { type SellPackageSchemaType } from '../schemas'
+import { useCreatePackageMutation } from '../queries'
+import { type CreatePackageSchemaType } from '../schemas'
 import PaymentForm, { usePaymentForm } from './payment-form'
 
 // Вне компонента: `useHasPermission` мемоизирует по ссылке на объект прав.
 const CAN_CREATE = { payment: ['create'] } as const
 
-const FORM_ID = 'sell-package-form'
+const FORM_ID = 'add-package-form'
 
-export default function SellPackageButton() {
+export default function AddPackageButton() {
   const canCreate = useHasPermission(CAN_CREATE)
   const [open, setOpen] = useState(false)
   const isMobile = useIsMobile()
-  const createMutation = useSellPackageMutation()
+  const createMutation = useCreatePackageMutation()
 
   const form = usePaymentForm()
 
-  const onSubmit = (values: SellPackageSchemaType) => {
+  const onSubmit = (values: CreatePackageSchemaType) => {
     createMutation.mutate(values, {
       onSuccess: () => {
         form.reset()
