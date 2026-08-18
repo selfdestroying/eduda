@@ -1,6 +1,5 @@
 'use client'
 
-import { Badge } from '@repo/ui/components/badge'
 import DataTable from '@repo/ui/components/data-table'
 import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
 import { Hint } from '@repo/ui/components/hint'
@@ -23,13 +22,6 @@ import { ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { parseAsString, useQueryStates } from 'nuqs'
 import { useEffect, useMemo, useState } from 'react'
-import {
-  PACKAGE_STATUSES,
-  PACKAGE_STATUS_BADGE,
-  PACKAGE_STATUS_LABELS,
-  PACKAGE_STATUS_OPTIONS,
-  type PackageStatusValue,
-} from '../constants'
 import { usePackageListQuery } from '../queries'
 import type { PackageListItem } from '../types'
 import PackageDetails from './package-details'
@@ -61,13 +53,13 @@ const SEARCH_MAX_LENGTH = 100
 const PERIOD_PARSERS = { from: parseAsString, to: parseAsString }
 
 /**
- * Ширина всех колонок, кроме «Ученика». Суммы, даты и статусы имеют известный
- * потолок длины, и делить между ними лишнее место незачем — весь остаток забирает
- * имя, единственная колонка с `meta.flexible` и без ширины. Оно же и единственное,
- * что реально бывает длинным.
+ * Ширина всех колонок, кроме «Ученика». Суммы, числа и даты имеют известный потолок
+ * длины, и делить между ними лишнее место незачем — весь остаток забирает имя,
+ * единственная колонка с `meta.flexible` и без ширины. Оно же и единственное, что
+ * реально бывает длинным.
  *
- * Порог горизонтальной прокрутки — сумма `size`: 5 × 130 плюс 150 у «Ученика»
- * (столько react-table даёт колонке без явного `size`).
+ * Порог горизонтальной прокрутки — сумма `size`: 4 × 130, 40 у шеврона и 150 у
+ * «Ученика» (столько react-table даёт колонке без явного `size`).
  */
 const COLUMN_WIDTH = 130
 
@@ -78,7 +70,6 @@ const COLUMN_WIDTH = 130
  */
 const TABLE_FILTERS = {
   manager: 'string',
-  status: 'string',
   price: 'range',
   lessons: 'range',
 } as const
@@ -131,24 +122,6 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
       meta: { title: 'Ученик', flexible: true },
       // Строка без ученика бессмысленна — прятать нечего.
       enableHiding: false,
-    },
-    {
-      // Сразу после ученика: «оплачен» или «ждёт оплаты» читается вместе с именем, а
-      // не после цифр. Заодно бейдж больше не соседствует с прижатым вправо
-      // «Занятий» — выключка обычная, левая.
-      id: 'status',
-      header: 'Статус',
-      accessorKey: 'status',
-      size: COLUMN_WIDTH,
-      cell: ({ row }) => {
-        const status = row.original.status as PackageStatusValue
-        return <Badge variant={PACKAGE_STATUS_BADGE[status]}>{PACKAGE_STATUS_LABELS[status]}</Badge>
-      },
-      meta: {
-        title: 'Статус',
-        variant: 'multiSelect',
-        options: PACKAGE_STATUS_OPTIONS,
-      },
     },
     {
       // Деньги раньше количества: на финансовой странице сумма — главная цифра, а
@@ -281,10 +254,10 @@ export default function PackagesTable() {
       from: from ?? undefined,
       to: to ?? undefined,
       managerIds: filterIds(columnFilters, 'manager'),
-      // Незнакомое значение отсеиваем по той же причине, что и нечисловые id.
-      statuses: filterValues(columnFilters, 'status').filter((v): v is PackageStatusValue =>
-        PACKAGE_STATUSES.includes(v as PackageStatusValue),
-      ),
+      // Статус из интерфейса убран: все пакеты заводятся оплаченными, и фильтровать
+      // не по чему. Параметр у запроса остался — отбор по статусу понадобится, когда
+      // счета начнут приходить извне неоплаченными.
+      statuses: [],
       priceMin: priceRange[0] ?? null,
       priceMax: priceRange[1] ?? null,
       lessonsMin: lessonsRange[0] ?? null,
@@ -308,7 +281,7 @@ export default function PackagesTable() {
 
   // Страница за последней: в адресе живёт `page` от прошлой, более полной выборки.
   // При `manualPagination` react-table сам её не подтягивает, и получалась пустая
-  // таблица с «Страница 51 из 1» — при том, что оплаты есть.
+  // таблица с «Страница 51 из 1» — при том, что пакеты есть.
   //
   // Зависимости — примитивы: `pagination` и `setPagination` пересоздаются на каждый
   // рендер, и с ними эффект прокручивался бы впустую каждый раз.

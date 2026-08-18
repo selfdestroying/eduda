@@ -32,6 +32,11 @@ export const PACKAGE_STATUS_BADGE: Record<
   CANCELLED: 'destructive',
 }
 
+/**
+ * Варианты для фильтра по статусу. Сейчас не используются: колонка статуса из
+ * таблицы убрана, потому что все пакеты заводятся оплаченными. Понадобятся, когда
+ * счета начнут приходить извне неоплаченными.
+ */
 export const PACKAGE_STATUS_OPTIONS = PACKAGE_STATUSES.map((value) => ({
   value,
   label: PACKAGE_STATUS_LABELS[value],

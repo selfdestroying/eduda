@@ -38,7 +38,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@repo/ui/components/select'
-import { Switch } from '@repo/ui/components/switch'
 import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { Plus } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -57,7 +56,7 @@ import { WalletPreview } from './wallet-preview'
  * Дата — сегодняшний день школы. Задним числом оплату завести по-прежнему можно,
  * но вносят её обычно в тот же день, и пустое поле каждый раз требовало клика.
  */
-export function usePaymentForm() {
+export function usePackageForm() {
   const tz = useOrgTimezone()
 
   return useForm<CreatePackageSchemaType>({
@@ -69,8 +68,9 @@ export function usePaymentForm() {
       lessonCount: undefined,
       price: undefined,
       date: todayYmdInTz(tz),
-      // Обычный случай — наличные или перевод, которые уже в руках. Счёт «на потом»
-      // выставляют снятой галочкой.
+      // Всегда `true`: переключателя в форме нет, все пакеты заводятся оплаченными.
+      // Неоплаченный счёт схема и экшен по-прежнему умеют — это задел на сторонние
+      // платёжные системы, где счёт выставляется раньше денег.
       received: true,
       paymentMethodId: null,
       managerId: null,
@@ -96,7 +96,7 @@ const NO_MANAGER = 0
  */
 const EMPTY: never[] = []
 
-interface PaymentFormProps {
+interface PackageFormProps {
   form: UseFormReturn<CreatePackageSchemaType>
   /** Связывает форму с кнопкой отправки, которая стоит вне неё — в футере панели. */
   formId: string
@@ -104,7 +104,7 @@ interface PaymentFormProps {
   disabled?: boolean
 }
 
-export default function PaymentForm({ form, formId, onSubmit, disabled }: PaymentFormProps) {
+export default function PackageForm({ form, formId, onSubmit, disabled }: PackageFormProps) {
   // Решает, чем открывается создание кошелька и продукта: блоком под полем или
   // вложенной панелью. См. `QuickCreate`.
   const isMobile = useIsMobile()
@@ -753,31 +753,12 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
             </Field>
           )}
         />
-        <Controller
-          control={form.control}
-          name="received"
-          render={({ field }) => (
-            <Field>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id={`${formId}-received`}
-                  checked={field.value ?? true}
-                  onCheckedChange={field.onChange}
-                  disabled={disabled}
-                />
-                <FieldLabel htmlFor={`${formId}-received`}>Оплата получена</FieldLabel>
-              </div>
-              {/* Снятая галочка оставляет счёт неоплаченным: пакет заведён, но уроки
-                  на баланс не идут, пока оплату не подтвердят. Включена по умолчанию —
-                  наличные и переводы вносят уже полученными. */}
-              <FieldDescription>
-                {field.value === false
-                  ? 'Уроки не зачислятся, пока оплата не подтверждена'
-                  : 'Уроки зачислятся сразу'}
-              </FieldDescription>
-            </Field>
-          )}
-        />
+        {/* Переключателя «Оплата получена» здесь нет намеренно: пока все пакеты
+            заводятся уже оплаченными, и `received` остаётся `true` из значений по
+            умолчанию. Неоплаченный счёт умеют и схема, и экшен, и модель
+            (`PackageStatus.PENDING`), но подтвердить его из интерфейса нечем —
+            это задел на интеграцию со сторонними платёжными системами, где счёт
+            выставляется до денег. */}
       </FieldGroup>
     </form>
   )
