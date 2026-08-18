@@ -16,7 +16,7 @@ export const FEATURE_KEYS = [
   'groups',
   'groups.types',
   'finances',
-  'finances.payments',
+  'finances.packages',
   'finances.unprocessedPayments',
   'finances.revenue',
   'finances.salaries',
@@ -69,7 +69,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureEntry> = {
 
   // - Финансы -
   finances: { label: 'Финансы', routes: ['/finances'] },
-  'finances.payments': { label: 'Оплаты', parent: 'finances', routes: ['/finances/payments'] },
+  'finances.packages': { label: 'Пакеты', parent: 'finances', routes: ['/finances/packages'] },
   'finances.revenue': { label: 'Выручка', parent: 'finances', routes: ['/finances/revenue'] },
   'finances.advances': { label: 'Авансы', parent: 'finances', routes: ['/finances/advances'] },
   // Под-тумблер учёта аренды: страницы нет (показывается внутри локаций), потому без routes.
