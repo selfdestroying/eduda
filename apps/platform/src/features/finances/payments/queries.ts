@@ -66,10 +66,10 @@ export const useSellPackageMutation = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: packageKeys.all })
-      toast.success('Оплата успешно создана!')
+      toast.success('Пакет добавлен!')
     },
     onError: () => {
-      toast.error('Не удалось создать оплату.')
+      toast.error('Не удалось добавить пакет.')
     },
   })
 }
@@ -84,9 +84,9 @@ export const usePackageCancelMutation = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: packageKeys.all })
-      toast.success('Оплата успешно отменена')
+      toast.success('Пакет отменён')
     },
-    onError: () => toast.error('Не удалось отменить оплату'),
+    onError: () => toast.error('Не удалось отменить пакет'),
   })
 }
 
@@ -101,9 +101,9 @@ export const useUnprocessedPaymentResolveMutation = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: packageKeys.all })
       queryClient.invalidateQueries({ queryKey: unprocessedPaymentKeys.all })
-      toast.success('Оплата успешно создана!')
+      toast.success('Пакет добавлен!')
     },
-    onError: () => toast.error('Не удалось создать оплату.'),
+    onError: () => toast.error('Не удалось добавить пакет.'),
   })
 }
 

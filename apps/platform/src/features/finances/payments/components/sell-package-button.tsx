@@ -71,7 +71,7 @@ export default function SellPackageButton() {
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className="pb-4">
-          <DrawerTitle>Продать пакет</DrawerTitle>
+          <DrawerTitle>Добавить пакет</DrawerTitle>
         </DrawerHeader>
         {/* На телефоне поля не влезают в `100dvh - 6rem` — форма прокручивается
             внутри панели, а шапка и кнопки остаются на месте. */}
@@ -91,7 +91,7 @@ export default function SellPackageButton() {
               отправляет форму сам, без отдельного обработчика. */}
           <Button type="submit" form={FORM_ID} disabled={createMutation.isPending}>
             {createMutation.isPending && <Loader className="animate-spin" />}
-            Продать
+            Добавить
           </Button>
         </DrawerFooter>
       </DrawerContent>
