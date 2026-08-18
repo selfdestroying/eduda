@@ -2,11 +2,11 @@ import { DateOnlySchema } from '@/src/lib/timezone'
 import * as z from 'zod'
 
 /**
- * День оплаты. Строже `DateOnlySchema`: тот проверяет только форму записи, а
+ * День продажи. Строже `DateOnlySchema`: тот проверяет только форму записи, а
  * «2026-02-31» ей удовлетворяет. Здесь дата ещё и должна существовать в календаре —
- * иначе в `Payment.date` уляжется день, которого не было.
+ * иначе в `Package.date` уляжется день, которого не было.
  */
-const PaymentDateSchema = z.string('Выберите дату').refine(
+const PackageDateSchema = z.string('Выберите дату').refine(
   (val) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) return false
 
@@ -70,7 +70,7 @@ export const CreatePackageSchema = z.object({
    */
   lessonCount: z.number('Укажите количество занятий').int().positive(),
   price: z.number('Укажите сумму').int().positive(),
-  date: PaymentDateSchema,
+  date: PackageDateSchema,
   /**
    * Деньги уже получены. По умолчанию да — так вносят наличные и переводы, то есть
    * почти всегда. Снятая галочка оставляет счёт неоплаченным: пакет заведён, но
@@ -82,7 +82,18 @@ export const CreatePackageSchema = z.object({
   managerId: z.number().int().positive().nullable().optional(),
 })
 
-export const CancelPaymentSchema = z.object({
+/**
+ * Ссылка на счёт — отмена и подтверждение. Отдельно от `PackageIdSchema`, хотя поле
+ * то же: перепутать id счёта с id пакета в этих экшенах значит отменить не то, а
+ * типы одинаковы и подсказать некому. Разные имена — единственное, что здесь их
+ * различает.
+ */
+export const PaymentIdSchema = z.object({
+  id: z.number().int().positive(),
+})
+
+/** Ссылка на пакет — отмена и панель раскрытой строки. */
+export const PackageIdSchema = z.object({
   id: z.number().int().positive(),
 })
 
@@ -100,13 +111,7 @@ export const DeleteUnprocessedPaymentSchema = z.object({
 
 export type PackageListSchemaType = z.infer<typeof PackageListSchema>
 export type CreatePackageSchemaType = z.infer<typeof CreatePackageSchema>
-export type CancelPaymentSchemaType = z.infer<typeof CancelPaymentSchema>
+export type PaymentIdSchemaType = z.infer<typeof PaymentIdSchema>
+export type PackageIdSchemaType = z.infer<typeof PackageIdSchema>
 export type ResolveUnprocessedPaymentSchemaType = z.infer<typeof ResolveUnprocessedPaymentSchema>
 export type DeleteUnprocessedPaymentSchemaType = z.infer<typeof DeleteUnprocessedPaymentSchema>
-
-/** Пакет, чью панель раскрыли. */
-export const PackageDetailsSchema = z.object({
-  id: z.number().int().positive(),
-})
-
-export type PackageDetailsSchemaType = z.infer<typeof PackageDetailsSchema>

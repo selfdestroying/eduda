@@ -10,7 +10,7 @@ import {
   resolveUnprocessedPayment,
 } from './actions'
 import type {
-  CancelPaymentSchemaType,
+  PackageIdSchemaType,
   CreatePackageSchemaType,
   DeleteUnprocessedPaymentSchemaType,
   PackageListSchemaType,
@@ -37,8 +37,8 @@ export const usePackageListQuery = (params: PackageListSchemaType) => {
       if (serverError) throw serverError
       // Ошибку валидации `next-safe-action` кладёт отдельно от серверной, и без
       // этой проверки она превращалась бы в `data === undefined`, то есть в пустую
-      // таблицу с надписью «Нет оплат» — как будто у школы и правда нет оплат.
-      if (validationErrors) throw new Error('Некорректные параметры выборки оплат')
+      // таблицу с надписью «Нет пакетов» — как будто у школы и правда нет продаж.
+      if (validationErrors) throw new Error('Некорректные параметры выборки пакетов')
       return data ?? EMPTY_PAGE
     },
     // Пока грузится следующая страница, показываем предыдущую: иначе на каждый
@@ -95,7 +95,7 @@ export const useCreatePackageMutation = () => {
 export const usePackageCancelMutation = () => {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (values: CancelPaymentSchemaType) => {
+    mutationFn: async (values: PackageIdSchemaType) => {
       const { data, serverError } = await cancelPackage(values)
       if (serverError) throw serverError
       return data

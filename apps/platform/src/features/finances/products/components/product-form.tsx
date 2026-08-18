@@ -30,7 +30,7 @@ export default function ProductForm<T extends FieldValues>({ form, formId }: Pro
   const lessonCount = useWatch({ control: form.control, name: 'lessonCount' as Path<T> })
 
   // Честное деление с одной цифрой после запятой — тем же способом, что в форме
-  // оплаты (`payments/components/payment-form.tsx`): 6400 ₽ за 3 занятия не должны
+  // оплаты (`payments/components/package-form.tsx`): 6400 ₽ за 3 занятия не должны
   // показаться ровными 2133, иначе остаток от деления исчезает с экрана.
   const perLesson =
     typeof price === 'number' && typeof lessonCount === 'number' && lessonCount > 0

@@ -60,7 +60,7 @@ export default function PackageActions({ packet }: PackageActionsProps) {
             }}
           >
             <CircleX className="mr-2 h-4 w-4" />
-            Отменить оплату
+            Отменить пакет
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -68,9 +68,9 @@ export default function PackageActions({ packet }: PackageActionsProps) {
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Вы уверены, что хотите отменить оплату?</AlertDialogTitle>
+            <AlertDialogTitle>Вы уверены, что хотите отменить пакет?</AlertDialogTitle>
             <AlertDialogDescription>
-              Оплата останется в списке со статусом «Отменена» — записи о деньгах не удаляются. С
+              Пакет останется в списке со статусом «Отменён» — записи о деньгах не удаляются. С
               баланса ученика снимутся только непотраченные уроки: занятия, которые он уже отходил,
               останутся оплаченными.
             </AlertDialogDescription>

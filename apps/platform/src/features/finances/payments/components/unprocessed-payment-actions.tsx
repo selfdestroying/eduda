@@ -32,7 +32,7 @@ import {
   useUnprocessedPaymentResolveMutation,
 } from '../queries'
 import { type CreatePackageSchemaType } from '../schemas'
-import PaymentForm, { usePaymentForm } from './payment-form'
+import PackageForm, { usePackageForm } from './package-form'
 
 interface UnprocessedPaymentActionsProps {
   unprocessedPayment: UnprocessedPayment
@@ -56,7 +56,7 @@ export default function UnprocessedPaymentActions({
   const resolveMutation = useUnprocessedPaymentResolveMutation()
   const deleteMutation = useUnprocessedPaymentDeleteMutation()
 
-  const form = usePaymentForm()
+  const form = usePackageForm()
 
   const onSubmit = (values: CreatePackageSchemaType) => {
     resolveMutation.mutate(
@@ -79,7 +79,7 @@ export default function UnprocessedPaymentActions({
 
   // Закрытие очищает форму: она живёт здесь, а содержимое диалога размонтируется
   // со своим состоянием — иначе при повторном открытии остаётся кошелёк без
-  // ученика. Подробнее в `add-payment-button.tsx`.
+  // ученика. Подробнее в `add-package-button.tsx`.
   const handleDialogOpenChange = (next: boolean) => {
     setDialogOpen(next)
     if (!next) form.reset()
@@ -151,7 +151,7 @@ export default function UnprocessedPaymentActions({
           <DialogHeader>
             <DialogTitle>Добавить оплату</DialogTitle>
           </DialogHeader>
-          <PaymentForm
+          <PackageForm
             form={form}
             formId={FORM_ID}
             onSubmit={onSubmit}

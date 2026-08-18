@@ -17,7 +17,7 @@ import { Loader, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useCreatePackageMutation } from '../queries'
 import { type CreatePackageSchemaType } from '../schemas'
-import PaymentForm, { usePaymentForm } from './payment-form'
+import PackageForm, { usePackageForm } from './package-form'
 
 // Вне компонента: `useHasPermission` мемоизирует по ссылке на объект прав.
 const CAN_CREATE = { payment: ['create'] } as const
@@ -30,7 +30,7 @@ export default function AddPackageButton() {
   const isMobile = useIsMobile()
   const createMutation = useCreatePackageMutation()
 
-  const form = usePaymentForm()
+  const form = usePackageForm()
 
   const onSubmit = (values: CreatePackageSchemaType) => {
     createMutation.mutate(values, {
@@ -48,7 +48,7 @@ export default function AddPackageButton() {
    * вместе со своим состоянием — там лежит имя выбранного ученика. Без сброса
    * при повторном открытии оставался кошелёк без ученика: id в форме есть, имени
    * показать нечем. Чинить это переносом имени наверх было бы хуже: черновик
-   * оплаты, тихо переживший «Отмену», — плохая находка в форме про деньги.
+   * пакета, тихо переживший «Отмену», — плохая находка в форме про деньги.
    */
   const handleOpenChange = (next: boolean) => {
     setOpen(next)
@@ -77,7 +77,7 @@ export default function AddPackageButton() {
             внутри панели, а шапка и кнопки остаются на месте. */}
         <ScrollArea className="min-h-0 flex-1">
           <div className="px-4">
-            <PaymentForm
+            <PackageForm
               form={form}
               formId={FORM_ID}
               onSubmit={onSubmit}

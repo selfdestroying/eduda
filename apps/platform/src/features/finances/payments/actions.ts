@@ -6,14 +6,14 @@ import {
   cancelPackageTx,
   unitPriceOf,
 } from '@/src/features/finances/ledger.server'
-import { loadPaymentProductTx } from '@/src/features/finances/products/resolve.server'
+import { loadPackageProductTx } from '@/src/features/finances/products/resolve.server'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import { permissionAction } from '@/src/lib/safe-action'
 import {
-  CancelPaymentSchema,
   DeleteUnprocessedPaymentSchema,
-  PackageDetailsSchema,
+  PackageIdSchema,
+  PaymentIdSchema,
   PackageListSchema,
   ResolveUnprocessedPaymentSchema,
   CreatePackageSchema,
@@ -172,7 +172,7 @@ export const createPackage = permissionAction({ payment: ['create'] })
     } = parsedInput
 
     await prisma.$transaction(async (tx) => {
-      const product = await loadPaymentProductTx(tx, productId, ctx.session.organizationId!)
+      const product = await loadPackageProductTx(tx, productId, ctx.session.organizationId!)
 
       // Кошелёк ищем в своей организации: `walletId` приходит из запроса, и без
       // этого условия чужой id нашёлся бы, а пакет лёг бы в чужую школу —
@@ -241,7 +241,7 @@ export const createPackage = permissionAction({ payment: ['create'] })
  */
 export const confirmPayment = permissionAction({ payment: ['update'] })
   .metadata({ actionName: 'confirmPayment' })
-  .inputSchema(CancelPaymentSchema)
+  .inputSchema(PaymentIdSchema)
   .action(async ({ ctx, parsedInput }) => {
     await prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findFirst({
@@ -272,7 +272,7 @@ export const confirmPayment = permissionAction({ payment: ['update'] })
  */
 export const cancelPackage = permissionAction({ payment: ['delete'] })
   .metadata({ actionName: 'cancelPackage' })
-  .inputSchema(CancelPaymentSchema)
+  .inputSchema(PackageIdSchema)
   .action(async ({ ctx, parsedInput }) => {
     await prisma.$transaction(async (tx) => {
       const packet = await tx.package.findFirst({
@@ -293,7 +293,7 @@ export const cancelPackage = permissionAction({ payment: ['delete'] })
 
 export const cancelPayment = permissionAction({ payment: ['delete'] })
   .metadata({ actionName: 'cancelPayment' })
-  .inputSchema(CancelPaymentSchema)
+  .inputSchema(PaymentIdSchema)
   .action(async ({ ctx, parsedInput }) => {
     await prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findFirst({
@@ -354,7 +354,7 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
     } = parsedInput
 
     await prisma.$transaction(async (tx) => {
-      const product = await loadPaymentProductTx(tx, productId, ctx.session.organizationId!)
+      const product = await loadPackageProductTx(tx, productId, ctx.session.organizationId!)
 
       const wallet = await tx.wallet.findFirst({
         where: { id: walletId, organizationId: ctx.session.organizationId! },
@@ -426,7 +426,7 @@ export const deleteUnprocessedPayment = permissionAction({ payment: ['delete'] }
  */
 export const getPackageDetails = permissionAction({ payment: ['read'] })
   .metadata({ actionName: 'getPackageDetails' })
-  .inputSchema(PackageDetailsSchema)
+  .inputSchema(PackageIdSchema)
   .action(async ({ ctx, parsedInput }): Promise<PackageDetails> => {
     const packet = await prisma.package.findFirst({
       where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },

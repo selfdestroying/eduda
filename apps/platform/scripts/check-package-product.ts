@@ -7,13 +7,13 @@
  * против настоящей БД — половина инвариантов держится на `where` и на `onDelete:
  * SetNull`, то есть как раз на том, что мок бы и не проверил.
  *
- *   pnpm --filter platform exec tsx scripts/check-payment-product.ts
+ *   pnpm --filter platform exec tsx scripts/check-package-product.ts
  */
 import './load-env'
 
 import assert from 'node:assert/strict'
 import { prisma } from '@repo/db'
-import { loadPaymentProductTx } from '../src/features/finances/products/resolve.server'
+import { loadPackageProductTx } from '../src/features/finances/products/resolve.server'
 import { NotFoundError } from '../src/lib/error'
 
 class Rollback extends Error {}
@@ -54,7 +54,7 @@ async function main() {
 
       // ─── Свой продукт даёт ссылку и снимок названия ────────────────────
       assert.deepEqual(
-        await loadPaymentProductTx(tx, mine.id, organizationId),
+        await loadPackageProductTx(tx, mine.id, organizationId),
         { id: mine.id, name: 'Абонемент 8 занятий' },
         'название снимка должно читаться из базы, а не приходить из запроса',
       )
@@ -62,7 +62,7 @@ async function main() {
 
       // ─── Чужой продукт не прицепляется ─────────────────────────────────
       await assert.rejects(
-        () => loadPaymentProductTx(tx, foreign.id, organizationId),
+        () => loadPackageProductTx(tx, foreign.id, organizationId),
         NotFoundError,
         'продукт чужой школы не должен находиться',
       )
@@ -71,7 +71,7 @@ async function main() {
       // ─── Снятый с продажи принимается ──────────────────────────────────
       await tx.product.update({ where: { id: mine.id }, data: { isActive: false } })
       assert.equal(
-        (await loadPaymentProductTx(tx, mine.id, organizationId)).name,
+        (await loadPackageProductTx(tx, mine.id, organizationId)).name,
         'Абонемент 8 занятий',
         'снятый с продажи продукт должен приниматься: разбор старой оплаты законен',
       )
@@ -90,7 +90,7 @@ async function main() {
       // Оплата собирается ровно так, как её собирает экшен: продукт даёт ссылку и
       // название, а сумма приходит из формы — здесь со скидкой в 500 ₽, какую и
       // правят руками поверх прайса.
-      const resolved = await loadPaymentProductTx(tx, mine.id, organizationId)
+      const resolved = await loadPackageProductTx(tx, mine.id, organizationId)
       const packet = await tx.package.create({
         data: {
           organizationId,
