@@ -18,16 +18,6 @@ function formatWaiting(count: number) {
   return `${count} занятий ждут оплаты`
 }
 
-/** «ещё 1 оплата», «ещё 3 оплаты», «ещё 7 оплат». */
-function formatMorePayments(count: number) {
-  const mod100 = Math.abs(count) % 100
-  const mod10 = mod100 % 10
-  if (mod100 >= 11 && mod100 <= 14) return `ещё ${count} оплат`
-  if (mod10 === 1) return `ещё ${count} оплата`
-  if (mod10 >= 2 && mod10 <= 4) return `ещё ${count} оплаты`
-  return `ещё ${count} оплат`
-}
-
 /**
  * Строки обеих секций. Высота задана явно и равна высоте `Badge` (`h-5`): бейдж
  * статуса выше строки текста, и без этого строка с группой была бы выше строки с
@@ -60,7 +50,11 @@ function sectionHeight(rows: number) {
  */
 function revealRow(expanded: boolean, index: number) {
   if (!expanded || index < 1) return { className: '', style: undefined }
-  return { className: ' animate-tab-enter', style: { animationDelay: `${index * 40}ms` } }
+  // Задержка упирается в потолок: у кошелька с полутора десятками пакетов лесенка
+  // иначе тянулась бы дольше, чем едет высота секции, и нижние строки всплывали бы
+  // уже в остановившемся блоке.
+  const delay = Math.min(index * 40, 200)
+  return { className: ' animate-tab-enter', style: { animationDelay: `${delay}ms` } }
 }
 
 /**
@@ -79,6 +73,7 @@ export interface WalletPreviewData {
       schedules: Array<{ dayOfWeek: number; time: string }>
     }
   }>
+  /** Непотраченные и потраченные пакеты, свежие сверху. Все — предпросмотр раскрывается. */
   payments: Array<{
     id: number
     date: string
@@ -87,7 +82,6 @@ export interface WalletPreviewData {
     /** `null` у пакетов, заведённых до появления очереди остатков. */
     remaining: number | null
   }>
-  _count: { payments: number }
 }
 
 const BOX = 'rounded-md border p-2.5 text-xs'
@@ -122,17 +116,12 @@ export function WalletPreview({
 
   const groups = wallet?.studentGroups ?? []
   const payments = wallet?.payments ?? []
-  const totalPayments = wallet?._count.payments ?? 0
 
   // Строки рисуются все и всегда — свёрнутый вид просто обрезан по первой. Так
   // высота едет от одного числа к другому, а не прыгает вслед за появлением и
-  // исчезновением разметки. Оплат приезжает две (`take: 2`), остальные считаются в
-  // «ещё N»: отдельного запроса ради них не делаем.
-  const hiddenPayments = totalPayments - payments.length
-
-  // Сколько строк в секции на самом деле: пустая («Нет групп») — тоже строка.
+  // исчезновением разметки.
   const groupRows = groups.length
-  const paymentRows = payments.length + (hiddenPayments > 0 ? 1 : 0)
+  const paymentRows = payments.length
 
   /** Обрезка до первой строки, пока не развёрнуто. Едет между двумя числами. */
   const sectionStyle = (rows: number) => ({
@@ -141,7 +130,7 @@ export function WalletPreview({
   const SECTION =
     'overflow-hidden transition-[max-height] duration-(--duration-tab) ease-(--ease-tab) motion-reduce:transition-none'
 
-  const canExpand = groups.length > 1 || totalPayments > 1
+  const canExpand = groups.length > 1 || payments.length > 1
 
   return (
     // Части разделены линиями, а не отступами: одного расстояния мало, чтобы имя,
@@ -205,7 +194,7 @@ export function WalletPreview({
 
       {/* Обе секции стоят всегда: пустая «Оплаты» — это сообщение, что кошелёк
           новый, а не повод убрать заголовок и оставить читателя гадать. Число в
-          заголовке говорит, сколько скрыто, не тратя на это строку. */}
+          заголовке — сколько строк под свёрткой, и стоит оно не своей строкой. */}
       <div className="flex flex-col gap-0.5 py-2">
         <SectionHeading title="Группы" count={groups.length} />
         <ul className={`flex flex-col gap-0.5 ${ROWS} ${SECTION}`} style={sectionStyle(groupRows)}>
@@ -228,7 +217,7 @@ export function WalletPreview({
       </div>
 
       <div className="flex flex-col gap-0.5 pt-2">
-        <SectionHeading title="Оплаты" count={totalPayments} />
+        <SectionHeading title="Оплаты" count={payments.length} />
         <ul
           className={`flex flex-col gap-0.5 ${ROWS} ${SECTION}`}
           style={sectionStyle(paymentRows)}
@@ -251,14 +240,6 @@ export function WalletPreview({
               </span>
             </li>
           ))}
-          {hiddenPayments > 0 && (
-            <li
-              className={`text-muted-foreground${revealRow(expanded, payments.length).className}`}
-              style={revealRow(expanded, payments.length).style}
-            >
-              {formatMorePayments(hiddenPayments)}
-            </li>
-          )}
           {!wallet && <li aria-hidden />}
         </ul>
       </div>
