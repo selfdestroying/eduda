@@ -24,7 +24,6 @@ import {
 } from '../constants'
 import { usePackageListQuery } from '../queries'
 import type { PackageListItem } from '../types'
-import PackageActions from './package-actions'
 import PeriodFilter, { PERIOD_TITLE, type Period } from './period-filter'
 
 /**
@@ -53,13 +52,12 @@ const SEARCH_MAX_LENGTH = 100
  * быть литералами — Tailwind ищет их в исходнике, из переменной класс не родится.
  */
 const W = {
-  student: 'w-[24%]',
+  student: 'w-[26%]',
   price: 'w-[12%]',
   lessons: 'w-[13%]',
   status: 'w-[14%]',
-  date: 'w-[13%]',
-  manager: 'w-[19%]',
-  actions: 'w-[5%]',
+  date: 'w-[14%]',
+  manager: 'w-[21%]',
 } as const
 
 /**
@@ -78,7 +76,6 @@ const WIDTHS = {
   status: 130,
   date: 110,
   manager: 150,
-  actions: 50,
 } as const
 
 /**
@@ -208,17 +205,6 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
         variant: 'multiSelect',
         options: managerOptions,
       },
-    },
-    {
-      id: 'actions',
-      enableSorting: false,
-      cell: ({ row }) => <PackageActions packet={row.original} />,
-      size: WIDTHS.actions,
-      // Без вертикального отступа: иконка-кнопка и так 28px со своей областью
-      // нажатия, а с `p-2` ячейки она вытягивала строку до 44px. У отменённой
-      // оплаты действий нет, и та же строка выходила ниже — теперь высоту всюду
-      // задаёт бейдж статуса, а не наличие кнопки.
-      meta: { flexible: true, className: `px-2 py-0 ${W.actions}` },
     },
   ]
 }
