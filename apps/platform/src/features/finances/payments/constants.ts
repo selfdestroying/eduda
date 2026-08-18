@@ -1,20 +1,23 @@
 /**
- * Статус и «корректировка» — два независимых поля, а не одно выводимое: в базе
- * `status` и `isAdjustment` ортогональны (корректировка бэкфилла лежит со статусом
- * ACTIVE). Пока их склеивали в один «вид», по нему нельзя было ни отсортировать —
- * SQL-порядка под выдуманную подпись нет, — ни построить `where` механически.
+ * Статусы счёта. `PENDING` — выставлен, деньги не пришли: пакеты под ним не выданы,
+ * баланс не тронут. `ACTIVE` — оплачен.
  */
-export const PAYMENT_STATUSES = ['ACTIVE', 'CANCELLED'] as const
+export const PAYMENT_STATUSES = ['PENDING', 'ACTIVE', 'CANCELLED'] as const
 
 export type PaymentStatusValue = (typeof PAYMENT_STATUSES)[number]
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatusValue, string> = {
-  ACTIVE: 'Активная',
+  PENDING: 'Ждёт оплаты',
+  ACTIVE: 'Оплачена',
   CANCELLED: 'Отменена',
 }
 
 /** Вариант бейджа из дизайн-системы: подложка в 10% цвета плюс текст тем же цветом. */
-export const PAYMENT_STATUS_BADGE: Record<PaymentStatusValue, 'success' | 'destructive'> = {
+export const PAYMENT_STATUS_BADGE: Record<
+  PaymentStatusValue,
+  'success' | 'destructive' | 'warning'
+> = {
+  PENDING: 'warning',
   ACTIVE: 'success',
   CANCELLED: 'destructive',
 }

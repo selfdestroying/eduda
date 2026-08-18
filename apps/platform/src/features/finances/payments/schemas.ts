@@ -43,7 +43,7 @@ export const PaymentListSchema = z.object({
   to: DateOnlySchema.optional(),
   methodIds: z.array(z.number().int().positive()).default([]),
   managerIds: z.array(z.number().int().positive()).default([]),
-  statuses: z.array(z.enum(['ACTIVE', 'CANCELLED'])).default([]),
+  statuses: z.array(z.enum(['PENDING', 'ACTIVE', 'CANCELLED'])).default([]),
   priceMin: z.number().int().nullish(),
   priceMax: z.number().int().nullish(),
   lessonsMin: z.number().int().nullish(),
