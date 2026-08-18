@@ -66,13 +66,29 @@ function resolveOrderBy(sort: { id: string; desc: boolean } | null | undefined):
  * Prisma поняла бы как «поле есть», а не как «ограничения нет».
  */
 function rangeWhere(
-  field: 'price' | 'lessonCount',
   min: number | null | undefined,
   max: number | null | undefined,
 ): Prisma.PaymentWhereInput {
   if (min == null && max == null) return {}
   return {
-    [field]: { ...(min != null && { gte: min }), ...(max != null && { lte: max }) },
+    price: { ...(min != null && { gte: min }), ...(max != null && { lte: max }) },
+  }
+}
+
+/**
+ * Отбор по количеству занятий. Занятия живут на пакетах, поэтому условие идёт через
+ * них: у счёта хотя бы один пакет должен попасть в диапазон. Складывать пакеты счёта
+ * и сравнивать сумму SQL здесь не умеет, а отдельная колонка-кеш разъехалась бы.
+ */
+function lessonsWhere(
+  min: number | null | undefined,
+  max: number | null | undefined,
+): Prisma.PaymentWhereInput {
+  if (min == null && max == null) return {}
+  return {
+    packages: {
+      some: { lessonCount: { ...(min != null && { gte: min }), ...(max != null && { lte: max }) } },
+    },
   }
 }
 
@@ -117,8 +133,8 @@ export const getPayments = permissionAction({ payment: ['read'] })
       ...(methodIds.length > 0 && { paymentMethodId: { in: methodIds } }),
       ...(managerIds.length > 0 && { managerId: { in: managerIds } }),
       ...(statuses.length > 0 && { status: { in: statuses } }),
-      ...rangeWhere('price', parsedInput.priceMin, parsedInput.priceMax),
-      ...rangeWhere('lessonCount', parsedInput.lessonsMin, parsedInput.lessonsMax),
+      ...rangeWhere(parsedInput.priceMin, parsedInput.priceMax),
+      ...lessonsWhere(parsedInput.lessonsMin, parsedInput.lessonsMax),
     }
 
     // Одной транзакцией: строки и их количество обязаны быть посчитаны по одному и

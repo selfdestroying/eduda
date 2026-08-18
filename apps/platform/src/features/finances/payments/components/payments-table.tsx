@@ -150,10 +150,11 @@ function buildColumns(
       header: () => (
         <span className="flex items-center gap-0.5">
           Занятий
-          <Hint text="Сколько уроков зачислено на баланс кошелька этой оплатой." />
+          <Hint text="Сколько уроков в пакетах этой оплаты. У неподтверждённой они ещё не зачислены на баланс." />
         </span>
       ),
-      accessorKey: 'lessonCount',
+      // Сумма по пакетам, а не поле оплаты: счёт может закрыть несколько пакетов.
+      accessorFn: (row) => row.packages.reduce((n, p) => n + p.lessonCount, 0),
       size: WIDTHS.lessons,
       meta: {
         title: 'Занятий',
