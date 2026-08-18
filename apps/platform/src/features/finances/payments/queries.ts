@@ -4,6 +4,7 @@ import {
   cancelPackage,
   createPackage,
   deleteUnprocessedPayment,
+  getPackageDetails,
   getPackages,
   getUnprocessedPayments,
   resolveUnprocessedPayment,
@@ -19,6 +20,7 @@ import type {
 export const packageKeys = {
   all: ['packages'] as const,
   list: (period: PackageListSchemaType) => [...packageKeys.all, period] as const,
+  details: (id: number) => [...packageKeys.all, 'details', id] as const,
 }
 
 export const unprocessedPaymentKeys = {
@@ -42,6 +44,22 @@ export const usePackageListQuery = (params: PackageListSchemaType) => {
     // Пока грузится следующая страница, показываем предыдущую: иначе на каждый
     // клик по «вперёд» таблица моргает пустотой и скачет по высоте.
     placeholderData: keepPreviousData,
+  })
+}
+
+/**
+ * Панель раскрытой строки. Запрос уходит только когда строку раскрыли, а результат
+ * остаётся в кеше: свернуть и раскрыть обратно — уже без похода на сервер.
+ */
+export const usePackageDetailsQuery = (id: number, enabled: boolean) => {
+  return useQuery({
+    queryKey: packageKeys.details(id),
+    queryFn: async () => {
+      const { data, serverError } = await getPackageDetails({ id })
+      if (serverError) throw serverError
+      return data ?? null
+    },
+    enabled,
   })
 }
 

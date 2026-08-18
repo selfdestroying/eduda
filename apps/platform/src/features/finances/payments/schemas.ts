@@ -103,3 +103,10 @@ export type CreatePackageSchemaType = z.infer<typeof CreatePackageSchema>
 export type CancelPaymentSchemaType = z.infer<typeof CancelPaymentSchema>
 export type ResolveUnprocessedPaymentSchemaType = z.infer<typeof ResolveUnprocessedPaymentSchema>
 export type DeleteUnprocessedPaymentSchemaType = z.infer<typeof DeleteUnprocessedPaymentSchema>
+
+/** Пакет, чью панель раскрыли. */
+export const PackageDetailsSchema = z.object({
+  id: z.number().int().positive(),
+})
+
+export type PackageDetailsSchemaType = z.infer<typeof PackageDetailsSchema>

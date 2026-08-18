@@ -36,3 +36,28 @@ export type PackageListResult = {
   rows: PackageListItem[]
   total: number
 }
+
+/**
+ * Панель под раскрытой строкой — счёт пакета. Отдельно от `PACKAGE_LIST_SELECT`:
+ * счёт и продукт это два джойна, а раскрывают одну строку из десяти; тянуть их на
+ * каждую строку каждой страницы незачем.
+ */
+export const PACKAGE_DETAILS_SELECT = {
+  id: true,
+  productName: true,
+  product: { select: { id: true, name: true, isActive: true } },
+  payment: {
+    select: {
+      id: true,
+      price: true,
+      date: true,
+      status: true,
+      cancelledAt: true,
+      paymentMethod: { select: { id: true, name: true } },
+    },
+  },
+} satisfies Prisma.PackageSelect
+
+export type PackageDetails = Prisma.PackageGetPayload<{
+  select: typeof PACKAGE_DETAILS_SELECT
+}>

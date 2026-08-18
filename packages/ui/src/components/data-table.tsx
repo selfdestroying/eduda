@@ -42,7 +42,7 @@ import {
   Eye,
   Loader,
 } from 'lucide-react'
-import { type ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@repo/ui/components/empty'
 
 declare module '@tanstack/react-table' {
@@ -106,6 +106,20 @@ interface DataTableProps<TData> {
   isRefreshing?: boolean
   /** Классы на строку — приглушить отменённое, подсветить просроченное. */
   rowClassName?: (row: Row<TData>) => string | undefined
+  /**
+   * Панель под раскрытой строкой — отдельная строка в одну ячейку во всю ширину
+   * таблицы, как в примере `sub-components` у react-table. Не подстроки: данные
+   * панели могут не иметь отношения к строке таблицы вовсе.
+   *
+   * Раскрытием заведует сама таблица (`expanded` в состоянии, `getRowCanExpand`,
+   * `getExpandedRowModel`) — здесь только разметка.
+   */
+  renderSubComponent?: (row: Row<TData>) => ReactNode
+  /**
+   * Клик по строке. Ячейки со своими кликами — ссылки, кнопки, меню — обязаны гасить
+   * всплытие сами: иначе переход по ссылке заодно сработает и здесь.
+   */
+  onRowClick?: (row: Row<TData>) => void
 }
 
 /**
@@ -130,6 +144,8 @@ export default function DataTable<TData>({
   showColumnVisibility = false,
   isRefreshing = false,
   rowClassName,
+  renderSubComponent,
+  onRowClick,
 }: DataTableProps<TData>) {
   // Именно видимые: скрытая колонка не рисуется, и colSpan по всем растянул бы
   // пустое состояние шире таблицы. Минимум единица — скрыть можно все колонки
@@ -238,20 +254,35 @@ export default function DataTable<TData>({
             </TableRow>
           ) : table.getRowModel().rows?.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} className={rowClassName?.(row)}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    // `truncate` обязателен именно здесь: при фиксированной сетке
-                    // содержимое шире колонки не сжимается, а вылезает за её край.
-                    // `overflow: hidden` на `td` работает, на вложенной ссылке —
-                    // нет, она инлайновая.
-                    className={cn('truncate', cell.column.columnDef.meta?.className)}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
+              <Fragment key={row.id}>
+                <TableRow
+                  className={cn(onRowClick && 'cursor-pointer', rowClassName?.(row))}
+                  onClick={onRowClick && (() => onRowClick(row))}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell
+                      key={cell.id}
+                      // `truncate` обязателен именно здесь: при фиксированной сетке
+                      // содержимое шире колонки не сжимается, а вылезает за её край.
+                      // `overflow: hidden` на `td` работает, на вложенной ссылке —
+                      // нет, она инлайновая.
+                      className={cn('truncate', cell.column.columnDef.meta?.className)}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                {renderSubComponent && row.getIsExpanded() && (
+                  // `colSpan` по видимым ячейкам самой строки, а не по всем колонкам:
+                  // спрятанную через меню «Колонки» ячейка не занимает, и панель
+                  // оказалась бы шире таблицы.
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={row.getVisibleCells().length} className="bg-muted/30 p-0">
+                      {renderSubComponent(row)}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
             ))
           ) : (
             <TableRow>

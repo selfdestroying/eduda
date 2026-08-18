@@ -13,11 +13,17 @@ import { permissionAction } from '@/src/lib/safe-action'
 import {
   CancelPaymentSchema,
   DeleteUnprocessedPaymentSchema,
+  PackageDetailsSchema,
   PackageListSchema,
   ResolveUnprocessedPaymentSchema,
   CreatePackageSchema,
 } from './schemas'
-import { PACKAGE_LIST_SELECT, type PackageListResult } from './types'
+import {
+  PACKAGE_DETAILS_SELECT,
+  PACKAGE_LIST_SELECT,
+  type PackageDetails,
+  type PackageListResult,
+} from './types'
 
 /**
  * Оплата закрывает накопившиеся неоплаченные занятия, а каждое из них — отдельное
@@ -411,4 +417,22 @@ export const deleteUnprocessedPayment = permissionAction({ payment: ['delete'] }
     await prisma.unprocessedPayment.delete({
       where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
     })
+  })
+
+/**
+ * Содержимое раскрытой строки: счёт пакета и его продукт. Отдельным запросом по
+ * клику, а не джойнами в списке: раскрывают одну строку из десяти, а платить за них
+ * пришлось бы на каждой странице.
+ */
+export const getPackageDetails = permissionAction({ payment: ['read'] })
+  .metadata({ actionName: 'getPackageDetails' })
+  .inputSchema(PackageDetailsSchema)
+  .action(async ({ ctx, parsedInput }): Promise<PackageDetails> => {
+    const packet = await prisma.package.findFirst({
+      where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
+      select: PACKAGE_DETAILS_SELECT,
+    })
+    if (!packet) throw new NotFoundError('Пакет не найден')
+
+    return packet
   })

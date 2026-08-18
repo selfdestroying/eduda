@@ -10,8 +10,16 @@ import { useColumnVisibility } from '@/src/hooks/use-column-visibility'
 import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { formatCurrency, getFullName } from '@/src/lib/utils'
-import { type ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { cn } from '@repo/ui/lib/utils'
+import {
+  type ColumnDef,
+  type ExpandedState,
+  getCoreRowModel,
+  getExpandedRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
 import { debounce } from 'es-toolkit'
+import { ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { parseAsString, useQueryStates } from 'nuqs'
 import { useEffect, useMemo, useState } from 'react'
@@ -24,6 +32,7 @@ import {
 } from '../constants'
 import { usePackageListQuery } from '../queries'
 import type { PackageListItem } from '../types'
+import PackageDetails from './package-details'
 import PeriodFilter, { PERIOD_TITLE, type Period } from './period-filter'
 
 /**
@@ -79,12 +88,41 @@ type FilterOption = { label: string; value: string }
 function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem>[] {
   return [
     {
+      // Шеврон. Ширина под иконку, из меню «Колонки» не прячется: без него строку
+      // нечем раскрыть.
+      id: 'expander',
+      header: () => null,
+      size: 40,
+      enableHiding: false,
+      cell: ({ row }) => (
+        <button
+          type="button"
+          // Раскрывает и вся строка, поэтому всплытие гасим: иначе один клик
+          // сработал бы дважды и не изменил бы ничего.
+          onClick={(e) => {
+            e.stopPropagation()
+            row.toggleExpanded()
+          }}
+          aria-label={row.getIsExpanded() ? 'Свернуть' : 'Подробнее'}
+          aria-expanded={row.getIsExpanded()}
+          className="text-muted-foreground hover:text-foreground cursor-pointer"
+        >
+          <ChevronDown
+            className={cn('size-4 transition-transform', !row.getIsExpanded() && '-rotate-90')}
+          />
+        </button>
+      ),
+    },
+    {
       id: 'student',
       header: 'Ученик',
       accessorFn: (row) => getFullName(row.student.firstName, row.student.lastName),
       cell: ({ row }) => (
         <Link
           href={`/students/${row.original.student.id}`}
+          // Клик по строке раскрывает панель — по имени он должен только уводить
+          // на карточку.
+          onClick={(e) => e.stopPropagation()}
           className="text-primary hover:underline"
         >
           {getFullName(row.original.student.firstName, row.original.student.lastName)}
@@ -262,6 +300,10 @@ export default function PackagesTable() {
 
   const columns = useMemo(() => buildColumns(members), [members])
 
+  // В адрес не уезжает, в отличие от сортировки и фильтров: раскрытая строка — это
+  // взгляд на одну запись, а не состояние выборки, и ссылку с ней не пересылают.
+  const [expanded, setExpanded] = useState<ExpandedState>({})
+
   const resetPage = () => setPagination({ ...pagination, pageIndex: 0 })
 
   // Страница за последней: в адресе живёт `page` от прошлой, более полной выборки.
@@ -297,6 +339,16 @@ export default function PackagesTable() {
     data: data?.rows ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
+    // Ключ строки — id пакета, а не её место на странице. По умолчанию react-table
+    // нумерует строки индексом, и «раскрыта строка 2» после перелистывания означало
+    // бы вторую строку новой страницы: раскрывались чужие записи.
+    getRowId: (row) => String(row.id),
+    // Раскрытие — не подстроки: панель показывает данные, которых в строке нет, и
+    // раскрыть можно любую строку. Без `getRowCanExpand` react-table ищет `subRows`
+    // и отвечает «нельзя» на всё.
+    getRowCanExpand: () => true,
+    getExpandedRowModel: getExpandedRowModel(),
+    onExpandedChange: setExpanded,
     // Отбор, порядок и нарезка — в SQL. Клиентские модели строк выключены, поэтому
     // `filterFn` у колонок нет: предикаты живут в `where` серверного экшена.
     manualFiltering: true,
@@ -308,7 +360,7 @@ export default function PackagesTable() {
     onColumnFiltersChange: setFiltersAndResetPage,
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
-    state: { pagination, sorting, columnFilters, columnVisibility },
+    state: { pagination, sorting, columnFilters, columnVisibility, expanded },
   })
 
   const resetFilters = () => {
@@ -338,6 +390,10 @@ export default function PackagesTable() {
       showPagination
       showColumnVisibility
       isRefreshing={isFetching}
+      renderSubComponent={(row) => (
+        <PackageDetails packageId={row.original.id} open={row.getIsExpanded()} />
+      )}
+      onRowClick={(row) => row.toggleExpanded()}
       // Отменённый пакет остаётся в списке следом операции, но читаться должен
       // как погашенный — одного бейджа в широкой строке не видно.
       rowClassName={(row) => (row.original.status === 'CANCELLED' ? 'opacity-55' : undefined)}
