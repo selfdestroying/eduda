@@ -19,7 +19,7 @@ const PaymentDateSchema = z.string('Выберите дату').refine(
 )
 
 /**
- * Всё состояние таблицы оплат: страница, порядок и отбор. Сервер по нему строит
+ * Всё состояние таблицы пакетов: страница, порядок и отбор. Сервер по нему строит
  * `where`/`orderBy`/`skip`/`take` и возвращает срез вместе с общим числом строк —
  * браузер больше ничего не отбирает и не сортирует сам.
  *
@@ -27,7 +27,7 @@ const PaymentDateSchema = z.string('Выберите дату').refine(
  * нет (колонки переименовывались), и валидация роняла бы запрос вместо того, чтобы
  * молча отдать порядок по умолчанию. Белый список — на сервере.
  */
-export const PaymentListSchema = z.object({
+export const PackageListSchema = z.object({
   page: z.number().int().min(0).default(0),
   // Верхняя граница — чтобы подобранный руками `pageSize=100000` не превращался в
   // выгрузку всей истории одним запросом.
@@ -36,12 +36,11 @@ export const PaymentListSchema = z.object({
   // Ограничение длины — не про валидацию ввода, а про стоимость: `contains` идёт
   // последовательным просмотром, и незачем пускать в него полотно текста.
   search: z.string().trim().max(100).optional(),
-  // Обе границы включительно и сравниваются лексикографически: `Payment.date` —
+  // Обе границы включительно и сравниваются лексикографически: `Package.date` —
   // date-only строка `YYYY-MM-DD`. Любая может отсутствовать: «с такого-то дня» и
   // «до такого-то» законны, а без обеих период не ограничен вовсе.
   from: DateOnlySchema.optional(),
   to: DateOnlySchema.optional(),
-  methodIds: z.array(z.number().int().positive()).default([]),
   managerIds: z.array(z.number().int().positive()).default([]),
   statuses: z.array(z.enum(['PENDING', 'ACTIVE', 'CANCELLED'])).default([]),
   priceMin: z.number().int().nullish(),
@@ -50,7 +49,7 @@ export const PaymentListSchema = z.object({
   lessonsMax: z.number().int().nullish(),
 })
 
-export const CreatePaymentSchema = z.object({
+export const SellPackageSchema = z.object({
   studentId: z.int('Выберите студента').positive('Выберите студента'),
   walletId: z.int('Выберите кошелёк').positive('Выберите кошелёк'),
   /**
@@ -88,10 +87,10 @@ export const CancelPaymentSchema = z.object({
 })
 
 /**
- * Разбор неразобранной оплаты — та же оплата плюс ссылка на исходную строку:
+ * Разбор неразобранной оплаты — та же продажа плюс ссылка на исходную строку:
  * форма у них одна, и расходиться этим двум наборам полей нельзя.
  */
-export const ResolveUnprocessedPaymentSchema = CreatePaymentSchema.extend({
+export const ResolveUnprocessedPaymentSchema = SellPackageSchema.extend({
   unprocessedPaymentId: z.number().int().positive(),
 })
 
@@ -99,8 +98,8 @@ export const DeleteUnprocessedPaymentSchema = z.object({
   id: z.number().int().positive(),
 })
 
-export type PaymentListSchemaType = z.infer<typeof PaymentListSchema>
-export type CreatePaymentSchemaType = z.infer<typeof CreatePaymentSchema>
+export type PackageListSchemaType = z.infer<typeof PackageListSchema>
+export type SellPackageSchemaType = z.infer<typeof SellPackageSchema>
 export type CancelPaymentSchemaType = z.infer<typeof CancelPaymentSchema>
 export type ResolveUnprocessedPaymentSchemaType = z.infer<typeof ResolveUnprocessedPaymentSchema>
 export type DeleteUnprocessedPaymentSchemaType = z.infer<typeof DeleteUnprocessedPaymentSchema>

@@ -31,7 +31,7 @@ import {
   useUnprocessedPaymentDeleteMutation,
   useUnprocessedPaymentResolveMutation,
 } from '../queries'
-import { type CreatePaymentSchemaType } from '../schemas'
+import { type SellPackageSchemaType } from '../schemas'
 import PaymentForm, { usePaymentForm } from './payment-form'
 
 interface UnprocessedPaymentActionsProps {
@@ -58,7 +58,7 @@ export default function UnprocessedPaymentActions({
 
   const form = usePaymentForm()
 
-  const onSubmit = (values: CreatePaymentSchemaType) => {
+  const onSubmit = (values: SellPackageSchemaType) => {
     resolveMutation.mutate(
       {
         ...values,

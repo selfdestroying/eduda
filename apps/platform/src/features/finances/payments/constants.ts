@@ -1,20 +1,21 @@
 /**
- * Статусы счёта. `PENDING` — выставлен, деньги не пришли: пакеты под ним не выданы,
- * баланс не тронут. `ACTIVE` — оплачен.
+ * Статусы пакета. `PENDING` — счёт под него выставлен, но не оплачен: в очередь
+ * списания пакет не встаёт и баланса не двигает. `ACTIVE` — выдан. `CANCELLED` —
+ * отменён, непотраченный остаток снят.
  */
-export const PAYMENT_STATUSES = ['PENDING', 'ACTIVE', 'CANCELLED'] as const
+export const PACKAGE_STATUSES = ['PENDING', 'ACTIVE', 'CANCELLED'] as const
 
-export type PaymentStatusValue = (typeof PAYMENT_STATUSES)[number]
+export type PackageStatusValue = (typeof PACKAGE_STATUSES)[number]
 
-export const PAYMENT_STATUS_LABELS: Record<PaymentStatusValue, string> = {
+export const PACKAGE_STATUS_LABELS: Record<PackageStatusValue, string> = {
   PENDING: 'Ждёт оплаты',
-  ACTIVE: 'Оплачена',
-  CANCELLED: 'Отменена',
+  ACTIVE: 'Выдан',
+  CANCELLED: 'Отменён',
 }
 
 /** Вариант бейджа из дизайн-системы: подложка в 10% цвета плюс текст тем же цветом. */
-export const PAYMENT_STATUS_BADGE: Record<
-  PaymentStatusValue,
+export const PACKAGE_STATUS_BADGE: Record<
+  PackageStatusValue,
   'success' | 'destructive' | 'warning'
 > = {
   PENDING: 'warning',
@@ -22,13 +23,7 @@ export const PAYMENT_STATUS_BADGE: Record<
   CANCELLED: 'destructive',
 }
 
-export const PAYMENT_STATUS_OPTIONS = PAYMENT_STATUSES.map((value) => ({
+export const PACKAGE_STATUS_OPTIONS = PACKAGE_STATUSES.map((value) => ({
   value,
-  label: PAYMENT_STATUS_LABELS[value],
+  label: PACKAGE_STATUS_LABELS[value],
 }))
-
-/**
- * `isAdjustment` в таблице не показывается и не фильтруется — по решению от
- * 13.08.2026. Значит корректировки бэкфилла в списке выглядят как обычные оплаты:
- * отделить их глазом или отбором на этой странице нельзя, только по данным.
- */

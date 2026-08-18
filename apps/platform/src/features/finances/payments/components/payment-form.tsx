@@ -45,7 +45,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
 import { useActiveProductListQuery, useProductCreateMutation } from '../../products/queries'
-import { CreatePaymentSchema, type CreatePaymentSchemaType } from '../schemas'
+import { SellPackageSchema, type SellPackageSchemaType } from '../schemas'
 import { QuickCreate } from './quick-create'
 import { WalletPreview } from './wallet-preview'
 
@@ -60,8 +60,8 @@ import { WalletPreview } from './wallet-preview'
 export function usePaymentForm() {
   const tz = useOrgTimezone()
 
-  return useForm<CreatePaymentSchemaType>({
-    resolver: zodResolver(CreatePaymentSchema),
+  return useForm<SellPackageSchemaType>({
+    resolver: zodResolver(SellPackageSchema),
     defaultValues: {
       studentId: undefined,
       walletId: undefined,
@@ -97,10 +97,10 @@ const NO_MANAGER = 0
 const EMPTY: never[] = []
 
 interface PaymentFormProps {
-  form: UseFormReturn<CreatePaymentSchemaType>
+  form: UseFormReturn<SellPackageSchemaType>
   /** Связывает форму с кнопкой отправки, которая стоит вне неё — в футере панели. */
   formId: string
-  onSubmit: (values: CreatePaymentSchemaType) => void
+  onSubmit: (values: SellPackageSchemaType) => void
   disabled?: boolean
 }
 

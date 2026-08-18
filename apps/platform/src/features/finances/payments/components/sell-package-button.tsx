@@ -15,24 +15,24 @@ import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
 import { Loader, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { usePaymentCreateMutation } from '../queries'
-import { type CreatePaymentSchemaType } from '../schemas'
+import { useSellPackageMutation } from '../queries'
+import { type SellPackageSchemaType } from '../schemas'
 import PaymentForm, { usePaymentForm } from './payment-form'
 
 // Вне компонента: `useHasPermission` мемоизирует по ссылке на объект прав.
 const CAN_CREATE = { payment: ['create'] } as const
 
-const FORM_ID = 'create-payment-form'
+const FORM_ID = 'sell-package-form'
 
-export default function AddPaymentButton() {
+export default function SellPackageButton() {
   const canCreate = useHasPermission(CAN_CREATE)
   const [open, setOpen] = useState(false)
   const isMobile = useIsMobile()
-  const createMutation = usePaymentCreateMutation()
+  const createMutation = useSellPackageMutation()
 
   const form = usePaymentForm()
 
-  const onSubmit = (values: CreatePaymentSchemaType) => {
+  const onSubmit = (values: SellPackageSchemaType) => {
     createMutation.mutate(values, {
       onSuccess: () => {
         form.reset()
@@ -71,7 +71,7 @@ export default function AddPaymentButton() {
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className="pb-4">
-          <DrawerTitle>Добавить оплату</DrawerTitle>
+          <DrawerTitle>Продать пакет</DrawerTitle>
         </DrawerHeader>
         {/* На телефоне поля не влезают в `100dvh - 6rem` — форма прокручивается
             внутри панели, а шапка и кнопки остаются на месте. */}
@@ -91,7 +91,7 @@ export default function AddPaymentButton() {
               отправляет форму сам, без отдельного обработчика. */}
           <Button type="submit" form={FORM_ID} disabled={createMutation.isPending}>
             {createMutation.isPending && <Loader className="animate-spin" />}
-            Добавить
+            Продать
           </Button>
         </DrawerFooter>
       </DrawerContent>

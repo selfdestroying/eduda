@@ -12,12 +12,12 @@ import { todayYmdInTz } from '@/src/lib/timezone'
 import { permissionAction } from '@/src/lib/safe-action'
 import {
   CancelPaymentSchema,
-  CreatePaymentSchema,
   DeleteUnprocessedPaymentSchema,
-  PaymentListSchema,
+  PackageListSchema,
   ResolveUnprocessedPaymentSchema,
+  SellPackageSchema,
 } from './schemas'
-import { PAYMENT_LIST_SELECT, type PaymentListResult } from './types'
+import { PACKAGE_LIST_SELECT, type PackageListResult } from './types'
 
 /**
  * Оплата закрывает накопившиеся неоплаченные занятия, а каждое из них — отдельное
@@ -37,25 +37,34 @@ const PAYMENT_TX_OPTIONS = { timeout: 30_000 }
  * строки, то есть от пользователя. Неизвестный ключ (а в старых ссылках живут id
  * переименованных колонок) даёт порядок по умолчанию, без ошибки.
  */
-const PAYMENT_ORDER_BY: Record<string, (dir: Prisma.SortOrder) => PaymentOrderBy[]> = {
+/**
+ * Разрешённые колонки сортировки: id колонки таблицы → как её сортировать. Каждая
+ * запись — список полей, потому что одной колонке может соответствовать несколько:
+ * в ячейке «Ученик» стоит «Имя Фамилия», и сортировка по одному `firstName`
+ * оставила бы всех Иванов в произвольном порядке, хотя стрелка обещает алфавит.
+ *
+ * Белый список, а не подстановка поля из запроса: `sort` приходит из адресной
+ * строки, то есть от пользователя. Неизвестный ключ (а в старых ссылках живут id
+ * переименованных колонок) даёт порядок по умолчанию, без ошибки.
+ */
+const PACKAGE_ORDER_BY: Record<string, (dir: Prisma.SortOrder) => PackageOrderBy[]> = {
+  student: (dir) => [{ student: { firstName: dir } }, { student: { lastName: dir } }],
   price: (dir) => [{ price: dir }],
+  lessons: (dir) => [{ lessonCount: dir }],
   date: (dir) => [{ date: dir }],
-  paymentMethod: (dir) => [{ paymentMethod: { name: dir } }],
+  manager: (dir) => [{ manager: { name: dir } }],
   status: (dir) => [{ status: dir }],
-  // Сортировок по ученику, менеджеру и занятиям нет: всё это лежит на пакетах, а
-  // упорядочить счета по полю связи «многие» SQL здесь не может. Неизвестный ключ
-  // белый список переживает — вернётся порядок по умолчанию.
 }
 
-type PaymentOrderBy = Prisma.PaymentOrderByWithRelationInput
+type PackageOrderBy = Prisma.PackageOrderByWithRelationInput
 
 /**
  * Порядок строк. Последним ключом всегда `id`: без него строки с равным значением
- * при листании переставляются местами, и одна и та же оплата успевает показаться
+ * при листании переставляются местами, и один и тот же пакет успевает показаться
  * на двух страницах подряд.
  */
-function resolveOrderBy(sort: { id: string; desc: boolean } | null | undefined): PaymentOrderBy[] {
-  const build = sort ? PAYMENT_ORDER_BY[sort.id] : undefined
+function resolveOrderBy(sort: { id: string; desc: boolean } | null | undefined): PackageOrderBy[] {
+  const build = sort ? PACKAGE_ORDER_BY[sort.id] : undefined
   if (!sort || !build) return [{ date: 'desc' }, { id: 'desc' }]
   return [...build(sort.desc ? 'desc' : 'asc'), { id: 'desc' }]
 }
@@ -65,70 +74,45 @@ function resolveOrderBy(sort: { id: string; desc: boolean } | null | undefined):
  * Prisma поняла бы как «поле есть», а не как «ограничения нет».
  */
 function rangeWhere(
+  field: 'price' | 'lessonCount',
   min: number | null | undefined,
   max: number | null | undefined,
-): Prisma.PaymentWhereInput {
+): Prisma.PackageWhereInput {
   if (min == null && max == null) return {}
   return {
-    price: { ...(min != null && { gte: min }), ...(max != null && { lte: max }) },
+    [field]: { ...(min != null && { gte: min }), ...(max != null && { lte: max }) },
   }
 }
 
 /**
- * Отбор по количеству занятий. Занятия живут на пакетах, поэтому условие идёт через
- * них: у счёта хотя бы один пакет должен попасть в диапазон. Складывать пакеты счёта
- * и сравнивать сумму SQL здесь не умеет, а отдельная колонка-кеш разъехалась бы.
- */
-function lessonsWhere(
-  min: number | null | undefined,
-  max: number | null | undefined,
-): Prisma.PaymentWhereInput {
-  if (min == null && max == null) return {}
-  return {
-    packages: {
-      some: { lessonCount: { ...(min != null && { gte: min }), ...(max != null && { lte: max }) } },
-    },
-  }
-}
-
-/**
- * Поиск по тому, что видно в строке: ученик, менеджер, метод.
+ * Поиск по тому, что видно в строке: ученик, продавец, продукт.
  *
  * Слова требуются все, но каждое может найтись в любом поле — иначе «Иван Петров»
  * не нашёл бы никого: имя и фамилия лежат в разных колонках, и `contains` по
  * каждой в отдельности не совпадёт с целой фразой. Заодно работает «Петров Иван».
  */
-function searchWhere(search: string | undefined): Prisma.PaymentWhereInput['AND'] {
-  const terms = search?.split(/\s+/).filter(Boolean) ?? []
+function searchWhere(search: string | undefined): Prisma.PackageWhereInput['AND'] {
+  const terms = search?.split(/s+/).filter(Boolean) ?? []
   if (terms.length === 0) return undefined
 
   return terms.map((term) => ({
     OR: [
-      {
-        packages: {
-          some: { student: { firstName: { contains: term, mode: 'insensitive' as const } } },
-        },
-      },
-      {
-        packages: {
-          some: { student: { lastName: { contains: term, mode: 'insensitive' as const } } },
-        },
-      },
-      {
-        packages: { some: { manager: { name: { contains: term, mode: 'insensitive' as const } } } },
-      },
-      { paymentMethod: { name: { contains: term, mode: 'insensitive' as const } } },
+      { student: { firstName: { contains: term, mode: 'insensitive' as const } } },
+      { student: { lastName: { contains: term, mode: 'insensitive' as const } } },
+      { manager: { name: { contains: term, mode: 'insensitive' as const } } },
+      { productName: { contains: term, mode: 'insensitive' as const } },
     ],
   }))
 }
 
-export const getPayments = permissionAction({ payment: ['read'] })
-  .metadata({ actionName: 'getPayments' })
-  .inputSchema(PaymentListSchema)
-  .action(async ({ ctx, parsedInput }): Promise<PaymentListResult> => {
-    const { page, pageSize, sort, search, from, to, methodIds, managerIds, statuses } = parsedInput
+/** Список проданных пакетов: то, что школа продала, с деньгами на самом пакете. */
+export const getPackages = permissionAction({ payment: ['read'] })
+  .metadata({ actionName: 'getPackages' })
+  .inputSchema(PackageListSchema)
+  .action(async ({ ctx, parsedInput }): Promise<PackageListResult> => {
+    const { page, pageSize, sort, search, from, to, managerIds, statuses } = parsedInput
 
-    const where: Prisma.PaymentWhereInput = {
+    const where: Prisma.PackageWhereInput = {
       organizationId: ctx.session.organizationId!,
       AND: searchWhere(search),
       // Период — обычный необязательный фильтр, без подстановки текущего месяца:
@@ -139,33 +123,35 @@ export const getPayments = permissionAction({ payment: ['read'] })
       ...((from || to) && {
         date: { ...(from && { gte: from }), ...(to && { lte: to }) },
       }),
-      ...(methodIds.length > 0 && { paymentMethodId: { in: methodIds } }),
-      ...(managerIds.length > 0 && { packages: { some: { managerId: { in: managerIds } } } }),
+      ...(managerIds.length > 0 && { managerId: { in: managerIds } }),
       ...(statuses.length > 0 && { status: { in: statuses } }),
-      ...rangeWhere(parsedInput.priceMin, parsedInput.priceMax),
-      ...lessonsWhere(parsedInput.lessonsMin, parsedInput.lessonsMax),
+      ...rangeWhere('price', parsedInput.priceMin, parsedInput.priceMax),
+      ...rangeWhere('lessonCount', parsedInput.lessonsMin, parsedInput.lessonsMax),
     }
 
     // Одной транзакцией: строки и их количество обязаны быть посчитаны по одному и
-    // тому же состоянию базы, иначе между запросами проходит оплата и «страница 3
+    // тому же состоянию базы, иначе между запросами проходит продажа и «страница 3
     // из 5» разъезжается с тем, что реально вернулось.
     const [rows, total] = await prisma.$transaction([
-      prisma.payment.findMany({
+      prisma.package.findMany({
         where,
-        select: PAYMENT_LIST_SELECT,
+        select: PACKAGE_LIST_SELECT,
         orderBy: resolveOrderBy(sort),
         skip: page * pageSize,
         take: pageSize,
       }),
-      prisma.payment.count({ where }),
+      prisma.package.count({ where }),
     ])
 
     return { rows, total }
   })
-
-export const createPaymentWithBalance = permissionAction({ payment: ['create'] })
-  .metadata({ actionName: 'createPaymentWithBalance' })
-  .inputSchema(CreatePaymentSchema)
+/**
+ * Продажа пакета: заводит счёт и пакет одной парой. Уроки выдаёт только если
+ * деньги уже получены — иначе счёт остаётся ждать подтверждения.
+ */
+export const sellPackage = permissionAction({ payment: ['create'] })
+  .metadata({ actionName: 'sellPackage' })
+  .inputSchema(SellPackageSchema)
   .action(async ({ ctx, parsedInput }) => {
     const {
       studentId,

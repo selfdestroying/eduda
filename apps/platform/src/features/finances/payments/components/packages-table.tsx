@@ -15,17 +15,16 @@ import { debounce } from 'es-toolkit'
 import Link from 'next/link'
 import { parseAsString, useQueryStates } from 'nuqs'
 import { useEffect, useMemo, useState } from 'react'
-import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
 import {
-  PAYMENT_STATUSES,
-  PAYMENT_STATUS_BADGE,
-  PAYMENT_STATUS_LABELS,
-  PAYMENT_STATUS_OPTIONS,
-  type PaymentStatusValue,
+  PACKAGE_STATUSES,
+  PACKAGE_STATUS_BADGE,
+  PACKAGE_STATUS_LABELS,
+  PACKAGE_STATUS_OPTIONS,
+  type PackageStatusValue,
 } from '../constants'
-import { usePaymentListQuery } from '../queries'
-import type { PaymentListItem } from '../types'
-import PaymentActions from './payment-actions'
+import { usePackageListQuery } from '../queries'
+import type { PackageListItem } from '../types'
+import PackageActions from './package-actions'
 import PeriodFilter, { PERIOD_TITLE, type Period } from './period-filter'
 
 /**
@@ -54,13 +53,12 @@ const SEARCH_MAX_LENGTH = 100
  * быть литералами — Tailwind ищет их в исходнике, из переменной класс не родится.
  */
 const W = {
-  student: 'w-[20%]',
-  price: 'w-[10%]',
-  lessons: 'w-[12%]',
+  student: 'w-[24%]',
+  price: 'w-[12%]',
+  lessons: 'w-[13%]',
   status: 'w-[14%]',
-  date: 'w-[11%]',
-  paymentMethod: 'w-[14%]',
-  manager: 'w-[14%]',
+  date: 'w-[13%]',
+  manager: 'w-[19%]',
   actions: 'w-[5%]',
 } as const
 
@@ -76,10 +74,9 @@ const W = {
 const WIDTHS = {
   student: 120,
   price: 120,
-  lessons: 50,
+  lessons: 70,
   status: 130,
   date: 110,
-  paymentMethod: 150,
   manager: 150,
   actions: 50,
 } as const
@@ -98,7 +95,6 @@ const PERIOD_PARSERS = { from: parseAsString, to: parseAsString }
  * приходят из адреса, и в числа их превращает уже сборка параметров запроса.
  */
 const TABLE_FILTERS = {
-  paymentMethod: 'string',
   manager: 'string',
   status: 'string',
   price: 'range',
@@ -107,31 +103,19 @@ const TABLE_FILTERS = {
 
 type FilterOption = { label: string; value: string }
 
-function buildColumns(
-  methodOptions: FilterOption[],
-  managerOptions: FilterOption[],
-): ColumnDef<PaymentListItem>[] {
+function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem>[] {
   return [
     {
       id: 'student',
       header: 'Ученик',
-      // Ученики счёта — через его пакеты. Обычно он один; счёт на двоих детей
-      // перечисляет обоих, и ссылка ведёт к каждому.
-      accessorFn: (row) =>
-        row.packages.map((p) => getFullName(p.student.firstName, p.student.lastName)).join(', '),
+      accessorFn: (row) => getFullName(row.student.firstName, row.student.lastName),
       cell: ({ row }) => (
-        <span className="flex flex-wrap gap-x-1">
-          {row.original.packages.map((p, i) => (
-            <Link
-              key={p.id}
-              href={`/students/${p.student.id}`}
-              className="text-primary hover:underline"
-            >
-              {getFullName(p.student.firstName, p.student.lastName)}
-              {i < row.original.packages.length - 1 ? ',' : ''}
-            </Link>
-          ))}
-        </span>
+        <Link
+          href={`/students/${row.original.student.id}`}
+          className="text-primary hover:underline"
+        >
+          {getFullName(row.original.student.firstName, row.original.student.lastName)}
+        </Link>
       ),
       size: WIDTHS.student,
       meta: { title: 'Ученик', flexible: true, className: W.student },
@@ -159,11 +143,18 @@ function buildColumns(
       header: () => (
         <span className="flex items-center gap-0.5">
           Занятий
-          <Hint text="Сколько уроков в пакетах этой оплаты. У неподтверждённой они ещё не зачислены на баланс." />
+          <Hint text="Сколько уроков в пакете и сколько из них ещё не потрачено. У пакета, который ждёт оплаты, на баланс не зачислено ничего." />
         </span>
       ),
-      // Сумма по пакетам, а не поле оплаты: счёт может закрыть несколько пакетов.
-      accessorFn: (row) => row.packages.reduce((n, p) => n + p.lessonCount, 0),
+      accessorKey: 'lessonCount',
+      // «4 / 8» — из восьми уроков не потрачено четыре. Остаток отдельной колонкой
+      // не выносим: он читается только вместе с размером пакета.
+      cell: ({ row }) => (
+        <span>
+          <span className="text-muted-foreground">{row.original.remaining}</span> /{' '}
+          {row.original.lessonCount}
+        </span>
+      ),
       size: WIDTHS.lessons,
       meta: {
         title: 'Занятий',
@@ -179,8 +170,8 @@ function buildColumns(
       header: 'Статус',
       accessorKey: 'status',
       cell: ({ row }) => {
-        const status = row.original.status as PaymentStatusValue
-        return <Badge variant={PAYMENT_STATUS_BADGE[status]}>{PAYMENT_STATUS_LABELS[status]}</Badge>
+        const status = row.original.status as PackageStatusValue
+        return <Badge variant={PACKAGE_STATUS_BADGE[status]}>{PACKAGE_STATUS_LABELS[status]}</Badge>
       },
       size: WIDTHS.status,
       meta: {
@@ -188,7 +179,7 @@ function buildColumns(
         flexible: true,
         className: W.status,
         variant: 'multiSelect',
-        options: PAYMENT_STATUS_OPTIONS,
+        options: PACKAGE_STATUS_OPTIONS,
       },
     },
     {
@@ -200,34 +191,15 @@ function buildColumns(
       meta: { title: 'Дата', flexible: true, className: W.date },
     },
     {
-      id: 'paymentMethod',
-      header: 'Метод',
-      accessorFn: (row) => row.paymentMethod?.name ?? '',
-      cell: ({ row }) => row.original.paymentMethod?.name ?? '—',
-      size: WIDTHS.paymentMethod,
-      meta: {
-        title: 'Метод оплаты',
-        flexible: true,
-        className: W.paymentMethod,
-        variant: 'multiSelect',
-        options: methodOptions,
-      },
-    },
-    {
       id: 'manager',
       header: () => (
         <span className="flex items-center gap-0.5">
           Менеджер
-          <Hint text="Кто продал пакеты этого счёта. У пакетов, заведённых до появления поля, менеджер не указан." />
+          <Hint text="Кто продал пакет. У пакетов, заведённых до появления поля, менеджер не указан." />
         </span>
       ),
-      // Продавец живёт на пакете: продажа — это пакет, а не платёж.
-      accessorFn: (row) =>
-        [...new Set(row.packages.map((p) => p.manager?.name).filter(Boolean))].join(', '),
-      cell: ({ row }) =>
-        [...new Set(row.original.packages.map((p) => p.manager?.name).filter(Boolean))].join(
-          ', ',
-        ) || '—',
+      accessorFn: (row) => row.manager?.name ?? '',
+      cell: ({ row }) => row.original.manager?.name ?? '—',
       size: WIDTHS.manager,
       meta: {
         title: 'Менеджер',
@@ -240,7 +212,7 @@ function buildColumns(
     {
       id: 'actions',
       enableSorting: false,
-      cell: ({ row }) => <PaymentActions payment={row.original} />,
+      cell: ({ row }) => <PackageActions packet={row.original} />,
       size: WIDTHS.actions,
       // Без вертикального отступа: иконка-кнопка и так 28px со своей областью
       // нажатия, а с `p-2` ячейки она вытягивала строку до 44px. У отменённой
@@ -283,7 +255,7 @@ function filterIds(
     .filter((n) => Number.isInteger(n) && n > 0)
 }
 
-export default function PaymentsTable() {
+export default function PackagesTable() {
   const {
     columnFilters,
     setColumnFilters,
@@ -320,11 +292,10 @@ export default function PaymentsTable() {
       search: searchTerm.slice(0, SEARCH_MAX_LENGTH) || undefined,
       from: from ?? undefined,
       to: to ?? undefined,
-      methodIds: filterIds(columnFilters, 'paymentMethod'),
       managerIds: filterIds(columnFilters, 'manager'),
       // Незнакомое значение отсеиваем по той же причине, что и нечисловые id.
-      statuses: filterValues(columnFilters, 'status').filter((v): v is PaymentStatusValue =>
-        PAYMENT_STATUSES.includes(v as PaymentStatusValue),
+      statuses: filterValues(columnFilters, 'status').filter((v): v is PackageStatusValue =>
+        PACKAGE_STATUSES.includes(v as PackageStatusValue),
       ),
       priceMin: priceRange[0] ?? null,
       priceMax: priceRange[1] ?? null,
@@ -334,18 +305,12 @@ export default function PaymentsTable() {
     [pagination, sorting, searchTerm, from, to, columnFilters, priceRange, lessonsRange],
   )
 
-  const { data, isLoading, isFetching, isError } = usePaymentListQuery(params)
+  const { data, isLoading, isFetching, isError } = usePackageListQuery(params)
 
-  const { data: paymentMethods = [] } = useActivePaymentMethodListQuery()
   const { data: members = [] } = useMappedMemberListQuery()
-  const { columnVisibility, setColumnVisibility } = useColumnVisibility('payments')
+  const { columnVisibility, setColumnVisibility } = useColumnVisibility('packages')
 
-  const methodOptions = useMemo(
-    () => paymentMethods.map((m) => ({ value: String(m.id), label: m.name })),
-    [paymentMethods],
-  )
-
-  const columns = useMemo(() => buildColumns(methodOptions, members), [methodOptions, members])
+  const columns = useMemo(() => buildColumns(members), [members])
 
   const resetPage = () => setPagination({ ...pagination, pageIndex: 0 })
 
@@ -413,25 +378,25 @@ export default function PaymentsTable() {
   }
 
   if (isError) {
-    return <div className="text-destructive">Ошибка при загрузке оплат.</div>
+    return <div className="text-destructive">Ошибка при загрузке пакетов.</div>
   }
 
   return (
     <DataTable
       table={table}
-      emptyMessage="Нет оплат."
+      emptyMessage="Нет пакетов."
       showPagination
       showColumnVisibility
       isRefreshing={isFetching}
-      // Отменённая оплата остаётся в списке следом операции, но читаться должна
-      // как погашенная — одного бейджа в широкой строке не видно.
+      // Отменённый пакет остаётся в списке следом операции, но читаться должен
+      // как погашенный — одного бейджа в широкой строке не видно.
       rowClassName={(row) => (row.original.status === 'CANCELLED' ? 'opacity-55' : undefined)}
       toolbar={
         <DataTableToolbar
           table={table}
           search={globalFilter}
           onSearchChange={setGlobalFilter}
-          searchPlaceholder="Ученик, менеджер, метод..."
+          searchPlaceholder="Ученик, менеджер, продукт..."
           onReset={resetFilters}
           extraFilterTitles={from || to ? [PERIOD_TITLE] : []}
         >

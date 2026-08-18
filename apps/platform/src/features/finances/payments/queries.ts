@@ -1,24 +1,24 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  cancelPayment,
-  createPaymentWithBalance,
+  cancelPackage,
+  sellPackage,
   deleteUnprocessedPayment,
-  getPayments,
+  getPackages,
   getUnprocessedPayments,
   resolveUnprocessedPayment,
 } from './actions'
 import type {
   CancelPaymentSchemaType,
-  CreatePaymentSchemaType,
+  SellPackageSchemaType,
   DeleteUnprocessedPaymentSchemaType,
-  PaymentListSchemaType,
+  PackageListSchemaType,
   ResolveUnprocessedPaymentSchemaType,
 } from './schemas'
 
-export const paymentKeys = {
-  all: ['payments'] as const,
-  list: (period: PaymentListSchemaType) => [...paymentKeys.all, period] as const,
+export const packageKeys = {
+  all: ['packages'] as const,
+  list: (period: PackageListSchemaType) => [...packageKeys.all, period] as const,
 }
 
 export const unprocessedPaymentKeys = {
@@ -27,11 +27,11 @@ export const unprocessedPaymentKeys = {
 
 const EMPTY_PAGE = { rows: [], total: 0 }
 
-export const usePaymentListQuery = (params: PaymentListSchemaType) => {
+export const usePackageListQuery = (params: PackageListSchemaType) => {
   return useQuery({
-    queryKey: paymentKeys.list(params),
+    queryKey: packageKeys.list(params),
     queryFn: async () => {
-      const { data, serverError, validationErrors } = await getPayments(params)
+      const { data, serverError, validationErrors } = await getPackages(params)
       if (serverError) throw serverError
       // Ошибку валидации `next-safe-action` кладёт отдельно от серверной, и без
       // этой проверки она превращалась бы в `data === undefined`, то есть в пустую
@@ -56,16 +56,16 @@ export const useUnprocessedPaymentListQuery = () => {
   })
 }
 
-export const usePaymentCreateMutation = () => {
+export const useSellPackageMutation = () => {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (values: CreatePaymentSchemaType) => {
-      const { data, serverError } = await createPaymentWithBalance(values)
+    mutationFn: async (values: SellPackageSchemaType) => {
+      const { data, serverError } = await sellPackage(values)
       if (serverError) throw serverError
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: paymentKeys.all })
+      queryClient.invalidateQueries({ queryKey: packageKeys.all })
       toast.success('Оплата успешно создана!')
     },
     onError: () => {
@@ -74,16 +74,16 @@ export const usePaymentCreateMutation = () => {
   })
 }
 
-export const usePaymentCancelMutation = () => {
+export const usePackageCancelMutation = () => {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (values: CancelPaymentSchemaType) => {
-      const { data, serverError } = await cancelPayment(values)
+      const { data, serverError } = await cancelPackage(values)
       if (serverError) throw serverError
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: paymentKeys.all })
+      queryClient.invalidateQueries({ queryKey: packageKeys.all })
       toast.success('Оплата успешно отменена')
     },
     onError: () => toast.error('Не удалось отменить оплату'),
@@ -99,7 +99,7 @@ export const useUnprocessedPaymentResolveMutation = () => {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: paymentKeys.all })
+      queryClient.invalidateQueries({ queryKey: packageKeys.all })
       queryClient.invalidateQueries({ queryKey: unprocessedPaymentKeys.all })
       toast.success('Оплата успешно создана!')
     },

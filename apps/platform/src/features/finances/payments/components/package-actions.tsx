@@ -1,7 +1,7 @@
 'use client'
 
 import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
-import type { PaymentStatus } from '@repo/db/enums'
+import type { PackageStatus } from '@repo/db/enums'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -20,28 +20,28 @@ import {
 } from '@repo/ui/components/dropdown-menu'
 import { CircleX, Loader, MoreVertical } from 'lucide-react'
 import { useState } from 'react'
-import { usePaymentCancelMutation } from '../queries'
+import { usePackageCancelMutation } from '../queries'
 
-interface PaymentActionsProps {
-  payment: { id: number; status: PaymentStatus }
+interface PackageActionsProps {
+  packet: { id: number; status: PackageStatus }
 }
 
 // Вне компонента: `useHasPermission` мемоизирует по ссылке на объект прав.
 const CAN_CANCEL = { payment: ['delete'] } as const
 
-export default function PaymentActions({ payment }: PaymentActionsProps) {
+export default function PackageActions({ packet }: PackageActionsProps) {
   const canCancel = useHasPermission(CAN_CANCEL)
   const [open, setOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const cancelMutation = usePaymentCancelMutation()
+  const cancelMutation = usePackageCancelMutation()
 
   const handleDelete = () => {
-    cancelMutation.mutate({ id: payment.id }, { onSuccess: () => setConfirmOpen(false) })
+    cancelMutation.mutate({ id: packet.id }, { onSuccess: () => setConfirmOpen(false) })
   }
 
-  // Отменённую оплату трогать больше нечем: запись остаётся в списке как след
+  // Отменённый пакет трогать больше нечем: запись остаётся в списке как след
   // операции, но действий над ней нет.
-  if (payment.status === 'CANCELLED') return null
+  if (packet.status === 'CANCELLED') return null
   if (!canCancel) return null
 
   return (
