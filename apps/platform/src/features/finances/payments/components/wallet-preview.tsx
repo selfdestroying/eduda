@@ -74,8 +74,8 @@ const HEADING = 'text-muted-foreground text-[11px] font-semibold tracking-wide u
  * Свёрнутый блок — одна строка на секцию, и его высота не зависит от выбранного
  * кошелька: он стоит посреди формы, и прыжок при смене уводил бы поля из-под
  * курсора. Отсюда распорка вместо недостающей строки, строка долга внутри шапки
- * (отдельной секцией она принесла бы с собой ещё и разделительную линию) и кнопка,
- * которая держит своё место даже когда разворачивать нечего.
+ * (отдельной секцией она принесла бы с собой ещё и разделительную линию) и шеврон
+ * раскрытия там же — он держит своё место даже когда разворачивать нечего.
  */
 export function WalletPreview({
   wallet,
@@ -119,14 +119,33 @@ export function WalletPreview({
               каким остаток станет с этой оплатой, с поправкой на занятия, которые
               она закроет: сервер спишет их сразу (`settleUnpaidAttendancesTx`),
               и без поправки стрелка обещала бы остаток, которого не будет. */}
-          {wallet && (
-            <span className="text-muted-foreground shrink-0 tabular-nums">
-              Остаток {wallet.lessonsBalance}
-              {addedLessons
-                ? ` → ${wallet.lessonsBalance + addedLessons - Math.min(unpaidLessons, addedLessons)}`
-                : ''}
-            </span>
-          )}
+          <span className="flex shrink-0 items-center gap-1.5">
+            {wallet && (
+              <span className="text-muted-foreground tabular-nums">
+                Остаток {wallet.lessonsBalance}
+                {addedLessons
+                  ? ` → ${wallet.lessonsBalance + addedLessons - Math.min(unpaidLessons, addedLessons)}`
+                  : ''}
+              </span>
+            )}
+            {/* Раскрытие живёт здесь, а не отдельной строкой внизу: строка шапки в
+                блоке есть всегда и всегда одной высоты, а отдельная стоила бы ещё и
+                разделительной линии — почти столько же, сколько экономит свёрнутый
+                вид. Иконка ровно в строку текста (16px), поэтому шапка от неё не
+                растёт. Разворачивать нечего — место всё равно занято: иначе
+                свёрнутый блок менял бы высоту от кошелька к кошельку. */}
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              disabled={!canExpand}
+              aria-label={expanded ? 'Свернуть' : 'Показать все группы и оплаты'}
+              className={`text-muted-foreground hover:text-foreground transition-colors ${
+                canExpand ? '' : 'invisible'
+              }`}
+            >
+              {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+            </button>
+          </span>
         </div>
         {/* Долг объясняет, почему остаток вырастет не на всю оплату: эти занятия
             уже проведены, и оплата закроет их первыми. Строка стоит всегда —
@@ -160,7 +179,7 @@ export function WalletPreview({
         </ul>
       </div>
 
-      <div className="flex flex-col gap-0.5 py-2">
+      <div className="flex flex-col gap-0.5 pt-2">
         <SectionHeading title="Оплаты" count={totalPayments} />
         <ul className={`flex flex-col gap-0.5 ${ROWS}`}>
           {wallet && payments.length === 0 && <li className="text-muted-foreground">Нет оплат</li>}
@@ -183,21 +202,6 @@ export function WalletPreview({
           {!wallet && <li aria-hidden />}
         </ul>
       </div>
-
-      {/* Кнопка стоит всегда, даже когда разворачивать нечего: пропади она —
-          свёрнутый блок менял бы высоту от кошелька к кошельку, а его постоянство
-          и есть весь смысл здешних распорок. */}
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        disabled={!canExpand}
-        className={`text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 pt-2 transition-colors ${
-          canExpand ? '' : 'invisible'
-        }`}
-      >
-        {expanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
-        {expanded ? 'Свернуть' : 'Показать все'}
-      </button>
     </div>
   )
 }
