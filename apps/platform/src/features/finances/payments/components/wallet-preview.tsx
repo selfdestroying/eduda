@@ -115,48 +115,52 @@ export function WalletPreview({
           <span className={`truncate font-medium ${wallet ? '' : 'text-muted-foreground'}`}>
             {wallet ? wallet.name || 'Без названия' : 'Кошелёк не выбран'}
           </span>
+          {/* Раскрытие живёт здесь, а не отдельной строкой внизу: строка шапки в
+              блоке есть всегда и всегда одной высоты, а отдельная стоила бы ещё и
+              разделительной линии — почти столько же, сколько экономит свёрнутый
+              вид. Иконка ровно в строку текста (16px), поэтому шапка от неё не
+              растёт. Разворачивать нечего — место всё равно занято: иначе
+              свёрнутый блок менял бы высоту от кошелька к кошельку. */}
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            disabled={!canExpand}
+            aria-label={expanded ? 'Свернуть' : 'Показать все группы и оплаты'}
+            className={`text-muted-foreground hover:text-foreground shrink-0 transition-colors ${
+              canExpand ? '' : 'invisible'
+            }`}
+          >
+            {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+          </button>
+        </div>
+        {/* Вторая строка шапки: цифры кошелька. Имя наверху бывает длинным, и вместе
+            с остатком они делили одну строку впритык — на телефоне название
+            обрезалось первым. Долг встаёт справа от остатка, а не третьей строкой:
+            он же его и объясняет. */}
+        <div className="flex items-center justify-between gap-2">
           {/* Главная цифра кошелька: сколько занятий у ученика на руках. Стрелка —
               каким остаток станет с этой оплатой, с поправкой на занятия, которые
               она закроет: сервер спишет их сразу (`settleUnpaidAttendancesTx`),
-              и без поправки стрелка обещала бы остаток, которого не будет. */}
-          <span className="flex shrink-0 items-center gap-1.5">
-            {wallet && (
-              <span className="text-muted-foreground tabular-nums">
-                Остаток {wallet.lessonsBalance}
-                {addedLessons
-                  ? ` → ${wallet.lessonsBalance + addedLessons - Math.min(unpaidLessons, addedLessons)}`
-                  : ''}
-              </span>
-            )}
-            {/* Раскрытие живёт здесь, а не отдельной строкой внизу: строка шапки в
-                блоке есть всегда и всегда одной высоты, а отдельная стоила бы ещё и
-                разделительной линии — почти столько же, сколько экономит свёрнутый
-                вид. Иконка ровно в строку текста (16px), поэтому шапка от неё не
-                растёт. Разворачивать нечего — место всё равно занято: иначе
-                свёрнутый блок менял бы высоту от кошелька к кошельку. */}
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              disabled={!canExpand}
-              aria-label={expanded ? 'Свернуть' : 'Показать все группы и оплаты'}
-              className={`text-muted-foreground hover:text-foreground transition-colors ${
-                canExpand ? '' : 'invisible'
-              }`}
-            >
-              {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-            </button>
-          </span>
+              и без поправки стрелка обещала бы остаток, которого не будет.
+              Пока кошелёк не выбран, строку держит пробел — высота та же. */}
+          {wallet ? (
+            <span className="text-muted-foreground tabular-nums">
+              Остаток {wallet.lessonsBalance}
+              {addedLessons
+                ? ` → ${wallet.lessonsBalance + addedLessons - Math.min(unpaidLessons, addedLessons)}`
+                : ''}
+            </span>
+          ) : (
+            <span aria-hidden className="select-none">
+              &nbsp;
+            </span>
+          )}
+          {/* Долг объясняет, почему остаток вырастет не на всю оплату: эти занятия
+              уже проведены, и оплата закроет их первыми. */}
+          {unpaidLessons > 0 && (
+            <span className="text-warning shrink-0">{formatWaiting(unpaidLessons)}</span>
+          )}
         </div>
-        {/* Долг объясняет, почему остаток вырастет не на всю оплату: эти занятия
-            уже проведены, и оплата закроет их первыми. Строка стоит всегда —
-            пустая, когда долга нет. */}
-        {unpaidLessons > 0 ? (
-          <span className="text-warning">{formatWaiting(unpaidLessons)}</span>
-        ) : (
-          <span aria-hidden className="select-none">
-            &nbsp;
-          </span>
-        )}
       </div>
 
       {/* Обе секции стоят всегда: пустая «Оплаты» — это сообщение, что кошелёк
