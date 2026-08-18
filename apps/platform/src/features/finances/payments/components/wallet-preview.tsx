@@ -35,14 +35,31 @@ function formatMorePayments(count: number) {
  */
 const ROWS = '[&>li]:flex [&>li]:h-5 [&>li]:items-center'
 
+/** Высота строки (`h-5`) и просвет между строками (`gap-0.5`), в пикселях. */
+const ROW_H = 20
+const ROW_GAP = 2
+
+/**
+ * Высота секции в пикселях. Считаем, а не измеряем: строки заданы фиксированной
+ * высотой как раз для этого, а `max-height` умеет ехать только между двумя числами
+ * — с `none` перехода не выйдет ни в одну сторону.
+ */
+function sectionHeight(rows: number) {
+  const n = Math.max(1, rows)
+  return n * ROW_H + (n - 1) * ROW_GAP
+}
+
 /**
  * Появление строки, раскрытой шевроном: лесенкой, по порядку. Первая строка секции
- * была на экране и в свёрнутом виде — её не трогаем, иначе раскрытие выглядело бы
- * как подмена всего списка. `animate-tab-enter` уже умеет prefers-reduced-motion,
- * поэтому своей проверки здесь нет.
+ * видна и в свёрнутом виде — её не трогаем, иначе раскрытие выглядело бы как
+ * подмена всего списка. Только на раскрытии: строки лежат в разметке всегда, и без
+ * этого условия анимация отыграла бы один раз при монтировании — под обрезкой, где
+ * её никто не увидит, — а на самом раскрытии не отыграла бы вовсе.
+ *
+ * `animate-tab-enter` уже умеет prefers-reduced-motion, поэтому своей проверки нет.
  */
-function revealRow(index: number) {
-  if (index < 1) return { className: '', style: undefined }
+function revealRow(expanded: boolean, index: number) {
+  if (!expanded || index < 1) return { className: '', style: undefined }
   return { className: ' animate-tab-enter', style: { animationDelay: `${index * 40}ms` } }
 }
 
@@ -107,12 +124,22 @@ export function WalletPreview({
   const payments = wallet?.payments ?? []
   const totalPayments = wallet?._count.payments ?? 0
 
-  // Свёрнутый вид — по одной, самой свежей строке. Развёрнутый показывает все
-  // группы и те оплаты, что приехали с сервера (`take: 2`); остальные считаются в
-  // «ещё N» — ради них отдельный запрос не делаем.
-  const shownGroups = expanded ? groups : groups.slice(0, 1)
-  const shownPayments = expanded ? payments : payments.slice(0, 1)
-  const hiddenPayments = totalPayments - shownPayments.length
+  // Строки рисуются все и всегда — свёрнутый вид просто обрезан по первой. Так
+  // высота едет от одного числа к другому, а не прыгает вслед за появлением и
+  // исчезновением разметки. Оплат приезжает две (`take: 2`), остальные считаются в
+  // «ещё N»: отдельного запроса ради них не делаем.
+  const hiddenPayments = totalPayments - payments.length
+
+  // Сколько строк в секции на самом деле: пустая («Нет групп») — тоже строка.
+  const groupRows = groups.length
+  const paymentRows = payments.length + (hiddenPayments > 0 ? 1 : 0)
+
+  /** Обрезка до первой строки, пока не развёрнуто. Едет между двумя числами. */
+  const sectionStyle = (rows: number) => ({
+    maxHeight: expanded ? sectionHeight(rows) : sectionHeight(1),
+  })
+  const SECTION =
+    'overflow-hidden transition-[max-height] duration-(--duration-tab) ease-(--ease-tab) motion-reduce:transition-none'
 
   const canExpand = groups.length > 1 || totalPayments > 1
 
@@ -181,13 +208,13 @@ export function WalletPreview({
           заголовке говорит, сколько скрыто, не тратя на это строку. */}
       <div className="flex flex-col gap-0.5 py-2">
         <SectionHeading title="Группы" count={groups.length} />
-        <ul className={`flex flex-col gap-0.5 ${ROWS}`}>
+        <ul className={`flex flex-col gap-0.5 ${ROWS} ${SECTION}`} style={sectionStyle(groupRows)}>
           {wallet && groups.length === 0 && <li className="text-muted-foreground">Нет групп</li>}
-          {shownGroups.map((sg, i) => (
+          {groups.map((sg, i) => (
             <li
               key={i}
-              className={`flex items-center justify-between gap-2${revealRow(i).className}`}
-              style={revealRow(i).style}
+              className={`flex items-center justify-between gap-2${revealRow(expanded, i).className}`}
+              style={revealRow(expanded, i).style}
             >
               <span className="truncate">{getGroupName(sg.group)}</span>
               <Badge variant={STUDENT_STATUS[sg.status].variant} className="shrink-0">
@@ -202,13 +229,16 @@ export function WalletPreview({
 
       <div className="flex flex-col gap-0.5 pt-2">
         <SectionHeading title="Оплаты" count={totalPayments} />
-        <ul className={`flex flex-col gap-0.5 ${ROWS}`}>
+        <ul
+          className={`flex flex-col gap-0.5 ${ROWS} ${SECTION}`}
+          style={sectionStyle(paymentRows)}
+        >
           {wallet && payments.length === 0 && <li className="text-muted-foreground">Нет оплат</li>}
-          {shownPayments.map((p, i) => (
+          {payments.map((p, i) => (
             <li
               key={p.id}
-              className={`flex items-center justify-between gap-2 tabular-nums${revealRow(i).className}`}
-              style={revealRow(i).style}
+              className={`flex items-center justify-between gap-2 tabular-nums${revealRow(expanded, i).className}`}
+              style={revealRow(expanded, i).style}
             >
               <span className="truncate">
                 {formatDate(p.date)} · {formatCurrency(p.price)}
@@ -221,10 +251,10 @@ export function WalletPreview({
               </span>
             </li>
           ))}
-          {expanded && hiddenPayments > 0 && (
+          {hiddenPayments > 0 && (
             <li
-              className={`text-muted-foreground${revealRow(shownPayments.length).className}`}
-              style={revealRow(shownPayments.length).style}
+              className={`text-muted-foreground${revealRow(expanded, payments.length).className}`}
+              style={revealRow(expanded, payments.length).style}
             >
               {formatMorePayments(hiddenPayments)}
             </li>
