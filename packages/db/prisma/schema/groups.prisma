@@ -24,7 +24,6 @@ model Group {
     students              StudentGroup[]
     teachers              TeacherGroup[]
     schedules             GroupSchedule[]
-    payments              Payment[]
     balanceHistoryEntries StudentLessonsBalanceHistory[]
 
     @@index([organizationId])

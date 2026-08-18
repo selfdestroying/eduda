@@ -106,6 +106,7 @@ model Organization {
     lessons                        Lesson[]
     attendances                    Attendance[]
     payments                       Payment[]
+    packages                       Package[]
     unprocessedPayments            UnprocessedPayment[]
     carts                          Cart[]
     cartItems                      CartItem[]

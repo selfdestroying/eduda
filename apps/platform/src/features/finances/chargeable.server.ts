@@ -42,7 +42,7 @@ export function chargeableClassesWhere(
  */
 export const UNPAID_ATTENDANCE_WHERE = {
   amount: 0,
-  paymentId: null,
+  packageId: null,
   makeupAttendance: { is: null },
   lesson: { status: 'ACTIVE' },
   OR: chargeableClassesWhere(['present', 'absent_no_warn', 'makeup_success']),

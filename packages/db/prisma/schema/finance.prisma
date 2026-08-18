@@ -53,76 +53,106 @@ model Rate {
     @@index([organizationId])
 }
 
+/// Деньги: сколько получено — или ожидается — и чем. Уроки живут в `Package`, и
+/// оплата про них ничего не знает: очередь списания от платежей не зависит вовсе.
+///
+/// Сущность техническая: сюда со временем приедет стык с платёжным провайдером —
+/// внешний id, ссылка на оплату, частичные поступления.
 model Payment {
-    id           Int      @id @default(autoincrement())
-    lessonCount  Int      @default(0)
-    price        Int      @default(0)
-    bidForLesson Int      @default(0)
-    leadName     String   @default("")
-    productName  String   @default("")
-    date         String
-    createdAt    DateTime @default(now())
-    updatedAt    DateTime @updatedAt
+    id        Int      @id @default(autoincrement())
+    price     Int      @default(0)
+    leadName  String   @default("")
+    date      String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
 
-    /// Отменённая оплата не удаляется: на неё ссылаются проводки уже проведённых
-    /// занятий, и стереть её значило бы переписать выручку прошлых месяцев. Такой
-    /// пакет выбывает из очереди, а его непотраченный остаток снимается с баланса.
+    /// `PENDING` — счёт выставлен, денег ещё нет, и пакеты под ним не выданы.
+    /// `ACTIVE` — оплачена. Отменённая не удаляется: на её пакеты ссылаются проводки
+    /// проведённых занятий, и стереть её значило бы переписать прошлые месяцы.
     status PaymentStatus @default(ACTIVE)
     /// Когда отменили — чтобы в списке было видно, что это не свежая запись.
     cancelledAt DateTime?
 
-    /// Сколько уроков пакета ещё не потрачено. Пакеты кошелька образуют очередь по
-    /// `date`: посещение гасит головной пакет с `remaining > 0` и забирает его цену.
-    /// null — пакет не размечен (оплаты до бэкфилла), в очередь такой не встаёт.
-    remaining Int?
-
-    /// Не оплата, а корректировка: пакеты, которыми бэкфилл свёл остатки кошельков с
-    /// их балансом. За ними стоят ручные операции старой системы — правки баланса,
-    /// переносы между кошельками, — платежа под ними нет. В очередь такой пакет
-    /// встаёт наравне с остальными, иначе списывать эти уроки было бы не с чего, но
-    /// в суммах поступлений он отделён, а из раздачи истории исключается: пусти его
-    /// туда — прошлые визиты его съедят, и следующий прогон заведёт ещё одну порцию.
-    isAdjustment Boolean @default(false)
-
     // Relations
     organizationId  Int
     studentId       Int
-    groupId         Int?
-    walletId        Int?
     paymentMethodId Int?
-    /// Что продали — строка прайс-листа. Необязательное: у оплат до появления
-    /// справочника продукта нет. Рядом лежит `productName` — снимок названия на
-    /// момент продажи: продукт можно переименовать или удалить, а подпись прошлой
-    /// оплаты обязана остаться прежней.
-    productId       Int?
     /// Кто продал. Не автор записи: оплаты часто вносит один администратор за всех,
     /// а премия причитается тому, кто договорился. Поле необязательное — у оплат до
     /// его появления менеджера нет, и расчёты это переживают.
     managerId       Int?
     organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     student         Student        @relation(fields: [studentId], references: [id])
-    group           Group?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
-    wallet          Wallet?        @relation(fields: [walletId], references: [id], onDelete: SetNull)
     paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
-    product         Product?       @relation(fields: [productId], references: [id], onDelete: SetNull)
     manager         User?          @relation(fields: [managerId], references: [id], onDelete: SetNull)
 
-    attendances Attendance[]
-    ledger      WalletEntry[]
+    /// Один счёт может закрыть несколько пакетов — например, двоих детей сразу.
+    packages Package[]
 
     @@index([studentId])
     @@index([organizationId])
     @@index([createdAt])
-    @@index([groupId])
-    @@index([walletId])
     @@index([paymentMethodId])
-    @@index([productId])
-    @@index([walletId, date])
     /// Список оплат школы: выборка по периоду плюс сортировка по дате по умолчанию.
     /// Отдельного `organizationId` для этого мало — по нему пришлось бы отбирать все
     /// оплаты школы и сортировать их каждый раз заново.
     @@index([organizationId, date])
     @@index([managerId])
+}
+
+/// Пакет уроков: то, что продаёт менеджер и что гасят посещения. Встаёт в очередь
+/// кошелька по `date` и тратится с головы, пока не кончится `remaining`.
+///
+/// Уроки зачисляются не при создании, а при подтверждении оплаты: до него пакет
+/// `PENDING` — в очередь не встаёт и баланса не двигает. Занятия, проведённые за это
+/// время, ждут оплаты и списываются в момент подтверждения, по цене этого пакета.
+///
+/// `paymentId` пустой — денег под пакетом нет вовсе: подарок, компенсация или
+/// корректировка, которой бэкфилл сводил остаток кошелька с его балансом.
+model Package {
+    id          Int           @id @default(autoincrement())
+    lessonCount Int
+    /// Сколько уроков ещё не потрачено. `Σ WalletEntry.quantity` по пакету.
+    remaining   Int
+    /// Сколько стоит сам пакет. Хранится, а не выводится из `unitPrice × lessonCount`:
+    /// деление даёт остаток (1000 ₽ за 3 занятия), и на нём разъехались бы суммы
+    /// поступлений. У подарочного пакета — ноль.
+    price       Int           @default(0)
+    /// Цена урока этого пакета. Копируется в проводку посещения и дальше не
+    /// пересчитывается, поэтому новые оплаты не двигают закрытые месяцы.
+    unitPrice   Int           @default(0)
+    /// Бизнес-день: по нему строится очередь списания.
+    date        String
+    status      PackageStatus @default(PENDING)
+    cancelledAt DateTime?
+    createdAt   DateTime      @default(now())
+    updatedAt   DateTime      @updatedAt
+
+    // Relations
+    organizationId Int
+    studentId      Int
+    walletId       Int
+    paymentId      Int?
+    productId      Int?
+    /// Снимок названия продукта на момент продажи: продукт можно переименовать или
+    /// удалить, а подпись проданного пакета обязана остаться прежней.
+    productName    String @default("")
+
+    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    student      Student      @relation(fields: [studentId], references: [id])
+    wallet       Wallet       @relation(fields: [walletId], references: [id], onDelete: Cascade)
+    payment      Payment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+    product      Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+    attendances Attendance[]
+    ledger      WalletEntry[]
+
+    /// Очередь списания: пакеты кошелька по дате.
+    @@index([walletId, date])
+    @@index([organizationId, date])
+    @@index([paymentId])
+    @@index([productId])
+    @@index([studentId])
 }
 
 /// Журнал движений кошелька: одна строка на каждое изменение остатка уроков.
@@ -133,7 +163,7 @@ model Payment {
 ///
 /// Две суммы держат всю денежную модель:
 ///   Σ quantity по кошельку   = Wallet.lessonsBalance
-///   Σ quantity по пакету     = Payment.remaining
+///   Σ quantity по пакету     = Package.remaining
 /// Обе колонки — кеш поверх журнала, а не отдельная правда; сходимость проверяет
 /// `scripts/check-ledger.ts`.
 model WalletEntry {
@@ -158,7 +188,7 @@ model WalletEntry {
     organizationId Int
     walletId       Int
     studentId      Int
-    paymentId      Int?
+    packageId      Int?
     actorUserId    Int?
     /// Какую строку отменяет. У списания отмена может быть только одна: повторное
     /// списание того же занятия — это новая пара строк.
@@ -167,7 +197,7 @@ model WalletEntry {
     organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     wallet       Wallet        @relation(fields: [walletId], references: [id], onDelete: Cascade)
     student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-    payment      Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+    package      Package?      @relation(fields: [packageId], references: [id], onDelete: SetNull)
     actorUser    User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
     reversalOf   WalletEntry?  @relation("LedgerReversal", fields: [reversalOfId], references: [id], onDelete: SetNull)
     reversedBy   WalletEntry?  @relation("LedgerReversal")
@@ -178,7 +208,7 @@ model WalletEntry {
 
     @@index([walletId, effectiveAt])
     @@index([organizationId, effectiveAt])
-    @@index([paymentId])
+    @@index([packageId])
     @@index([attendanceId])
     @@index([studentId])
 }
@@ -211,7 +241,7 @@ model Product {
     lessonCount Int
     description String?
 
-    /// Снятый с продажи продукт не удаляют: на него ссылаются прошлые оплаты, и в
+    /// Снятый с продажи продукт не удаляют: на него ссылаются проданные пакеты, и в
     /// форме новой оплаты он просто больше не предлагается. Как у `PaymentMethod`.
     isActive  Boolean  @default(true)
     createdAt DateTime @default(now())
@@ -220,7 +250,7 @@ model Product {
     // Relations
     organizationId Int
     organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-    payments       Payment[]
+    packages       Package[]
 
     @@index([organizationId])
 }
