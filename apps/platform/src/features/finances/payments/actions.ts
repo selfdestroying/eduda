@@ -1,15 +1,10 @@
 'use server'
 
-import {
-  StudentFinancialField,
-  StudentLessonsBalanceChangeReason,
-  WalletEntryKind,
-} from '@repo/db/enums'
 import { Prisma, prisma } from '@repo/db'
 import {
-  recordWalletEntryTx,
-  settleUnpaidAttendancesTx,
-  writeFinancialHistoryTx,
+  activatePackageTx,
+  cancelPackageTx,
+  unitPriceOf,
 } from '@/src/features/finances/ledger.server'
 import { loadPaymentProductTx } from '@/src/features/finances/products/resolve.server'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
@@ -45,7 +40,8 @@ const PAYMENT_TX_OPTIONS = { timeout: 30_000 }
 const PAYMENT_ORDER_BY: Record<string, (dir: Prisma.SortOrder) => PaymentOrderBy[]> = {
   student: (dir) => [{ student: { firstName: dir } }, { student: { lastName: dir } }],
   price: (dir) => [{ price: dir }],
-  lessons: (dir) => [{ lessonCount: dir }],
+  // Сортировки по занятиям нет: они на пакетах, а счёт может закрыть несколько.
+  // Неизвестный ключ этот список переживает — вернётся порядок по умолчанию.
   date: (dir) => [{ date: dir }],
   paymentMethod: (dir) => [{ paymentMethod: { name: dir } }],
   manager: (dir) => [{ manager: { name: dir } }],
@@ -146,27 +142,27 @@ export const createPaymentWithBalance = permissionAction({ payment: ['create'] }
   .metadata({ actionName: 'createPaymentWithBalance' })
   .inputSchema(CreatePaymentSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { studentId, walletId, lessonCount, price, date, paymentMethodId, productId, managerId } =
-      parsedInput
+    const {
+      studentId,
+      walletId,
+      lessonCount,
+      price,
+      date,
+      paymentMethodId,
+      productId,
+      managerId,
+      received,
+    } = parsedInput
 
     await prisma.$transaction(async (tx) => {
       const product = await loadPaymentProductTx(tx, productId, ctx.session.organizationId!)
-      // `productName` попадает и в историю: её читает карточка ученика
-      // (`students/components/detail/lessons-balance-history.tsx`).
-      const paymentMeta = { lessonCount, price, walletId, productName: product.name }
 
       // Кошелёк ищем в своей организации: `walletId` приходит из запроса, и без
-      // этого условия чужой id нашёлся бы, а оплата легла бы в чужую школу —
-      // `organizationId` для неё брался из самого кошелька.
+      // этого условия чужой id нашёлся бы, а пакет лёг бы в чужую школу —
+      // `organizationId` для него брался из самого кошелька.
       const wallet = await tx.wallet.findFirst({
         where: { id: walletId, organizationId: ctx.session.organizationId! },
-        select: {
-          lessonsBalance: true,
-          totalPayments: true,
-          totalLessons: true,
-          studentId: true,
-          status: true,
-        },
+        select: { studentId: true, status: true },
       })
       if (!wallet) throw new NotFoundError('Кошелёк не найден')
       if (wallet.studentId !== studentId)
@@ -174,90 +170,107 @@ export const createPaymentWithBalance = permissionAction({ payment: ['create'] }
       // Архивный кошелёк из интерфейса не выбрать, но запросом — можно.
       if (wallet.status !== 'ACTIVE') throw new ConflictError('Кошелёк архивирован')
 
+      // Счёт: деньги. Уроков он не знает — они на пакете.
       const payment = await tx.payment.create({
         select: { id: true },
         data: {
           organizationId: ctx.session.organizationId!,
           studentId,
-          walletId,
-          lessonCount,
           price,
-          bidForLesson: Math.floor(price / lessonCount),
-          // Пакет встаёт в очередь кошелька целиком: посещения будут гасить его
-          // с головы, пока остаток не кончится.
-          remaining: lessonCount,
           date,
+          status: received ? 'ACTIVE' : 'PENDING',
           paymentMethodId: paymentMethodId ?? null,
-          productId: product.id,
-          // Снимок названия: продукт потом переименуют или удалят, а подпись этой
-          // оплаты обязана остаться прежней.
-          productName: product.name,
           managerId: managerId ?? null,
         },
       })
 
-      // Журнал: оплата — приход уроков в кошелёк, встаёт в очередь по своей дате.
-      await recordWalletEntryTx(tx, {
-        organizationId: ctx.session.organizationId!,
-        walletId,
-        studentId,
-        kind: WalletEntryKind.PURCHASE,
-        quantity: lessonCount,
-        unitPrice: Math.floor(price / lessonCount),
-        effectiveAt: date,
-        paymentId: payment.id,
-        actorUserId: Number(ctx.session.user.id),
-      })
-
-      const updated = await tx.wallet.update({
-        where: { id: walletId },
+      // Пакет: уроки. Пока счёт не подтверждён, лежит `PENDING` — в очередь не
+      // встаёт и баланса не двигает.
+      const packet = await tx.package.create({
+        select: { id: true },
         data: {
-          lessonsBalance: { increment: lessonCount },
-          totalLessons: { increment: lessonCount },
-          totalPayments: { increment: price },
-        },
-        select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
-      })
-
-      const fields = [
-        {
-          field: StudentFinancialField.LESSONS_BALANCE,
-          key: 'lessonsBalance' as const,
-        },
-        {
-          field: StudentFinancialField.TOTAL_PAYMENTS,
-          key: 'totalPayments' as const,
-        },
-        {
-          field: StudentFinancialField.TOTAL_LESSONS,
-          key: 'totalLessons' as const,
-        },
-      ]
-
-      for (const f of fields) {
-        await writeFinancialHistoryTx(tx, {
           organizationId: ctx.session.organizationId!,
           studentId,
-          actorUserId: Number(ctx.session.user.id),
           walletId,
-          field: f.field,
-          reason: StudentLessonsBalanceChangeReason.PAYMENT_CREATED,
-          delta: updated[f.key] - wallet[f.key],
-          balanceBefore: wallet[f.key],
-          balanceAfter: updated[f.key],
-          meta: paymentMeta,
+          paymentId: payment.id,
+          lessonCount,
+          remaining: lessonCount,
+          price,
+          unitPrice: unitPriceOf({ price, lessonCount }),
+          date,
+          productId: product.id,
+          // Снимок названия: продукт потом переименуют или удалят, а подпись этого
+          // пакета обязана остаться прежней.
+          productName: product.name,
+        },
+      })
+
+      // Деньги уже в руках — выдаём уроки тем же движением: для администратора с
+      // наличными создание и подтверждение это один шаг.
+      if (received) {
+        await activatePackageTx(tx, {
+          packageId: packet.id,
+          organizationId: ctx.session.organizationId!,
+          actorUserId: Number(ctx.session.user.id),
         })
       }
+    }, PAYMENT_TX_OPTIONS)
+  })
 
-      // Купленные уроки на балансе — теперь ими можно закрыть занятия, которые
-      // школа уже провела, а платить за них было нечем. Списываются обычным
-      // порядком, то есть по цене этого пакета.
-      await settleUnpaidAttendancesTx(tx, {
-        walletId,
+/**
+ * Деньги по счёту получены: выдаёт его пакеты.
+ *
+ * Отдельная операция, потому что счёт можно выставить заранее — менеджер продаёт
+ * пакет, родитель платит позже. Уроки появляются здесь, а не при продаже.
+ */
+export const confirmPayment = permissionAction({ payment: ['update'] })
+  .metadata({ actionName: 'confirmPayment' })
+  .inputSchema(CancelPaymentSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    await prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findFirst({
+        where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
+        select: { id: true, status: true, packages: { select: { id: true } } },
+      })
+      if (!payment) throw new NotFoundError('Оплата не найдена')
+      if (payment.status === 'CANCELLED') throw new ConflictError('Оплата отменена')
+      if (payment.status === 'ACTIVE') throw new ConflictError('Оплата уже подтверждена')
+
+      await tx.payment.update({ where: { id: payment.id }, data: { status: 'ACTIVE' } })
+
+      for (const packet of payment.packages) {
+        await activatePackageTx(tx, {
+          packageId: packet.id,
+          organizationId: ctx.session.organizationId!,
+          actorUserId: Number(ctx.session.user.id),
+        })
+      }
+    }, PAYMENT_TX_OPTIONS)
+  })
+
+/**
+ * Отмена пакета: снимает с баланса непотраченный остаток.
+ *
+ * Отдельно от отмены оплаты: деньги и уроки — разные вещи. Вернуть деньги, оставив
+ * уроки, законно, и наоборот тоже.
+ */
+export const cancelPackage = permissionAction({ payment: ['delete'] })
+  .metadata({ actionName: 'cancelPackage' })
+  .inputSchema(CancelPaymentSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    await prisma.$transaction(async (tx) => {
+      const packet = await tx.package.findFirst({
+        where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
+        select: { status: true },
+      })
+      if (!packet) throw new NotFoundError('Пакет не найден')
+      if (packet.status === 'CANCELLED') throw new ConflictError('Пакет уже отменён')
+
+      await cancelPackageTx(tx, {
+        packageId: parsedInput.id,
         organizationId: ctx.session.organizationId!,
-        paymentId: payment.id,
-        take: lessonCount,
         actorUserId: Number(ctx.session.user.id),
+        effectiveAt: todayYmdInTz(ctx.tz),
       })
     }, PAYMENT_TX_OPTIONS)
   })
@@ -267,128 +280,30 @@ export const cancelPayment = permissionAction({ payment: ['delete'] })
   .inputSchema(CancelPaymentSchema)
   .action(async ({ ctx, parsedInput }) => {
     await prisma.$transaction(async (tx) => {
-      const existing = await tx.payment.findUnique({
+      const payment = await tx.payment.findFirst({
         where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
-        select: { status: true, remaining: true, lessonCount: true },
+        select: { id: true, status: true, packages: { select: { id: true, status: true } } },
       })
-      if (!existing) throw new NotFoundError('Оплата не найдена')
-      if (existing.status === 'CANCELLED') throw new ConflictError('Оплата уже отменена')
+      if (!payment) throw new NotFoundError('Оплата не найдена')
+      if (payment.status === 'CANCELLED') throw new ConflictError('Оплата уже отменена')
 
-      // Запись не удаляем: на неё ссылаются проводки проведённых занятий, и её
-      // исчезновение переписало бы выручку прошлых месяцев. Пакет выбывает из очереди
-      // обнулённым остатком, а сама оплата остаётся видна со статусом «отменена».
-      const payment = await tx.payment.update({
-        where: { id: parsedInput.id },
-        data: { status: 'CANCELLED', cancelledAt: new Date(), remaining: 0 },
+      // Запись не удаляем: на её пакеты ссылаются проводки проведённых занятий, и
+      // исчезновение оплаты переписало бы выручку прошлых месяцев.
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: { status: 'CANCELLED', cancelledAt: new Date() },
       })
 
-      let balancesBefore: { lessonsBalance: number; totalPayments: number; totalLessons: number }
-      let balancesAfter: { lessonsBalance: number; totalPayments: number; totalLessons: number }
-      const resolvedWalletId: number | null = payment.walletId
-
-      if (payment.walletId) {
-        // Wallet-based payment - decrement the wallet
-        const wallet = await tx.wallet.findUnique({
-          where: { id: payment.walletId },
-          select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
-        })
-        if (!wallet) throw new Error('Кошелёк не найден')
-
-        balancesBefore = wallet
-
-        // С баланса снимаем только непотраченный остаток пакета — тот, что был до
-        // обнуления. Занятия, которые ученик уже отходил, списаны и оплачены;
-        // вычитать их ещё раз значит увести человека в долг за посещения, которые
-        // эта же оплата и закрыла. У оплат до разметки истории остатка нет.
-        const unspent = existing.remaining ?? existing.lessonCount
-
-        const updatedWallet = await tx.wallet.update({
-          where: { id: payment.walletId },
-          data: {
-            totalLessons: { decrement: payment.lessonCount },
-            totalPayments: { decrement: payment.price },
-            lessonsBalance: { decrement: unspent },
-          },
-          select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
-        })
-
-        balancesAfter = updatedWallet
-
-        // Журнал: снятие датируется днём отмены, а не днём оплаты — это новое
-        // событие, а не переписывание старого.
-        await recordWalletEntryTx(tx, {
+      // Отменяется только счёт. Выданные пакеты остаются на балансе: уроки ученику
+      // отдали, и снимать их — отдельное решение (`cancelPackage`). А вот
+      // невыданные закрываются вместе со счётом: без денег они и не появятся.
+      for (const packet of payment.packages) {
+        if (packet.status !== 'PENDING') continue
+        await cancelPackageTx(tx, {
+          packageId: packet.id,
           organizationId: ctx.session.organizationId!,
-          walletId: payment.walletId,
-          studentId: payment.studentId,
-          kind: WalletEntryKind.CANCELLATION,
-          quantity: -unspent,
-          unitPrice: payment.lessonCount > 0 ? Math.floor(payment.price / payment.lessonCount) : 0,
+          actorUserId: Number(ctx.session.user.id),
           effectiveAt: todayYmdInTz(ctx.tz),
-          paymentId: payment.id,
-          actorUserId: Number(ctx.session.user.id),
-          comment: 'Отмена оплаты: снят непотраченный остаток',
-        })
-      } else {
-        // Legacy payments without groupId - decrement global student balance
-        const student = await tx.student.findUnique({
-          where: { id: payment.studentId },
-          select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
-        })
-        if (!student) throw new Error('Ученик не найден')
-
-        balancesBefore = student
-
-        const updated = await tx.student.update({
-          where: { id: payment.studentId },
-          data: {
-            totalLessons: { decrement: payment.lessonCount },
-            totalPayments: { decrement: payment.price },
-            lessonsBalance: { decrement: payment.lessonCount },
-          },
-          select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
-        })
-
-        balancesAfter = updated
-      }
-
-      const commonMeta = {
-        paymentId: payment.id,
-        lessonCount: payment.lessonCount,
-        price: payment.price,
-        groupId: payment.groupId,
-        walletId: payment.walletId,
-      }
-
-      const fields = [
-        {
-          field: StudentFinancialField.LESSONS_BALANCE,
-          key: 'lessonsBalance' as const,
-        },
-        {
-          field: StudentFinancialField.TOTAL_PAYMENTS,
-          key: 'totalPayments' as const,
-        },
-        {
-          field: StudentFinancialField.TOTAL_LESSONS,
-          key: 'totalLessons' as const,
-        },
-      ]
-
-      for (const f of fields) {
-        const before = balancesBefore[f.key]
-        const after = balancesAfter[f.key]
-        await writeFinancialHistoryTx(tx, {
-          organizationId: ctx.session.organizationId!,
-          studentId: payment.studentId,
-          actorUserId: Number(ctx.session.user.id),
-          groupId: payment.groupId,
-          walletId: resolvedWalletId,
-          field: f.field,
-          reason: StudentLessonsBalanceChangeReason.PAYMENT_CANCELLED,
-          delta: after - before,
-          balanceBefore: before,
-          balanceAfter: after,
-          meta: commonMeta,
         })
       }
     })
@@ -403,8 +318,8 @@ export const getUnprocessedPayments = permissionAction({ payment: ['read'] })
     })
   })
 
-// Разбор неразобранной оплаты создаёт настоящий `Payment` — право то же, что у
-// создания вручную.
+// Разбор неразобранной оплаты создаёт настоящую пару «счёт + пакет» — право то же,
+// что у создания вручную.
 export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] })
   .metadata({ actionName: 'resolveUnprocessedPayment' })
   .inputSchema(ResolveUnprocessedPaymentSchema)
@@ -419,35 +334,19 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
       paymentMethodId,
       productId,
       managerId,
+      received,
     } = parsedInput
 
     await prisma.$transaction(async (tx) => {
       const product = await loadPaymentProductTx(tx, productId, ctx.session.organizationId!)
-      const paymentMeta = {
-        lessonCount,
-        price,
-        walletId,
-        unprocessedPaymentId,
-        productName: product.name,
-      }
 
-      // Кошелёк ищем в своей организации: `walletId` приходит из запроса, и без
-      // этого условия чужой id нашёлся бы, а оплата легла бы в чужую школу —
-      // `organizationId` для неё брался из самого кошелька.
       const wallet = await tx.wallet.findFirst({
         where: { id: walletId, organizationId: ctx.session.organizationId! },
-        select: {
-          lessonsBalance: true,
-          totalPayments: true,
-          totalLessons: true,
-          studentId: true,
-          status: true,
-        },
+        select: { studentId: true, status: true },
       })
       if (!wallet) throw new NotFoundError('Кошелёк не найден')
       if (wallet.studentId !== studentId)
         throw new ConflictError('Кошелёк не принадлежит этому ученику')
-      // Архивный кошелёк из интерфейса не выбрать, но запросом — можно.
       if (wallet.status !== 'ACTIVE') throw new ConflictError('Кошелёк архивирован')
 
       const payment = await tx.payment.create({
@@ -455,43 +354,29 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
         data: {
           organizationId: ctx.session.organizationId!,
           studentId,
-          walletId,
-          lessonCount,
           price,
-          bidForLesson: Math.floor(price / lessonCount),
-          // Пакет встаёт в очередь кошелька целиком: посещения будут гасить его
-          // с головы, пока остаток не кончится.
-          remaining: lessonCount,
           date,
+          status: received ? 'ACTIVE' : 'PENDING',
           paymentMethodId: paymentMethodId ?? null,
-          productId: product.id,
-          // Снимок названия — см. `createPaymentWithBalance`.
-          productName: product.name,
           managerId: managerId ?? null,
         },
       })
 
-      // Журнал: оплата — приход уроков в кошелёк, встаёт в очередь по своей дате.
-      await recordWalletEntryTx(tx, {
-        organizationId: ctx.session.organizationId!,
-        walletId,
-        studentId,
-        kind: WalletEntryKind.PURCHASE,
-        quantity: lessonCount,
-        unitPrice: Math.floor(price / lessonCount),
-        effectiveAt: date,
-        paymentId: payment.id,
-        actorUserId: Number(ctx.session.user.id),
-      })
-
-      const updated = await tx.wallet.update({
-        where: { id: walletId },
+      const packet = await tx.package.create({
+        select: { id: true },
         data: {
-          lessonsBalance: { increment: lessonCount },
-          totalLessons: { increment: lessonCount },
-          totalPayments: { increment: price },
+          organizationId: ctx.session.organizationId!,
+          studentId,
+          walletId,
+          paymentId: payment.id,
+          lessonCount,
+          remaining: lessonCount,
+          price,
+          unitPrice: unitPriceOf({ price, lessonCount }),
+          date,
+          productId: product.id,
+          productName: product.name,
         },
-        select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
       })
 
       await tx.unprocessedPayment.update({
@@ -499,46 +384,14 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
         data: { resolved: true },
       })
 
-      const fields = [
-        {
-          field: StudentFinancialField.LESSONS_BALANCE,
-          key: 'lessonsBalance' as const,
-        },
-        {
-          field: StudentFinancialField.TOTAL_PAYMENTS,
-          key: 'totalPayments' as const,
-        },
-        {
-          field: StudentFinancialField.TOTAL_LESSONS,
-          key: 'totalLessons' as const,
-        },
-      ]
-
-      for (const f of fields) {
-        await writeFinancialHistoryTx(tx, {
+      if (received) {
+        await activatePackageTx(tx, {
+          packageId: packet.id,
           organizationId: ctx.session.organizationId!,
-          studentId,
           actorUserId: Number(ctx.session.user.id),
-          walletId,
-          field: f.field,
-          reason: StudentLessonsBalanceChangeReason.PAYMENT_CREATED,
-          delta: updated[f.key] - wallet[f.key],
-          balanceBefore: wallet[f.key],
-          balanceAfter: updated[f.key],
-          meta: paymentMeta,
+          meta: { unprocessedPaymentId },
         })
       }
-
-      // Купленные уроки на балансе — теперь ими можно закрыть занятия, которые
-      // школа уже провела, а платить за них было нечем. Списываются обычным
-      // порядком, то есть по цене этого пакета.
-      await settleUnpaidAttendancesTx(tx, {
-        walletId,
-        organizationId: ctx.session.organizationId!,
-        paymentId: payment.id,
-        take: lessonCount,
-        actorUserId: Number(ctx.session.user.id),
-      })
     }, PAYMENT_TX_OPTIONS)
   })
 

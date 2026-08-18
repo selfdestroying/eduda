@@ -77,7 +77,7 @@ export interface WalletPreviewData {
     }
   }>
   /** Непотраченные и потраченные пакеты, свежие сверху. Все — предпросмотр раскрывается. */
-  payments: Array<{
+  packages: Array<{
     id: number
     date: string
     price: number
@@ -125,13 +125,13 @@ export function WalletPreview({
   const groups = [...(wallet?.studentGroups ?? [])].sort(
     (a, b) => Number(OPEN_STATUSES.includes(b.status)) - Number(OPEN_STATUSES.includes(a.status)),
   )
-  const payments = wallet?.payments ?? []
+  const packages = wallet?.packages ?? []
 
   // Строки рисуются все и всегда — свёрнутый вид просто обрезан по первой. Так
   // высота едет от одного числа к другому, а не прыгает вслед за появлением и
   // исчезновением разметки.
   const groupRows = groups.length
-  const paymentRows = payments.length
+  const packageRows = packages.length
 
   /** Обрезка до первой строки, пока не развёрнуто. Едет между двумя числами. */
   const sectionStyle = (rows: number) => ({
@@ -140,7 +140,7 @@ export function WalletPreview({
   const SECTION =
     'overflow-hidden transition-[max-height] duration-(--duration-tab) ease-(--ease-tab) motion-reduce:transition-none'
 
-  const canExpand = groups.length > 1 || payments.length > 1
+  const canExpand = groups.length > 1 || packages.length > 1
 
   return (
     // Части разделены линиями, а не отступами: одного расстояния мало, чтобы имя,
@@ -227,13 +227,15 @@ export function WalletPreview({
       </div>
 
       <div className="flex flex-col gap-0.5 pt-2">
-        <SectionHeading title="Оплаты" count={payments.length} />
+        <SectionHeading title="Пакеты" count={packages.length} />
         <ul
           className={`flex flex-col gap-0.5 ${ROWS} ${SECTION}`}
-          style={sectionStyle(paymentRows)}
+          style={sectionStyle(packageRows)}
         >
-          {wallet && payments.length === 0 && <li className="text-muted-foreground">Нет оплат</li>}
-          {payments.map((p, i) => (
+          {wallet && packages.length === 0 && (
+            <li className="text-muted-foreground">Нет пакетов</li>
+          )}
+          {packages.map((p, i) => (
             <li
               key={p.id}
               className={`flex items-center justify-between gap-2 tabular-nums${revealRow(expanded, i).className}`}

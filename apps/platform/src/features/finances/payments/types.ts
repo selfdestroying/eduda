@@ -11,11 +11,11 @@ import { Prisma } from '@repo/db'
  */
 export const PAYMENT_LIST_SELECT = {
   id: true,
-  lessonCount: true,
-  remaining: true,
   price: true,
-  bidForLesson: true,
   date: true,
+  // Занятия живут на пакетах: их у счёта может быть несколько, и в строке они
+  // складываются. Узкая выборка — на строку приходится один-два пакета.
+  packages: { select: { id: true, lessonCount: true, remaining: true, status: true } },
   status: true,
   cancelledAt: true,
   student: { select: { id: true, firstName: true, lastName: true } },

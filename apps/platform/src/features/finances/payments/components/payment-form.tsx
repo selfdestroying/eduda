@@ -38,6 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@repo/ui/components/select'
+import { Switch } from '@repo/ui/components/switch'
 import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { Plus } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -68,6 +69,9 @@ export function usePaymentForm() {
       lessonCount: undefined,
       price: undefined,
       date: todayYmdInTz(tz),
+      // Обычный случай — наличные или перевод, которые уже в руках. Счёт «на потом»
+      // выставляют снятой галочкой.
+      received: true,
       paymentMethodId: null,
       managerId: null,
     },
@@ -643,6 +647,31 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                 aria-invalid={fieldState.invalid}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+            </Field>
+          )}
+        />
+        <Controller
+          control={form.control}
+          name="received"
+          render={({ field }) => (
+            <Field>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id={`${formId}-received`}
+                  checked={field.value ?? true}
+                  onCheckedChange={field.onChange}
+                  disabled={disabled}
+                />
+                <FieldLabel htmlFor={`${formId}-received`}>Оплата получена</FieldLabel>
+              </div>
+              {/* Снятая галочка оставляет счёт неоплаченным: пакет заведён, но уроки
+                  на баланс не идут, пока оплату не подтвердят. Включена по умолчанию —
+                  наличные и переводы вносят уже полученными. */}
+              <FieldDescription>
+                {field.value === false
+                  ? 'Уроки не зачислятся, пока оплата не подтверждена'
+                  : 'Уроки зачислятся сразу'}
+              </FieldDescription>
             </Field>
           )}
         />

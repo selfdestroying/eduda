@@ -72,6 +72,12 @@ export const CreatePaymentSchema = z.object({
   lessonCount: z.number('Укажите количество занятий').int().positive(),
   price: z.number('Укажите сумму').int().positive(),
   date: PaymentDateSchema,
+  /**
+   * Деньги уже получены. По умолчанию да — так вносят наличные и переводы, то есть
+   * почти всегда. Снятая галочка оставляет счёт неоплаченным: пакет заведён, но
+   * уроки не выданы, пока оплату не подтвердят.
+   */
+  received: z.boolean(),
   paymentMethodId: z.number().int().positive().nullable().optional(),
   /** Кто продал: не автор записи, а тот, кто договорился. */
   managerId: z.number().int().positive().nullable().optional(),
