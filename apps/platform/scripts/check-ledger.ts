@@ -45,21 +45,20 @@ async function main() {
 
   // ─── Остаток пакета ──────────────────────────────────────────────────
   const byPacket = await prisma.walletEntry.groupBy({
-    by: ['paymentId'],
+    by: ['packageId'],
     _sum: { quantity: true },
-    where: { paymentId: { not: null } },
+    where: { packageId: { not: null } },
   })
-  const ledgerRemaining = new Map(byPacket.map((r) => [r.paymentId!, r._sum.quantity ?? 0]))
+  const ledgerRemaining = new Map(byPacket.map((r) => [r.packageId!, r._sum?.quantity ?? 0]))
 
-  const payments = await prisma.payment.findMany({
-    where: { walletId: { not: null } },
+  const packages = await prisma.package.findMany({
     select: { id: true, remaining: true },
   })
   const packetMismatches: Row[] = []
-  for (const p of payments) {
+  for (const p of packages) {
     const expected = ledgerRemaining.get(p.id) ?? 0
-    if (expected !== (p.remaining ?? 0)) {
-      packetMismatches.push({ id: p.id, expected, actual: p.remaining ?? 0 })
+    if (expected !== p.remaining) {
+      packetMismatches.push({ id: p.id, expected, actual: p.remaining })
     }
   }
 
@@ -104,7 +103,7 @@ async function main() {
     ? await prisma.walletEntry.count({
         where: {
           kind: 'CHARGE',
-          paymentId: null,
+          packageId: null,
           attendanceId: { not: null },
           createdAt: { gt: switchEntry.createdAt },
         },
@@ -119,7 +118,7 @@ async function main() {
     `Кошельков, где остаток ≠ Σ журнала: ${walletMismatches.length} из ${fmt(wallets.length)}`,
   )
   console.log(
-    `Пакетов, где остаток ≠ Σ журнала: ${packetMismatches.length} из ${fmt(payments.length)}`,
+    `Пакетов, где остаток ≠ Σ журнала: ${packetMismatches.length} из ${fmt(packages.length)}`,
   )
   console.log(`Выручка по журналу: ${fmt(ledgerMoney)} ₽`)
   console.log(`Выручка по строкам:  ${fmt(rowMoney)} ₽`)

@@ -91,7 +91,7 @@ async function main() {
       // название, а сумма приходит из формы — здесь со скидкой в 500 ₽, какую и
       // правят руками поверх прайса.
       const resolved = await loadPaymentProductTx(tx, mine.id, organizationId)
-      const payment = await tx.payment.create({
+      const packet = await tx.package.create({
         data: {
           organizationId,
           studentId: student.id,
@@ -99,7 +99,7 @@ async function main() {
           date: '2026-09-01',
           price: 5900,
           lessonCount: 8,
-          bidForLesson: Math.floor(5900 / 8),
+          unitPrice: Math.floor(5900 / 8),
           remaining: 8,
           productId: resolved.id,
           productName: resolved.name,
@@ -107,25 +107,25 @@ async function main() {
         select: { id: true },
       })
       assert.deepEqual(
-        await tx.payment.findUniqueOrThrow({
-          where: { id: payment.id },
+        await tx.package.findUniqueOrThrow({
+          where: { id: packet.id },
           select: { price: true, productId: true },
         }),
         { price: 5900, productId: mine.id },
-        'правка суммы должна доезжать до базы, не отвязывая оплату от продукта',
+        'правка суммы должна доезжать до базы, не отвязывая пакет от продукта',
       )
       ok('сумма правится поверх прайса, ссылка на продукт остаётся')
 
       await tx.product.delete({ where: { id: mine.id } })
       assert.deepEqual(
-        await tx.payment.findUniqueOrThrow({
-          where: { id: payment.id },
+        await tx.package.findUniqueOrThrow({
+          where: { id: packet.id },
           select: { productId: true, productName: true },
         }),
         { productId: null, productName: 'Абонемент 8 занятий' },
         'удаление продукта должно обнулять ссылку и сохранять снимок названия',
       )
-      ok('удаление продукта не стирает название в оплате')
+      ok('удаление продукта не стирает название в пакете')
 
       throw new Rollback()
     })

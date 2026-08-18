@@ -20,19 +20,19 @@ async function main() {
     SELECT count(*)::bigint AS n, COALESCE(SUM(abs(diff)), 0)::bigint AS total FROM (
       SELECT w.id, w."lessonsBalance" - COALESCE(SUM(p.remaining), 0) AS diff
       FROM "Wallet" w
-      LEFT JOIN "Payment" p ON p."walletId" = w.id AND p.status = 'ACTIVE'
+      LEFT JOIN "Package" p ON p."walletId" = w.id AND p.status = 'ACTIVE'
       GROUP BY w.id, w."lessonsBalance"
     ) t WHERE diff <> 0`
 
   const [packets] = await prisma.$queryRaw<{ n: bigint; total: bigint }[]>`
     SELECT count(*)::bigint AS n, COALESCE(SUM(abs(diff)), 0)::bigint AS total FROM (
       SELECT p.id, p."lessonCount" - COALESCE(SUM(a.amount), 0) - p.remaining AS diff
-      FROM "Payment" p LEFT JOIN "Attendance" a ON a."paymentId" = p.id
+      FROM "Package" p LEFT JOIN "Attendance" a ON a."packageId" = p.id
       WHERE p.remaining IS NOT NULL
       GROUP BY p.id, p."lessonCount", p.remaining
     ) t WHERE diff <> 0`
 
-  const negative = await prisma.payment.count({ where: { remaining: { lt: 0 } } })
+  const negative = await prisma.package.count({ where: { remaining: { lt: 0 } } })
 
   console.log(
     `Кошельков, где баланс ≠ Σ остатков: ${balance?.n ?? 0} (на ${balance?.total ?? 0} ур.)`,
