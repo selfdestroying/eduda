@@ -57,6 +57,9 @@ function revealRow(expanded: boolean, index: number) {
   return { className: ' animate-tab-enter', style: { animationDelay: `${delay}ms` } }
 }
 
+/** Ученик всё ещё в группе — в отличие от отчисленных, переведённых и выпустившихся. */
+const OPEN_STATUSES: StudentStatus[] = ['ACTIVE', 'TRIAL']
+
 /**
  * Ровно те поля, которые показывает предпросмотр. Структурный тип, а не вывод из
  * запроса: так видно с одного взгляда, что блоку нужно, и он не ломается от
@@ -114,7 +117,14 @@ export function WalletPreview({
   // обычно сравнивает кошельки как раз по этим спискам.
   const [expanded, setExpanded] = useState(false)
 
-  const groups = wallet?.studentGroups ?? []
+  // Действующие записи выше закрытых, внутри — порядок запроса, то есть по
+  // свежести (`statusChangedAt`). Иначе группа, из которой ученика отчислили вчера,
+  // встала бы выше той, куда он ходит третий месяц, — а в свёрнутом виде видна
+  // ровно одна строка. Сортировка стабильна, поэтому порядок запроса внутри
+  // каждой половины сохраняется.
+  const groups = [...(wallet?.studentGroups ?? [])].sort(
+    (a, b) => Number(OPEN_STATUSES.includes(b.status)) - Number(OPEN_STATUSES.includes(a.status)),
+  )
   const payments = wallet?.payments ?? []
 
   // Строки рисуются все и всегда — свёрнутый вид просто обрезан по первой. Так
