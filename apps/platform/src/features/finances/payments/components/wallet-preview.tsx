@@ -5,7 +5,7 @@ import type { StudentStatus } from '@repo/db/enums'
 import { Badge } from '@repo/ui/components/badge'
 import { formatDate } from '@/src/lib/timezone'
 import { formatCurrency, getGroupName } from '@/src/lib/utils'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 
 /** «1 занятие ждёт оплаты», «3 занятия ждут оплаты». */
@@ -34,6 +34,17 @@ function formatMorePayments(count: number) {
  * оплатой, а обе — выше распорки. Всё остальное центрируется внутри.
  */
 const ROWS = '[&>li]:flex [&>li]:h-5 [&>li]:items-center'
+
+/**
+ * Появление строки, раскрытой шевроном: лесенкой, по порядку. Первая строка секции
+ * была на экране и в свёрнутом виде — её не трогаем, иначе раскрытие выглядело бы
+ * как подмена всего списка. `animate-tab-enter` уже умеет prefers-reduced-motion,
+ * поэтому своей проверки здесь нет.
+ */
+function revealRow(index: number) {
+  if (index < 1) return { className: '', style: undefined }
+  return { className: ' animate-tab-enter', style: { animationDelay: `${index * 40}ms` } }
+}
 
 /**
  * Ровно те поля, которые показывает предпросмотр. Структурный тип, а не вывод из
@@ -130,7 +141,9 @@ export function WalletPreview({
               canExpand ? '' : 'invisible'
             }`}
           >
-            {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+            <ChevronDown
+              className={`size-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+            />
           </button>
         </div>
         {/* Вторая строка шапки: цифры кошелька. Имя наверху бывает длинным, и вместе
@@ -171,7 +184,11 @@ export function WalletPreview({
         <ul className={`flex flex-col gap-0.5 ${ROWS}`}>
           {wallet && groups.length === 0 && <li className="text-muted-foreground">Нет групп</li>}
           {shownGroups.map((sg, i) => (
-            <li key={i} className="flex items-center justify-between gap-2">
+            <li
+              key={i}
+              className={`flex items-center justify-between gap-2${revealRow(i).className}`}
+              style={revealRow(i).style}
+            >
               <span className="truncate">{getGroupName(sg.group)}</span>
               <Badge variant={STUDENT_STATUS[sg.status].variant} className="shrink-0">
                 {STUDENT_STATUS[sg.status].label}
@@ -187,8 +204,12 @@ export function WalletPreview({
         <SectionHeading title="Оплаты" count={totalPayments} />
         <ul className={`flex flex-col gap-0.5 ${ROWS}`}>
           {wallet && payments.length === 0 && <li className="text-muted-foreground">Нет оплат</li>}
-          {shownPayments.map((p) => (
-            <li key={p.id} className="flex items-center justify-between gap-2 tabular-nums">
+          {shownPayments.map((p, i) => (
+            <li
+              key={p.id}
+              className={`flex items-center justify-between gap-2 tabular-nums${revealRow(i).className}`}
+              style={revealRow(i).style}
+            >
               <span className="truncate">
                 {formatDate(p.date)} · {formatCurrency(p.price)}
               </span>
@@ -201,7 +222,12 @@ export function WalletPreview({
             </li>
           ))}
           {expanded && hiddenPayments > 0 && (
-            <li className="text-muted-foreground">{formatMorePayments(hiddenPayments)}</li>
+            <li
+              className={`text-muted-foreground${revealRow(shownPayments.length).className}`}
+              style={revealRow(shownPayments.length).style}
+            >
+              {formatMorePayments(hiddenPayments)}
+            </li>
           )}
           {!wallet && <li aria-hidden />}
         </ul>
