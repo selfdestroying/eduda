@@ -32,6 +32,17 @@ import PeriodFilter, { PERIOD_TITLE, type Period } from './period-filter'
  */
 const NUMERIC = 'text-right tabular-nums'
 
+/**
+ * Бокс колонки «Статус» — один и тот же в шапке и в ячейках. Ширина общая, содержимое
+ * прижато влево, сам бокс центрирован: бейджи разной длины встают в ровный столбик,
+ * заголовок начинается с того же места, а столбик стоит по центру колонки и не
+ * упирается в числа «Занятий» слева.
+ *
+ * ponytail: 5.5rem — под самую длинную подпись, «Ждёт оплаты». Появится статус
+ * длиннее — ширину придётся увеличить.
+ */
+const STATUS_BOX = 'mx-auto flex w-[5.5rem] justify-start'
+
 /** Пауза после последнего нажатия клавиши, через которую поиск уходит на сервер. */
 const SEARCH_DELAY_MS = 300
 
@@ -135,15 +146,24 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
     },
     {
       id: 'status',
-      header: 'Статус',
+      header: () => <span className={STATUS_BOX}>Статус</span>,
       accessorKey: 'status',
       cell: ({ row }) => {
         const status = row.original.status as PackageStatusValue
-        return <Badge variant={PACKAGE_STATUS_BADGE[status]}>{PACKAGE_STATUS_LABELS[status]}</Badge>
+        return (
+          <span className={STATUS_BOX}>
+            <Badge variant={PACKAGE_STATUS_BADGE[status]}>{PACKAGE_STATUS_LABELS[status]}</Badge>
+          </span>
+        )
       },
       meta: {
         title: 'Статус',
         flexible: true,
+        // По центру, а не по левому краю: слева стоит «Занятий», прижатое вправо, и
+        // бейдж упирался в числа на самой границе колонок. Центр разводит их, не ломая
+        // столбик разрядов. Заголовок центрируется сам — `DataTable` читает
+        // выравнивание из этого же класса.
+        className: 'text-center',
         variant: 'multiSelect',
         options: PACKAGE_STATUS_OPTIONS,
       },
