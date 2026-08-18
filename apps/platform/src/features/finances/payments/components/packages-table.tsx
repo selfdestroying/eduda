@@ -43,42 +43,6 @@ const SEARCH_DELAY_MS = 300
 const SEARCH_MAX_LENGTH = 100
 
 /**
- * Ширины — в процентах, у видимых по умолчанию в сумме 100. Проценты, а не пиксели,
- * потому что при пикселях излишек надо куда-то девать: отдашь одной колонке —
- * раздуется она, поделишь на все — раздуются все.
- *
- * Классы, а не `style`, потому что инлайновую ширину пишет сам `DataTable`;
- * `meta.flexible` её отключает, оставляя ширину этим классам. Значения обязаны
- * быть литералами — Tailwind ищет их в исходнике, из переменной класс не родится.
- */
-const W = {
-  student: 'w-[26%]',
-  price: 'w-[12%]',
-  lessons: 'w-[13%]',
-  status: 'w-[14%]',
-  date: 'w-[14%]',
-  manager: 'w-[21%]',
-} as const
-
-/**
- * Минимальные ширины в пикселях. Раскладку задают проценты выше; здесь — только
- * порог, ниже которого таблица уходит в горизонтальную прокрутку. Поэтому числа
- * не «сколько хочется», а «уже нечитаемо».
- *
- * Порог — их сумма, но каждой колонке на этой ширине достаётся только её процент.
- * Значит число здесь соблюдается лишь пока `пиксели / доля <= сумма`; где это не
- * так, колонка у порога окажется уже заявленного минимума.
- */
-const WIDTHS = {
-  student: 120,
-  price: 120,
-  lessons: 70,
-  status: 130,
-  date: 110,
-  manager: 150,
-} as const
-
-/**
  * Период. Живёт в URL отдельно от колоночных фильтров: колонки `date` в списке
  * фильтруемых нет — по дате отбирают диапазоном, а не галочками. Без границ
  * выборка не ограничена по дате: страницу режет сервер, и вся история стоит
@@ -87,9 +51,19 @@ const WIDTHS = {
 const PERIOD_PARSERS = { from: parseAsString, to: parseAsString }
 
 /**
+ * Ширины колонкам не заданы намеренно. `meta.flexible` снимает инлайновую ширину, и
+ * при `table-fixed` браузер делит ширину контейнера между колонками ровно — таблица
+ * занимает её целиком и подстраивается сама. Своя доля колонке нужна только там, где
+ * содержимое обязано влезать в известный размер; здесь такого нет.
+ *
+ * Порог горизонтальной прокрутки при этом остаётся: `DataTable` берёт его из суммы
+ * `size`, а незаданный `size` у react-table равен 150.
+ */
+
+/**
  * Колонки, по которым фильтруем: `useTableSearchParams` держит их в URL, а отсюда
- * они уезжают в запрос. Всё строками, включая id метода и менеджера, — значения
- * приходят из адреса, и в числа их превращает уже сборка параметров запроса.
+ * они уезжают в запрос. Всё строками, включая id менеджера, — значения приходят из
+ * адреса, и в числа их превращает уже сборка параметров запроса.
  */
 const TABLE_FILTERS = {
   manager: 'string',
@@ -114,8 +88,7 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
           {getFullName(row.original.student.firstName, row.original.student.lastName)}
         </Link>
       ),
-      size: WIDTHS.student,
-      meta: { title: 'Ученик', flexible: true, className: W.student },
+      meta: { title: 'Ученик', flexible: true },
       // Строка без ученика бессмысленна — прятать нечего.
       enableHiding: false,
     },
@@ -126,11 +99,10 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
       header: 'Сумма',
       accessorFn: (row) => row.price,
       cell: ({ row }) => formatCurrency(row.original.price),
-      size: WIDTHS.price,
       meta: {
         title: 'Сумма',
         flexible: true,
-        className: `${NUMERIC} ${W.price}`,
+        className: NUMERIC,
         variant: 'range',
         unit: '₽',
       },
@@ -152,11 +124,10 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
           {row.original.lessonCount}
         </span>
       ),
-      size: WIDTHS.lessons,
       meta: {
         title: 'Занятий',
         flexible: true,
-        className: `${NUMERIC} ${W.lessons}`,
+        className: NUMERIC,
         variant: 'range',
         // Без `unit`: подпись группы и так «Занятий», приписывать «уроков» после
         // полей значило бы сказать то же самое дважды.
@@ -170,11 +141,9 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
         const status = row.original.status as PackageStatusValue
         return <Badge variant={PACKAGE_STATUS_BADGE[status]}>{PACKAGE_STATUS_LABELS[status]}</Badge>
       },
-      size: WIDTHS.status,
       meta: {
         title: 'Статус',
         flexible: true,
-        className: W.status,
         variant: 'multiSelect',
         options: PACKAGE_STATUS_OPTIONS,
       },
@@ -184,8 +153,7 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
       header: 'Дата',
       accessorKey: 'date',
       cell: ({ row }) => formatDateOnly(row.original.date),
-      size: WIDTHS.date,
-      meta: { title: 'Дата', flexible: true, className: W.date },
+      meta: { title: 'Дата', flexible: true },
     },
     {
       id: 'manager',
@@ -197,11 +165,9 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
       ),
       accessorFn: (row) => row.manager?.name ?? '',
       cell: ({ row }) => row.original.manager?.name ?? '—',
-      size: WIDTHS.manager,
       meta: {
         title: 'Менеджер',
         flexible: true,
-        className: W.manager,
         variant: 'multiSelect',
         options: managerOptions,
       },
