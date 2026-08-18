@@ -652,31 +652,6 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
         />
         <Controller
           control={form.control}
-          name="received"
-          render={({ field }) => (
-            <Field>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id={`${formId}-received`}
-                  checked={field.value ?? true}
-                  onCheckedChange={field.onChange}
-                  disabled={disabled}
-                />
-                <FieldLabel htmlFor={`${formId}-received`}>Оплата получена</FieldLabel>
-              </div>
-              {/* Снятая галочка оставляет счёт неоплаченным: пакет заведён, но уроки
-                  на баланс не идут, пока оплату не подтвердят. Включена по умолчанию —
-                  наличные и переводы вносят уже полученными. */}
-              <FieldDescription>
-                {field.value === false
-                  ? 'Уроки не зачислятся, пока оплата не подтверждена'
-                  : 'Уроки зачислятся сразу'}
-              </FieldDescription>
-            </Field>
-          )}
-        />
-        <Controller
-          control={form.control}
           name="managerId"
           render={({ field, fieldState }) => (
             <Field>
@@ -775,6 +750,31 @@ export default function PaymentForm({ form, formId, onSubmit, disabled }: Paymen
                   </FieldDescription>
                 )
               )}
+            </Field>
+          )}
+        />
+        <Controller
+          control={form.control}
+          name="received"
+          render={({ field }) => (
+            <Field>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id={`${formId}-received`}
+                  checked={field.value ?? true}
+                  onCheckedChange={field.onChange}
+                  disabled={disabled}
+                />
+                <FieldLabel htmlFor={`${formId}-received`}>Оплата получена</FieldLabel>
+              </div>
+              {/* Снятая галочка оставляет счёт неоплаченным: пакет заведён, но уроки
+                  на баланс не идут, пока оплату не подтвердят. Включена по умолчанию —
+                  наличные и переводы вносят уже полученными. */}
+              <FieldDescription>
+                {field.value === false
+                  ? 'Уроки не зачислятся, пока оплата не подтверждена'
+                  : 'Уроки зачислятся сразу'}
+              </FieldDescription>
             </Field>
           )}
         />
