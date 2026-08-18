@@ -27,21 +27,11 @@ import type { PackageListItem } from '../types'
 import PeriodFilter, { PERIOD_TITLE, type Period } from './period-filter'
 
 /**
- * Цифры — по правому краю и моноширинными: только так разряды встают в столбик и
- * значения можно сравнивать взглядом. Текстовые колонки остаются по левому краю.
+ * Числовые колонки. Выключка левая, как у остального, — колонки узкие и заданной
+ * ширины, так что разряды и без прижатия вправо стоят почти столбиком. Моноширинные
+ * цифры оставлены: без них столбик разъезжается на каждой единице.
  */
-const NUMERIC = 'text-right tabular-nums'
-
-/**
- * Бокс колонки «Статус» — один и тот же в шапке и в ячейках. Ширина общая, содержимое
- * прижато влево, сам бокс центрирован: бейджи разной длины встают в ровный столбик,
- * заголовок начинается с того же места, а столбик стоит по центру колонки и не
- * упирается в числа «Занятий» слева.
- *
- * ponytail: 5.5rem — под самую длинную подпись, «Ждёт оплаты». Появится статус
- * длиннее — ширину придётся увеличить.
- */
-const STATUS_BOX = 'mx-auto flex w-[5.5rem] justify-start'
+const NUMERIC = 'tabular-nums'
 
 /** Пауза после последнего нажатия клавиши, через которую поиск уходит на сервер. */
 const SEARCH_DELAY_MS = 300
@@ -62,14 +52,15 @@ const SEARCH_MAX_LENGTH = 100
 const PERIOD_PARSERS = { from: parseAsString, to: parseAsString }
 
 /**
- * Ширины колонкам не заданы намеренно. `meta.flexible` снимает инлайновую ширину, и
- * при `table-fixed` браузер делит ширину контейнера между колонками ровно — таблица
- * занимает её целиком и подстраивается сама. Своя доля колонке нужна только там, где
- * содержимое обязано влезать в известный размер; здесь такого нет.
+ * Ширина всех колонок, кроме «Ученика». Суммы, даты и статусы имеют известный
+ * потолок длины, и делить между ними лишнее место незачем — весь остаток забирает
+ * имя, единственная колонка с `meta.flexible` и без ширины. Оно же и единственное,
+ * что реально бывает длинным.
  *
- * Порог горизонтальной прокрутки при этом остаётся: `DataTable` берёт его из суммы
- * `size`, а незаданный `size` у react-table равен 150.
+ * Порог горизонтальной прокрутки — сумма `size`: 5 × 130 плюс 150 у «Ученика»
+ * (столько react-table даёт колонке без явного `size`).
  */
+const COLUMN_WIDTH = 130
 
 /**
  * Колонки, по которым фильтруем: `useTableSearchParams` держит их в URL, а отсюда
@@ -104,15 +95,33 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
       enableHiding: false,
     },
     {
+      // Сразу после ученика: «оплачен» или «ждёт оплаты» читается вместе с именем, а
+      // не после цифр. Заодно бейдж больше не соседствует с прижатым вправо
+      // «Занятий» — выключка обычная, левая.
+      id: 'status',
+      header: 'Статус',
+      accessorKey: 'status',
+      size: COLUMN_WIDTH,
+      cell: ({ row }) => {
+        const status = row.original.status as PackageStatusValue
+        return <Badge variant={PACKAGE_STATUS_BADGE[status]}>{PACKAGE_STATUS_LABELS[status]}</Badge>
+      },
+      meta: {
+        title: 'Статус',
+        variant: 'multiSelect',
+        options: PACKAGE_STATUS_OPTIONS,
+      },
+    },
+    {
       // Деньги раньше количества: на финансовой странице сумма — главная цифра, а
       // занятия объясняют, из чего она сложилась. По сумме же фильтруют.
       id: 'price',
       header: 'Сумма',
       accessorFn: (row) => row.price,
+      size: COLUMN_WIDTH,
       cell: ({ row }) => formatCurrency(row.original.price),
       meta: {
         title: 'Сумма',
-        flexible: true,
         className: NUMERIC,
         variant: 'range',
         unit: '₽',
@@ -123,21 +132,13 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
       header: () => (
         <span className="flex items-center gap-0.5">
           Занятий
-          <Hint text="Сколько уроков в пакете и сколько из них ещё не потрачено. У пакета, который ждёт оплаты, на баланс не зачислено ничего." />
+          <Hint text="Сколько уроков в пакете. Остаток виден на карточке ученика." />
         </span>
       ),
       accessorKey: 'lessonCount',
-      // «4 / 8» — из восьми уроков не потрачено четыре. Остаток отдельной колонкой
-      // не выносим: он читается только вместе с размером пакета.
-      cell: ({ row }) => (
-        <span>
-          <span className="text-muted-foreground">{row.original.remaining}</span> /{' '}
-          {row.original.lessonCount}
-        </span>
-      ),
+      size: COLUMN_WIDTH,
       meta: {
         title: 'Занятий',
-        flexible: true,
         className: NUMERIC,
         variant: 'range',
         // Без `unit`: подпись группы и так «Занятий», приписывать «уроков» после
@@ -145,35 +146,12 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
       },
     },
     {
-      id: 'status',
-      header: () => <span className={STATUS_BOX}>Статус</span>,
-      accessorKey: 'status',
-      cell: ({ row }) => {
-        const status = row.original.status as PackageStatusValue
-        return (
-          <span className={STATUS_BOX}>
-            <Badge variant={PACKAGE_STATUS_BADGE[status]}>{PACKAGE_STATUS_LABELS[status]}</Badge>
-          </span>
-        )
-      },
-      meta: {
-        title: 'Статус',
-        flexible: true,
-        // По центру, а не по левому краю: слева стоит «Занятий», прижатое вправо, и
-        // бейдж упирался в числа на самой границе колонок. Центр разводит их, не ломая
-        // столбик разрядов. Заголовок центрируется сам — `DataTable` читает
-        // выравнивание из этого же класса.
-        className: 'text-center',
-        variant: 'multiSelect',
-        options: PACKAGE_STATUS_OPTIONS,
-      },
-    },
-    {
       id: 'date',
       header: 'Дата',
       accessorKey: 'date',
+      size: COLUMN_WIDTH,
       cell: ({ row }) => formatDateOnly(row.original.date),
-      meta: { title: 'Дата', flexible: true },
+      meta: { title: 'Дата' },
     },
     {
       id: 'manager',
@@ -184,10 +162,10 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
         </span>
       ),
       accessorFn: (row) => row.manager?.name ?? '',
+      size: COLUMN_WIDTH,
       cell: ({ row }) => row.original.manager?.name ?? '—',
       meta: {
         title: 'Менеджер',
-        flexible: true,
         variant: 'multiSelect',
         options: managerOptions,
       },
