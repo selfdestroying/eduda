@@ -61,7 +61,6 @@ model Rate {
 model Payment {
     id        Int      @id @default(autoincrement())
     price     Int      @default(0)
-    leadName  String   @default("")
     date      String
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
@@ -74,22 +73,18 @@ model Payment {
     cancelledAt DateTime?
 
     // Relations
+    //
+    // Счёт обезличен: ни ученика, ни продавца на нём нет. И тот и другой относятся
+    // к продаже, то есть к пакету, а один счёт может закрыть пакеты разных учеников
+    // — «чей платёж» выводится через `packages`.
     organizationId  Int
-    studentId       Int
     paymentMethodId Int?
-    /// Кто продал. Не автор записи: оплаты часто вносит один администратор за всех,
-    /// а премия причитается тому, кто договорился. Поле необязательное — у оплат до
-    /// его появления менеджера нет, и расчёты это переживают.
-    managerId       Int?
     organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-    student         Student        @relation(fields: [studentId], references: [id])
     paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
-    manager         User?          @relation(fields: [managerId], references: [id], onDelete: SetNull)
 
     /// Один счёт может закрыть несколько пакетов — например, двоих детей сразу.
     packages Package[]
 
-    @@index([studentId])
     @@index([organizationId])
     @@index([createdAt])
     @@index([paymentMethodId])
@@ -97,7 +92,6 @@ model Payment {
     /// Отдельного `organizationId` для этого мало — по нему пришлось бы отбирать все
     /// оплаты школы и сортировать их каждый раз заново.
     @@index([organizationId, date])
-    @@index([managerId])
 }
 
 /// Пакет уроков: то, что продаёт менеджер и что гасят посещения. Встаёт в очередь
@@ -134,6 +128,11 @@ model Package {
     walletId       Int
     paymentId      Int?
     productId      Int?
+    /// Кто продал. Не автор записи: счёт часто заводит один администратор за всех,
+    /// а премия причитается тому, кто договорился. Живёт на пакете, а не на счёте:
+    /// продажа — это пакет, и премия считается за проданный продукт. Поле
+    /// необязательное — у пакетов до его появления продавца нет.
+    managerId      Int?
     /// Снимок названия продукта на момент продажи: продукт можно переименовать или
     /// удалить, а подпись проданного пакета обязана остаться прежней.
     productName    String @default("")
@@ -143,6 +142,7 @@ model Package {
     wallet       Wallet       @relation(fields: [walletId], references: [id], onDelete: Cascade)
     payment      Payment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
     product      Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+    manager      User?        @relation(fields: [managerId], references: [id], onDelete: SetNull)
 
     attendances Attendance[]
     ledger      WalletEntry[]
@@ -153,6 +153,7 @@ model Package {
     @@index([paymentId])
     @@index([productId])
     @@index([studentId])
+    @@index([managerId])
 }
 
 /// Журнал движений кошелька: одна строка на каждое изменение остатка уроков.

@@ -115,14 +115,23 @@ function buildColumns(
     {
       id: 'student',
       header: 'Ученик',
-      accessorFn: (row) => getFullName(row.student.firstName, row.student.lastName),
+      // Ученики счёта — через его пакеты. Обычно он один; счёт на двоих детей
+      // перечисляет обоих, и ссылка ведёт к каждому.
+      accessorFn: (row) =>
+        row.packages.map((p) => getFullName(p.student.firstName, p.student.lastName)).join(', '),
       cell: ({ row }) => (
-        <Link
-          href={`/students/${row.original.student.id}`}
-          className="text-primary hover:underline"
-        >
-          {getFullName(row.original.student.firstName, row.original.student.lastName)}
-        </Link>
+        <span className="flex flex-wrap gap-x-1">
+          {row.original.packages.map((p, i) => (
+            <Link
+              key={p.id}
+              href={`/students/${p.student.id}`}
+              className="text-primary hover:underline"
+            >
+              {getFullName(p.student.firstName, p.student.lastName)}
+              {i < row.original.packages.length - 1 ? ',' : ''}
+            </Link>
+          ))}
+        </span>
       ),
       size: WIDTHS.student,
       meta: { title: 'Ученик', flexible: true, className: W.student },
@@ -209,11 +218,16 @@ function buildColumns(
       header: () => (
         <span className="flex items-center gap-0.5">
           Менеджер
-          <Hint text="Кто продал этот пакет. У оплат, заведённых до появления поля, менеджер не указан." />
+          <Hint text="Кто продал пакеты этого счёта. У пакетов, заведённых до появления поля, менеджер не указан." />
         </span>
       ),
-      accessorFn: (row) => row.manager?.name ?? '',
-      cell: ({ row }) => row.original.manager?.name ?? '—',
+      // Продавец живёт на пакете: продажа — это пакет, а не платёж.
+      accessorFn: (row) =>
+        [...new Set(row.packages.map((p) => p.manager?.name).filter(Boolean))].join(', '),
+      cell: ({ row }) =>
+        [...new Set(row.original.packages.map((p) => p.manager?.name).filter(Boolean))].join(
+          ', ',
+        ) || '—',
       size: WIDTHS.manager,
       meta: {
         title: 'Менеджер',

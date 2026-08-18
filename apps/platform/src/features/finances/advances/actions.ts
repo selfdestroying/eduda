@@ -22,19 +22,21 @@ export const getAdvancesData = authAction
     const periodEndYmd = periodEnd.toISOString().slice(0, 10)
 
     // ====================================================================
-    // 1. Оплаты ДО конца периода
+    // 1. Проданные пакеты ДО конца периода
     // ====================================================================
-    const allPayments = await prisma.payment.findMany({
-      // Отменённая оплата денег школе не принесла — в авансах ей делать нечего.
+    // Деньги считаем по пакетам, а не по счетам: счёт обезличен и может закрыть
+    // пакеты разных учеников, а «сколько получено за ученика» — вопрос про его
+    // пакеты. Невыданные (счёт не оплачен) и отменённые сюда не входят: денег
+    // школе они не принесли.
+    const allPackages = await prisma.package.findMany({
       where: { organizationId, status: 'ACTIVE', createdAt: { lte: periodEnd } },
       select: {
         id: true,
         studentId: true,
         price: true,
+        lessonCount: true,
         createdAt: true,
         student: { select: { id: true, firstName: true, lastName: true } },
-        // Занятия живут на пакетах: из них считается средняя цена урока ученика.
-        packages: { select: { lessonCount: true } },
       },
       orderBy: { createdAt: 'asc' },
     })
@@ -96,11 +98,11 @@ export const getAdvancesData = authAction
     // ====================================================================
     // 4. Собираем по студентам
     // ====================================================================
-    const paymentsByStudent = Map.groupBy(allPayments, (p) => p.studentId)
+    const packagesByStudent = Map.groupBy(allPackages, (p) => p.studentId)
 
     // Уникальные студенты
     const studentMap = new Map<number, { id: number; firstName: string; lastName: string }>()
-    for (const p of allPayments) {
+    for (const p of allPackages) {
       if (!studentMap.has(p.studentId)) studentMap.set(p.studentId, p.student)
     }
     // Студенты, которые есть в выручке, но не в оплатах
@@ -137,17 +139,14 @@ export const getAdvancesData = authAction
     const studentRows: StudentAdvanceRow[] = []
 
     for (const [studentId, student] of studentMap) {
-      const payments = paymentsByStudent.get(studentId) ?? []
+      const packets = packagesByStudent.get(studentId) ?? []
 
-      const totalPaid = payments.reduce((s, p) => s + p.price, 0)
-      const totalLessonsPaid = payments.reduce(
-        (s, p) => s + p.packages.reduce((n, pkg) => n + pkg.lessonCount, 0),
-        0,
-      )
+      const totalPaid = packets.reduce((s, p) => s + p.price, 0)
+      const totalLessonsPaid = packets.reduce((s, p) => s + p.lessonCount, 0)
       const avgCost = totalLessonsPaid > 0 ? totalPaid / totalLessonsPaid : 0
 
-      const pmtBefore = payments.filter((p) => p.createdAt < periodStart)
-      const pmtIn = payments.filter((p) => p.createdAt >= periodStart && p.createdAt <= periodEnd)
+      const pmtBefore = packets.filter((p) => p.createdAt < periodStart)
+      const pmtIn = packets.filter((p) => p.createdAt >= periodStart && p.createdAt <= periodEnd)
       const paidBefore = pmtBefore.reduce((s, p) => s + p.price, 0)
       const paidInPeriod = pmtIn.reduce((s, p) => s + p.price, 0)
 

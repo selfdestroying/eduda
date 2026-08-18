@@ -560,7 +560,6 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       const date = ymd(addUTCDays(today, -int(1, 40)))
       payments.push({
         organizationId: orgId,
-        studentId: st.id,
         paymentMethodId: pick([methodCash.id, methodCard.id]),
         price,
         date,
@@ -578,7 +577,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
   })
   const createdPayments = await prisma.payment.createManyAndReturn({
     data: payments,
-    select: { id: true, studentId: true, date: true, price: true },
+    select: { id: true, date: true, price: true },
   })
   const createdPackages = await prisma.package.createManyAndReturn({
     data: packetPlans.map((plan, i) => ({

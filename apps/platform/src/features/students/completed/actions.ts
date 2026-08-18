@@ -22,7 +22,7 @@ export const getCompletedStudents = authAction
         },
         student: {
           include: {
-            payments: true,
+            packages: true,
           },
         },
         wallet: true,

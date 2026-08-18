@@ -25,7 +25,7 @@ export const getActiveStudents = authAction
         },
         student: {
           include: {
-            payments: true,
+            packages: true,
           },
         },
         wallet: true,

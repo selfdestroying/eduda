@@ -38,14 +38,13 @@ const PAYMENT_TX_OPTIONS = { timeout: 30_000 }
  * переименованных колонок) даёт порядок по умолчанию, без ошибки.
  */
 const PAYMENT_ORDER_BY: Record<string, (dir: Prisma.SortOrder) => PaymentOrderBy[]> = {
-  student: (dir) => [{ student: { firstName: dir } }, { student: { lastName: dir } }],
   price: (dir) => [{ price: dir }],
-  // Сортировки по занятиям нет: они на пакетах, а счёт может закрыть несколько.
-  // Неизвестный ключ этот список переживает — вернётся порядок по умолчанию.
   date: (dir) => [{ date: dir }],
   paymentMethod: (dir) => [{ paymentMethod: { name: dir } }],
-  manager: (dir) => [{ manager: { name: dir } }],
   status: (dir) => [{ status: dir }],
+  // Сортировок по ученику, менеджеру и занятиям нет: всё это лежит на пакетах, а
+  // упорядочить счета по полю связи «многие» SQL здесь не может. Неизвестный ключ
+  // белый список переживает — вернётся порядок по умолчанию.
 }
 
 type PaymentOrderBy = Prisma.PaymentOrderByWithRelationInput
@@ -105,9 +104,19 @@ function searchWhere(search: string | undefined): Prisma.PaymentWhereInput['AND'
 
   return terms.map((term) => ({
     OR: [
-      { student: { firstName: { contains: term, mode: 'insensitive' as const } } },
-      { student: { lastName: { contains: term, mode: 'insensitive' as const } } },
-      { manager: { name: { contains: term, mode: 'insensitive' as const } } },
+      {
+        packages: {
+          some: { student: { firstName: { contains: term, mode: 'insensitive' as const } } },
+        },
+      },
+      {
+        packages: {
+          some: { student: { lastName: { contains: term, mode: 'insensitive' as const } } },
+        },
+      },
+      {
+        packages: { some: { manager: { name: { contains: term, mode: 'insensitive' as const } } } },
+      },
       { paymentMethod: { name: { contains: term, mode: 'insensitive' as const } } },
     ],
   }))
@@ -131,7 +140,7 @@ export const getPayments = permissionAction({ payment: ['read'] })
         date: { ...(from && { gte: from }), ...(to && { lte: to }) },
       }),
       ...(methodIds.length > 0 && { paymentMethodId: { in: methodIds } }),
-      ...(managerIds.length > 0 && { managerId: { in: managerIds } }),
+      ...(managerIds.length > 0 && { packages: { some: { managerId: { in: managerIds } } } }),
       ...(statuses.length > 0 && { status: { in: statuses } }),
       ...rangeWhere(parsedInput.priceMin, parsedInput.priceMax),
       ...lessonsWhere(parsedInput.lessonsMin, parsedInput.lessonsMax),
@@ -191,12 +200,10 @@ export const createPaymentWithBalance = permissionAction({ payment: ['create'] }
         select: { id: true },
         data: {
           organizationId: ctx.session.organizationId!,
-          studentId,
           price,
           date,
           status: received ? 'ACTIVE' : 'PENDING',
           paymentMethodId: paymentMethodId ?? null,
-          managerId: managerId ?? null,
         },
       })
 
@@ -209,6 +216,7 @@ export const createPaymentWithBalance = permissionAction({ payment: ['create'] }
           studentId,
           walletId,
           paymentId: payment.id,
+          managerId: managerId ?? null,
           lessonCount,
           remaining: lessonCount,
           price,
@@ -369,12 +377,10 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
         select: { id: true },
         data: {
           organizationId: ctx.session.organizationId!,
-          studentId,
           price,
           date,
           status: received ? 'ACTIVE' : 'PENDING',
           paymentMethodId: paymentMethodId ?? null,
-          managerId: managerId ?? null,
         },
       })
 
@@ -385,6 +391,7 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
           studentId,
           walletId,
           paymentId: payment.id,
+          managerId: managerId ?? null,
           lessonCount,
           remaining: lessonCount,
           price,

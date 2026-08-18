@@ -351,10 +351,13 @@ export const deleteStudent = authAction
       })
       if (!student) throw new Error('Ученик не найден')
 
-      // Удаляем связи без каскада (Payment и StudentAccount имеют onDelete: Restrict).
+      // Удаляем связи без каскада (Package и StudentAccount имеют onDelete: Restrict).
       // Остальные связи (кошельки, группы, посещения, заказы, история, корзина, родители)
       // удаляются каскадно при удалении ученика.
-      await tx.payment.deleteMany({ where: { studentId: student.id, organizationId } })
+      //
+      // Счета остаются: они обезличены, их пакеты уходят вместе с учеником, и в
+      // деньгах школы платёж всё равно был.
+      await tx.package.deleteMany({ where: { studentId: student.id, organizationId } })
 
       // Учётка better-auth не висит на ученике и каскадом не уходит. Без явного
       // удаления логин остаётся занятым навсегда (username уникален), а по

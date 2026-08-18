@@ -25,7 +25,6 @@ model Student {
     cart                  Cart?
     attendances           Attendance[]
     orders                Order[]
-    payments              Payment[]
     packages              Package[]
     groups                StudentGroup[]
     unprocessedPayments   UnprocessedPayment[]

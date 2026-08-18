@@ -16,7 +16,7 @@ export type ComStudent = Prisma.StudentGroupGetPayload<{
     }
     student: {
       include: {
-        payments: true
+        packages: true
       }
     }
     wallet: true

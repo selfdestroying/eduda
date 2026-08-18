@@ -13,14 +13,22 @@ export const PAYMENT_LIST_SELECT = {
   id: true,
   price: true,
   date: true,
-  // Занятия живут на пакетах: их у счёта может быть несколько, и в строке они
-  // складываются. Узкая выборка — на строку приходится один-два пакета.
-  packages: { select: { id: true, lessonCount: true, remaining: true, status: true } },
+  // Счёт обезличен: занятия, ученик и продавец приходят через пакеты. Их у счёта
+  // может быть несколько, и в строке они складываются. Выборка узкая — на строку
+  // приходится один-два пакета.
+  packages: {
+    select: {
+      id: true,
+      lessonCount: true,
+      remaining: true,
+      status: true,
+      student: { select: { id: true, firstName: true, lastName: true } },
+      manager: { select: { id: true, name: true } },
+    },
+  },
   status: true,
   cancelledAt: true,
-  student: { select: { id: true, firstName: true, lastName: true } },
   paymentMethod: { select: { id: true, name: true } },
-  manager: { select: { id: true, name: true } },
 } satisfies Prisma.PaymentSelect
 
 /** Строка таблицы. */

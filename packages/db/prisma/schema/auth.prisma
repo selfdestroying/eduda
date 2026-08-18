@@ -19,7 +19,7 @@ model User {
     lessons               TeacherLesson[]
     payChecks             PayCheck[]
     managerSalaries       ManagerSalary[]
-    soldPayments          Payment[]
+    soldPackages          Package[]
     lessonsBalanceChanges StudentLessonsBalanceHistory[]
     ledgerEntries         WalletEntry[]
     sessions              Session[]
