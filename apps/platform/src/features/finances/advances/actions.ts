@@ -31,9 +31,10 @@ export const getAdvancesData = authAction
         id: true,
         studentId: true,
         price: true,
-        lessonCount: true,
         createdAt: true,
         student: { select: { id: true, firstName: true, lastName: true } },
+        // Занятия живут на пакетах: из них считается средняя цена урока ученика.
+        packages: { select: { lessonCount: true } },
       },
       orderBy: { createdAt: 'asc' },
     })
@@ -139,7 +140,10 @@ export const getAdvancesData = authAction
       const payments = paymentsByStudent.get(studentId) ?? []
 
       const totalPaid = payments.reduce((s, p) => s + p.price, 0)
-      const totalLessonsPaid = payments.reduce((s, p) => s + p.lessonCount, 0)
+      const totalLessonsPaid = payments.reduce(
+        (s, p) => s + p.packages.reduce((n, pkg) => n + pkg.lessonCount, 0),
+        0,
+      )
       const avgCost = totalLessonsPaid > 0 ? totalPaid / totalLessonsPaid : 0
 
       const pmtBefore = payments.filter((p) => p.createdAt < periodStart)

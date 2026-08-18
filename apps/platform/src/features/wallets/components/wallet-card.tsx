@@ -16,7 +16,7 @@ export type WalletCardData = WalletLabelInput & {
    * Непотраченные пакеты в порядке очереди списания. Необязательные: родительский
    * кабинет их не выбирает, и карточка там просто без разбивки.
    */
-  payments?: Array<{
+  packages?: Array<{
     id: number
     productName: string
     date: string
@@ -98,10 +98,10 @@ export function WalletCard({ wallet, actions, children, className }: WalletCardP
       </div>
 
       {/* Из чего сложился баланс: пакеты в порядке списания */}
-      {wallet.payments && wallet.payments.length > 0 && (
+      {wallet.packages && wallet.packages.length > 0 && (
         <div className="text-muted-foreground space-y-0.5 text-[0.625rem]">
           <span>Пакеты:</span>
-          {wallet.payments.map((p) => (
+          {wallet.packages.map((p) => (
             <div key={p.id} className="flex items-center justify-between gap-1">
               <span className="truncate">
                 {p.productName || `Оплата от ${formatDateOnly(p.date)}`}

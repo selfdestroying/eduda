@@ -37,7 +37,7 @@ export type StudentDetail = Prisma.StudentGetPayload<{
             group: { include: { course: true; location: true; schedules: true } }
           }
         }
-        payments: true
+        packages: true
       }
     }
   }
