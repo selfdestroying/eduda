@@ -438,6 +438,61 @@ async function main() {
         'пакет без уроков даёт цену 0, а не NaN и не Infinity',
       )
 
+      // ─── Пакет неоплаченного счёта не выдаётся ─────────────────────────
+      // Все пакеты выше были без счёта — подарки и корректировки, их выдавать
+      // законно. Здесь счёт есть и он не оплачен: выдать значило бы зачислить
+      // уроки, признать по ним выручку и не заметить этого ни одной сверкой —
+      // журнал при досрочной выдаче сходится с колонками идеально.
+      const pendingInvoice = await tx.payment.create({
+        data: { organizationId, price: 6_000, date: '2027-06-01', status: 'PENDING' },
+        select: { id: true },
+      })
+      const unpaidPacket = await tx.package.create({
+        data: {
+          organizationId,
+          studentId: student.id,
+          walletId: wallet.id,
+          paymentId: pendingInvoice.id,
+          date: '2027-06-01',
+          price: 6_000,
+          lessonCount: 6,
+          remaining: 6,
+          unitPrice: 1_000,
+        },
+        select: { id: true },
+      })
+
+      const balanceBeforeGuard = await balance()
+      await assert.rejects(
+        () =>
+          activatePackageTx(tx, {
+            packageId: unpaidPacket.id,
+            organizationId,
+            actorUserId: null,
+          }),
+        /Счёт не оплачен/,
+        'пакет неоплаченного счёта выдавать нельзя',
+      )
+      assert.equal(await balance(), balanceBeforeGuard, 'баланс не должен двинуться')
+      assert.equal(
+        (await tx.package.findUniqueOrThrow({ where: { id: unpaidPacket.id } })).status,
+        'PENDING',
+        'и пакет остаётся ждать оплаты',
+      )
+
+      // Тот же пакет после оплаты счёта выдаётся обычным порядком.
+      await tx.payment.update({ where: { id: pendingInvoice.id }, data: { status: 'ACTIVE' } })
+      await activatePackageTx(tx, {
+        packageId: unpaidPacket.id,
+        organizationId,
+        actorUserId: null,
+      })
+      assert.equal(
+        await balance(),
+        balanceBeforeGuard + 6,
+        'после оплаты счёта уроки обязаны лечь на баланс',
+      )
+
       throw new Rollback()
     })
   } catch (error) {

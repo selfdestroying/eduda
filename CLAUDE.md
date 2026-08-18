@@ -166,15 +166,17 @@ Public docs live in their **own Next app** (fumadocs, port 3001) — no auth, no
 Проверки (гоняются против настоящей БД, ничего не меняют):
 
 ```bash
-pnpm --filter platform exec tsx scripts/check-ledger-core.ts   # ядро в откатываемой транзакции
-pnpm --filter platform exec tsx scripts/check-ledger.ts        # журнал против колонок
+pnpm --filter platform exec tsx scripts/check-ledger-core.ts       # ядро в откатываемой транзакции
+pnpm --filter platform exec tsx scripts/check-ledger.ts            # журнал против колонок
 pnpm --filter platform exec tsx scripts/check-wallet-balance.ts
 pnpm --filter platform exec tsx scripts/check-revenue-parity.ts
+pnpm --filter platform exec tsx scripts/check-package-statuses.ts  # статусы счёта против его пакетов
+pnpm --filter platform exec tsx scripts/check-package-product.ts   # продукт пакета: снимок и изоляция
 ```
 
 ## Feature flags
 
-`src/lib/features/registry.ts` is the source of truth for toggleable features (hierarchical keys like `finances.payments`). The DB stores only **disabled** overrides (`OrganizationFeature`, default = enabled). `route-feature-map.ts` maps URL patterns → feature keys; the proxy blocks disabled routes and the sidebar hides them.
+`src/lib/features/registry.ts` is the source of truth for toggleable features (hierarchical keys like `finances.packages`). The DB stores only **disabled** overrides (`OrganizationFeature`, default = enabled). Each entry carries its own `routes` prefixes, from which the registry derives the URL → feature key table (longest prefix wins); the proxy blocks disabled routes and the sidebar hides them.
 
 ## Кабинет ученика (`apps/shop`)
 
