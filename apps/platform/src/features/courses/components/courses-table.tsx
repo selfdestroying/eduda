@@ -27,9 +27,6 @@ export default function CoursesTable() {
       {
         header: 'Название',
         accessorKey: 'name',
-        meta: {
-          filterVariant: 'text',
-        },
       },
       {
         id: 'actions',

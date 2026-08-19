@@ -20,6 +20,7 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
+  FieldOptional,
 } from '@repo/ui/components/field'
 import { Input } from '@repo/ui/components/input'
 import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
@@ -50,7 +51,7 @@ import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { Link2, Loader, Plus, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useGroupCreateMutation } from '../queries'
 import { CreateGroupSchema, type CreateGroupSchemaType } from '../schemas'
 
@@ -63,6 +64,17 @@ const WEEKDAYS = [
   { dayOfWeek: 6, label: 'Сб', fullLabel: 'Суббота' },
   { dayOfWeek: 0, label: 'Вс', fullLabel: 'Воскресенье' },
 ]
+
+/**
+ * Готовый список для `Select`, а не `WEEKDAYS.map(...)` в разметке: `Select.Root`
+ * кладёт `items` в свой стор эффектом, зависящим от ссылки на массив. Новый массив
+ * на каждый рендер гоняет стор по кругу, пока React не упадёт с «Maximum update
+ * depth exceeded». Дни недели не меняются — списку место рядом с ними.
+ */
+const WEEKDAY_ITEMS = WEEKDAYS.map((d) => ({
+  value: String(d.dayOfWeek),
+  label: d.fullLabel,
+}))
 
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
 
@@ -98,6 +110,22 @@ export default function CreateGroupForm() {
   const { data: rates, isLoading: isRatesLoading } = useRateListQuery()
 
   const { data: groupTypes, isLoading: isGroupTypesLoading } = useGroupTypeListQuery()
+
+  // Списки для `Select` — мемо по той же причине, что и `WEEKDAY_ITEMS`: собранный
+  // инлайном массив новый на каждый рендер и уводит стор селекта в бесконечное
+  // обновление. Ставки нужны ещё и внутри `map` по преподавателям, где хука не завести.
+  const groupTypeItems = useMemo(
+    () => (groupTypes ?? []).map((gt) => ({ value: gt.id, label: gt.name })),
+    [groupTypes],
+  )
+  const locationItems = useMemo(
+    () => (locations ?? []).map((l) => ({ value: l.id, label: l.name })),
+    [locations],
+  )
+  const rateItems = useMemo(
+    () => (rates ?? []).map((r) => ({ value: r.id, label: r.name })),
+    [rates],
+  )
   const createMutation = useGroupCreateMutation()
 
   // Кэш выбранных учеников (id → ФИО) для показа в списке зачисленных
@@ -278,8 +306,7 @@ export default function CreateGroupForm() {
                   render={({ field }) => (
                     <Field>
                       <FieldLabel htmlFor="name-field">
-                        Название{' '}
-                        <span className="text-muted-foreground font-normal">— необязательно</span>
+                        Название <FieldOptional />
                       </FieldLabel>
                       <Input
                         id="name-field"
@@ -301,7 +328,7 @@ export default function CreateGroupForm() {
                     disabled={isPending}
                     render={({ field, fieldState }) => (
                       <Field>
-                        <FieldLabel htmlFor="form-rhf-select-course">Курс *</FieldLabel>
+                        <FieldLabel htmlFor="form-rhf-select-course">Курс</FieldLabel>
                         <CustomCombobox
                           id="form-rhf-select-course"
                           items={courses || []}
@@ -329,9 +356,9 @@ export default function CreateGroupForm() {
                     control={form.control}
                     render={({ field, fieldState }) => (
                       <Field>
-                        <FieldLabel htmlFor="form-rhf-select-groupType">Тип группы *</FieldLabel>
+                        <FieldLabel htmlFor="form-rhf-select-groupType">Тип группы</FieldLabel>
                         <Select
-                          items={(groupTypes ?? []).map((gt) => ({ value: gt.id, label: gt.name }))}
+                          items={groupTypeItems}
                           value={field.value ?? null}
                           onValueChange={(v) => field.onChange(v)}
                           disabled={isPending}
@@ -363,9 +390,9 @@ export default function CreateGroupForm() {
                     disabled={isPending}
                     render={({ field, fieldState }) => (
                       <Field>
-                        <FieldLabel htmlFor="form-rhf-select-location">Локация *</FieldLabel>
+                        <FieldLabel htmlFor="form-rhf-select-location">Локация</FieldLabel>
                         <Select
-                          items={(locations ?? []).map((l) => ({ value: l.id, label: l.name }))}
+                          items={locationItems}
                           value={field.value ?? null}
                           onValueChange={(v) => field.onChange(v)}
                           disabled={isPending}
@@ -425,8 +452,7 @@ export default function CreateGroupForm() {
                   render={({ field, fieldState }) => (
                     <Field>
                       <FieldLabel htmlFor="url-field">
-                        Ссылка{' '}
-                        <span className="text-muted-foreground font-normal">— необязательно</span>
+                        Ссылка <FieldOptional />
                       </FieldLabel>
                       <div className="relative">
                         <Link2 className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
@@ -458,7 +484,7 @@ export default function CreateGroupForm() {
             </CardHeader>
             <CardContent>
               <Field>
-                <FieldLabel>Преподаватели *</FieldLabel>
+                <FieldLabel>Преподаватели</FieldLabel>
 
                 {teacherFields.length > 0 && (
                   <div className="text-muted-foreground grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px] gap-2 px-0.5 text-[0.625rem] tracking-wide uppercase">
@@ -501,7 +527,7 @@ export default function CreateGroupForm() {
                         render={({ field, fieldState }) => (
                           <div className="flex flex-col gap-1">
                             <Select
-                              items={(rates ?? []).map((r) => ({ value: r.id, label: r.name }))}
+                              items={rateItems}
                               value={field.value || null}
                               onValueChange={(v) => field.onChange(v)}
                               disabled={isPending}
@@ -585,7 +611,7 @@ export default function CreateGroupForm() {
                     disabled={isPending}
                     render={({ field, fieldState }) => (
                       <Field>
-                        <FieldLabel htmlFor="startDate-field">Дата старта *</FieldLabel>
+                        <FieldLabel htmlFor="startDate-field">Дата старта</FieldLabel>
                         <Input
                           id="startDate-field"
                           type="date"
@@ -610,7 +636,7 @@ export default function CreateGroupForm() {
                     disabled={isPending}
                     render={({ field, fieldState }) => (
                       <Field>
-                        <FieldLabel htmlFor="lessonCount-field">Количество занятий *</FieldLabel>
+                        <FieldLabel htmlFor="lessonCount-field">Количество занятий</FieldLabel>
                         <NumberField
                           id="lessonCount-field"
                           size="sm"
@@ -638,7 +664,7 @@ export default function CreateGroupForm() {
 
                 <Field>
                   <div className="flex items-center justify-between gap-3">
-                    <FieldLabel>Расписание *</FieldLabel>
+                    <FieldLabel>Расписание</FieldLabel>
                   </div>
 
                   {fields.length > 0 && (
@@ -661,10 +687,7 @@ export default function CreateGroupForm() {
                             День недели
                           </span>
                           <Select
-                            items={WEEKDAYS.map((d) => ({
-                              value: String(d.dayOfWeek),
-                              label: d.fullLabel,
-                            }))}
+                            items={WEEKDAY_ITEMS}
                             value={String(field.dayOfWeek)}
                             onValueChange={(v) => changeDay(index, Number(v))}
                             disabled={isPending}
@@ -865,8 +888,7 @@ export default function CreateGroupForm() {
             </CardContent>
           </Card>
           <p className="text-muted-foreground px-1 text-xs leading-relaxed">
-            Поля со звёздочкой <span className="text-destructive">*</span> обязательны. Расписание и
-            учеников можно изменить после создания.
+            Расписание и учеников можно изменить после создания.
           </p>
         </div>
       </div>

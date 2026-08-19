@@ -74,8 +74,8 @@ export default function AddStudentToGroupButton({
   const { data: walletsData } = useStudentWalletsQuery(selectedStudentId ?? -1, {
     enabled: !!selectedStudentId,
   })
-  // Archived wallets cannot receive new group links
-  const wallets = useMemo(() => walletsData?.filter((w) => w.status === 'ACTIVE'), [walletsData])
+  // Архивные кошельки новых привязок к группам не принимают — их отсеивает запрос.
+  const wallets = walletsData
 
   useEffect(() => {
     if (wallets?.length === 1) {

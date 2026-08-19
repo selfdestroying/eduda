@@ -49,7 +49,7 @@ export function ProductDetail({ product, inCart }: { product: CatalogProduct; in
             </span>
           </div>
 
-          <AddToCartButton productId={product.id} available={product.quantity} inCart={inCart} />
+          <AddToCartButton shopItemId={product.id} available={product.quantity} inCart={inCart} />
         </CardContent>
       </Card>
     </div>

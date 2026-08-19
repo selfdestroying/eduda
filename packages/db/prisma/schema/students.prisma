@@ -25,7 +25,7 @@ model Student {
     cart                  Cart?
     attendances           Attendance[]
     orders                Order[]
-    payments              Payment[]
+    packages              Package[]
     groups                StudentGroup[]
     unprocessedPayments   UnprocessedPayment[]
     lessonsBalanceHistory StudentLessonsBalanceHistory[]
@@ -133,7 +133,7 @@ model Wallet {
     student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
     studentGroups  StudentGroup[]
-    payments       Payment[]
+    packages       Package[]
     balanceHistory StudentLessonsBalanceHistory[]
     attendances    Attendance[]
     ledger         WalletEntry[]

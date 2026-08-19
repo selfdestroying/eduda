@@ -1,4 +1,4 @@
-import type { Prisma } from '@repo/db'
+import { type Prisma, prisma } from '@repo/db'
 import {
   AttendanceStatus,
   StudentFinancialField,
@@ -7,6 +7,7 @@ import {
 } from '@repo/db/enums'
 // Относительный путь, а не алиас: этот модуль запускают скрипты через tsx.
 import { UNPAID_ATTENDANCE_WHERE } from './chargeable.server'
+import { ConflictError } from '../../lib/error'
 
 /**
  * Денежное ядро: единственное место, где посещение превращается в деньги.
@@ -55,7 +56,7 @@ const moneySelect = {
   studentId: true,
   organizationId: true,
   walletId: true,
-  paymentId: true,
+  packageId: true,
   amount: true,
   price: true,
   status: true,
@@ -107,11 +108,13 @@ export async function chargeAttendanceTx(
 
   const walletId = await walletOfAttendanceTx(tx, attendance)
 
+  // Только подтверждённые: пакет, за который ещё не заплатили, в очереди не стоит.
+  // Занятие в этом случае остаётся ждать оплаты — и спишется, когда она придёт.
   const packet = walletId
-    ? await tx.payment.findFirst({
+    ? await tx.package.findFirst({
         where: { walletId, status: 'ACTIVE', remaining: { gt: 0 } },
         orderBy: [{ date: 'asc' }, { id: 'asc' }],
-        select: { id: true, price: true, lessonCount: true },
+        select: { id: true, unitPrice: true },
       })
     : null
 
@@ -120,18 +123,18 @@ export async function chargeAttendanceTx(
   if (!walletId || !packet) {
     await tx.attendance.update({
       where: { id: attendance.id },
-      data: { paymentId: null, price: null, amount: 0 },
+      data: { packageId: null, price: null, amount: 0 },
     })
     return
   }
 
-  await tx.payment.update({ where: { id: packet.id }, data: { remaining: { decrement: 1 } } })
+  await tx.package.update({ where: { id: packet.id }, data: { remaining: { decrement: 1 } } })
 
-  const price = unitPrice(packet)
+  const price = packet.unitPrice
 
   await tx.attendance.update({
     where: { id: attendance.id },
-    data: { paymentId: packet.id, price, amount: 1 },
+    data: { packageId: packet.id, price, amount: 1 },
   })
 
   await recordEntryTx(tx, {
@@ -140,7 +143,7 @@ export async function chargeAttendanceTx(
     kind: WalletEntryKind.CHARGE,
     quantity: -1,
     unitPrice: price,
-    paymentId: packet.id,
+    packageId: packet.id,
     actorUserId: args.actorUserId,
   })
 
@@ -174,19 +177,19 @@ export async function unchargeAttendanceTx(
   const attendance = await findAttendanceTx(tx, args)
   if (!attendance || !attendance.amount) return
 
-  const packet = attendance.paymentId
-    ? await tx.payment.findUnique({
-        where: { id: attendance.paymentId },
+  const packet = attendance.packageId
+    ? await tx.package.findUnique({
+        where: { id: attendance.packageId },
         select: { walletId: true },
       })
     : null
 
-  // Возврат в пакет — условным апдейтом: если оплату успели отменить, count = 0
+  // Возврат в пакет — условным апдейтом: если пакет успели отменить, count = 0
   // и на баланс урок тоже не пойдёт.
-  const returned = attendance.paymentId
+  const returned = attendance.packageId
     ? (
-        await tx.payment.updateMany({
-          where: { id: attendance.paymentId, status: 'ACTIVE' },
+        await tx.package.updateMany({
+          where: { id: attendance.packageId, status: 'ACTIVE' },
           data: { remaining: { increment: attendance.amount } },
         })
       ).count > 0
@@ -198,18 +201,18 @@ export async function unchargeAttendanceTx(
   // разойдётся с остатками, если ученика с тех пор перевели на другой кошелёк.
   const walletId = packet?.walletId ?? (await walletOfAttendanceTx(tx, attendance))
 
-  // Оплату отменили: урок не вернулся ни в пакет, ни на баланс. Событие всё
-  // равно записываем — иначе в журнале останется списание без своей пары.
-  if (attendance.paymentId && !returned) {
+  // Пакет отменили: урок не вернулся ни в него, ни на баланс. Событие всё равно
+  // записываем — иначе в журнале останется списание без своей пары.
+  if (attendance.packageId && !returned) {
     await recordEntryTx(tx, {
       attendance,
       walletId,
       kind: WalletEntryKind.REVERSAL,
       quantity: 0,
       unitPrice: attendance.price ?? 0,
-      paymentId: attendance.paymentId,
+      packageId: attendance.packageId,
       actorUserId: args.actorUserId,
-      comment: 'Оплата отменена — урок не возвращается',
+      comment: 'Пакет отменён — урок не возвращается',
     })
     return
   }
@@ -220,7 +223,7 @@ export async function unchargeAttendanceTx(
     kind: WalletEntryKind.REVERSAL,
     quantity: attendance.amount,
     unitPrice: attendance.price ?? 0,
-    paymentId: attendance.paymentId,
+    packageId: attendance.packageId,
     actorUserId: args.actorUserId,
   })
 
@@ -274,7 +277,7 @@ export async function recordWalletEntryTx(
     unitPrice: number
     /** Бизнес-день: дата занятия или оплаты, а не дата записи. */
     effectiveAt: string
-    paymentId?: number | null
+    packageId?: number | null
     attendanceId?: number | null
     reversalOfId?: number | null
     actorUserId: number | null
@@ -290,7 +293,7 @@ export async function recordWalletEntryTx(
       quantity: args.quantity,
       unitPrice: args.unitPrice,
       effectiveAt: args.effectiveAt,
-      paymentId: args.paymentId ?? null,
+      packageId: args.packageId ?? null,
       attendanceId: args.attendanceId ?? null,
       reversalOfId: args.reversalOfId ?? null,
       actorUserId: args.actorUserId,
@@ -309,63 +312,98 @@ export async function recordWalletEntryTx(
  * Если ученика вывели из группы, его неоплаченные занятия отсюда не видны —
  * связи с кошельком больше нет. В общем счётчике неоплаченных они останутся.
  */
+function unpaidAttendancesOfWalletWhere(args: {
+  walletId: number
+  organizationId: number
+  studentId: number
+  groupIds: number[]
+}): Prisma.AttendanceWhereInput {
+  const { walletId, organizationId, studentId, groupIds } = args
+
+  return {
+    ...UNPAID_ATTENDANCE_WHERE,
+    OR: undefined,
+    organizationId,
+    // Группа общая для всех её учеников, поэтому одного условия по группе мало:
+    // без ученика оплата подхватила бы чужие неоплаченные занятия.
+    studentId,
+    AND: [
+      { OR: UNPAID_ATTENDANCE_WHERE.OR },
+      {
+        OR: [
+          { walletId },
+          ...(groupIds.length > 0
+            ? [
+                {
+                  walletId: null,
+                  makeupForAttendanceId: null,
+                  lesson: { groupId: { in: groupIds } },
+                },
+                {
+                  walletId: null,
+                  makeupForAttendance: { lesson: { groupId: { in: groupIds } } },
+                },
+              ]
+            : []),
+        ],
+      },
+    ],
+  }
+}
+
+/** Ученик и группы кошелька — вход для предиката выше. */
+async function walletScopeTx(
+  tx: Prisma.TransactionClient,
+  args: { walletId: number; organizationId: number },
+): Promise<{ studentId: number; groupIds: number[] } | null> {
+  const wallet = await tx.wallet.findFirst({
+    where: { id: args.walletId, organizationId: args.organizationId },
+    select: { studentId: true },
+  })
+  if (!wallet) return null
+
+  const groups = await tx.studentGroup.findMany({
+    where: { walletId: args.walletId },
+    select: { groupId: true },
+  })
+  return { studentId: wallet.studentId, groupIds: groups.map((g) => g.groupId) }
+}
+
 async function unpaidAttendancesOfWalletTx(
   tx: Prisma.TransactionClient,
   args: { walletId: number; organizationId: number; take: number },
 ): Promise<{ id: number }[]> {
-  const { walletId, organizationId, take } = args
-
-  const wallet = await tx.wallet.findFirst({
-    where: { id: walletId, organizationId },
-    select: { studentId: true },
-  })
-  if (!wallet) return []
-
-  const groups = await tx.studentGroup.findMany({
-    where: { walletId },
-    select: { groupId: true },
-  })
-  const groupIds = groups.map((g) => g.groupId)
+  const scope = await walletScopeTx(tx, args)
+  if (!scope) return []
 
   return await tx.attendance.findMany({
-    where: {
-      ...UNPAID_ATTENDANCE_WHERE,
-      OR: undefined,
-      organizationId,
-      // Группа общая для всех её учеников, поэтому одного условия по группе мало:
-      // без ученика оплата подхватила бы чужие неоплаченные занятия.
-      studentId: wallet.studentId,
-      AND: [
-        { OR: UNPAID_ATTENDANCE_WHERE.OR },
-        {
-          OR: [
-            { walletId },
-            ...(groupIds.length > 0
-              ? [
-                  {
-                    walletId: null,
-                    makeupForAttendanceId: null,
-                    lesson: { groupId: { in: groupIds } },
-                  },
-                  {
-                    walletId: null,
-                    makeupForAttendance: { lesson: { groupId: { in: groupIds } } },
-                  },
-                ]
-              : []),
-          ],
-        },
-      ],
-    },
+    where: unpaidAttendancesOfWalletWhere({ ...args, ...scope }),
     orderBy: [{ lesson: { date: 'asc' } }, { id: 'asc' }],
-    take,
+    take: args.take,
     select: { id: true },
   })
 }
 
 /**
- * Оплата закрывает неоплаченные занятия: они списываются обычным порядком, с
- * головы очереди, то есть по цене этого пакета.
+ * Сколько занятий кошелька ждёт оплаты. Только чтение: считает ровно то, что
+ * закроет следующая оплата, тем же предикатом, что и списание, — иначе цифра в
+ * форме и поведение сохранения разъедутся.
+ */
+export async function countUnpaidAttendancesOfWallet(args: {
+  walletId: number
+  organizationId: number
+}): Promise<number> {
+  const scope = await walletScopeTx(prisma, args)
+  if (!scope) return 0
+
+  return await prisma.attendance.count({
+    where: unpaidAttendancesOfWalletWhere({ ...args, ...scope }),
+  })
+}
+
+/**
+ * Выданный пакет закрывает занятия, которые ждали оплаты: они списываются обычным
+ * порядком, с головы очереди, то есть по цене этого пакета.
  *
  * Никакой отдельной механики здесь нет — это то же самое списание, просто
  * применённое задним числом к занятиям, которые его ждали. Поэтому и цена, и
@@ -382,7 +420,7 @@ export async function settleUnpaidAttendancesTx(
   args: {
     walletId: number
     organizationId: number
-    paymentId: number
+    packageId: number
     take: number
     actorUserId: number | null
   },
@@ -401,7 +439,7 @@ export async function settleUnpaidAttendancesTx(
       attendanceId: attendance.id,
       organizationId: args.organizationId,
       actorUserId: args.actorUserId,
-      meta: { settledByPaymentId: args.paymentId },
+      meta: { settledByPackageId: args.packageId },
     })
     // Пакет мог кончиться на предыдущем занятии — тогда списания не случилось.
     const charged = await tx.attendance.findUnique({
@@ -424,7 +462,7 @@ async function recordEntryTx(
     kind: WalletEntryKind
     quantity: number
     unitPrice: number
-    paymentId: number | null
+    packageId: number | null
     actorUserId: number | null
     comment?: string | null
   },
@@ -457,7 +495,7 @@ async function recordEntryTx(
     // День занятия, а не день отметки: внесённое задним числом попадает в свой
     // месяц, а не в тот, когда до него дошли руки.
     effectiveAt: attendance.lesson.date,
-    paymentId: args.paymentId,
+    packageId: args.packageId,
     attendanceId: attendance.id,
     reversalOfId: reversed?.id ?? null,
     actorUserId: args.actorUserId,
@@ -524,8 +562,244 @@ const chargeReason = (attendance: MoneyAttendance): StudentLessonsBalanceChangeR
     : StudentLessonsBalanceChangeReason.ATTENDANCE_ABSENT_CHARGED
 }
 
-const unitPrice = (p: { price: number; lessonCount: number }) =>
+/** Цена урока по стоимости пакета. Вниз: остаток от деления школа не досчитывает. */
+export const unitPriceOf = (p: { price: number; lessonCount: number }) =>
   p.lessonCount > 0 ? Math.floor(p.price / p.lessonCount) : 0
+
+/**
+ * Пакет выдан: уроки уходят на баланс кошелька.
+ *
+ * Вторая операция ядра рядом с `chargeAttendanceTx`: та превращает занятие в деньги,
+ * эта — оплату в уроки. Всё, что за этим стоит, делается здесь: статус пакета,
+ * баланс, приход в журнал, история и гашение занятий, которые ждали оплаты.
+ * Вызывающему не остаётся обязанностей, про которые можно забыть.
+ *
+ * Зовётся при подтверждении оплаты, а не при создании пакета: пока за пакет не
+ * заплатили, он `PENDING` — в очереди не стоит и баланса не двигает.
+ *
+ * Повторный вызов на уже выданном пакете ничего не делает.
+ *
+ * Отказывает, если счёт пакета не оплачен: статус счёта обязан быть выставлен до
+ * вызова. Пакет без счёта — подарок или корректировка — выдаётся.
+ *
+ * Возвращает, сколько ждавших оплаты занятий закрылось этим пакетом.
+ */
+export async function activatePackageTx(
+  tx: Prisma.TransactionClient,
+  args: {
+    packageId: number
+    /** Школа вызывающего: изоляция здесь, а не у каждого вызова. */
+    organizationId: number
+    actorUserId: number | null
+    /** Дополнительные поля в историю. */
+    meta?: Record<string, unknown>
+  },
+): Promise<number> {
+  const packet = await tx.package.findFirst({
+    where: { id: args.packageId, organizationId: args.organizationId },
+    select: {
+      id: true,
+      status: true,
+      walletId: true,
+      studentId: true,
+      lessonCount: true,
+      price: true,
+      unitPrice: true,
+      date: true,
+      productName: true,
+      payment: { select: { status: true } },
+    },
+  })
+  if (!packet || packet.status !== 'PENDING') return 0
+
+  // За пакет должны были заплатить. Проверка здесь, а не у вызывающих: сегодня их
+  // трое и все выставляют статус счёта до вызова, но порядок этот нигде не записан,
+  // и четвёртый вызов — вебхук провайдера на «счёт создан» вместо «деньги
+  // пришли» — выдал бы уроки по неоплаченному счёту. Дальше всё пошло бы штатно:
+  // пакет встал бы в очередь, посещения списались бы с него и признали выручку.
+  // Сверки такого не ловят — журнал при этом сходится с колонками идеально.
+  //
+  // Пакет без счёта законен: подарок или корректировка перехода. Молча их
+  // запретить значило бы сломать 265 живых пакетов бэкфилла.
+  //
+  // Бросаем, а не возвращаем 0: ноль означает «уже выдан, делать нечего», и
+  // спрятать за ним ошибку вызывающего — это ровно та тишина, ради которой
+  // проверка и ставится.
+  if (packet.payment && packet.payment.status !== 'ACTIVE') {
+    throw new ConflictError('Счёт не оплачен: пакет выдать нельзя')
+  }
+
+  const wallet = await tx.wallet.findUnique({
+    where: { id: packet.walletId },
+    select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
+  })
+  if (!wallet) return 0
+
+  await tx.package.update({ where: { id: packet.id }, data: { status: 'ACTIVE' } })
+
+  // Журнал: выданный пакет — приход уроков, встаёт в очередь по своей дате.
+  await recordWalletEntryTx(tx, {
+    organizationId: args.organizationId,
+    walletId: packet.walletId,
+    studentId: packet.studentId,
+    kind: WalletEntryKind.PURCHASE,
+    quantity: packet.lessonCount,
+    unitPrice: packet.unitPrice,
+    effectiveAt: packet.date,
+    packageId: packet.id,
+    actorUserId: args.actorUserId,
+  })
+
+  const updated = await tx.wallet.update({
+    where: { id: packet.walletId },
+    data: {
+      lessonsBalance: { increment: packet.lessonCount },
+      totalLessons: { increment: packet.lessonCount },
+      // Деньгами кошелька считается стоимость пакета, а не сумма платежа: один счёт
+      // может закрыть пакеты в разных кошельках.
+      totalPayments: { increment: packet.price },
+    },
+    select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
+  })
+
+  const meta = {
+    ...args.meta,
+    packageId: packet.id,
+    lessonCount: packet.lessonCount,
+    price: packet.price,
+    walletId: packet.walletId,
+    // Название читает карточка ученика (`detail/lessons-balance-history.tsx`).
+    productName: packet.productName || undefined,
+  }
+
+  for (const [field, key] of [
+    [StudentFinancialField.LESSONS_BALANCE, 'lessonsBalance'],
+    [StudentFinancialField.TOTAL_PAYMENTS, 'totalPayments'],
+    [StudentFinancialField.TOTAL_LESSONS, 'totalLessons'],
+  ] as const) {
+    await writeFinancialHistoryTx(tx, {
+      organizationId: args.organizationId,
+      studentId: packet.studentId,
+      actorUserId: args.actorUserId,
+      walletId: packet.walletId,
+      field,
+      reason: StudentLessonsBalanceChangeReason.PAYMENT_CREATED,
+      delta: updated[key] - wallet[key],
+      balanceBefore: wallet[key],
+      balanceAfter: updated[key],
+      meta,
+    })
+  }
+
+  // Уроки на балансе — теперь ими закрываются занятия, которые школа уже провела, а
+  // платить за них было нечем. Списываются обычным порядком, по цене этого пакета.
+  return await settleUnpaidAttendancesTx(tx, {
+    walletId: packet.walletId,
+    organizationId: args.organizationId,
+    packageId: packet.id,
+    take: packet.lessonCount,
+    actorUserId: args.actorUserId,
+  })
+}
+
+/**
+ * Пакет отменён: непотраченный остаток снимается с баланса.
+ *
+ * Уже отхоженные занятия не трогаются — они списаны и оплачены, а их цена записана
+ * в проводках. Снимается ровно то, чем ученик не успел воспользоваться.
+ *
+ * Пакет `PENDING` просто закрывается: уроков он не выдавал, снимать нечего.
+ */
+export async function cancelPackageTx(
+  tx: Prisma.TransactionClient,
+  args: {
+    packageId: number
+    organizationId: number
+    actorUserId: number | null
+    effectiveAt: string
+  },
+): Promise<void> {
+  const packet = await tx.package.findFirst({
+    where: { id: args.packageId, organizationId: args.organizationId },
+    select: {
+      id: true,
+      status: true,
+      walletId: true,
+      studentId: true,
+      lessonCount: true,
+      price: true,
+      unitPrice: true,
+      remaining: true,
+    },
+  })
+  if (!packet || packet.status === 'CANCELLED') return
+
+  const wasPending = packet.status === 'PENDING'
+
+  await tx.package.update({
+    where: { id: packet.id },
+    data: { status: 'CANCELLED', cancelledAt: new Date(), remaining: 0 },
+  })
+
+  if (wasPending) return
+
+  const wallet = await tx.wallet.findUnique({
+    where: { id: packet.walletId },
+    select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
+  })
+  if (!wallet) return
+
+  // Журнал: снятие датируется днём отмены, а не днём продажи — это новое событие,
+  // а не переписывание старого.
+  await recordWalletEntryTx(tx, {
+    organizationId: args.organizationId,
+    walletId: packet.walletId,
+    studentId: packet.studentId,
+    kind: WalletEntryKind.CANCELLATION,
+    quantity: -packet.remaining,
+    unitPrice: packet.unitPrice,
+    effectiveAt: args.effectiveAt,
+    packageId: packet.id,
+    actorUserId: args.actorUserId,
+    comment: 'Отмена пакета: снят непотраченный остаток',
+  })
+
+  const updated = await tx.wallet.update({
+    where: { id: packet.walletId },
+    data: {
+      lessonsBalance: { decrement: packet.remaining },
+      totalLessons: { decrement: packet.lessonCount },
+      totalPayments: { decrement: packet.price },
+    },
+    select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
+  })
+
+  const meta = {
+    packageId: packet.id,
+    lessonCount: packet.lessonCount,
+    price: packet.price,
+    walletId: packet.walletId,
+  }
+
+  for (const [field, key] of [
+    [StudentFinancialField.LESSONS_BALANCE, 'lessonsBalance'],
+    [StudentFinancialField.TOTAL_PAYMENTS, 'totalPayments'],
+    [StudentFinancialField.TOTAL_LESSONS, 'totalLessons'],
+  ] as const) {
+    await writeFinancialHistoryTx(tx, {
+      organizationId: args.organizationId,
+      studentId: packet.studentId,
+      actorUserId: args.actorUserId,
+      walletId: packet.walletId,
+      field,
+      reason: StudentLessonsBalanceChangeReason.PAYMENT_CANCELLED,
+      delta: updated[key] - wallet[key],
+      balanceBefore: wallet[key],
+      balanceAfter: updated[key],
+      meta,
+    })
+  }
+}
 
 /** Строка в журнале изменений баланса. Пишется вместе с самим изменением. */
 export async function writeFinancialHistoryTx(

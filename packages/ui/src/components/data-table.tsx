@@ -1,7 +1,14 @@
 'use client'
 
 import { Button } from '@repo/ui/components/button'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@repo/ui/components/dropdown-menu'
 import { Label } from '@repo/ui/components/label'
+import { Separator } from '@repo/ui/components/separator'
 import {
   Select,
   SelectContent,
@@ -19,7 +26,12 @@ import {
   TableRow,
 } from '@repo/ui/components/table'
 import { cn } from '@repo/ui/lib/utils'
-import { flexRender, type Table as TanstackTable } from '@tanstack/react-table'
+import {
+  flexRender,
+  type Row,
+  type RowData,
+  type Table as TanstackTable,
+} from '@tanstack/react-table'
 import {
   ArrowDown,
   ArrowUp,
@@ -27,10 +39,50 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Eye,
   Loader,
 } from 'lucide-react'
-import { type ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@repo/ui/components/empty'
+
+declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    /**
+     * Подпись колонки для меню видимости. Отдельно от `header`, потому что тот
+     * сплошь и рядом JSX с иконкой-подсказкой — в пункт меню его не положишь.
+     * Колонка без `title` в меню не попадает и спрятать её нельзя (действия).
+     */
+    title?: string
+    /** Классы на ячейку и заголовок колонки — выключка, ширина, `tabular-nums`. */
+    className?: string
+    /**
+     * Тип фильтра для `DataTableToolbar`. Колонка без `variant` в тулбар не
+     * попадает — так фильтры описываются один раз, рядом с колонкой, вместо
+     * пропса, парсера, хендлера и своей ветки разметки на каждый.
+     */
+    variant?: 'multiSelect' | 'range'
+    /** Варианты для `multiSelect`. `value` — строка: она едет в URL. */
+    options?: Array<{ label: string; value: string }>
+    /** Подпись единиц у `range` — «₽», «уроков». */
+    unit?: string
+    /**
+     * Колонка тянется: ей не пишется `width`, и по алгоритму фиксированной
+     * раскладки свободная ширина делится поровну между всеми такими колонками.
+     *
+     * Если гибких колонок нет ни одной, таблица не растягивается на всю ширину
+     * контейнера, а встаёт ровно на сумму `size` — тогда каждая колонка получает
+     * заявленную ширину, а свободное место остаётся справа. Это честнее, чем
+     * впихивать излишек в колонку, которой он не нужен.
+     *
+     * Второе применение — задать ширину самому, классом в `className`: инлайновый
+     * `width` перебил бы его, а с этим флагом его просто нет. Так делают проценты
+     * (`w-[30%]`), которых `size` в пикселях не выражает; `size` тогда остаётся
+     * только вкладом в порог горизонтальной прокрутки.
+     */
+    flexible?: boolean
+  }
+}
 
 interface DataTableProps<TData> {
   table: TanstackTable<TData>
@@ -42,6 +94,45 @@ interface DataTableProps<TData> {
   toolbar?: ReactNode
   /**  */
   isLoading?: boolean
+  /**
+   * Меню «Колонки» справа от тулбара. Требует, чтобы таблица держала
+   * `columnVisibility` в состоянии — иначе переключать будет нечего.
+   */
+  showColumnVisibility?: boolean
+  /**
+   * Данные обновляются, но прежние уже показаны: таблица приглушается вместо того,
+   * чтобы моргнуть скелетоном. Для серверных таблиц — состояние между страницами.
+   */
+  isRefreshing?: boolean
+  /** Классы на строку — приглушить отменённое, подсветить просроченное. */
+  rowClassName?: (row: Row<TData>) => string | undefined
+  /**
+   * Панель под раскрытой строкой — отдельная строка в одну ячейку во всю ширину
+   * таблицы, как в примере `sub-components` у react-table. Не подстроки: данные
+   * панели могут не иметь отношения к строке таблицы вовсе.
+   *
+   * Раскрытием заведует сама таблица (`expanded` в состоянии, `getRowCanExpand`,
+   * `getExpandedRowModel`) — здесь только разметка.
+   */
+  renderSubComponent?: (row: Row<TData>) => ReactNode
+  /**
+   * Клик по строке. Ячейки со своими кликами — ссылки, кнопки, меню — обязаны гасить
+   * всплытие сами: иначе переход по ссылке заодно сработает и здесь.
+   */
+  onRowClick?: (row: Row<TData>) => void
+}
+
+/**
+ * Заголовок сортируемой колонки — это flex-контейнер (текст плюс стрелка), и
+ * выключку из `text-*` он сам не унаследует: её нужно перевести в `justify-*`,
+ * иначе заголовок встанет слева от центрированных или прижатых вправо значений.
+ * Для колонок по левому краю остаётся `w-fit`, чтобы клик по сортировке
+ * ограничивался текстом, а не всей шириной колонки.
+ */
+function headerJustify(className?: string) {
+  if (className?.includes('text-right')) return 'justify-end'
+  if (className?.includes('text-center')) return 'justify-center'
+  return 'w-fit'
 }
 
 export default function DataTable<TData>({
@@ -50,23 +141,79 @@ export default function DataTable<TData>({
   showPagination = false,
   toolbar,
   isLoading = false,
+  showColumnVisibility = false,
+  isRefreshing = false,
+  rowClassName,
+  renderSubComponent,
+  onRowClick,
 }: DataTableProps<TData>) {
-  const columnCount = table.getAllColumns().length
+  // Именно видимые: скрытая колонка не рисуется, и colSpan по всем растянул бы
+  // пустое состояние шире таблицы. Минимум единица — скрыть можно все колонки
+  // сразу, а `colSpan={0}` браузер понимает как «до конца группы строк».
+  const columnCount = Math.max(1, table.getVisibleLeafColumns().length)
+
+  // Есть ли кому забрать свободную ширину. Нет — таблицу не растягиваем: при
+  // `table-layout: fixed` и `width: auto` браузер всё равно тянет её до ширины
+  // контейнера, поэтому ширину приходится задавать явно.
+  const hasFlexibleColumn = table
+    .getVisibleLeafColumns()
+    .some((column) => column.columnDef.meta?.flexible)
+  const totalSize = table.getTotalSize()
 
   return (
     <div className="flex h-full flex-col gap-2">
-      {toolbar}
-      <Table className="overflow-y-auto">
+      {/* Один переносящийся ряд, а не колонка на узком и строка на широком: при
+          `flex-col` кнопка «Колонки» растягивалась во всю ширину экрана, потому что
+          по умолчанию элементы колонки тянутся по поперечной оси. `ml-auto` прижимает
+          её вправо и когда она рядом с фильтрами, и когда перенеслась на свою
+          строку, — `justify-between` для одиночного элемента на строке не сработал бы.
+
+          Тулбар здесь раскрывается в `contents`, то есть его содержимое встаёт в
+          этот же ряд напрямую. Иначе он остаётся отдельным элементом, а поиск
+          внутри него на телефоне занимает всю ширину — тулбар растягивается на
+          строку целиком, и «Колонки» уезжает в третью строку одна. */}
+      {showColumnVisibility ? (
+        <div className="flex flex-wrap items-center gap-2 *:data-[slot=table-toolbar]:contents">
+          {toolbar}
+          <DataTableViewOptions table={table} className="ml-auto" />
+        </div>
+      ) : (
+        toolbar
+      )}
+      {/* `table-fixed`: без него `width` на ячейке для браузерного auto-алгоритма
+          лишь подсказка, и колонка всё равно растягивается под содержимое — ширины
+          прыгают от страницы к странице. Здесь, а не в самом `Table`: его собирают
+          руками и в других местах, где сетка по содержимому как раз нужна.
+          Числа `size` — пиксели; свободную ширину забирают колонки с
+          `meta.flexible`, а без них таблица просто не растягивается.
+
+          `minWidth` по сумме колонок: без него на узком экране колонки сжимались бы
+          до нечитаемых огрызков вместо горизонтальной прокрутки, которую даёт
+          обёртка `Table`. */}
+      <Table
+        className={cn('table-fixed transition-opacity', isRefreshing && 'opacity-60')}
+        style={{ minWidth: totalSize, width: hasFlexibleColumn ? undefined : totalSize }}
+      >
         <TableHeader className="bg-card sticky top-0 z-10">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
+                <TableHead
+                  key={header.id}
+                  // При фиксированной раскладке ширины берутся из первой строки,
+                  // остальным задавать их не нужно. Гибкой колонке ширину не пишем
+                  // вовсе — ей достанется вся свободная.
+                  style={
+                    header.column.columnDef.meta?.flexible ? undefined : { width: header.getSize() }
+                  }
+                  className={header.column.columnDef.meta?.className}
+                >
                   {header.isPlaceholder ? null : header.column.getCanSort() ? (
                     <div
                       className={cn(
                         header.column.getCanSort() &&
-                          'flex w-fit cursor-pointer items-center gap-2 select-none',
+                          'flex cursor-pointer items-center gap-2 select-none',
+                        headerJustify(header.column.columnDef.meta?.className),
                       )}
                       onClick={header.column.getToggleSortingHandler()}
                       onKeyDown={(e) => {
@@ -107,13 +254,35 @@ export default function DataTable<TData>({
             </TableRow>
           ) : table.getRowModel().rows?.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
+              <Fragment key={row.id}>
+                <TableRow
+                  className={cn(onRowClick && 'cursor-pointer', rowClassName?.(row))}
+                  onClick={onRowClick && (() => onRowClick(row))}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell
+                      key={cell.id}
+                      // `truncate` обязателен именно здесь: при фиксированной сетке
+                      // содержимое шире колонки не сжимается, а вылезает за её край.
+                      // `overflow: hidden` на `td` работает, на вложенной ссылке —
+                      // нет, она инлайновая.
+                      className={cn('truncate', cell.column.columnDef.meta?.className)}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                {renderSubComponent && row.getIsExpanded() && (
+                  // `colSpan` по видимым ячейкам самой строки, а не по всем колонкам:
+                  // спрятанную через меню «Колонки» ячейка не занимает, и панель
+                  // оказалась бы шире таблицы.
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={row.getVisibleCells().length} className="bg-muted/30 p-0">
+                      {renderSubComponent(row)}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
             ))
           ) : (
             <TableRow>
@@ -129,12 +298,60 @@ export default function DataTable<TData>({
   )
 }
 
+function DataTableViewOptions<TData>({
+  table,
+  className,
+}: {
+  table: TanstackTable<TData>
+  className?: string
+}) {
+  const columns = table.getAllColumns().filter((c) => c.getCanHide() && c.columnDef.meta?.title)
+  if (columns.length === 0) return null
+
+  const visibleCount = columns.filter((c) => c.getIsVisible()).length
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={<Button variant="outline" className={cn('shrink-0', className)} />}
+      >
+        <Eye />
+        Колонки
+        {/* Только когда что-то скрыто: «6/6» рядом с полной таблицей ничего не
+            сообщает. */}
+        {visibleCount < columns.length && (
+          <>
+            <Separator orientation="vertical" className="mx-0.5" />
+            <span className="text-muted-foreground tabular-nums">
+              {visibleCount}/{columns.length}
+            </span>
+          </>
+        )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        {columns.map((column) => (
+          <DropdownMenuCheckboxItem
+            key={column.id}
+            checked={column.getIsVisible()}
+            onCheckedChange={(checked) => column.toggleVisibility(checked)}
+            closeOnClick={false}
+          >
+            {column.columnDef.meta?.title}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function DataTablePagination<TData>({ table }: { table: TanstackTable<TData> }) {
   return (
-    <div className="flex items-center justify-end px-4">
-      <div className="flex w-full items-center gap-8 lg:w-fit">
-        <div className="hidden items-center gap-2 lg:flex">
-          <Label htmlFor="rows-per-page">Строк на страницу:</Label>
+    <div className="flex items-center justify-end">
+      <div className="flex w-full items-center gap-4 md:w-fit">
+        <div className="hidden items-center gap-2 md:flex">
+          <Label htmlFor="rows-per-page" className="text-muted-foreground">
+            Строк на страницу:
+          </Label>
           <Select
             value={`${table.getState().pagination.pageSize}`}
             onValueChange={(value) => {
@@ -156,12 +373,12 @@ function DataTablePagination<TData>({ table }: { table: TanstackTable<TData> }) 
           </Select>
         </div>
         <div className="ml-auto flex items-center gap-2 lg:ml-0">
-          <Label className="flex w-fit items-center justify-center">
+          <Label className="text-muted-foreground flex w-fit items-center justify-center">
             Страница {table.getState().pagination.pageIndex + 1} из {table.getPageCount()}
           </Label>
           <Button
             variant="outline"
-            className="hidden lg:flex"
+            className="hidden md:flex"
             size="icon"
             onClick={() => table.setPageIndex(0)}
             disabled={!table.getCanPreviousPage()}
@@ -189,7 +406,7 @@ function DataTablePagination<TData>({ table }: { table: TanstackTable<TData> }) 
           </Button>
           <Button
             variant="outline"
-            className="hidden lg:flex"
+            className="hidden md:flex"
             size="icon"
             onClick={() => table.setPageIndex(table.getPageCount() - 1)}
             disabled={!table.getCanNextPage()}

@@ -1,38 +1,44 @@
 'use client'
 
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
   DialogClose,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@repo/ui/components/dialog'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { usePaymentCreateMutation } from '../queries'
-import { CreatePaymentSchema, type CreatePaymentSchemaType } from '../schemas'
-import PaymentForm from './payment-form'
+import { useProductCreateMutation } from '../queries'
+import {
+  CreateProductSchema,
+  type CreateProductInput,
+  type CreateProductSchemaType,
+} from '../schemas'
+import ProductForm from './product-form'
 
-export default function AddPaymentButton() {
+export default function AddProductButton() {
   const [dialogOpen, setDialogOpen] = useState(false)
-  const createMutation = usePaymentCreateMutation()
+  const createMutation = useProductCreateMutation()
 
-  const form = useForm<CreatePaymentSchemaType>({
-    resolver: zodResolver(CreatePaymentSchema),
+  const form = useForm<CreateProductInput, unknown, CreateProductSchemaType>({
+    resolver: zodResolver(CreateProductSchema),
     defaultValues: {
+      name: '',
       price: undefined,
       lessonCount: undefined,
-      date: undefined,
-      paymentMethodId: null,
+      description: '',
+      isActive: true,
     },
   })
 
-  const onSubmit = (values: CreatePaymentSchemaType) => {
+  const onSubmit = (values: CreateProductSchemaType) => {
     createMutation.mutate(values, {
       onSuccess: () => {
         form.reset()
@@ -48,9 +54,10 @@ export default function AddPaymentButton() {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Добавить оплату</DialogTitle>
+          <DialogTitle>Добавить продукт</DialogTitle>
+          <DialogDescription>Новая строка прайс-листа школы</DialogDescription>
         </DialogHeader>
-        <PaymentForm form={form} formId="create-payment-form" disabled={createMutation.isPending} />
+        <ProductForm form={form} formId="create-product-form" />
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>Отмена</DialogClose>
           <Button
@@ -59,7 +66,7 @@ export default function AddPaymentButton() {
             onClick={form.handleSubmit(onSubmit)}
           >
             {createMutation.isPending && <Loader className="animate-spin" />}
-            Добавить
+            Создать
           </Button>
         </DialogFooter>
       </DialogContent>

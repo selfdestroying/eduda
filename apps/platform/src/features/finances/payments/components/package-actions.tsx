@@ -1,6 +1,7 @@
 'use client'
 
-import { Payment } from '@repo/db'
+import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
+import type { PackageStatus } from '@repo/db/enums'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -19,24 +20,29 @@ import {
 } from '@repo/ui/components/dropdown-menu'
 import { CircleX, Loader, MoreVertical } from 'lucide-react'
 import { useState } from 'react'
-import { usePaymentCancelMutation } from '../queries'
+import { usePackageCancelMutation } from '../queries'
 
-interface PaymentActionsProps {
-  payment: Payment
+interface PackageActionsProps {
+  packet: { id: number; status: PackageStatus }
 }
 
-export default function PaymentActions({ payment }: PaymentActionsProps) {
+// Вне компонента: `useHasPermission` мемоизирует по ссылке на объект прав.
+const CAN_CANCEL = { payment: ['delete'] } as const
+
+export default function PackageActions({ packet }: PackageActionsProps) {
+  const canCancel = useHasPermission(CAN_CANCEL)
   const [open, setOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const cancelMutation = usePaymentCancelMutation()
+  const cancelMutation = usePackageCancelMutation()
 
   const handleDelete = () => {
-    cancelMutation.mutate({ id: payment.id }, { onSuccess: () => setConfirmOpen(false) })
+    cancelMutation.mutate({ id: packet.id }, { onSuccess: () => setConfirmOpen(false) })
   }
 
-  // Отменённую оплату трогать больше нечем: запись остаётся в списке как след
+  // Отменённый пакет трогать больше нечем: запись остаётся в списке как след
   // операции, но действий над ней нет.
-  if (payment.status === 'CANCELLED') return null
+  if (packet.status === 'CANCELLED') return null
+  if (!canCancel) return null
 
   return (
     <>
@@ -54,7 +60,7 @@ export default function PaymentActions({ payment }: PaymentActionsProps) {
             }}
           >
             <CircleX className="mr-2 h-4 w-4" />
-            Отменить оплату
+            Отменить пакет
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -62,9 +68,9 @@ export default function PaymentActions({ payment }: PaymentActionsProps) {
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Вы уверены, что хотите отменить оплату?</AlertDialogTitle>
+            <AlertDialogTitle>Вы уверены, что хотите отменить пакет?</AlertDialogTitle>
             <AlertDialogDescription>
-              Оплата останется в списке со статусом «Отменена» — записи о деньгах не удаляются. С
+              Пакет останется в списке со статусом «Отменён» — записи о деньгах не удаляются. С
               баланса ученика снимутся только непотраченные уроки: занятия, которые он уже отходил,
               останутся оплаченными.
             </AlertDialogDescription>

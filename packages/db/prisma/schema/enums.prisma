@@ -39,6 +39,16 @@ enum LessonStatus {
 }
 
 enum PaymentStatus {
+    /// Счёт выставлен, деньги не подтверждены. Пакеты под ним ждут подтверждения.
+    PENDING
+    /// Оплачена: деньги получены, пакеты выданы.
+    ACTIVE
+    CANCELLED
+}
+
+enum PackageStatus {
+    /// Счёт не подтверждён: пакет в очередь списания не встаёт и баланс не двигает.
+    PENDING
     ACTIVE
     CANCELLED
 }

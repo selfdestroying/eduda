@@ -52,7 +52,7 @@ export function CartView() {
       <Card>
         <CardContent className="divide-y">
           {data.items.map((item) => (
-            <CartItemRow key={item.productId} item={item} />
+            <CartItemRow key={item.shopItemId} item={item} />
           ))}
         </CardContent>
       </Card>
@@ -85,7 +85,7 @@ export function CartView() {
             <CoinPrice value={data.total} size="lg" />
           </div>
           <CheckoutButton
-            items={data.items.map((item) => ({ productId: item.productId, price: item.price }))}
+            items={data.items.map((item) => ({ shopItemId: item.shopItemId, price: item.price }))}
             total={data.total}
             blocked={data.issues.length > 0}
           />

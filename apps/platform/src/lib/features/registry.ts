@@ -16,7 +16,7 @@ export const FEATURE_KEYS = [
   'groups',
   'groups.types',
   'finances',
-  'finances.payments',
+  'finances.packages',
   'finances.unprocessedPayments',
   'finances.revenue',
   'finances.salaries',
@@ -24,6 +24,7 @@ export const FEATURE_KEYS = [
   'finances.advances',
   'finances.rent',
   'finances.paymentMethods',
+  'finances.products',
   'finances.profit',
   'finances.profitMonthly',
   'shop',
@@ -68,7 +69,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureEntry> = {
 
   // - Финансы -
   finances: { label: 'Финансы', routes: ['/finances'] },
-  'finances.payments': { label: 'Оплаты', parent: 'finances', routes: ['/finances/payments'] },
+  'finances.packages': { label: 'Пакеты', parent: 'finances', routes: ['/finances/packages'] },
   'finances.revenue': { label: 'Выручка', parent: 'finances', routes: ['/finances/revenue'] },
   'finances.advances': { label: 'Авансы', parent: 'finances', routes: ['/finances/advances'] },
   // Под-тумблер учёта аренды: страницы нет (показывается внутри локаций), потому без routes.
@@ -88,6 +89,12 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureEntry> = {
     label: 'Методы оплаты',
     parent: 'finances',
     routes: ['/finances/payment-methods'],
+  },
+  'finances.products': {
+    label: 'Продукты',
+    description: 'Прайс-лист школы: продукт выбирается при создании оплаты.',
+    parent: 'finances',
+    routes: ['/finances/products'],
   },
   'finances.profit': { label: 'Прибыль', parent: 'finances', routes: ['/finances/profit'] },
   'finances.profitMonthly': {

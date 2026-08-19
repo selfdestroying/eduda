@@ -77,11 +77,14 @@ export function extractSubdomain(host: string | null | undefined): string | null
 /**
  * Сумма в рублях без копеек, напр. «1 234 ₽».
  */
-export function formatCurrency(value: number) {
+/** Рубли без копеек: суммы в системе целые. `fractionDigits` — для расчётных
+ *  величин вроде цены занятия, где остаток от деления важнее ровного вида. */
+export function formatCurrency(value: number, fractionDigits = 0) {
   return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
     currency: 'RUB',
-    maximumFractionDigits: 0,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
   }).format(value)
 }
 

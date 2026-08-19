@@ -23,7 +23,7 @@ export const getOrders = studentAction
           select: {
             quantity: true,
             priceAtPurchase: true,
-            product: { select: { name: true, imageUrl: true } },
+            shopItem: { select: { name: true, imageUrl: true } },
           },
         },
       },
@@ -37,8 +37,8 @@ export const getOrders = studentAction
       // Сумма по снимку цены: товар мог подорожать после покупки.
       total: order.items.reduce((sum, i) => sum + i.priceAtPurchase * i.quantity, 0),
       items: order.items.map((i) => ({
-        name: i.product.name,
-        imageUrl: i.product.imageUrl,
+        name: i.shopItem.name,
+        imageUrl: i.shopItem.imageUrl,
         quantity: i.quantity,
         priceAtPurchase: i.priceAtPurchase,
       })),

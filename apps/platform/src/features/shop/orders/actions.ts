@@ -15,7 +15,7 @@ export const getOrders = featureAction('shop')
       where: {
         organizationId: ctx.session.organizationId!,
       },
-      include: { student: true, items: { include: { product: true } } },
+      include: { student: true, items: { include: { shopItem: true } } },
       orderBy: { createdAt: 'desc' },
     })
   })
@@ -53,8 +53,8 @@ export const changeOrderStatus = featureAction('shop')
       for (const item of order.items) {
         if (sign > 0) {
           // Отмена: остаток просто возвращается.
-          await tx.product.update({
-            where: { id: item.productId, organizationId },
+          await tx.shopItem.update({
+            where: { id: item.shopItemId, organizationId },
             data: { quantity: { increment: item.quantity } },
           })
           continue
@@ -62,8 +62,8 @@ export const changeOrderStatus = featureAction('shop')
         // Возврат заказа из отмены снова забирает остаток — условным апдейтом,
         // иначе за время отмены школа могла распродать товар и остаток ушёл бы
         // в минус.
-        const { count } = await tx.product.updateMany({
-          where: { id: item.productId, organizationId, quantity: { gte: item.quantity } },
+        const { count } = await tx.shopItem.updateMany({
+          where: { id: item.shopItemId, organizationId, quantity: { gte: item.quantity } },
           data: { quantity: { decrement: item.quantity } },
         })
         if (count !== 1) {

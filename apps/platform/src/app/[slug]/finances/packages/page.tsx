@@ -1,21 +1,21 @@
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
-import AddPaymentButton from '@/src/features/finances/payments/components/add-payment-button'
-import PaymentsTable from '@/src/features/finances/payments/components/payments-table'
+import AddPackageButton from '@/src/features/finances/payments/components/add-package-button'
+import PackagesTable from '@/src/features/finances/payments/components/packages-table'
 
-export const metadata = { title: 'Оплаты' }
+export const metadata = { title: 'Пакеты' }
 
 export default function Page() {
   return (
     <div className="space-y-2">
       <Card>
         <CardHeader className="flex items-center justify-between">
-          <CardTitle>Оплаты</CardTitle>
+          <CardTitle>Пакеты</CardTitle>
           <CardAction>
-            <AddPaymentButton />
+            <AddPackageButton />
           </CardAction>
         </CardHeader>
         <CardContent>
-          <PaymentsTable />
+          <PackagesTable />
         </CardContent>
       </Card>
     </div>

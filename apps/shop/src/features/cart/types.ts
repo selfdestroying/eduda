@@ -11,9 +11,9 @@
  * где клиент присылает цены, которые он показал ученику.
  */
 export type CheckoutIssue =
-  | { kind: 'OUT_OF_STOCK'; productId: number; name: string; available: number }
-  | { kind: 'PRICE_CHANGED'; productId: number; name: string; oldPrice: number; newPrice: number }
-  | { kind: 'UNAVAILABLE'; productId: number; name: string }
+  | { kind: 'OUT_OF_STOCK'; shopItemId: number; name: string; available: number }
+  | { kind: 'PRICE_CHANGED'; shopItemId: number; name: string; oldPrice: number; newPrice: number }
+  | { kind: 'UNAVAILABLE'; shopItemId: number; name: string }
   | { kind: 'INSUFFICIENT_COINS'; needed: number; available: number }
 
 export function issueMessage(issue: CheckoutIssue): string {

@@ -76,7 +76,7 @@ export const getRevenueData = authAction
             isTrial: true,
             price: true,
             amount: true,
-            payment: { select: { date: true, price: true, lessonCount: true } },
+            package: { select: { date: true, price: true, lessonCount: true } },
             student: {
               select: {
                 id: true,
@@ -153,8 +153,8 @@ export const getRevenueData = authAction
             return `${label} → не оплачено: оплаты под это занятие ещё нет`
           }
           if (!counted) return `${label} → не списано`
-          if (att.payment) {
-            return `${label} → списано\nпакет от ${att.payment.date}: ${formatCurrency(att.payment.price)} / ${att.payment.lessonCount} ур. = ${formatCurrency(visitCost)}`
+          if (att.package) {
+            return `${label} → списано\nпакет от ${att.package.date}: ${formatCurrency(att.package.price)} / ${att.package.lessonCount} ур. = ${formatCurrency(visitCost)}`
           }
           return `${label} → списано в долг\nоплаты под этот урок в базе нет, взята последняя цена кошелька: ${formatCurrency(visitCost)}`
         })()

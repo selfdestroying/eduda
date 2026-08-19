@@ -24,7 +24,7 @@ import { useLessonDetail } from './lesson-detail-context'
  */
 function isUnpaid(attendance: AttendanceWithStudents): boolean {
   if (attendance.isTrial) return false
-  if (attendance.amount !== 0 || attendance.paymentId !== null) return false
+  if (attendance.amount !== 0 || attendance.packageId !== null) return false
   if (attendance.makeupAttendance) return false
   return attendance.status === 'PRESENT' || (attendance.status === 'ABSENT' && !attendance.isWarned)
 }

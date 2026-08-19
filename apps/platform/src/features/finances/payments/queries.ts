@@ -1,52 +1,65 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  cancelPayment,
-  createPaymentWithBalance,
+  cancelPackage,
+  createPackage,
   deleteUnprocessedPayment,
-  getPayments,
-  getStudentsForPayments,
+  getPackageDetails,
+  getPackages,
   getUnprocessedPayments,
   resolveUnprocessedPayment,
 } from './actions'
 import type {
-  CancelPaymentSchemaType,
-  CreatePaymentSchemaType,
+  PackageIdSchemaType,
+  CreatePackageSchemaType,
   DeleteUnprocessedPaymentSchemaType,
+  PackageListSchemaType,
   ResolveUnprocessedPaymentSchemaType,
 } from './schemas'
 
-export const paymentKeys = {
-  all: ['payments'] as const,
+export const packageKeys = {
+  all: ['packages'] as const,
+  list: (period: PackageListSchemaType) => [...packageKeys.all, period] as const,
+  details: (id: number) => [...packageKeys.all, 'details', id] as const,
 }
 
 export const unprocessedPaymentKeys = {
   all: ['unprocessed-payments'] as const,
 }
 
-export const studentForPaymentKeys = {
-  all: ['students-for-payments'] as const,
-}
+const EMPTY_PAGE = { rows: [], total: 0 }
 
-export const usePaymentListQuery = () => {
+export const usePackageListQuery = (params: PackageListSchemaType) => {
   return useQuery({
-    queryKey: paymentKeys.all,
+    queryKey: packageKeys.list(params),
     queryFn: async () => {
-      const { data, serverError } = await getPayments()
+      const { data, serverError, validationErrors } = await getPackages(params)
       if (serverError) throw serverError
-      return data ?? []
+      // Ошибку валидации `next-safe-action` кладёт отдельно от серверной, и без
+      // этой проверки она превращалась бы в `data === undefined`, то есть в пустую
+      // таблицу с надписью «Нет пакетов» — как будто у школы и правда нет продаж.
+      if (validationErrors) throw new Error('Некорректные параметры выборки пакетов')
+      return data ?? EMPTY_PAGE
     },
+    // Пока грузится следующая страница, показываем предыдущую: иначе на каждый
+    // клик по «вперёд» таблица моргает пустотой и скачет по высоте.
+    placeholderData: keepPreviousData,
   })
 }
 
-export const useStudentForPaymentListQuery = () => {
+/**
+ * Панель раскрытой строки. Запрос уходит только когда строку раскрыли, а результат
+ * остаётся в кеше: свернуть и раскрыть обратно — уже без похода на сервер.
+ */
+export const usePackageDetailsQuery = (id: number, enabled: boolean) => {
   return useQuery({
-    queryKey: studentForPaymentKeys.all,
+    queryKey: packageKeys.details(id),
     queryFn: async () => {
-      const { data, serverError } = await getStudentsForPayments()
+      const { data, serverError } = await getPackageDetails({ id })
       if (serverError) throw serverError
-      return data ?? []
+      return data ?? null
     },
+    enabled,
   })
 }
 
@@ -61,37 +74,37 @@ export const useUnprocessedPaymentListQuery = () => {
   })
 }
 
-export const usePaymentCreateMutation = () => {
+export const useCreatePackageMutation = () => {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (values: CreatePaymentSchemaType) => {
-      const { data, serverError } = await createPaymentWithBalance(values)
+    mutationFn: async (values: CreatePackageSchemaType) => {
+      const { data, serverError } = await createPackage(values)
       if (serverError) throw serverError
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: paymentKeys.all })
-      toast.success('Оплата успешно создана!')
+      queryClient.invalidateQueries({ queryKey: packageKeys.all })
+      toast.success('Пакет добавлен!')
     },
     onError: () => {
-      toast.error('Не удалось создать оплату.')
+      toast.error('Не удалось добавить пакет.')
     },
   })
 }
 
-export const usePaymentCancelMutation = () => {
+export const usePackageCancelMutation = () => {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (values: CancelPaymentSchemaType) => {
-      const { data, serverError } = await cancelPayment(values)
+    mutationFn: async (values: PackageIdSchemaType) => {
+      const { data, serverError } = await cancelPackage(values)
       if (serverError) throw serverError
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: paymentKeys.all })
-      toast.success('Оплата успешно отменена')
+      queryClient.invalidateQueries({ queryKey: packageKeys.all })
+      toast.success('Пакет отменён')
     },
-    onError: () => toast.error('Не удалось отменить оплату'),
+    onError: () => toast.error('Не удалось отменить пакет'),
   })
 }
 
@@ -104,11 +117,11 @@ export const useUnprocessedPaymentResolveMutation = () => {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: paymentKeys.all })
+      queryClient.invalidateQueries({ queryKey: packageKeys.all })
       queryClient.invalidateQueries({ queryKey: unprocessedPaymentKeys.all })
-      toast.success('Оплата успешно создана!')
+      toast.success('Пакет добавлен!')
     },
-    onError: () => toast.error('Не удалось создать оплату.'),
+    onError: () => toast.error('Не удалось добавить пакет.'),
   })
 }
 

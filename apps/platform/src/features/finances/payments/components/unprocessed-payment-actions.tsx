@@ -24,24 +24,31 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@repo/ui/components/dropdown-menu'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
 import { Check, CircleX, Loader, MoreVertical } from 'lucide-react'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
 import {
   useUnprocessedPaymentDeleteMutation,
   useUnprocessedPaymentResolveMutation,
 } from '../queries'
-import { CreatePaymentSchema, type CreatePaymentSchemaType } from '../schemas'
-import PaymentForm from './payment-form'
+import { type CreatePackageSchemaType } from '../schemas'
+import PackageForm, { usePackageForm } from './package-form'
 
 interface UnprocessedPaymentActionsProps {
   unprocessedPayment: UnprocessedPayment
 }
 
+// Вне компонента: `useHasPermission` мемоизирует по ссылке на объект прав.
+const CAN_CREATE = { payment: ['create'] } as const
+const CAN_DELETE = { payment: ['delete'] } as const
+
+const FORM_ID = 'resolve-payment-form'
+
 export default function UnprocessedPaymentActions({
   unprocessedPayment,
 }: UnprocessedPaymentActionsProps) {
+  const canCreate = useHasPermission(CAN_CREATE)
+  const canDelete = useHasPermission(CAN_DELETE)
   const [open, setOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -49,17 +56,9 @@ export default function UnprocessedPaymentActions({
   const resolveMutation = useUnprocessedPaymentResolveMutation()
   const deleteMutation = useUnprocessedPaymentDeleteMutation()
 
-  const form = useForm<CreatePaymentSchemaType>({
-    resolver: zodResolver(CreatePaymentSchema),
-    defaultValues: {
-      price: undefined,
-      lessonCount: undefined,
-      date: undefined,
-      paymentMethodId: null,
-    },
-  })
+  const form = usePackageForm()
 
-  const onSubmit = (values: CreatePaymentSchemaType) => {
+  const onSubmit = (values: CreatePackageSchemaType) => {
     resolveMutation.mutate(
       {
         ...values,
@@ -78,6 +77,17 @@ export default function UnprocessedPaymentActions({
     deleteMutation.mutate({ id: unprocessedPayment.id }, { onSuccess: () => setConfirmOpen(false) })
   }
 
+  // Закрытие очищает форму: она живёт здесь, а содержимое диалога размонтируется
+  // со своим состоянием — иначе при повторном открытии остаётся кошелёк без
+  // ученика. Подробнее в `add-package-button.tsx`.
+  const handleDialogOpenChange = (next: boolean) => {
+    setDialogOpen(next)
+    if (!next) form.reset()
+  }
+
+  // Ни разобрать, ни удалить — меню пустое, показывать нечего.
+  if (!canCreate && !canDelete) return null
+
   return (
     <>
       <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -86,25 +96,29 @@ export default function UnprocessedPaymentActions({
         </DropdownMenuTrigger>
 
         <DropdownMenuContent className="w-max">
-          <DropdownMenuItem
-            onClick={() => {
-              setDialogOpen(true)
-              setOpen(false)
-            }}
-          >
-            <Check />
-            Разобрать оплату
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => {
-              setConfirmOpen(true)
-              setOpen(false)
-            }}
-          >
-            <CircleX />
-            Удалить
-          </DropdownMenuItem>
+          {canCreate && (
+            <DropdownMenuItem
+              onClick={() => {
+                setDialogOpen(true)
+                setOpen(false)
+              }}
+            >
+              <Check />
+              Разобрать оплату
+            </DropdownMenuItem>
+          )}
+          {canDelete && (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => {
+                setConfirmOpen(true)
+                setOpen(false)
+              }}
+            >
+              <CircleX />
+              Удалить
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -132,21 +146,22 @@ export default function UnprocessedPaymentActions({
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Добавить оплату</DialogTitle>
           </DialogHeader>
-          <PaymentForm
+          <PackageForm
             form={form}
-            formId="resolve-payment-form"
+            formId={FORM_ID}
+            onSubmit={onSubmit}
             disabled={resolveMutation.isPending}
           />
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setDialogOpen(false)}>
+            <Button variant="secondary" onClick={() => handleDialogOpenChange(false)}>
               Отмена
             </Button>
-            <Button disabled={resolveMutation.isPending} onClick={form.handleSubmit(onSubmit)}>
+            <Button type="submit" form={FORM_ID} disabled={resolveMutation.isPending}>
               {resolveMutation.isPending && <Loader className="animate-spin" />}
               Добавить
             </Button>

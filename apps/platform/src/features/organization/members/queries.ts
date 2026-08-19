@@ -39,6 +39,15 @@ export const useMemberListQuery = () => {
   })
 }
 
+/**
+ * Вне хука намеренно: TanStack кеширует результат `select` по ссылке на саму
+ * функцию, и инлайн-стрелка пересобирала бы массив на каждый рендер. Потребители
+ * кладут его в зависимости `useMemo` (набор опций фильтра, колонки таблицы), а
+ * там новая ссылка каждый рендер означает пересчёт всего дерева таблицы.
+ */
+const toMemberOptions = (members: Awaited<ReturnType<typeof getMembers>>['data'] & {}) =>
+  members.map((member) => ({ value: member.userId.toString(), label: member.user.name }))
+
 export const useMappedMemberListQuery = () => {
   return useQuery({
     queryKey: memberKeys.all,
@@ -47,11 +56,7 @@ export const useMappedMemberListQuery = () => {
       if (serverError) throw serverError
       return data ?? []
     },
-    select: (members) =>
-      members.map((member) => ({
-        value: member.userId.toString(),
-        label: member.user.name,
-      })),
+    select: toMemberOptions,
   })
 }
 

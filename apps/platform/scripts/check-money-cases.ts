@@ -15,11 +15,13 @@ import assert from 'node:assert/strict'
 import { type Prisma, prisma } from '@repo/db'
 import { AttendanceStatus, WalletEntryKind } from '@repo/db/enums'
 import {
+  activatePackageTx,
+  settleUnpaidAttendancesTx,
+  cancelPackageTx,
   chargeAttendanceTx,
   isLessonCharged,
-  recordWalletEntryTx,
-  settleUnpaidAttendancesTx,
   unchargeAttendanceTx,
+  unitPriceOf,
 } from '../src/features/finances/ledger.server'
 
 class Rollback extends Error {}
@@ -164,7 +166,7 @@ async function main() {
           else await unchargeAttendanceTx(tx, money)
         }
 
-        /** То же, что делает `createPaymentWithBalance`. */
+        /** Продали и оплатили пакет — то же, что делает `createPaymentWithBalance`. */
         const pay = async (
           walletId: number,
           studentId: number,
@@ -172,7 +174,7 @@ async function main() {
           price: number,
           lessonCount: number,
         ) => {
-          const payment = await tx.payment.create({
+          const packet = await tx.package.create({
             data: {
               organizationId,
               studentId,
@@ -180,71 +182,26 @@ async function main() {
               date,
               price,
               lessonCount,
-              bidForLesson: lessonCount > 0 ? Math.floor(price / lessonCount) : 0,
               remaining: lessonCount,
+              unitPrice: unitPriceOf({ price, lessonCount }),
             },
             select: { id: true },
           })
-          await recordWalletEntryTx(tx, {
+          const settled = await activatePackageTx(tx, {
+            packageId: packet.id,
             organizationId,
-            walletId,
-            studentId,
-            kind: WalletEntryKind.PURCHASE,
-            quantity: lessonCount,
-            unitPrice: lessonCount > 0 ? Math.floor(price / lessonCount) : 0,
-            effectiveAt: date,
-            paymentId: payment.id,
             actorUserId: null,
           })
-          await tx.wallet.update({
-            where: { id: walletId },
-            data: { lessonsBalance: { increment: lessonCount } },
-          })
-          const settled = await settleUnpaidAttendancesTx(tx, {
-            walletId,
-            organizationId,
-            paymentId: payment.id,
-            take: lessonCount,
-            actorUserId: null,
-          })
-          return { id: payment.id, settled }
+          return { id: packet.id, settled }
         }
 
-        /** То же, что делает `cancelPayment`. */
-        const cancel = async (paymentId: number) => {
-          const before = await tx.payment.findUniqueOrThrow({
-            where: { id: paymentId },
-            select: {
-              remaining: true,
-              lessonCount: true,
-              price: true,
-              walletId: true,
-              studentId: true,
-            },
-          })
-          await tx.payment.update({
-            where: { id: paymentId },
-            data: { status: 'CANCELLED', cancelledAt: new Date(), remaining: 0 },
-          })
-          const unspent = before.remaining ?? before.lessonCount
-          await tx.wallet.update({
-            where: { id: before.walletId! },
-            data: {
-              lessonsBalance: { decrement: unspent },
-              totalLessons: { decrement: before.lessonCount },
-              totalPayments: { decrement: before.price },
-            },
-          })
-          await recordWalletEntryTx(tx, {
+        /** Отмена пакета — то же, что делает `cancelPackage`. */
+        const cancel = async (packageId: number) => {
+          await cancelPackageTx(tx, {
+            packageId,
             organizationId,
-            walletId: before.walletId!,
-            studentId: before.studentId,
-            kind: WalletEntryKind.CANCELLATION,
-            quantity: -unspent,
-            unitPrice: before.lessonCount > 0 ? Math.floor(before.price / before.lessonCount) : 0,
-            effectiveAt: '2027-01-01',
-            paymentId,
             actorUserId: null,
+            effectiveAt: '2027-01-01',
           })
         }
 
@@ -256,7 +213,7 @@ async function main() {
         const entryOf = async (id: number) =>
           await tx.attendance.findUniqueOrThrow({
             where: { id },
-            select: { paymentId: true, price: true, amount: true },
+            select: { packageId: true, price: true, amount: true },
           })
         const balanceOf = async (walletId: number) =>
           (
@@ -265,10 +222,10 @@ async function main() {
               select: { lessonsBalance: true },
             })
           ).lessonsBalance
-        const remainingOf = async (paymentId: number) =>
+        const remainingOf = async (packageId: number) =>
           (
-            await tx.payment.findUniqueOrThrow({
-              where: { id: paymentId },
+            await tx.package.findUniqueOrThrow({
+              where: { id: packageId },
               select: { remaining: true },
             })
           ).remaining
@@ -290,7 +247,7 @@ async function main() {
           const b = await pay(s.walletId, s.studentId, '2026-12-01', 6_000, 12) // 500
           const v1 = await visit({ studentId: s.studentId })
           await mark(v1, AttendanceStatus.PRESENT)
-          assert.deepEqual(await entryOf(v1), { paymentId: a.id, price: 1000, amount: 1 })
+          assert.deepEqual(await entryOf(v1), { packageId: a.id, price: 1000, amount: 1 })
           assert.equal(await remainingOf(b.id), 12)
           ok('занятие гасит головной пакет, дешёвый ждёт своей очереди')
 
@@ -301,7 +258,7 @@ async function main() {
 
           const v3 = await visit({ studentId: s.studentId })
           await mark(v3, AttendanceStatus.PRESENT)
-          assert.deepEqual(await entryOf(v3), { paymentId: b.id, price: 500, amount: 1 })
+          assert.deepEqual(await entryOf(v3), { packageId: b.id, price: 500, amount: 1 })
           ok('после выработки очередь переходит к следующему пакету')
         }
 
@@ -312,7 +269,7 @@ async function main() {
           const early = await pay(s.walletId, s.studentId, '2026-09-01', 12_000, 6)
           const v = await visit({ studentId: s.studentId })
           await mark(v, AttendanceStatus.PRESENT)
-          assert.equal((await entryOf(v)).paymentId, early.id)
+          assert.equal((await entryOf(v)).packageId, early.id)
           assert.equal(await remainingOf(late.id), 6)
           ok('очередь строится по дате оплаты, а не по порядку заведения')
         }
@@ -323,7 +280,7 @@ async function main() {
           const s = await scene('Без оплат')
           const v = await visit({ studentId: s.studentId })
           await mark(v, AttendanceStatus.PRESENT)
-          assert.deepEqual(await entryOf(v), { paymentId: null, price: null, amount: 0 })
+          assert.deepEqual(await entryOf(v), { packageId: null, price: null, amount: 0 })
           assert.equal(await balanceOf(s.walletId), 0)
           assert.equal(await tx.walletEntry.count({ where: { walletId: s.walletId } }), 0)
           ok('пакетов нет — занятие ждёт оплаты, баланс не уходит в минус')
@@ -338,8 +295,8 @@ async function main() {
           const p = await pay(s.walletId, s.studentId, '2027-01-01', 12_000, 12) // 1000
 
           assert.equal(p.settled, 2)
-          assert.deepEqual(await entryOf(v1), { paymentId: p.id, price: 1000, amount: 1 })
-          assert.deepEqual(await entryOf(v2), { paymentId: p.id, price: 1000, amount: 1 })
+          assert.deepEqual(await entryOf(v1), { packageId: p.id, price: 1000, amount: 1 })
+          assert.deepEqual(await entryOf(v2), { packageId: p.id, price: 1000, amount: 1 })
           assert.equal(await remainingOf(p.id), 10)
           assert.equal(await balanceOf(s.walletId), 10)
           assert.equal((await entriesOf(v1)).length, 1)
@@ -356,8 +313,8 @@ async function main() {
           }
           const p = await pay(s.walletId, s.studentId, '2027-01-01', 2_000, 2) // 1000
           assert.equal(p.settled, 2)
-          assert.equal((await entryOf(ids[0]!)).paymentId, p.id)
-          assert.equal((await entryOf(ids[1]!)).paymentId, p.id)
+          assert.equal((await entryOf(ids[0]!)).packageId, p.id)
+          assert.equal((await entryOf(ids[1]!)).packageId, p.id)
           assert.equal((await entryOf(ids[2]!)).amount, 0)
           assert.equal(await balanceOf(s.walletId), 0)
           assert.equal(await remainingOf(p.id), 0)
@@ -383,7 +340,7 @@ async function main() {
           const again = await settleUnpaidAttendancesTx(tx, {
             walletId: s.walletId,
             organizationId,
-            paymentId: p.id,
+            packageId: p.id,
             take: 4,
             actorUserId: null,
           })
@@ -506,7 +463,7 @@ async function main() {
 
           const p = await pay(s.walletId, s.studentId, '2027-01-01', 4_000, 4)
           assert.equal(p.settled, 1)
-          assert.equal((await entryOf(makeup)).paymentId, p.id)
+          assert.equal((await entryOf(makeup)).packageId, p.id)
           assert.equal((await entryOf(missed)).amount, null)
           ok('оплата гасит отработку, а не пропуск: деньги живут на строке отработки')
         }
@@ -526,7 +483,7 @@ async function main() {
             makeupFor: missed,
           })
           await mark(makeup, AttendanceStatus.PRESENT)
-          assert.equal((await entryOf(makeup)).paymentId, p.id)
+          assert.equal((await entryOf(makeup)).packageId, p.id)
           assert.equal(await remainingOf(p.id), 9)
           ok('отработка в чужой группе платит кошельком группы пропуска')
         }
@@ -562,7 +519,7 @@ async function main() {
 
           const v = await visit({ studentId: s.studentId, walletId: guestWallet.id })
           await mark(v, AttendanceStatus.PRESENT)
-          assert.equal((await entryOf(v)).paymentId, guestPacket.id)
+          assert.equal((await entryOf(v)).packageId, guestPacket.id)
           assert.equal((await entryOf(v)).price, 2000)
           assert.equal(await remainingOf(p.id), 10)
           ok('разовое посещение платит выбранным кошельком, а не кошельком группы')
@@ -632,10 +589,10 @@ async function main() {
         {
           const s = await scene(CORRUPT)
           const broken = await pay(s.walletId, s.studentId, '2026-09-01', 5_000, 0)
-          await tx.payment.update({ where: { id: broken.id }, data: { remaining: 1 } })
+          await tx.package.update({ where: { id: broken.id }, data: { remaining: 1 } })
           const v = await visit({ studentId: s.studentId })
           await mark(v, AttendanceStatus.PRESENT)
-          assert.deepEqual(await entryOf(v), { paymentId: broken.id, price: 0, amount: 1 })
+          assert.deepEqual(await entryOf(v), { packageId: broken.id, price: 0, amount: 1 })
           ok('пакет с нулём уроков даёт цену 0, а не NaN')
         }
 
@@ -676,20 +633,16 @@ async function main() {
         }
         ok(`Σ журнала = баланс, и ни один из ${honest.length} кошельков не в минусе`)
 
-        const packets = await tx.payment.findMany({
+        const packets = await tx.package.findMany({
           where: { student: { lastName: 'Сценарий' }, wallet: { name: { not: CORRUPT } } },
           select: { id: true, remaining: true },
         })
         for (const p of packets) {
           const sum = await tx.walletEntry.aggregate({
-            where: { paymentId: p.id },
+            where: { packageId: p.id },
             _sum: { quantity: true },
           })
-          assert.equal(
-            sum._sum.quantity ?? 0,
-            p.remaining ?? 0,
-            `пакет ${p.id}: Σ журнала ≠ остаток`,
-          )
+          assert.equal(sum._sum.quantity ?? 0, p.remaining, `пакет ${p.id}: Σ журнала ≠ остаток`)
         }
         ok(`Σ журнала = остаток у всех ${packets.length} пакетов`)
 

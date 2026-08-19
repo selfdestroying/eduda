@@ -13,15 +13,10 @@ export type AttendanceForCommentPopover = Pick<Attendance, 'studentId' | 'lesson
 
 interface AttendanceCommentPopoverProps {
   attendance: AttendanceForCommentPopover
-  /** Контейнер для портала popover'а — нужен внутри модальных drawer'ов (vaul блокирует клики вне контента). */
-  popoverContainer?: HTMLElement | null
 }
 
 /** Кнопка-иконка с popover'ом для редактирования комментария к посещению ученика. */
-export function AttendanceCommentPopover({
-  attendance,
-  popoverContainer,
-}: AttendanceCommentPopoverProps) {
+export function AttendanceCommentPopover({ attendance }: AttendanceCommentPopoverProps) {
   const { mutate: updateComment, isPending } = useUpdateAttendanceCommentMutation(
     attendance.lessonId,
   )
@@ -52,7 +47,7 @@ export function AttendanceCommentPopover({
       <PopoverTrigger render={<Button variant="ghost" size="icon" aria-label="Комментарий" />}>
         <MessageCircle />
       </PopoverTrigger>
-      <PopoverContent container={popoverContainer}>
+      <PopoverContent>
         <div className="grid gap-2">
           <div>Комментарий</div>
           <Textarea

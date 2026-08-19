@@ -9,6 +9,7 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
+  FieldOptional,
   FieldSeparator,
 } from '@repo/ui/components/field'
 import { Input } from '@repo/ui/components/input'
@@ -38,14 +39,6 @@ import { useParentListQuery } from '../../parents/queries'
 import { ParentWithStudents } from '../../parents/types'
 import { useStudentCreateMutation } from '../queries'
 import { CreateStudentSchema, CreateStudentSchemaType } from '../schemas'
-
-function RequiredMark() {
-  return <span className="text-destructive">*</span>
-}
-
-function OptionalMark() {
-  return <span className="text-muted-foreground text-xs font-normal">(необязательно)</span>
-}
 
 export default function AddStudentButton() {
   const { data: permission } = useOrganizationPermissionQuery({ student: ['create'] })
@@ -119,9 +112,7 @@ export default function AddStudentButton() {
               disabled={createMutation.isPending}
               render={({ field, fieldState }) => (
                 <Field>
-                  <FieldLabel htmlFor="firstName-field">
-                    Имя <RequiredMark />
-                  </FieldLabel>
+                  <FieldLabel htmlFor="firstName-field">Имя</FieldLabel>
                   <Input
                     id="firstName-field"
                     placeholder="Введите имя"
@@ -138,9 +129,7 @@ export default function AddStudentButton() {
               disabled={createMutation.isPending}
               render={({ field, fieldState }) => (
                 <Field>
-                  <FieldLabel htmlFor="lastName-field">
-                    Фамилия <RequiredMark />
-                  </FieldLabel>
+                  <FieldLabel htmlFor="lastName-field">Фамилия</FieldLabel>
                   <Input
                     id="lastName-field"
                     placeholder="Введите фамилию"
@@ -161,7 +150,7 @@ export default function AddStudentButton() {
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel htmlFor="birthDate-field">
-                    Дата рождения <OptionalMark />
+                    Дата рождения <FieldOptional />
                   </FieldLabel>
                   <Popover>
                     <PopoverTrigger
@@ -199,7 +188,7 @@ export default function AddStudentButton() {
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel htmlFor="url-field">
-                    Ссылка <OptionalMark />
+                    Ссылка <FieldOptional />
                   </FieldLabel>
                   <Input
                     id="url-field"
@@ -232,9 +221,7 @@ export default function AddStudentButton() {
                     disabled={createMutation.isPending}
                     render={({ field, fieldState }) => (
                       <Field>
-                        <FieldLabel htmlFor="parent-firstName-field">
-                          Имя родителя <RequiredMark />
-                        </FieldLabel>
+                        <FieldLabel htmlFor="parent-firstName-field">Имя родителя</FieldLabel>
                         <Input
                           id="parent-firstName-field"
                           placeholder="Введите имя"
@@ -253,7 +240,7 @@ export default function AddStudentButton() {
                     render={({ field, fieldState }) => (
                       <Field>
                         <FieldLabel htmlFor="parent-lastName-field">
-                          Фамилия родителя <OptionalMark />
+                          Фамилия родителя <FieldOptional />
                         </FieldLabel>
                         <Input
                           id="parent-lastName-field"
@@ -274,7 +261,7 @@ export default function AddStudentButton() {
                     render={({ field, fieldState }) => (
                       <Field>
                         <FieldLabel htmlFor="parent-phone-field">
-                          Телефон <OptionalMark />
+                          Телефон <FieldOptional />
                         </FieldLabel>
                         <Input
                           id="parent-phone-field"
@@ -296,7 +283,7 @@ export default function AddStudentButton() {
                     render={({ field, fieldState }) => (
                       <Field>
                         <FieldLabel htmlFor="parent-email-field">
-                          Email <OptionalMark />
+                          Email <FieldOptional />
                         </FieldLabel>
                         <Input
                           id="parent-email-field"

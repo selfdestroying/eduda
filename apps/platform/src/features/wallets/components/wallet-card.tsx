@@ -1,6 +1,7 @@
 import type { WalletStatus } from '@repo/db/enums'
 import { Badge } from '@repo/ui/components/badge'
 import { Progress } from '@repo/ui/components/progress'
+import { formatDateOnly } from '@/src/lib/timezone'
 import { cn } from '@/src/lib/utils'
 import { Wallet } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -11,6 +12,17 @@ export type WalletCardData = WalletLabelInput & {
   lessonsBalance: number
   totalLessons: number
   totalPayments: number
+  /**
+   * Непотраченные пакеты в порядке очереди списания. Необязательные: родительский
+   * кабинет их не выбирает, и карточка там просто без разбивки.
+   */
+  packages?: Array<{
+    id: number
+    productName: string
+    date: string
+    lessonCount: number
+    remaining: number | null
+  }>
 }
 
 interface WalletCardProps {
@@ -84,6 +96,23 @@ export function WalletCard({ wallet, actions, children, className }: WalletCardP
           Уроки: <span className="text-foreground font-medium">{wallet.totalLessons}</span>
         </span>
       </div>
+
+      {/* Из чего сложился баланс: пакеты в порядке списания */}
+      {wallet.packages && wallet.packages.length > 0 && (
+        <div className="text-muted-foreground space-y-0.5 text-[0.625rem]">
+          <span>Пакеты:</span>
+          {wallet.packages.map((p) => (
+            <div key={p.id} className="flex items-center justify-between gap-1">
+              <span className="truncate">
+                {p.productName || `Оплата от ${formatDateOnly(p.date)}`}
+              </span>
+              <span className="shrink-0 tabular-nums">
+                {p.remaining} из {p.lessonCount} ур.
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {children}
     </div>

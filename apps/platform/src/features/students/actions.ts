@@ -188,6 +188,13 @@ export const getStudentDetail = authAction
                 group: { include: { course: true, location: true, schedules: true } },
               },
             },
+            // Непотраченные пакеты — из чего сложился баланс кошелька. Потраченные,
+            // отменённые и неоплаченные не грузим: первые уже в истории оплат, а
+            // карточка про остаток, последние уроков ещё не дали.
+            packages: {
+              where: { status: 'ACTIVE', remaining: { gt: 0 } },
+              orderBy: { date: 'asc' },
+            },
           },
         },
       },
@@ -344,10 +351,13 @@ export const deleteStudent = authAction
       })
       if (!student) throw new Error('Ученик не найден')
 
-      // Удаляем связи без каскада (Payment и StudentAccount имеют onDelete: Restrict).
+      // Удаляем связи без каскада (Package и StudentAccount имеют onDelete: Restrict).
       // Остальные связи (кошельки, группы, посещения, заказы, история, корзина, родители)
       // удаляются каскадно при удалении ученика.
-      await tx.payment.deleteMany({ where: { studentId: student.id, organizationId } })
+      //
+      // Счета остаются: они обезличены, их пакеты уходят вместе с учеником, и в
+      // деньгах школы платёж всё равно был.
+      await tx.package.deleteMany({ where: { studentId: student.id, organizationId } })
 
       // Учётка better-auth не висит на ученике и каскадом не уходит. Без явного
       // удаления логин остаётся занятым навсегда (username уникален), а по
@@ -591,7 +601,7 @@ export const getStudentShopStats = featureAction('shop')
       }),
       prisma.order.findMany({
         where: { studentId, organizationId },
-        include: { items: { include: { product: true } } },
+        include: { items: { include: { shopItem: true } } },
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),

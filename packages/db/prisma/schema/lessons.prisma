@@ -77,14 +77,14 @@ model Attendance {
     /// пересчитывается, поэтому новые оплаты не двигают прошлые месяцы.
     /// `amount = 0` — списания не было (откат, предупреждённый пропуск).
     /// Все три null — строка ещё не размечена (посещения до бэкфилла).
-    paymentId Int?
+    packageId Int?
     price     Int?
     amount    Int?
-    payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+    package   Package? @relation(fields: [packageId], references: [id], onDelete: SetNull)
 
     @@unique([studentId, lessonId])
     @@index([lessonId])
     @@index([organizationId])
     @@index([walletId])
-    @@index([paymentId])
+    @@index([packageId])
 }

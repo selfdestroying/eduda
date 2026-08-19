@@ -141,13 +141,7 @@ function makeupLink(a: AttendanceWithStudents) {
 }
 
 /** Строка ученика — целиком кнопка-ссылка на профиль (как кнопки футера). */
-function StudentRow({
-  a,
-  popoverContainer,
-}: {
-  a: AttendanceWithStudents
-  popoverContainer: HTMLElement | null
-}) {
+function StudentRow({ a }: { a: AttendanceWithStudents }) {
   const makeup = makeupLink(a)
 
   return (
@@ -173,21 +167,15 @@ function StudentRow({
           <div className="text-muted-foreground mt-0.5 truncate text-[12px]">{makeup.label}</div>
         )}
       </div>
-      <AttendanceStatusSwitcher attendance={a} popoverContainer={popoverContainer} />
-      <AttendanceCommentPopover attendance={a} popoverContainer={popoverContainer} />
+      <AttendanceStatusSwitcher attendance={a} />
+      <AttendanceCommentPopover attendance={a} />
     </div>
   )
 }
 
 // ─── Содержимое карточки ────────────────────────────────────────────────────────
 
-function LessonDetailBody({
-  ev,
-  popoverContainer,
-}: {
-  ev: CalendarEvent
-  popoverContainer: HTMLElement | null
-}) {
+function LessonDetailBody({ ev }: { ev: CalendarEvent }) {
   const { data: detail, isLoading } = useLessonDetailQuery(ev.lessonId)
 
   const group = detail?.group
@@ -333,7 +321,7 @@ function LessonDetailBody({
             {/* Ростер (прокручиваемый) */}
             <div className="thin-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-auto px-2 pb-3">
               {attendance.map((a) => (
-                <StudentRow key={a.id} a={a} popoverContainer={popoverContainer} />
+                <StudentRow key={a.id} a={a} />
               ))}
             </div>
           </>
@@ -366,8 +354,6 @@ function LessonDetailBody({
  */
 export function LessonDetailDrawer({ ctrl }: { ctrl: CalendarController }) {
   const isMobile = useIsMobile()
-  // Контейнер для порталов popover'ов: vaul блокирует клики вне контента drawer'а.
-  const [container, setContainer] = useState<HTMLDivElement | null>(null)
   // Сохраняем последнее событие, чтобы содержимое не исчезало на анимации закрытия.
   const [shown, setShown] = useState<CalendarEvent | null>(null)
   useEffect(() => {
@@ -377,15 +363,13 @@ export function LessonDetailDrawer({ ctrl }: { ctrl: CalendarController }) {
 
   return (
     <Drawer
-      direction={isMobile ? 'bottom' : 'right'}
+      swipeDirection={isMobile ? 'down' : 'right'}
+      showSwipeHandle={isMobile}
       open={ctrl.selectedEvent !== null}
       onOpenChange={(open) => !open && ctrl.closeEvent()}
     >
-      <DrawerContent
-        ref={setContainer}
-        className="focus:outline-none data-[vaul-drawer-direction=right]:sm:max-w-[484px]"
-      >
-        {ev && <LessonDetailBody ev={ev} popoverContainer={container} />}
+      <DrawerContent className="focus:outline-none data-[swipe-direction=right]:sm:[--drawer-content-width:484px]">
+        {ev && <LessonDetailBody ev={ev} />}
       </DrawerContent>
     </Drawer>
   )

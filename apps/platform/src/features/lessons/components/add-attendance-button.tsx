@@ -109,7 +109,8 @@ function AddAttendanceForm({ form, onSubmit }: AddAttendanceFormProps) {
   const { data: students, isLoading: isStudentsLoading } = useStudentListQuery()
   const studentId = form.watch('studentId')
   const { data: wallets } = useStudentWalletsQuery(studentId ?? 0, { enabled: !!studentId })
-  const activeWallets = (wallets ?? []).filter((w) => w.status === 'ACTIVE')
+  // Архивные отсеивает сам запрос.
+  const activeWallets = wallets ?? []
 
   if (isStudentsLoading) {
     return <Skeleton className="h-full w-full" />

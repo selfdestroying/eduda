@@ -128,11 +128,11 @@ export const navEntries: NavEntry[] = [
     featureKey: 'finances',
     items: [
       {
-        title: 'Оплаты',
-        url: '/finances/payments',
+        title: 'Пакеты',
+        url: '/finances/packages',
         roles: STAFF_ROLES,
         permission: { payment: ['read'] },
-        featureKey: 'finances.payments',
+        featureKey: 'finances.packages',
       },
       {
         title: 'Неразобранное',
@@ -267,6 +267,7 @@ const EXTRA_TITLES: Record<string, string> = {
   '/organization/rates/manager': 'Ставки менеджеров',
   '/organization/tax-systems': 'Налоги',
   '/finances/payment-methods': 'Методы оплаты',
+  '/finances/products': 'Продукты',
 }
 
 export function getPageTitle(pathname: string, fallback = 'ЕДУДА'): string {

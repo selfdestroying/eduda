@@ -16,7 +16,7 @@ import { useState } from 'react'
 import { useCheckoutMutation } from '../queries'
 
 interface CheckoutButtonProps {
-  items: { productId: number; price: number }[]
+  items: { shopItemId: number; price: number }[]
   total: number
   blocked: boolean
 }

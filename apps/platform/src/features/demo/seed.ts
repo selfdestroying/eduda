@@ -279,12 +279,27 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     },
   })
 
-  await prisma.paymentProduct.createMany({
+  // Прайс-лист: демо-оплаты ниже ссылаются на эти строки, поэтому нужны их id.
+  const createdProducts = await prisma.product.createManyAndReturn({
     data: [
-      { organizationId: orgId, name: 'Абонемент 8 занятий', price: 6400, lessonCount: 8 },
-      { organizationId: orgId, name: 'Абонемент 12 занятий', price: 9000, lessonCount: 12 },
+      {
+        organizationId: orgId,
+        name: 'Абонемент 8 занятий',
+        price: 6400,
+        lessonCount: 8,
+        description: 'Месяц занятий два раза в неделю',
+      },
+      {
+        organizationId: orgId,
+        name: 'Абонемент 12 занятий',
+        price: 9000,
+        lessonCount: 12,
+        description: 'Полтора месяца со скидкой за объём',
+      },
     ],
+    select: { id: true, name: true, lessonCount: true },
   })
+  const productByLessons = new Map(createdProducts.map((p) => [p.lessonCount, p]))
 
   // 5. Расходы / аренда / зарплаты ──────────────────────────────────────
   await prisma.expense.createMany({
@@ -521,33 +536,66 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     })),
   })
 
+  // Счёт и пакет заводятся парой, как в живом экшене: деньги отдельно, уроки
+  // отдельно. Все демо-оплаты подтверждённые — иначе демо-баланс был бы пустым.
   const payments: Prisma.PaymentCreateManyInput[] = []
+  const packetPlans: {
+    studentId: number
+    walletId: number
+    lessonCount: number
+    price: number
+    productId: number
+    productName: string
+    date: string
+  }[] = []
   students.forEach((st, i) => {
     const s = seeds[i]!
-    const groupId = createdGroups[s.groupIdx]!.id
     const walletId = walletByStudent.get(st.id)!
     for (let p = 0; p < s.paymentsCount; p++) {
       const lessonCount = pick([8, 12] as const)
       const price = lessonCount === 8 ? 6400 : 9000
+      // Пакеты сида — ровно два продукта прайс-листа, поэтому продукт находится по
+      // количеству занятий. `productName` — снимок названия, как в живом экшене.
+      const product = productByLessons.get(lessonCount)!
+      const date = ymd(addUTCDays(today, -int(1, 40)))
       payments.push({
         organizationId: orgId,
-        studentId: st.id,
-        groupId,
-        walletId,
         paymentMethodId: pick([methodCash.id, methodCard.id]),
+        price,
+        date,
+      })
+      packetPlans.push({
+        studentId: st.id,
+        walletId,
         lessonCount,
         price,
-        bidForLesson: Math.round(price / lessonCount),
-        productName: `Абонемент ${lessonCount} занятий`,
-        date: ymd(addUTCDays(today, -int(1, 40))),
-        // Пакет встаёт в очередь целиком: без остатка демо-посещения списывались бы
-        // «в долг» и демо-выручка не показывала бы разбор по пакетам.
-        remaining: lessonCount,
+        productId: product.id,
+        productName: product.name,
+        date,
       })
     }
   })
   const createdPayments = await prisma.payment.createManyAndReturn({
     data: payments,
+    select: { id: true, date: true, price: true },
+  })
+  const createdPackages = await prisma.package.createManyAndReturn({
+    data: packetPlans.map((plan, i) => ({
+      organizationId: orgId,
+      studentId: plan.studentId,
+      walletId: plan.walletId,
+      paymentId: createdPayments[i]!.id,
+      lessonCount: plan.lessonCount,
+      // Пакет встаёт в очередь целиком: без остатка демо-посещения списывались бы
+      // «в долг» и демо-выручка не показывала бы разбор по пакетам.
+      remaining: plan.lessonCount,
+      price: plan.price,
+      unitPrice: Math.round(plan.price / plan.lessonCount),
+      date: plan.date,
+      status: 'ACTIVE' as const,
+      productId: plan.productId,
+      productName: plan.productName,
+    })),
     select: { id: true, studentId: true, date: true, price: true, lessonCount: true },
   })
 
@@ -593,7 +641,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
   // забирает его цену, как это делает `chargeAttendanceTx` вживую. Без этого
   // «Выручка», «Прибыль» и «Авансы» в демо-школе показывали бы нули.
   const queueByStudent = new Map<number, { id: number; price: number; left: number }[]>()
-  for (const p of [...createdPayments].sort((a, b) => (a.date < b.date ? -1 : 1))) {
+  for (const p of [...createdPackages].sort((a, b) => (a.date < b.date ? -1 : 1))) {
     const queue = queueByStudent.get(p.studentId) ?? []
     queue.push({
       id: p.id,
@@ -622,7 +670,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
           studentId,
           status,
           comment: status === 'ABSENT' && rng() > 0.6 ? 'Болел' : '',
-          paymentId: packet?.id ?? null,
+          packageId: packet?.id ?? null,
           price: packet?.price ?? null,
           amount: packet ? 1 : 0,
         })
@@ -633,7 +681,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     attendance.length > 0
       ? await prisma.attendance.createManyAndReturn({
           data: attendance,
-          select: { id: true, studentId: true, lessonId: true, paymentId: true, price: true },
+          select: { id: true, studentId: true, lessonId: true, packageId: true, price: true },
         })
       : []
 
@@ -648,7 +696,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     ).map((l) => [l.id, l.date]),
   )
   const ledger: Prisma.WalletEntryCreateManyInput[] = []
-  for (const p of createdPayments) {
+  for (const p of createdPackages) {
     const walletId = walletByStudent.get(p.studentId)
     if (!walletId) continue
     ledger.push({
@@ -659,7 +707,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       quantity: p.lessonCount,
       unitPrice: p.lessonCount > 0 ? Math.floor(p.price / p.lessonCount) : 0,
       effectiveAt: p.date,
-      paymentId: p.id,
+      packageId: p.id,
     })
   }
   for (const a of createdAttendance) {
@@ -673,7 +721,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
       quantity: -1,
       unitPrice: a.price,
       effectiveAt: lessonDate.get(a.lessonId)!,
-      paymentId: a.paymentId,
+      packageId: a.packageId,
       attendanceId: a.id,
     })
   }
@@ -686,7 +734,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     for (const p of queue) byRemaining.set(p.left, [...(byRemaining.get(p.left) ?? []), p.id])
   }
   for (const [left, ids] of byRemaining) {
-    await prisma.payment.updateMany({ where: { id: { in: ids } }, data: { remaining: left } })
+    await prisma.package.updateMany({ where: { id: { in: ids } }, data: { remaining: left } })
   }
 
   // Баланс кошелька — это и есть непотраченные уроки его пакетов. Случайное число
@@ -714,7 +762,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
     { name: 'Значок-эмодзи', price: 120, categoryId: catMerch.id },
     { name: 'Стикерпак', price: 200, categoryId: catMerch.id },
   ]
-  const products = await prisma.product.createManyAndReturn({
+  const shopItems = await prisma.shopItem.createManyAndReturn({
     data: PRODUCTS.map((pr) => ({
       organizationId: orgId,
       name: pr.name,
@@ -747,13 +795,13 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
   // Заказ — шапка с позициями; цена фиксируется снимком на момент покупки.
   await prisma.orderItem.createMany({
     data: orders.map((order) => {
-      const product = pick(products)
+      const shopItem = pick(shopItems)
       return {
         organizationId: orgId,
         orderId: order.id,
-        productId: product.id,
+        shopItemId: shopItem.id,
         quantity: int(1, 3),
-        priceAtPurchase: product.price,
+        priceAtPurchase: shopItem.price,
       }
     }),
   })

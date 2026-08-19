@@ -11,7 +11,7 @@ import {
 } from '@repo/ui/components/select'
 import { useStudentWalletsQuery } from '@/src/features/wallets/queries'
 import { X } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 
 const NEW_WALLET = 'new'
 
@@ -39,7 +39,9 @@ export function EnrolledStudentRow({
   invalid,
 }: EnrolledStudentRowProps) {
   const { data: wallets, isLoading } = useStudentWalletsQuery(entry.studentId, { enabled: true })
-  const activeWallets = (wallets ?? []).filter((w) => w.status === 'ACTIVE')
+  // Архивные отсеивает сам запрос. Мемо — чтобы `?? []` не отдавал новый массив
+  // на каждый рендер: на нём держится мемоизация `walletItems` ниже.
+  const activeWallets = useMemo(() => wallets ?? [], [wallets])
   const walletsLoaded = wallets !== undefined
 
   // Кошелёк обязателен: один активный — выбираем его, нет ни одного — создаём новый
@@ -64,18 +66,22 @@ export function EnrolledStudentRow({
     else onWalletChange({ walletId: Number(v) })
   }
 
+  // Мемоизация не ради скорости: `Select.Root` кладёт `items` в свой стор эффектом,
+  // зависящим от ссылки на массив. Массив, собранный инлайном в JSX, новый на каждый
+  // рендер — стор обновляется, подписчики перерисовываются, массив снова новый, и
+  // React в конце концов падает с «Maximum update depth exceeded».
+  const walletItems = useMemo(
+    () => [
+      ...activeWallets.map((w) => ({ value: String(w.id), label: w.name || 'Без названия' })),
+      { value: NEW_WALLET, label: 'Новый кошелёк' },
+    ],
+    [activeWallets],
+  )
+
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px] items-center gap-2">
       <span className="min-w-0 truncate text-xs">{name}</span>
-      <Select
-        items={[
-          ...activeWallets.map((w) => ({ value: String(w.id), label: w.name || 'Без названия' })),
-          { value: NEW_WALLET, label: 'Новый кошелёк' },
-        ]}
-        value={value}
-        onValueChange={handleChange}
-        disabled={disabled}
-      >
+      <Select items={walletItems} value={value} onValueChange={handleChange} disabled={disabled}>
         <SelectTrigger className="w-full" aria-invalid={invalid}>
           <SelectValue placeholder={isLoading ? 'Загрузка…' : 'Выберите кошелёк'} />
         </SelectTrigger>

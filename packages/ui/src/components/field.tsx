@@ -106,6 +106,27 @@ function FieldLabel({ className, ...props }: React.ComponentProps<typeof Label>)
   )
 }
 
+/**
+ * Пометка необязательного поля, ставится внутрь `FieldLabel`.
+ *
+ * Помечаем именно необязательные, а не обязательные: помечать положено меньшее
+ * из двух множеств, и в наших формах обязательных обычно больше. Словом, а не
+ * звёздочкой: звёздочка — условность, которой надо научиться, и скринридеры
+ * читают её вразнобой. Обязательность при этом живёт не здесь, а на самом
+ * контроле — `aria-required`.
+ */
+function FieldOptional({ className, ...props }: React.ComponentProps<'span'>) {
+  return (
+    <span
+      data-slot="field-optional"
+      className={cn('text-muted-foreground text-xs font-normal', className)}
+      {...props}
+    >
+      (необязательно)
+    </span>
+  )
+}
+
 function FieldTitle({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
@@ -218,6 +239,7 @@ export {
   FieldGroup,
   FieldLabel,
   FieldLegend,
+  FieldOptional,
   FieldSeparator,
   FieldSet,
   FieldTitle,

@@ -25,7 +25,11 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn(
-        'bg-background group/calendar p-3 [--cell-radius:var(--radius-md)] [--cell-size:--spacing(6)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent',
+        // Собственный фон гасим на любой поверхности, у которой он свой:
+        // карточка и поповер были и раньше, ящик добавлен — он единственный
+        // покрашен в `bg-popover`, и в тёмной теме календарь ложился на него
+        // чёрным прямоугольником (в светлой оба белые, и это не было видно).
+        'bg-background group/calendar p-3 [--cell-radius:var(--radius-md)] [--cell-size:--spacing(6)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=drawer-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent',
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
         String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
         className,

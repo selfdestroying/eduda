@@ -374,7 +374,6 @@ const getColumns = (
         {getFullName(row.original.firstName, row.original.lastName)}
       </Link>
     ),
-    meta: { filterVariant: 'text' },
   },
   ...lessons.map<ColumnDef<Student>>((lesson) => ({
     id: `lesson-${lesson.id}`,

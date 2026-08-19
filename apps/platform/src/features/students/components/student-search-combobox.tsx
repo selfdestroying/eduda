@@ -12,7 +12,7 @@ import { Item, ItemContent, ItemTitle } from '@repo/ui/components/item'
 import { useStudentSearchQuery } from '@/src/features/students/queries'
 import { getFullName } from '@/src/lib/utils'
 import { debounce } from 'es-toolkit'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 export type StudentOption = { id: number; firstName: string; lastName: string }
 
@@ -21,20 +21,48 @@ interface StudentSearchComboboxProps {
   excludeIds: number[]
   /** Вызывается при выборе ученика. */
   onSelect: (student: StudentOption) => void
+  /**
+   * Выбранный ученик, если поле его держит. Пропуск этого пропа переводит
+   * комбобокс в режим «добавить в список»: после выбора он очищается и готов к
+   * следующему. С ним — обычное поле выбора, в котором выбранный остаётся.
+   */
+  value?: StudentOption | null
   disabled?: boolean
   id?: string
+  ariaInvalid?: boolean
+  ariaRequired?: boolean
+  /**
+   * Куда раскрывать список. По умолчанию вверх — поле стоит последним в форме
+   * создания группы, и вниз ему некуда. Первым полем в панели наоборот: вверх
+   * список накрывает заголовок.
+   */
+  side?: 'top' | 'bottom'
 }
 
 /** Async-комбобокс: ищет учеников на сервере по мере ввода (debounce 300мс). */
 export function StudentSearchCombobox({
   excludeIds,
   onSelect,
+  value,
   disabled,
   id,
+  ariaInvalid,
+  ariaRequired,
+  side = 'top',
 }: StudentSearchComboboxProps) {
-  const [input, setInput] = useState('')
+  const holdsValue = value !== undefined
+  const valueLabel = value ? getFullName(value.firstName, value.lastName) : ''
+
+  const [input, setInput] = useState(valueLabel)
   const [term, setTerm] = useState('')
   const debouncedSetTerm = useMemo(() => debounce(setTerm, 300), [])
+
+  // Внешние изменения — сброс формы после сохранения, подстановка извне — должны
+  // доезжать до поля. На набор это не влияет: эффект срабатывает только когда
+  // сменился сам выбранный ученик.
+  useEffect(() => {
+    if (holdsValue) setInput(valueLabel)
+  }, [holdsValue, valueLabel])
 
   const { data, isFetching } = useStudentSearchQuery(term)
   const hasQuery = term.trim().length > 0
@@ -44,11 +72,11 @@ export function StudentSearchCombobox({
   return (
     <Combobox<StudentOption>
       items={results}
-      value={null}
+      value={value ?? null}
       onValueChange={(student) => {
         if (!student) return
         onSelect(student)
-        setInput('')
+        setInput(holdsValue ? getFullName(student.firstName, student.lastName) : '')
         setTerm('')
       }}
       inputValue={input}
@@ -60,8 +88,14 @@ export function StudentSearchCombobox({
       isItemEqualToValue={(a, b) => a.id === b.id}
       itemToStringLabel={(s) => getFullName(s.firstName, s.lastName)}
     >
-      <ComboboxInput id={id} placeholder="Поиск ученика по имени…" disabled={disabled} />
-      <ComboboxContent side="top">
+      <ComboboxInput
+        id={id}
+        placeholder="Поиск ученика по имени…"
+        disabled={disabled}
+        aria-invalid={ariaInvalid}
+        aria-required={ariaRequired}
+      />
+      <ComboboxContent side={side}>
         <ComboboxEmpty>{emptyText}</ComboboxEmpty>
         <ComboboxList>
           {(s: StudentOption) => (
