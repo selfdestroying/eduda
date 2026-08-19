@@ -5,6 +5,11 @@ import * as z from 'zod'
  * День продажи. Строже `DateOnlySchema`: тот проверяет только форму записи, а
  * «2026-02-31» ей удовлетворяет. Здесь дата ещё и должна существовать в календаре —
  * иначе в `Package.date` уляжется день, которого не было.
+ *
+ * Разбираем и сверяем в UTC: `new Date('2026-08-19')` — это ISO-дата, то есть
+ * полночь UTC, а `getDate()` читает её в поясе того, кто смотрит. Схема гоняется
+ * и в браузере (`zodResolver`), и западнее Гринвича локальные геттеры показали бы
+ * вчерашний день — отвергалась бы любая дата, выбранная в календаре.
  */
 const PackageDateSchema = z.string('Выберите дату').refine(
   (val) => {
@@ -13,7 +18,11 @@ const PackageDateSchema = z.string('Выберите дату').refine(
     const [year, month, day] = val.split('-').map(Number)
     const date = new Date(val)
 
-    return date.getFullYear() === year && date.getMonth() + 1 === month && date.getDate() === day
+    return (
+      date.getUTCFullYear() === year &&
+      date.getUTCMonth() + 1 === month &&
+      date.getUTCDate() === day
+    )
   },
   { message: 'Некорректная дата' },
 )

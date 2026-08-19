@@ -132,7 +132,10 @@ export default function PeriodFilter({ value, onChange }: PeriodFilterProps) {
   const label = isEmpty
     ? 'Выберите период'
     : from && to
-      ? `${short(from)} — ${long(to)}`
+      ? // Год у левой границы опускаем, только когда его назовёт правая: у периода
+        // через Новый год «1 дек. — 31 янв. 2026» читается как декабрь 2026, то есть
+        // как промежуток, которого не бывает.
+        `${from.slice(0, 4) === to.slice(0, 4) ? short(from) : long(from)} — ${long(to)}`
       : from
         ? `с ${long(from)}`
         : `по ${long(to!)}`

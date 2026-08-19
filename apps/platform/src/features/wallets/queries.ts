@@ -4,7 +4,7 @@ import {
   archiveWallet,
   createWallet,
   getStudentWallets,
-  getWalletUnpaidCount,
+  getWalletPreview,
   linkGroupToWallet,
 } from './actions'
 import type {
@@ -30,13 +30,22 @@ export const useStudentWalletsQuery = (studentId: number, options?: { enabled?: 
   })
 }
 
-export const useWalletUnpaidCountQuery = (walletId: number | null) => {
+export const useWalletPreviewQuery = (walletId: number | null) => {
   return useQuery({
-    queryKey: [...walletKeys.all, 'unpaid', walletId] as const,
+    queryKey: [...walletKeys.all, 'preview', walletId] as const,
     queryFn: async () => {
-      const { data, serverError } = await getWalletUnpaidCount({ walletId: walletId! })
+      const { data, serverError, validationErrors } = await getWalletPreview({
+        walletId: walletId!,
+      })
       if (serverError) throw serverError
-      return data ?? 0
+      // Пустого значения по умолчанию здесь нет намеренно. Ошибку валидации
+      // `next-safe-action` кладёт отдельно от серверной, и подставленный на её
+      // месте пустой список означал бы «пакетов у кошелька нет» — утверждение про
+      // деньги, которого сервер не делал. Предпросмотр отличает его от «ещё не
+      // знаю», и различие надо сохранить (та же причина, что в
+      // `finances/payments/queries.ts`).
+      if (validationErrors || !data) throw new Error('Не удалось прочитать кошелёк')
+      return data
     },
     enabled: walletId != null,
   })

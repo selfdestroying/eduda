@@ -12,13 +12,11 @@ import { Prisma } from '@repo/db'
 export const PACKAGE_LIST_SELECT = {
   id: true,
   lessonCount: true,
-  remaining: true,
   price: true,
-  unitPrice: true,
   date: true,
+  // Не колонка: по статусу таблица приглушает отменённую строку и решает, что
+  // предложить в меню действий.
   status: true,
-  cancelledAt: true,
-  productName: true,
   student: { select: { id: true, firstName: true, lastName: true } },
   manager: { select: { id: true, name: true } },
 } satisfies Prisma.PackageSelect

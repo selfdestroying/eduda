@@ -45,7 +45,11 @@ export default function PackageActions({ packet }: PackageActionsProps) {
   if (!canCancel) return null
 
   return (
-    <>
+    // Гасим всплытие здесь, а не в ячейке таблицы: там обёртка рисовалась бы и
+    // когда меню пустое — у отменённого пакета и у роли без права на отмену, — и
+    // съедала бы клик по строке на пустом месте. Строка таблицы по клику
+    // раскрывает панель со счётом.
+    <div onClick={(e) => e.stopPropagation()}>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger render={<Button variant="ghost" size="icon" />}>
           <MoreVertical />
@@ -88,6 +92,6 @@ export default function PackageActions({ packet }: PackageActionsProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   )
 }

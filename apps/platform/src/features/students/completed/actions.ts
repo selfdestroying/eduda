@@ -20,11 +20,9 @@ export const getCompletedStudents = authAction
             },
           },
         },
-        student: {
-          include: {
-            packages: true,
-          },
-        },
+        // Без пакетов: таблица их не читает, а `include` тянул все продажи всех
+        // учеников списка — по пятнадцать колонок на строку.
+        student: true,
         wallet: true,
       },
     })

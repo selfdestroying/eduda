@@ -23,6 +23,8 @@ type FilterConfig = Record<string, 'integer' | 'string' | 'range'>
 
 const SORT_ORDERS = ['asc', 'desc'] as const
 const DEFAULT_PAGE_SIZE = 10
+/** Потолок серверных схем выборки — держим его и здесь, чтобы запрос не падал. */
+const MAX_PAGE_SIZE = 100
 
 const QUERY_STATES_OPTIONS = { shallow: true, history: 'replace' as const }
 
@@ -109,11 +111,14 @@ export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {
   }, [config, filterValues])
 
   const pagination: PaginationState = useMemo(
-    // `Math.max` не украшательство: в адресе может оказаться `page=0` или
+    // Обе границы не украшательство: в адресе может оказаться `page=0` или
     // отрицательное, а `pageIndex: -1` дал бы `skip: -10` и ошибку запроса.
+    // `pageSize` зажимаем по той же причине — серверные схемы ждут `1..100`, и
+    // подобранный руками `pageSize=0` уронил бы валидацию, то есть показал бы
+    // ошибку загрузки вместо таблицы.
     () => ({
       pageIndex: Math.max(0, paginationValues.page - 1),
-      pageSize: paginationValues.pageSize,
+      pageSize: Math.min(MAX_PAGE_SIZE, Math.max(1, paginationValues.pageSize)),
     }),
     [paginationValues.page, paginationValues.pageSize],
   )

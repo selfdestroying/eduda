@@ -577,14 +577,22 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
   })
   const createdPayments = await prisma.payment.createManyAndReturn({
     data: payments,
-    select: { id: true, date: true, price: true },
+    select: { id: true },
   })
+  // Пара «счёт i ↔ пакет i» держится на порядке, а порядок строк, которые вернул
+  // `createManyAndReturn`, Prisma нигде не обещает. Поэтому раскладываем по id
+  // сами: в одном многострочном INSERT последовательность выдаёт значения по
+  // порядку строк, значит возрастающий id — это и есть порядок `payments`.
+  // Батчем, а не парой `create` на каждую продажу: сид укладывается в лимит
+  // времени роута сброса ровно потому, что вставки идут пачками.
+  const paymentIds = createdPayments.map((p) => p.id).sort((a, b) => a - b)
+
   const createdPackages = await prisma.package.createManyAndReturn({
     data: packetPlans.map((plan, i) => ({
       organizationId: orgId,
       studentId: plan.studentId,
       walletId: plan.walletId,
-      paymentId: createdPayments[i]!.id,
+      paymentId: paymentIds[i]!,
       lessonCount: plan.lessonCount,
       // Пакет встаёт в очередь целиком: без остатка демо-посещения списывались бы
       // «в долг» и демо-выручка не показывала бы разбор по пакетам.

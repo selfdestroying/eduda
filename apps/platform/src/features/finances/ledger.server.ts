@@ -734,20 +734,25 @@ export async function cancelPackageTx(
   })
   if (!packet || packet.status === 'CANCELLED') return
 
-  const wasPending = packet.status === 'PENDING'
+  const cancelled = { status: 'CANCELLED', cancelledAt: new Date(), remaining: 0 } as const
 
-  await tx.package.update({
-    where: { id: packet.id },
-    data: { status: 'CANCELLED', cancelledAt: new Date(), remaining: 0 },
-  })
+  // Пакет `PENDING` уроков не выдавал: закрывается и всё, снимать нечего.
+  if (packet.status === 'PENDING') {
+    await tx.package.update({ where: { id: packet.id }, data: cancelled })
+    return
+  }
 
-  if (wasPending) return
-
+  // Кошелёк читаем до первой записи, как это делает `activatePackageTx`: ранний
+  // выход после неё оставил бы пакет с нулевым остатком и без встречной строки
+  // журнала, то есть `Σ quantity` по пакету разошлась бы с его `remaining` —
+  // ровно тот инвариант, который эта функция обязана сохранить.
   const wallet = await tx.wallet.findUnique({
     where: { id: packet.walletId },
     select: { lessonsBalance: true, totalPayments: true, totalLessons: true },
   })
   if (!wallet) return
+
+  await tx.package.update({ where: { id: packet.id }, data: cancelled })
 
   // Журнал: снятие датируется днём отмены, а не днём продажи — это новое событие,
   // а не переписывание старого.

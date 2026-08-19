@@ -2,7 +2,8 @@
  * Сверка журнала с колонками, которые он объясняет.
  *
  *   Σ quantity по кошельку = Wallet.lessonsBalance
- *   Σ quantity по пакету   = Payment.remaining
+ *   Σ quantity по пакету   = Package.remaining (у выданных; невыданный в журнал
+ *                            не попадает — его сторожит check-package-statuses.ts)
  *   Σ quantity × unitPrice по списаниям = выручка, которую показывает отчёт
  *
  * Колонки — кеш поверх журнала. Если они разошлись, правда в журнале, а кеш
@@ -51,7 +52,13 @@ async function main() {
   })
   const ledgerRemaining = new Map(byPacket.map((r) => [r.packageId!, r._sum?.quantity ?? 0]))
 
+  // Без `PENDING`: невыданный пакет в журнале не значится вовсе, а `remaining` у
+  // него равен размеру — так его и заводит `createPackage`, уроки появятся только
+  // при подтверждении счёта. Требовать здесь `Σ = remaining` значило бы объявить
+  // багом ровно то состояние, которое `check-package-statuses.ts` проверяет как
+  // правильное («черновик не двигает остаток и журнал»).
   const packages = await prisma.package.findMany({
+    where: { status: { not: 'PENDING' } },
     select: { id: true, remaining: true },
   })
   const packetMismatches: Row[] = []

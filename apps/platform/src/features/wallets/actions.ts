@@ -50,34 +50,41 @@ export const getStudentWallets = authAction
           },
           orderBy: [{ statusChangedAt: 'desc' }, { createdAt: 'desc' }],
         },
-        // Пакеты кошелька — для предпросмотра в форме оплаты. Без ограничения:
-        // предпросмотр разворачивается и показывает их все, а запрос и так идёт по
-        // кошелькам одного ученика — это десятки узких строк, не тысячи. Отменённые
-        // в эту картину не входят: их остаток уже снят с баланса. Неоплаченные тоже:
-        // уроков они пока не дали.
-        packages: {
-          where: { status: 'ACTIVE' },
-          orderBy: [{ date: 'desc' }, { id: 'desc' }],
-          select: { id: true, date: true, price: true, lessonCount: true, remaining: true },
-        },
       },
       orderBy: { createdAt: 'asc' },
     })
   })
 
 /**
- * Сколько занятий кошелька ждёт оплаты. Отдельным экшеном, а не полем в списке
- * кошельков: считать это нужно только форме оплаты и только для выбранного
- * кошелька, а список тянут ещё три экрана, которым счётчик не нужен.
+ * Что показывает предпросмотр выбранного кошелька: его пакеты и сколько занятий
+ * ждёт оплаты.
+ *
+ * Отдельным экшеном, а не полями в списке кошельков: и то и другое нужно только
+ * форме оплаты и только для одного, выбранного кошелька, а список тянут ещё три
+ * экрана — зачисление в группу, привязка группы и добавление посещения, — которым
+ * ни пакеты, ни счётчик не нужны. Одним экшеном на двоих, потому что читаются они
+ * в один и тот же момент по одному и тому же кошельку.
+ *
+ * Пакеты без ограничения: предпросмотр разворачивается и показывает их все, а речь
+ * об одном кошельке — это десятки узких строк, не тысячи. Отменённые в эту картину
+ * не входят: их остаток уже снят с баланса. Неоплаченные тоже: уроков они не дали.
  */
-export const getWalletUnpaidCount = authAction
-  .metadata({ actionName: 'getWalletUnpaidCount' })
+export const getWalletPreview = authAction
+  .metadata({ actionName: 'getWalletPreview' })
   .inputSchema(z.object({ walletId: z.number().int().positive() }))
   .action(async ({ ctx, parsedInput }) => {
-    return await countUnpaidAttendancesOfWallet({
-      walletId: parsedInput.walletId,
-      organizationId: ctx.session.organizationId!,
-    })
+    const organizationId = ctx.session.organizationId!
+
+    const [unpaidCount, packages] = await Promise.all([
+      countUnpaidAttendancesOfWallet({ walletId: parsedInput.walletId, organizationId }),
+      prisma.package.findMany({
+        where: { walletId: parsedInput.walletId, organizationId, status: 'ACTIVE' },
+        orderBy: [{ date: 'desc' }, { id: 'desc' }],
+        select: { id: true, date: true, price: true, lessonCount: true, remaining: true },
+      }),
+    ])
+
+    return { unpaidCount, packages }
   })
 
 // ─── CREATE ──────────────────────────────────────────────────────────────────

@@ -10,7 +10,7 @@ import { useSessionQuery } from '@/src/features/users/me/queries'
 import {
   useCreateWalletMutation,
   useStudentWalletsQuery,
-  useWalletUnpaidCountQuery,
+  useWalletPreviewQuery,
 } from '@/src/features/wallets/queries'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import type { OrganizationRole } from '@/src/lib/auth/server'
@@ -311,8 +311,15 @@ export default function PackageForm({ form, formId, onSubmit, disabled }: Packag
     [products],
   )
 
-  const selectedWallet = studentWallets.find((w) => w.id === walletId) ?? null
-  const { data: unpaidLessons = 0 } = useWalletUnpaidCountQuery(walletId ?? null)
+  // Пакеты и счётчик долга едут отдельным запросом, по одному выбранному кошельку:
+  // в общем списке они висели бы на всех кошельках ученика и на трёх других
+  // экранах, которым не нужны.
+  const { data: preview } = useWalletPreviewQuery(walletId ?? null)
+  const unpaidLessons = preview?.unpaidCount ?? 0
+  const wallet = studentWallets.find((w) => w.id === walletId)
+  // `packages` без `?? []`: пока запрос в пути, предпросмотр обязан отличать
+  // «пакетов нет» от «ещё не знаю».
+  const selectedWallet = wallet ? { ...wallet, packages: preview?.packages } : null
   const paymentMethodId = useWatch({ control: form.control, name: 'paymentMethodId' })
   const selectedMethod = paymentMethods.find((m) => m.id === paymentMethodId) ?? null
 

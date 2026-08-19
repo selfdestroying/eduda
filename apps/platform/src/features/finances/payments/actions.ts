@@ -322,7 +322,7 @@ export const cancelPayment = permissionAction({ payment: ['delete'] })
           effectiveAt: todayYmdInTz(ctx.tz),
         })
       }
-    })
+    }, PAYMENT_TX_OPTIONS)
   })
 
 export const getUnprocessedPayments = permissionAction({ payment: ['read'] })

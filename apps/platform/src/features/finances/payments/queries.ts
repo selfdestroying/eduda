@@ -1,5 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { studentKeys } from '@/src/features/students/queries'
+import { walletKeys } from '@/src/features/wallets/queries'
 import {
   cancelPackage,
   createPackage,
@@ -25,6 +27,17 @@ export const packageKeys = {
 
 export const unprocessedPaymentKeys = {
   all: ['unprocessed-payments'] as const,
+}
+
+/**
+ * Что устаревает от любого движения пакета. Пакет — это уроки на балансе кошелька,
+ * поэтому вместе со списком обновляются предпросмотр кошелька, счётчик занятий,
+ * ждущих оплаты, и карточка ученика: все трое читают те же цифры из других ключей.
+ */
+function invalidatePackageMoney(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: packageKeys.all })
+  queryClient.invalidateQueries({ queryKey: walletKeys.all })
+  queryClient.invalidateQueries({ queryKey: studentKeys.all })
 }
 
 const EMPTY_PAGE = { rows: [], total: 0 }
@@ -83,7 +96,7 @@ export const useCreatePackageMutation = () => {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: packageKeys.all })
+      invalidatePackageMoney(queryClient)
       toast.success('Пакет добавлен!')
     },
     onError: () => {
@@ -101,7 +114,7 @@ export const usePackageCancelMutation = () => {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: packageKeys.all })
+      invalidatePackageMoney(queryClient)
       toast.success('Пакет отменён')
     },
     onError: () => toast.error('Не удалось отменить пакет'),
@@ -117,7 +130,7 @@ export const useUnprocessedPaymentResolveMutation = () => {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: packageKeys.all })
+      invalidatePackageMoney(queryClient)
       queryClient.invalidateQueries({ queryKey: unprocessedPaymentKeys.all })
       toast.success('Пакет добавлен!')
     },

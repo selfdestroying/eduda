@@ -24,6 +24,7 @@ import { parseAsString, useQueryStates } from 'nuqs'
 import { useEffect, useMemo, useState } from 'react'
 import { usePackageListQuery } from '../queries'
 import type { PackageListItem } from '../types'
+import PackageActions from './package-actions'
 import PackageDetails from './package-details'
 import PeriodFilter, { PERIOD_TITLE, type Period } from './period-filter'
 
@@ -58,8 +59,8 @@ const PERIOD_PARSERS = { from: parseAsString, to: parseAsString }
  * единственная колонка с `meta.flexible` и без ширины. Оно же и единственное, что
  * реально бывает длинным.
  *
- * Порог горизонтальной прокрутки — сумма `size`: 4 × 130, 40 у шеврона и 150 у
- * «Ученика» (столько react-table даёт колонке без явного `size`).
+ * Порог горизонтальной прокрутки — сумма `size`: 4 × 130, 40 у шеврона, 56 у
+ * действий и 150 у «Ученика» (столько react-table даёт колонке без явного `size`).
  */
 const COLUMN_WIDTH = 130
 
@@ -181,6 +182,17 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
         options: managerOptions,
       },
     },
+    {
+      // Отмена пакета. Без `meta.title` — колонка не попадает в меню «Колонки»:
+      // спрятать единственный способ отменить продажу нечем.
+      id: 'actions',
+      header: () => null,
+      size: 56,
+      enableHiding: false,
+      // Всплытие меню гасит само — иначе у отменённого пакета, где показывать
+      // нечего, обёртка всё равно съедала бы клик по строке.
+      cell: ({ row }) => <PackageActions packet={row.original} />,
+    },
   ]
 }
 
@@ -233,7 +245,12 @@ export default function PackagesTable() {
   // уходило бы отдельным запросом к серверу.
   const [searchTerm, setSearchTerm] = useState(globalFilter)
   const commitSearch = useMemo(() => debounce(setSearchTerm, SEARCH_DELAY_MS), [])
-  useEffect(() => commitSearch(globalFilter), [globalFilter, commitSearch])
+  // Отменяем на размонтировании: набранное за 300 мс до ухода со страницы иначе
+  // дострелит по уже снятому компоненту.
+  useEffect(() => {
+    commitSearch(globalFilter)
+    return () => commitSearch.cancel()
+  }, [globalFilter, commitSearch])
 
   const [{ from, to }, setPeriodValues] = useQueryStates(PERIOD_PARSERS, {
     shallow: true,
