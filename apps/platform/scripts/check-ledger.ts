@@ -80,7 +80,7 @@ async function main() {
   const [rowRevenue] = await prisma.$queryRaw<{ sum: bigint | null }[]>`
     SELECT SUM(a."price" * a."amount")::bigint AS sum
     FROM "Attendance" a
-    WHERE a."amount" > 0
+    WHERE a."price" IS NOT NULL
       AND EXISTS (SELECT 1 FROM "WalletEntry" e WHERE e."attendanceId" = a."id")
   `
   const ledgerMoney = Number(ledgerRevenue?.sum ?? 0)

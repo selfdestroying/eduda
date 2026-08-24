@@ -121,7 +121,7 @@ export const getRevenueData = authAction
         )
 
         // Отработка зарабатывает на своей дате, поэтому в списке она отдельной
-        // строкой; у исходного пропуска денег нет — там стоит amount 0. Класс у неё
+        // строкой; у исходного пропуска денег нет — там нет цены. Класс у неё
         // тот же, что и в отчётах (`chargeable.server.ts`), иначе снятая галка
         // фильтра развела бы страницу «Выручка» и «Прибыль» по разным суммам.
         const classification = att.makeupForAttendanceId
@@ -129,23 +129,20 @@ export const getRevenueData = authAction
           : (classifyAttendance(att) ?? null)
         const label = classification ? CLASSIFICATION_LABELS[classification] : 'Статус не определён'
         const counted =
-          att.amount !== null &&
-          att.amount > 0 &&
+          att.price !== null &&
           (classification === null || chargeableStatuses.includes(classification))
 
-        const visitCost = counted ? (att.price ?? 0) * att.amount! : 0
+        const visitCost = counted ? att.price! * att.amount : 0
 
         const costReason = (() => {
           if (lesson.status === 'CANCELLED') return 'Урок отменён — стоимость не списывается'
           if (att.isTrial) return 'Пробное занятие — с баланса не списывается'
-          if (att.amount === null) return `${label} → не размечено, оплата не найдена`
           if (!counted && att.makeupAttendance) {
             return `${label} → деньги на строке отработки ${att.makeupAttendance.lesson.date}`
           }
           // Занятие провели, платить за него надо, а пакета под него не нашлось.
           // Цену не выдумываем — она появится вместе с оплатой.
           if (
-            att.amount === 0 &&
             att.price === null &&
             classification !== null &&
             ['present', 'absent_no_warn', 'makeup_success'].includes(classification)

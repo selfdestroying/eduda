@@ -34,14 +34,15 @@ export function chargeableClassesWhere(
  * Такое занятие ничего не списывает и не оценивается — оно ждёт оплаты, которая
  * скажет его цену (см. `settleUnpaidAttendancesTx` в `ledger.server.ts`).
  *
- * - `amount: 0` — именно ноль, а не null: null у строк до разметки истории, а
- *   единица у занятий, списанных «в долг» по старым правилам. И те и другие уже
- *   посчитаны в выручке прошлых месяцев, трогать их нельзя.
+ * - `price: null` — цены нет, значит за занятие ещё не платили. Количество для
+ *   этого не годится: оно всегда 1. У занятий, списанных «в долг» по старым
+ *   правилам, цена проставлена (пусть и нулевая) — они уже посчитаны в выручке
+ *   прошлых месяцев, и оплата не должна списывать их заново.
  * - `makeupAttendance: { is: null }` — у пропуска с назначенной отработкой деньги
  *   живут на строке отработки. Без этого условия оплата закрыла бы оба занятия.
  */
 export const UNPAID_ATTENDANCE_WHERE = {
-  amount: 0,
+  price: null,
   packageId: null,
   makeupAttendance: { is: null },
   lesson: { status: 'ACTIVE' },
@@ -56,7 +57,7 @@ export const UNPAID_ATTENDANCE_WHERE = {
  * Используется «Авансами» и «Прибылью».
  *
  * Про `chargeableStatuses`: списание случается только у присутствовавших и у тех, кто
- * пропустил без предупреждения, — у остальных `amount = 0`. Поэтому фильтр отбирает
+ * пропустил без предупреждения, — у остальных цены нет. Поэтому фильтр отбирает
  * ровно эти классы, а «Предупредил, без отработки» и «отработка не засчитана» денег
  * не приносят ни при каком выборе: их уроки школе не оплачивались.
  */
@@ -75,7 +76,9 @@ export async function computeAttendanceRevenue(params: {
   const rows = await prisma.attendance.findMany({
     where: {
       organizationId,
-      amount: { gt: 0 },
+      // Цена есть — значит списание было. Количество для отбора не годится: оно
+      // всегда 1, в том числе у занятия, которое ещё ждёт оплаты.
+      price: { not: null },
       lesson: { status: 'ACTIVE', date: { gte: startDate, lte: endDate } },
       OR: classes,
     },
@@ -89,7 +92,7 @@ export async function computeAttendanceRevenue(params: {
 
   return rows.map((r) => ({
     studentId: r.studentId,
-    visitCost: (r.price ?? 0) * (r.amount ?? 0),
+    visitCost: (r.price ?? 0) * r.amount,
     lessonDate: r.lesson.date,
   }))
 }

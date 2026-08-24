@@ -92,10 +92,11 @@ const findAttendanceTx = (tx: Prisma.TransactionClient, args: AttendanceMoneyArg
  * в строку. Дальше эта цена не пересчитывается, поэтому новые оплаты не двигают
  * закрытые месяцы.
  *
- * Пакета нет — занятие остаётся **неоплаченным**: ни списания, ни цены, ни строки
- * журнала. Выдумывать цену нечем, а выдуманная потом требует переписывания
+ * Пакета нет — занятие остаётся **неоплаченным**: цены нет, списания нет, строки
+ * журнала нет. Выдумывать цену нечем, а выдуманная потом требует переписывания
  * прошлого. Такое занятие ждёт оплаты — она скажет его цену
- * (см. `settleUnpaidAttendancesTx`).
+ * (см. `settleUnpaidAttendancesTx`). Количество при этом остаётся единицей:
+ * занятие было, просто за него ещё не платили.
  *
  * Повторный вызов на уже списанной строке ничего не делает.
  */
@@ -104,7 +105,8 @@ export async function chargeAttendanceTx(
   args: AttendanceMoneyArgs,
 ): Promise<void> {
   const attendance = await findAttendanceTx(tx, args)
-  if (!attendance || attendance.amount) return
+  // Цена на строке — значит списание уже прошло.
+  if (!attendance || attendance.price !== null) return
 
   const walletId = await walletOfAttendanceTx(tx, attendance)
 
@@ -123,7 +125,7 @@ export async function chargeAttendanceTx(
   if (!walletId || !packet) {
     await tx.attendance.update({
       where: { id: attendance.id },
-      data: { packageId: null, price: null, amount: 0 },
+      data: { packageId: null, price: null, amount: 1 },
     })
     return
   }
@@ -175,7 +177,8 @@ export async function unchargeAttendanceTx(
   args: AttendanceMoneyArgs & { reason?: StudentLessonsBalanceChangeReason },
 ): Promise<void> {
   const attendance = await findAttendanceTx(tx, args)
-  if (!attendance || !attendance.amount) return
+  // Цены нет — списывать было нечего.
+  if (!attendance || attendance.price === null) return
 
   const packet = attendance.packageId
     ? await tx.package.findUnique({
@@ -195,7 +198,12 @@ export async function unchargeAttendanceTx(
       ).count > 0
     : false
 
-  await tx.attendance.update({ where: { id: attendance.id }, data: { amount: 0 } })
+  // Проводка снимается целиком: цена уходит в null, и строка снова выглядит как
+  // занятие без оплаты. Количество не трогаем — урок никуда не делся.
+  await tx.attendance.update({
+    where: { id: attendance.id },
+    data: { packageId: null, price: null, amount: 1 },
+  })
 
   // Урок возвращается в тот же кошелёк, где лежит его пакет: иначе баланс
   // разойдётся с остатками, если ученика с тех пор перевели на другой кошелёк.
@@ -444,9 +452,9 @@ export async function settleUnpaidAttendancesTx(
     // Пакет мог кончиться на предыдущем занятии — тогда списания не случилось.
     const charged = await tx.attendance.findUnique({
       where: { id: attendance.id },
-      select: { amount: true },
+      select: { price: true },
     })
-    if (!charged?.amount) break
+    if (charged?.price == null) break
     settled += 1
   }
 

@@ -680,7 +680,7 @@ export async function seedDemoOrg(): Promise<{ organizationId: number }> {
           comment: status === 'ABSENT' && rng() > 0.6 ? 'Болел' : '',
           packageId: packet?.id ?? null,
           price: packet?.price ?? null,
-          amount: packet ? 1 : 0,
+          amount: 1,
         })
       }
     }

@@ -216,12 +216,16 @@ async function main() {
       assert.equal(await remainingOf(b.id), 12, 'пакет B не должен трогаться, пока A не кончился')
 
       // ─── Откат возвращает урок в свой пакет, а не в голову очереди ─────
+      // Как в экшене: сначала статус перестаёт быть платным, потом деньги. Без
+      // этого занятие осталось бы платным и без цены — то есть встало бы в
+      // очередь на ближайшую оплату, чего откат не имеет в виду.
       const balanceBeforeRevert = await balance()
+      await tx.attendance.update({ where: { id: second }, data: { status: 'UNSPECIFIED' } })
       await uncharge(second)
       assert.deepEqual(
         await entryOf(second),
-        { packageId: a.id, price: 1000, amount: 0 },
-        'откат обнуляет количество, но оставляет след, чем платили',
+        { packageId: null, price: null, amount: 1 },
+        'откат снимает проводку целиком: чем платили — осталось в журнале',
       )
       assert.equal(await remainingOf(a.id), 11, 'урок вернулся в пакет A')
       assert.equal(await remainingOf(b.id), 12, 'откат не должен наливать остаток в пакет B')
@@ -269,7 +273,7 @@ async function main() {
       await charge(unpaidOne)
       assert.deepEqual(
         await entryOf(unpaidOne),
-        { packageId: null, price: null, amount: 0 },
+        { packageId: null, price: null, amount: 1 },
         'платить нечем — цену не выдумываем, занятие ждёт оплаты',
       )
       assert.equal(await balance(), balanceBeforeUnpaid, 'баланс не уходит в минус')
@@ -296,8 +300,8 @@ async function main() {
       const unpaidB = await visit()
       await charge(unpaidA)
       await charge(unpaidB)
-      assert.equal((await entryOf(unpaidA)).amount, 0, 'оба занятия ждут оплаты')
-      assert.equal((await entryOf(unpaidB)).amount, 0, 'оба занятия ждут оплаты')
+      assert.equal((await entryOf(unpaidA)).price, null, 'оба занятия ждут оплаты')
+      assert.equal((await entryOf(unpaidB)).price, null, 'оба занятия ждут оплаты')
 
       const balanceBeforeSettle = await balance()
       // Выдача пакета сама гасит то, что его ждало, — отдельно звать нечего.
@@ -350,7 +354,7 @@ async function main() {
       await charge(fromCounters)
       assert.deepEqual(
         await entryOf(fromCounters),
-        { packageId: null, price: null, amount: 0 },
+        { packageId: null, price: null, amount: 1 },
         'счётчики от переезда — не цена: занятие ждёт оплаты',
       )
 
@@ -372,24 +376,20 @@ async function main() {
         data: { organizationId, groupId: group.id, date: '2026-10-01', time: '10:00' },
         select: { id: true },
       })
-      // Цена от прошлого статуса на строке уже есть — списание обязано её стереть.
       const orphan = await tx.attendance.create({
         data: {
           organizationId,
           studentId: noWalletStudent.id,
           lessonId: orphanLesson.id,
           status: 'PRESENT',
-          packageId: a.id,
-          price: 1000,
-          amount: 0,
         },
         select: { id: true },
       })
       await charge(orphan.id)
       assert.deepEqual(
         await entryOf(orphan.id),
-        { packageId: null, price: null, amount: 0 },
-        'без кошелька проводка обнуляется, а не остаётся от прошлого статуса',
+        { packageId: null, price: null, amount: 1 },
+        'без кошелька цены нет, но урок в строке всё равно один',
       )
 
       // ─── Откат списания с отменённой оплаты ────────────────────────────
@@ -407,8 +407,10 @@ async function main() {
       })
 
       const balanceBeforeCancelRevert = await balance()
+      // Снова как в экшене: платным занятие быть перестало, потом снимаются деньги.
+      await tx.attendance.update({ where: { id: spent }, data: { status: 'UNSPECIFIED' } })
       await uncharge(spent)
-      assert.equal((await entryOf(spent)).amount, 0, 'проводка снимается в любом случае')
+      assert.equal((await entryOf(spent)).price, null, 'проводка снимается в любом случае')
       assert.equal(
         await balance(),
         balanceBeforeCancelRevert,

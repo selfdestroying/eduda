@@ -215,6 +215,8 @@ async function main() {
             where: { id },
             select: { packageId: true, price: true, amount: true },
           })
+        /** Списано ли занятие. Количество для этого не годится — оно всегда 1. */
+        const charged = async (id: number) => (await entryOf(id)).price !== null
         const balanceOf = async (walletId: number) =>
           (
             await tx.wallet.findUniqueOrThrow({
@@ -280,7 +282,7 @@ async function main() {
           const s = await scene('Без оплат')
           const v = await visit({ studentId: s.studentId })
           await mark(v, AttendanceStatus.PRESENT)
-          assert.deepEqual(await entryOf(v), { packageId: null, price: null, amount: 0 })
+          assert.deepEqual(await entryOf(v), { packageId: null, price: null, amount: 1 })
           assert.equal(await balanceOf(s.walletId), 0)
           assert.equal(await tx.walletEntry.count({ where: { walletId: s.walletId } }), 0)
           ok('пакетов нет — занятие ждёт оплаты, баланс не уходит в минус')
@@ -315,7 +317,7 @@ async function main() {
           assert.equal(p.settled, 2)
           assert.equal((await entryOf(ids[0]!)).packageId, p.id)
           assert.equal((await entryOf(ids[1]!)).packageId, p.id)
-          assert.equal((await entryOf(ids[2]!)).amount, 0)
+          assert.equal(await charged(ids[2]!), false)
           assert.equal(await balanceOf(s.walletId), 0)
           assert.equal(await remainingOf(p.id), 0)
           ok('оплата закрывает только то, что купили, — от самого старого занятия')
@@ -357,30 +359,30 @@ async function main() {
 
           const warned = await visit({ studentId: s.studentId })
           await mark(warned, AttendanceStatus.ABSENT, true)
-          assert.equal((await entryOf(warned)).amount, null)
+          assert.equal(await charged(warned), false)
           assert.equal(await remainingOf(p.id), 10)
           ok('пропуск с предупреждением не списывается')
 
           const noWarn = await visit({ studentId: s.studentId })
           await mark(noWarn, AttendanceStatus.ABSENT, false)
-          assert.equal((await entryOf(noWarn)).amount, 1)
+          assert.equal(await charged(noWarn), true)
           assert.equal(await remainingOf(p.id), 9)
           ok('пропуск без предупреждения списывается')
 
           await mark(noWarn, AttendanceStatus.PRESENT)
-          assert.equal((await entryOf(noWarn)).amount, 1)
+          assert.equal(await charged(noWarn), true)
           assert.equal(await remainingOf(p.id), 9)
           ok('переход между двумя платными статусами ничего не двигает')
 
           await mark(noWarn, AttendanceStatus.ABSENT, true)
-          assert.equal((await entryOf(noWarn)).amount, 0)
+          assert.equal(await charged(noWarn), false)
           assert.equal(await remainingOf(p.id), 10)
           assert.equal(await balanceOf(s.walletId), 10)
           ok('откат в неплатный статус возвращает урок в свой пакет и на баланс')
 
           const unspecified = await visit({ studentId: s.studentId })
           await mark(unspecified, AttendanceStatus.UNSPECIFIED)
-          assert.equal((await entryOf(unspecified)).amount, null)
+          assert.equal(await charged(unspecified), false)
           ok('неотмеченное занятие денег не трогает')
         }
 
@@ -390,7 +392,7 @@ async function main() {
           const trial = await visit({ studentId: s.studentId })
           await tx.attendance.update({ where: { id: trial }, data: { isTrial: true } })
           // Экшен для пробных денежные функции не вызывает вовсе.
-          assert.equal((await entryOf(trial)).amount, null)
+          assert.equal(await charged(trial), false)
           assert.equal(await balanceOf(s.walletId), 10)
           ok('пробное занятие не списывается')
         }
@@ -440,11 +442,11 @@ async function main() {
             actorUserId: null,
           })
           assert.equal(await remainingOf(p.id), 10)
-          assert.equal((await entryOf(missed)).amount, 0)
+          assert.equal(await charged(missed), false)
           ok('назначение отработки возвращает урок за пропуск')
 
           await mark(makeup, AttendanceStatus.PRESENT)
-          assert.equal((await entryOf(makeup)).amount, 1)
+          assert.equal(await charged(makeup), true)
           assert.equal(await remainingOf(p.id), 9)
           ok('посещённая отработка списывает урок на своей дате')
         }
@@ -459,12 +461,12 @@ async function main() {
             makeupFor: missed,
           })
           await mark(makeup, AttendanceStatus.PRESENT)
-          assert.equal((await entryOf(makeup)).amount, 0)
+          assert.equal(await charged(makeup), false)
 
           const p = await pay(s.walletId, s.studentId, '2027-01-01', 4_000, 4)
           assert.equal(p.settled, 1)
           assert.equal((await entryOf(makeup)).packageId, p.id)
-          assert.equal((await entryOf(missed)).amount, null)
+          assert.equal(await charged(missed), false)
           ok('оплата гасит отработку, а не пропуск: деньги живут на строке отработки')
         }
 
@@ -498,7 +500,7 @@ async function main() {
 
           const p = await pay(s.walletId, s.studentId, '2027-01-01', 4_000, 4)
           assert.equal(p.settled, 0)
-          assert.equal((await entryOf(waiting)).amount, 0)
+          assert.equal(await charged(waiting), false)
           assert.equal(await balanceOf(s.walletId), 4)
           ok('оплата в один кошелёк не гасит занятия другого')
 
@@ -538,13 +540,13 @@ async function main() {
 
           assert.equal(await balanceOf(s.walletId), 0)
           assert.equal(await remainingOf(p.id), 0)
-          assert.equal((await entryOf(v1)).amount, 1)
+          assert.equal(await charged(v1), true)
           assert.equal((await entryOf(v1)).price, 1000)
           ok('отмена снимает только непотраченное, отходенные занятия остаются оплаченными')
 
           const balanceAfterCancel = await balanceOf(s.walletId)
           await mark(v1, AttendanceStatus.ABSENT, true)
-          assert.equal((await entryOf(v1)).amount, 0)
+          assert.equal(await charged(v1), false)
           assert.equal(await balanceOf(s.walletId), balanceAfterCancel)
           assert.equal(await remainingOf(p.id), 0)
           ok('откат списания с отменённой оплаты снимает проводку, но не дарит урок')
@@ -562,7 +564,7 @@ async function main() {
           const p = await pay(s.walletId, s.studentId, '2027-01-01', 12_000, 12)
           assert.equal(p.settled, 1)
           await cancel(p.id)
-          assert.equal((await entryOf(waiting)).amount, 1)
+          assert.equal(await charged(waiting), true)
           assert.equal((await entryOf(waiting)).price, 1000)
           assert.equal(await balanceOf(s.walletId), 0)
           ok('отмена оплаты не отбирает занятия, которые она успела закрыть')
