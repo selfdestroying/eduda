@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   createStudent,
@@ -8,6 +8,7 @@ import {
   getStudentLessonsBalanceHistory,
   getStudentShopStats,
   getStudentUnpaidLessons,
+  getAllStudents,
   getStudents,
   revealStudentPassword,
   searchStudents,
@@ -19,12 +20,13 @@ import type {
   CreateStudentSchemaType,
   DeleteStudentSchemaType,
   RevealStudentPasswordSchemaType,
+  StudentListSchemaType,
   UpdateStudentCoinsSchemaType,
 } from './schemas'
 
 export const studentKeys = {
   all: ['students'] as const,
-  lists: () => [...studentKeys.all, 'list'] as const,
+  list: (params: StudentListSchemaType) => [...studentKeys.all, 'list', params] as const,
   detail: (id: number) => ['students', 'detail', id] as const,
   groupHistory: (studentId: number) => ['students', 'groupHistory', studentId] as const,
   balanceHistory: (studentId: number) => ['students', 'balanceHistory', studentId] as const,
@@ -34,11 +36,33 @@ export const studentKeys = {
 
 // ─── Queries ────────────────────────────────────────────────────────
 
-export const useStudentListQuery = () => {
+const EMPTY_PAGE = { rows: [], total: 0 }
+
+/** Страница таблицы учеников: отбор, порядок и нарезка — на сервере. */
+export const useStudentListQuery = (params: StudentListSchemaType) => {
   return useQuery({
-    queryKey: studentKeys.all,
+    queryKey: studentKeys.list(params),
     queryFn: async () => {
-      const { data, serverError } = await getStudents()
+      const { data, serverError, validationErrors } = await getStudents(params)
+      if (serverError) throw serverError
+      // Ошибку валидации `next-safe-action` кладёт отдельно от серверной, и без
+      // этой проверки она превращалась бы в `data === undefined`, то есть в пустую
+      // таблицу с надписью «Нет учеников» — как будто их и правда нет.
+      if (validationErrors) throw new Error('Некорректные параметры выборки учеников')
+      return data ?? EMPTY_PAGE
+    },
+    // Пока грузится следующая страница, показываем предыдущую: иначе на каждый
+    // клик по «вперёд» таблица моргает пустотой и скачет по высоте.
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Все ученики целиком — для выпадашек выбора ученика, а не для таблицы. */
+export const useAllStudentsQuery = () => {
+  return useQuery({
+    queryKey: [...studentKeys.all, 'all'] as const,
+    queryFn: async () => {
+      const { data, serverError } = await getAllStudents()
       if (serverError) throw serverError
       return data ?? []
     },

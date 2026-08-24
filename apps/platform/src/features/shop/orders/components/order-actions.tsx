@@ -23,11 +23,11 @@ import { Field, FieldGroup, FieldLabel } from '@repo/ui/components/field'
 import { Loader, MoreVertical, Pen } from 'lucide-react'
 import { useState } from 'react'
 import { useChangeOrderStatusMutation } from '../queries'
-import { OrderWithItemsAndStudent, orderTotal } from '../types'
+import { type OrderListItem, orderTotal } from '../types'
 import { OrderStatusMap } from './orders-table'
 
 interface OrderActionsProps {
-  order: OrderWithItemsAndStudent
+  order: OrderListItem
 }
 
 export default function OrderActions({ order }: OrderActionsProps) {

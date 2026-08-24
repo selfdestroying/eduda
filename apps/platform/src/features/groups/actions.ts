@@ -1,10 +1,11 @@
 'use server'
 
-import { prisma } from '@repo/db'
-import { authAction } from '@/src/lib/safe-action'
+import { Prisma, prisma } from '@repo/db'
+import { authAction, permissionAction } from '@/src/lib/safe-action'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import * as z from 'zod'
 import { closeStudentGroupsTx } from './close.server'
+import { GROUP_LIST_SELECT, type GroupListResult } from './types'
 import {
   AddStudentToGroupSchema,
   AddTeacherToGroupSchema,
@@ -15,6 +16,7 @@ import {
   DeleteGroupSchema,
   DeleteStudentGroupSchema,
   DeleteTeacherGroupSchema,
+  GroupListSchema,
   DismissStudentSchema,
   EditTeacherGroupSchema,
   TransferStudentSchema,
@@ -27,8 +29,14 @@ const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
 
 // ─── READ ───────────────────────────────────────────────────────────
 
-export const getGroups = authAction
-  .metadata({ actionName: 'getGroups' })
+/**
+ * Все группы школы целиком — источник для выпадашек «перевести в группу» и
+ * «добавить группу ученику». Не для таблицы: та берёт страницу через
+ * `getGroups`, а здесь состав каждой группы нужен, чтобы показать в выпадашке,
+ * кто в ней уже есть.
+ */
+export const getAllGroups = authAction
+  .metadata({ actionName: 'getAllGroups' })
   .action(async ({ ctx }) => {
     return await prisma.group.findMany({
       where: { organizationId: ctx.session.organizationId! },
@@ -42,6 +50,144 @@ export const getGroups = authAction
       },
       orderBy: { id: 'asc' },
     })
+  })
+
+type GroupOrderBy = Prisma.GroupOrderByWithRelationInput
+
+/**
+ * Разрешённые колонки сортировки: id колонки таблицы → как её сортировать. Белый
+ * список, а не подстановка поля из запроса: `sort` приходит из адресной строки.
+ * Неизвестный ключ даёт порядок по умолчанию, без ошибки.
+ *
+ * Преподавателя здесь нет: их у группы несколько, и «сортировка по списку имён»
+ * ничего осмысленного не означает.
+ */
+const GROUP_ORDER_BY: Record<string, (dir: Prisma.SortOrder) => GroupOrderBy[]> = {
+  course: (dir) => [{ course: { name: dir } }],
+  location: (dir) => [{ location: { name: dir } }],
+  groupType: (dir) => [{ groupType: { name: dir } }],
+  students: (dir) => [{ students: { _count: dir } }],
+  startDate: (dir) => [{ startDate: dir }],
+}
+
+/**
+ * Порядок строк. Последним ключом всегда `id`: без него группы с равным значением
+ * при листании переставляются местами, и одна и та же группа успевает показаться
+ * на двух страницах подряд.
+ */
+function resolveGroupOrderBy(sort: { id: string; desc: boolean } | null | undefined) {
+  const build = sort ? GROUP_ORDER_BY[sort.id] : undefined
+  if (!sort || !build) return [{ id: 'desc' as const }]
+  return [...build(sort.desc ? 'desc' : 'asc'), { id: 'desc' as const }]
+}
+
+/**
+ * Поиск по тому, что видно в строке: имя группы, курс, локация, тип.
+ *
+ * Слова требуются все, но каждое может найтись в любом поле — иначе «Питон
+ * Ленина» не нашёл бы ничего: курс и локация лежат в разных таблицах, и
+ * `contains` по каждой в отдельности не совпадёт с целой фразой.
+ */
+function groupSearchWhere(search: string | undefined): Prisma.GroupWhereInput[] | undefined {
+  const terms = search?.split(/\s+/).filter(Boolean) ?? []
+  if (terms.length === 0) return undefined
+
+  return terms.map((term) => {
+    const contains = { contains: term, mode: 'insensitive' as const }
+    return {
+      OR: [
+        { name: contains },
+        { course: { name: contains } },
+        { location: { name: contains } },
+        { groupType: { name: contains } },
+      ],
+    }
+  })
+}
+
+/**
+ * Отбор по числу учеников. Prisma фильтровать по `_count` связи не умеет, поэтому
+ * id считаются отдельным `groupBy` с `having` и подставляются в `where` списком.
+ *
+ * Группы без учеников в `StudentGroup` не представлены вовсе и в `groupBy` не
+ * попадают — поэтому «до N» добавляет их отдельной веткой `students: { none: {} }`.
+ * Без этого фильтр «до 3» прятал бы именно те группы, ради которых его и открыли.
+ *
+ * ponytail: два запроса на отбор. Одним это выражается только в raw SQL — если
+ * страница начнёт тормозить, переписывать нужно туда.
+ */
+async function studentCountWhere(
+  organizationId: number,
+  min: number | null | undefined,
+  max: number | null | undefined,
+): Promise<Prisma.GroupWhereInput | undefined> {
+  if (min == null && max == null) return undefined
+
+  const groups = await prisma.studentGroup.groupBy({
+    by: ['groupId'],
+    where: { organizationId },
+    having: {
+      groupId: {
+        _count: {
+          ...(min != null && { gte: min }),
+          ...(max != null && { lte: max }),
+        },
+      },
+    },
+  })
+  const ids = groups.map((g) => g.groupId)
+
+  // Пустая группа проходит фильтр, только если нижняя граница её пропускает.
+  const emptyFits = min == null || min <= 0
+  return emptyFits ? { OR: [{ id: { in: ids } }, { students: { none: {} } }] } : { id: { in: ids } }
+}
+
+export const getGroups = permissionAction({ group: ['read'] })
+  .metadata({ actionName: 'getGroups' })
+  .inputSchema(GroupListSchema)
+  .action(async ({ ctx, parsedInput }): Promise<GroupListResult> => {
+    const {
+      page,
+      pageSize,
+      sort,
+      search,
+      courseIds,
+      locationIds,
+      teacherIds,
+      statuses,
+      studentsMin,
+      studentsMax,
+    } = parsedInput
+    const organizationId = ctx.session.organizationId!
+
+    const countWhere = await studentCountWhere(organizationId, studentsMin, studentsMax)
+
+    const where: Prisma.GroupWhereInput = {
+      organizationId,
+      ...(courseIds.length > 0 && { courseId: { in: courseIds } }),
+      ...(locationIds.length > 0 && { locationId: { in: locationIds } }),
+      ...(teacherIds.length > 0 && { teachers: { some: { teacherId: { in: teacherIds } } } }),
+      ...(statuses.length > 0 && { status: { in: statuses } }),
+      // Оба условия — списками в `AND`: `OR` из отбора по числу учеников иначе
+      // затёр бы `OR` поиска, и фильтры молча отменяли бы друг друга.
+      AND: [...(groupSearchWhere(search) ?? []), ...(countWhere ? [countWhere] : [])],
+    }
+
+    // Одной транзакцией: строки и их количество обязаны быть посчитаны по одному и
+    // тому же состоянию базы, иначе между запросами кто-то заведёт группу и
+    // «страница 3 из 5» разъедется с тем, что реально вернулось.
+    const [rows, total] = await prisma.$transaction([
+      prisma.group.findMany({
+        where,
+        select: GROUP_LIST_SELECT,
+        orderBy: resolveGroupOrderBy(sort),
+        skip: page * pageSize,
+        take: pageSize,
+      }),
+      prisma.group.count({ where }),
+    ])
+
+    return { rows, total }
   })
 
 export const getGroup = authAction

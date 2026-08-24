@@ -6,6 +6,7 @@ import {
   User,
 } from '@repo/db'
 import DataTable from '@repo/ui/components/data-table'
+import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
 import { Hint } from '@repo/ui/components/hint'
 import { Button } from '@repo/ui/components/button'
 import {
@@ -27,11 +28,13 @@ import { Field, FieldGroup, FieldLabel } from '@repo/ui/components/field'
 import { Input } from '@repo/ui/components/input'
 import { Skeleton } from '@repo/ui/components/skeleton'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
+import { useTableState } from '@/src/hooks/use-table-state'
 import { formatDateTimeInTz } from '@/src/lib/timezone'
 import { JsonValue } from '@prisma/client/runtime/client'
 import {
   ColumnDef,
   getCoreRowModel,
+  getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
@@ -165,18 +168,44 @@ function getMetaDetails(
   }
 }
 
+/** Числовые колонки. Моноширинные цифры — иначе столбик разъезжается. */
+const NUMERIC = 'tabular-nums'
+
+/** Ширина колонок с известным потолком длины — дат, полей, чисел. */
+const COLUMN_WIDTH = 130
+
+/** Δ, «Было» и «Стало» — числа в пару разрядов. */
+const NUMBER_WIDTH = 90
+
+/** Меню строки — иконка и ничего больше. */
+const ACTIONS_WIDTH = 56
+
+/**
+ * Колонки, по которым фильтруем. Отбор клиентский, поэтому у колонки есть свой
+ * `filterFn`: он сверяет значение со списком строк, приходящим из тулбара.
+ */
+const TABLE_FILTERS = { field: 'string', reason: 'string' } as const
+
+const FIELD_OPTIONS = Object.entries(fieldLabel).map(([value, label]) => ({ label, value }))
+const REASON_OPTIONS = Object.entries(reasonLabel).map(([value, label]) => ({ label, value }))
+
 function createColumns(studentId: number, tz: string): ColumnDef<HistoryRow>[] {
   return [
     {
+      id: 'createdAt',
       header: 'Дата',
       accessorFn: (row) => row.createdAt,
-      cell: ({ row }) => <span>{formatDateTimeInTz(row.original.createdAt, tz)}</span>,
+      size: COLUMN_WIDTH,
+      cell: ({ row }) => formatDateTimeInTz(row.original.createdAt, tz),
+      meta: { title: 'Дата', className: NUMERIC },
     },
     {
+      id: 'group',
       header: 'Группа',
+      accessorFn: (row) => row.group?.course.name ?? '',
       cell: ({ row }) => {
         const group = row.original.group
-        if (!group) return <span className="text-muted-foreground">-</span>
+        if (!group) return <span className="text-muted-foreground">—</span>
         const name = group.course.name + (group.location ? ` (${group.location.name})` : '')
         return (
           <Link href={`/groups/${group.id}`} className="text-primary hover:underline">
@@ -184,6 +213,7 @@ function createColumns(studentId: number, tz: string): ColumnDef<HistoryRow>[] {
           </Link>
         )
       },
+      meta: { title: 'Группа', flexible: true },
     },
     {
       id: 'field',
@@ -194,39 +224,58 @@ function createColumns(studentId: number, tz: string): ColumnDef<HistoryRow>[] {
         </span>
       ),
       accessorFn: (row) => row.field,
+      size: COLUMN_WIDTH,
       cell: ({ row }) => fieldLabel[row.original.field] ?? row.original.field,
+      filterFn: (row, _id, filterValue) => {
+        const selected = filterValue as string[]
+        return selected.length === 0 || selected.includes(row.original.field)
+      },
+      meta: { title: 'Поле', variant: 'multiSelect', options: FIELD_OPTIONS },
     },
     {
+      id: 'reason',
       header: 'Причина',
       accessorFn: (row) => row.reason,
       cell: ({ row }) => reasonLabel[row.original.reason] ?? row.original.reason,
+      filterFn: (row, _id, filterValue) => {
+        const selected = filterValue as string[]
+        return selected.length === 0 || selected.includes(row.original.reason)
+      },
+      meta: { title: 'Причина', flexible: true, variant: 'multiSelect', options: REASON_OPTIONS },
+      // Строка без причины ничего не объясняет — прятать нечего.
+      enableHiding: false,
     },
     {
+      id: 'details',
       header: 'Детали',
-      cell: ({ row }) => getMetaDetails(row.original.reason, row.original.meta),
+      size: COLUMN_WIDTH,
+      enableSorting: false,
+      cell: ({ row }) => getMetaDetails(row.original.reason, row.original.meta) ?? '—',
+      meta: { title: 'Детали' },
     },
     {
+      id: 'actor',
       header: 'Кем',
+      accessorFn: (row) => row.actorUser?.name ?? 'Система',
+      size: COLUMN_WIDTH,
       cell: ({ row }) => {
-        const actor = row.original.actorUser ? row.original.actorUser.name : 'Система'
-        return row.original.actorUser ? (
-          <Link
-            href={`/users/${row.original.actorUser.id}`}
-            className="text-primary hover:underline"
-          >
-            {actor}
+        const actor = row.original.actorUser
+        if (!actor) return 'Система'
+        return (
+          <Link href={`/users/${actor.id}`} className="text-primary hover:underline">
+            {actor.name}
           </Link>
-        ) : (
-          actor
         )
       },
+      meta: { title: 'Кем' },
     },
     {
+      id: 'comment',
       header: 'Комментарий',
-      accessorFn: (row) => row.comment,
-      // Текст, а не число: выключка левая. `meta.className` таблица теперь
-      // действительно применяет, и правая выключка здесь читалась бы ошибкой.
-      cell: ({ row }) => <span className="truncate">{row.original.comment ?? '-'}</span>,
+      accessorFn: (row) => row.comment ?? '',
+      cell: ({ row }) => row.original.comment ?? '—',
+      enableSorting: false,
+      meta: { title: 'Комментарий', flexible: true },
     },
     {
       id: 'delta',
@@ -237,27 +286,30 @@ function createColumns(studentId: number, tz: string): ColumnDef<HistoryRow>[] {
         </span>
       ),
       accessorFn: (row) => row.delta,
-      cell: ({ row }) => {
-        const deltaText =
-          row.original.delta > 0 ? `+${row.original.delta}` : String(row.original.delta)
-        return <span className="text-right">{deltaText}</span>
-      },
-      meta: { className: 'text-right' },
+      size: NUMBER_WIDTH,
+      cell: ({ row }) =>
+        row.original.delta > 0 ? `+${row.original.delta}` : String(row.original.delta),
+      meta: { title: 'Δ', className: NUMERIC },
     },
     {
+      id: 'balanceBefore',
       header: 'Было',
       accessorFn: (row) => row.balanceBefore,
-      cell: ({ row }) => <span className="text-right">{row.original.balanceBefore}</span>,
-      meta: { className: 'text-right' },
+      size: NUMBER_WIDTH,
+      meta: { title: 'Было', className: NUMERIC },
     },
     {
+      id: 'balanceAfter',
       header: 'Стало',
       accessorFn: (row) => row.balanceAfter,
-      cell: ({ row }) => <span className="text-right">{row.original.balanceAfter}</span>,
-      meta: { className: 'text-right' },
+      size: NUMBER_WIDTH,
+      meta: { title: 'Стало', className: NUMERIC },
     },
     {
       id: 'actions',
+      header: () => null,
+      size: ACTIONS_WIDTH,
+      enableHiding: false,
       cell: ({ row }) => (
         <LessonsBalanceHistoryActions
           historyId={row.original.id}
@@ -269,25 +321,48 @@ function createColumns(studentId: number, tz: string): ColumnDef<HistoryRow>[] {
   ]
 }
 
+/**
+ * Финансовая история одного ученика: журнал уже пришёл с карточкой, поэтому отбор
+ * и нарезка остаются на клиенте.
+ */
 export default function LessonsBalanceHistory({ studentId }: { studentId: number }) {
-  const { data: history = [], isLoading } = useStudentBalanceHistoryQuery(studentId)
+  const { data: history = [], isLoading, isError } = useStudentBalanceHistoryQuery(studentId)
   const tz = useOrgTimezone()
+  const t = useTableState({ id: 'student-balance-history', filters: TABLE_FILTERS, prefix: 'bh_' })
+
   const columns = useMemo(() => createColumns(studentId, tz), [studentId, tz])
 
   const table = useReactTable({
     data: history as HistoryRow[],
     columns,
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: {
-      pagination: {
-        pageSize: 10,
-      },
+    getRowId: (row) => String(row.id),
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const search = String(filterValue).toLowerCase()
+      return (
+        (row.original.comment ?? '').toLowerCase().includes(search) ||
+        (row.original.group?.course.name ?? '').toLowerCase().includes(search) ||
+        (reasonLabel[row.original.reason] ?? '').toLowerCase().includes(search)
+      )
+    },
+    onPaginationChange: t.setPagination,
+    onColumnFiltersChange: t.setColumnFilters,
+    onSortingChange: t.setSorting,
+    onColumnVisibilityChange: t.setColumnVisibility,
+    state: {
+      globalFilter: t.globalFilter,
+      columnFilters: t.columnFilters,
+      pagination: t.pagination,
+      sorting: t.sorting,
+      columnVisibility: t.columnVisibility,
     },
   })
 
   if (isLoading) return <Skeleton className="h-32" />
+  if (isError) return <div className="text-destructive">Ошибка при загрузке истории.</div>
 
   return (
     <div className="space-y-3">
@@ -295,7 +370,21 @@ export default function LessonsBalanceHistory({ studentId }: { studentId: number
         <RussianRuble size={20} />
         Финансовая история
       </h3>
-      <DataTable table={table} emptyMessage="Пока нет изменений." showPagination />
+      <DataTable
+        table={table}
+        emptyMessage="Пока нет изменений."
+        showPagination
+        showColumnVisibility
+        toolbar={
+          <DataTableToolbar
+            table={table}
+            search={t.globalFilter}
+            onSearchChange={t.setGlobalFilter}
+            searchPlaceholder="Причина, группа, комментарий..."
+            onReset={t.reset}
+          />
+        }
+      />
     </div>
   )
 }

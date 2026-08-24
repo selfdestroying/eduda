@@ -1,65 +1,69 @@
 'use client'
 
+import { useTableState } from '@/src/hooks/use-table-state'
 import { Course } from '@repo/db'
 import DataTable from '@repo/ui/components/data-table'
-import { Input } from '@repo/ui/components/input'
+import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
 import { Skeleton } from '@repo/ui/components/skeleton'
-import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
 import {
-  ColumnDef,
+  type ColumnDef,
   getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { useMemo } from 'react'
 import { useCourseListQuery } from '../queries'
 import CourseActions from './course-actions'
 
+/** Меню строки — иконка и ничего больше. */
+const ACTIONS_WIDTH = 56
+
+const columns: ColumnDef<Course>[] = [
+  {
+    id: 'name',
+    header: 'Название',
+    accessorKey: 'name',
+    meta: { title: 'Название', flexible: true },
+    // Строка без названия бессмысленна — прятать нечего.
+    enableHiding: false,
+  },
+  {
+    id: 'actions',
+    header: () => null,
+    size: ACTIONS_WIDTH,
+    enableHiding: false,
+    cell: ({ row }) => <CourseActions course={row.original} />,
+  },
+]
+
+/**
+ * Справочник курсов: их у школы десятки, и отбор с нарезкой остаются на клиенте.
+ * Всё остальное — как у серверных таблиц: состояние в URL, тулбар общий, у
+ * колонок `meta`.
+ */
 export default function CoursesTable() {
   const { data: courses = [], isLoading, isError } = useCourseListQuery()
-
-  const columns: ColumnDef<Course>[] = useMemo(
-    () => [
-      {
-        header: 'Название',
-        accessorKey: 'name',
-      },
-      {
-        id: 'actions',
-        cell: ({ row }) => <CourseActions course={row.original} />,
-      },
-    ],
-    [],
-  )
-
-  const { globalFilter, setGlobalFilter, pagination, setPagination, sorting, setSorting } =
-    useTableSearchParams()
+  const t = useTableState({ id: 'courses' })
 
   const table = useReactTable({
     data: courses,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-    getFacetedRowModel: getFacetedRowModel(),
-    globalFilterFn: (row, columnId, filterValue) => {
-      const searchValue = String(filterValue).toLowerCase()
-      const name = row.original.name.toLowerCase()
-      return name.includes(searchValue)
-    },
-    onPaginationChange: setPagination,
     getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
-
+    getRowId: (row) => String(row.id),
+    globalFilterFn: (row, _columnId, filterValue) =>
+      row.original.name.toLowerCase().includes(String(filterValue).toLowerCase()),
+    onPaginationChange: t.setPagination,
+    onSortingChange: t.setSorting,
+    onColumnVisibilityChange: t.setColumnVisibility,
     state: {
-      globalFilter,
-      pagination,
-      sorting,
+      globalFilter: t.globalFilter,
+      pagination: t.pagination,
+      sorting: t.sorting,
+      columnVisibility: t.columnVisibility,
     },
   })
 
@@ -81,14 +85,15 @@ export default function CoursesTable() {
       table={table}
       emptyMessage="Нет курсов."
       showPagination
+      showColumnVisibility
       toolbar={
-        <div className="flex flex-col items-end gap-2 md:flex-row">
-          <Input
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            placeholder="Поиск..."
-          />
-        </div>
+        <DataTableToolbar
+          table={table}
+          search={t.globalFilter}
+          onSearchChange={t.setGlobalFilter}
+          searchPlaceholder="Название курса..."
+          onReset={t.reset}
+        />
       }
     />
   )

@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from '@repo/ui/components/card'
 import AddManagerSalaryButton from './add-manager-salary-button'
-import ManagerRatesTable from './manager-salaries-table'
+import ManagerSalariesTable from './manager-salaries-table'
 
 export default function ManagerRates() {
   return (
@@ -22,7 +22,7 @@ export default function ManagerRates() {
         </CardAction>
       </CardHeader>
       <CardContent>
-        <ManagerRatesTable />
+        <ManagerSalariesTable />
       </CardContent>
     </Card>
   )

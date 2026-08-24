@@ -167,3 +167,33 @@ export type AddTeacherToGroupSchemaType = z.infer<typeof AddTeacherToGroupSchema
 export type EditTeacherGroupSchemaType = z.infer<typeof EditTeacherGroupSchema>
 export type DeleteTeacherGroupSchemaType = z.infer<typeof DeleteTeacherGroupSchema>
 export type CreateLessonForGroupSchemaType = z.infer<typeof CreateLessonForGroupSchema>
+
+/**
+ * Всё состояние таблицы групп: страница, порядок и отбор. Сервер по нему строит
+ * `where`/`orderBy`/`skip`/`take` и возвращает срез вместе с общим числом строк —
+ * браузер сам ничего не отбирает и не сортирует.
+ *
+ * `sort.id` не сужен до списка колонок намеренно: в чужих ссылках живут id
+ * переименованных колонок, и валидация роняла бы страницу вместо того, чтобы
+ * молча отдать порядок по умолчанию. Белый список — на сервере.
+ */
+export const GroupListSchema = z.object({
+  page: z.number().int().min(0).default(0),
+  // Верхняя граница — чтобы подобранный руками `pageSize=100000` не превращался в
+  // выгрузку всех групп школы одним запросом.
+  pageSize: z.number().int().min(1).max(100).default(10),
+  sort: z.object({ id: z.string(), desc: z.boolean() }).nullish(),
+  // Ограничение длины — не про валидацию ввода, а про стоимость: `contains` идёт
+  // последовательным просмотром, и незачем пускать в него полотно текста.
+  search: z.string().trim().max(100).optional(),
+  courseIds: z.array(z.number().int().positive()).default([]),
+  locationIds: z.array(z.number().int().positive()).default([]),
+  teacherIds: z.array(z.number().int().positive()).default([]),
+  statuses: z.array(z.enum(['ACTIVE', 'COMPLETED', 'ARCHIVED'])).default([]),
+  // Сколько учеников в группе. Границы независимы: «от 8» ищет переполненные,
+  // «до 3» — те, что пора закрывать.
+  studentsMin: z.number().int().nullish(),
+  studentsMax: z.number().int().nullish(),
+})
+
+export type GroupListSchemaType = z.infer<typeof GroupListSchema>

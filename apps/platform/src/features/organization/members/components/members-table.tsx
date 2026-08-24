@@ -1,33 +1,47 @@
 'use client'
 
-import DataTable from '@repo/ui/components/data-table'
-import TableFilter from '@repo/ui/components/table-filter'
-import { ColumnDef } from '@tanstack/react-table'
-
 import { memberRoleLabels } from '@/src/components/sidebar/nav-user'
-import { Input } from '@repo/ui/components/input'
-import { Skeleton } from '@repo/ui/components/skeleton'
-import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
+import { useTableState } from '@/src/hooks/use-table-state'
 import { OrganizationRole } from '@/src/lib/auth/server'
+import DataTable from '@repo/ui/components/data-table'
+import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
+import { Skeleton } from '@repo/ui/components/skeleton'
 import {
+  type ColumnDef,
   getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
   getFilteredRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
 import Link from 'next/link'
-import { useMemo } from 'react'
 import { useMemberListQuery } from '../queries'
 import type { MemberWithUser } from '../types'
 import MemberActions from './member-actions'
+
+/** Ширина колонок с известным потолком длины — роли и статуса. */
+const COLUMN_WIDTH = 130
+
+/** Меню строки — иконка и ничего больше. */
+const ACTIONS_WIDTH = 56
+
+/**
+ * Колонки, по которым фильтруем. Отбор клиентский, поэтому у колонки есть свой
+ * `filterFn`: он сверяет роль со списком строк, приходящим из тулбара.
+ */
+const TABLE_FILTERS = { role: 'string' } as const
+
+const ROLE_OPTIONS = [
+  { label: 'Учитель', value: 'teacher' },
+  { label: 'Менеджер', value: 'manager' },
+  { label: 'Владелец', value: 'owner' },
+]
 
 const columns: ColumnDef<MemberWithUser>[] = [
   {
     id: 'user',
     header: 'Полное имя',
-    accessorFn: (value) => value.userId,
+    accessorFn: (row) => row.user.name,
     cell: ({ row }) => (
       <Link
         href={`/organization/members/${row.original.userId}`}
@@ -36,106 +50,98 @@ const columns: ColumnDef<MemberWithUser>[] = [
         {row.original.user.name}
       </Link>
     ),
+    meta: { title: 'Полное имя', flexible: true },
+    // Строка без имени бессмысленна — прятать нечего.
+    enableHiding: false,
   },
   {
     id: 'role',
     header: 'Роль',
-    accessorFn: (value) => value.role,
-    cell: ({ row }) => memberRoleLabels[row.original.role as OrganizationRole],
-    filterFn: (row, id, filterValue) => {
-      return filterValue.length === 0 || filterValue.includes(row.original.role)
+    accessorKey: 'role',
+    size: COLUMN_WIDTH,
+    cell: ({ row }) => memberRoleLabels[row.original.role as OrganizationRole] ?? row.original.role,
+    filterFn: (row, _id, filterValue) => {
+      const selected = filterValue as string[]
+      return selected.length === 0 || selected.includes(row.original.role)
     },
+    meta: { title: 'Роль', variant: 'multiSelect', options: ROLE_OPTIONS },
   },
   {
+    id: 'status',
     header: 'Статус',
-    accessorKey: 'status',
+    accessorFn: (row) => (row.user.banned ? 'Неактивен' : 'Активен'),
+    size: COLUMN_WIDTH,
     cell: ({ row }) => (
       <span className={row.original.user.banned ? 'text-destructive' : 'text-success'}>
         {row.original.user.banned ? 'Неактивен' : 'Активен'}
       </span>
     ),
+    meta: { title: 'Статус' },
   },
   {
     id: 'actions',
+    header: () => null,
+    size: ACTIONS_WIDTH,
+    enableHiding: false,
     cell: ({ row }) => <MemberActions member={row.original} />,
   },
 ]
 
-const mappedRoles = [
-  { label: 'Учитель', value: 'teacher' },
-  { label: 'Менеджер', value: 'manager' },
-]
-
+/** Сотрудники школы: их десятки, отбор и нарезка остаются на клиенте. */
 export default function MembersTable() {
   const { data: members = [], isLoading, isError } = useMemberListQuery()
-
-  const { columnFilters, setColumnFilters, globalFilter, setGlobalFilter, sorting, setSorting } =
-    useTableSearchParams({
-      filters: { role: 'string' },
-    })
+  const t = useTableState({ id: 'members', filters: TABLE_FILTERS })
 
   const table = useReactTable({
     data: members,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-    getFacetedRowModel: getFacetedRowModel(),
-    globalFilterFn: (row, columnId, filterValue) => {
-      const searchValue = String(filterValue).toLowerCase()
-      const fullName = row.original.user.name.toLowerCase()
-      const roleName = row.original.role ? row.original.role.toLowerCase() : ''
-      return fullName.includes(searchValue) || roleName.includes(searchValue)
-    },
-    onSortingChange: setSorting,
+    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getRowId: (row) => String(row.userId),
+    globalFilterFn: (row, _columnId, filterValue) =>
+      row.original.user.name.toLowerCase().includes(String(filterValue).toLowerCase()),
+    onPaginationChange: t.setPagination,
+    onColumnFiltersChange: t.setColumnFilters,
+    onSortingChange: t.setSorting,
+    onColumnVisibilityChange: t.setColumnVisibility,
     state: {
-      columnFilters,
-      globalFilter,
-      sorting,
+      globalFilter: t.globalFilter,
+      columnFilters: t.columnFilters,
+      pagination: t.pagination,
+      sorting: t.sorting,
+      columnVisibility: t.columnVisibility,
     },
   })
 
-  const handleRoleFilterChange = (selectedRoles: { label: string; value: string }[]) => {
-    const roleIds = selectedRoles.map((role) => role.value)
-    setColumnFilters((old) => {
-      const otherFilters = old.filter((filter) => filter.id !== 'role')
-      if (roleIds.length === 0) {
-        return otherFilters
-      }
-      return [...otherFilters, { id: 'role', value: roleIds }]
-    })
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
   }
 
-  const selectedRoles = useMemo(() => {
-    const filter = columnFilters.find((f) => f.id === 'role')
-    if (!filter) return []
-    const ids = filter.value as string[]
-    return mappedRoles.filter((r) => ids.includes(r.value))
-  }, [columnFilters])
-
-  if (isLoading) return <Skeleton className="h-64 w-full" />
-  if (isError) return <div className="text-destructive">Ошибка загрузки</div>
+  if (isError) {
+    return <div className="text-destructive">Ошибка при загрузке сотрудников.</div>
+  }
 
   return (
     <DataTable
       table={table}
       emptyMessage="Нет пользователей."
+      showPagination
+      showColumnVisibility
       toolbar={
-        <div className="flex flex-col items-end gap-2 md:flex-row">
-          <Input
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            placeholder="Поиск..."
-          />
-          <TableFilter
-            items={mappedRoles}
-            label="Роль"
-            value={selectedRoles}
-            onChange={handleRoleFilterChange}
-          />
-        </div>
+        <DataTableToolbar
+          table={table}
+          search={t.globalFilter}
+          onSearchChange={t.setGlobalFilter}
+          searchPlaceholder="Имя сотрудника..."
+          onReset={t.reset}
+        />
       }
     />
   )

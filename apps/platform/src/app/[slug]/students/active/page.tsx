@@ -1,8 +1,14 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
 import ActiveStatistics from '@/src/features/statistics/components/active/active-statistics'
-import ActiveStudentsTable from '@/src/features/students/active/components/active-students-table'
+import EnrollmentsTable from '@/src/features/students/enrollments/components/enrollments-table'
 
 export const metadata = { title: 'Активные ученики' }
+
+/**
+ * Пробные считаются активными: ученик ходит на занятия, и его место в группе
+ * занято — отделять их отдельной страницей нечем.
+ */
+const ACTIVE_STATUSES = ['ACTIVE', 'TRIAL'] as const
 
 export default function Page() {
   return (
@@ -14,7 +20,11 @@ export default function Page() {
           <CardDescription>Список всех активных учеников системы</CardDescription>
         </CardHeader>
         <CardContent className="overflow-hidden">
-          <ActiveStudentsTable />
+          <EnrollmentsTable
+            statuses={[...ACTIVE_STATUSES]}
+            tableId="active-students"
+            emptyMessage="Нет активных учеников."
+          />
         </CardContent>
       </Card>
     </div>

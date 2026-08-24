@@ -17,8 +17,10 @@ import {
   CreateStudentSchema,
   DeleteStudentSchema,
   RevealStudentPasswordSchema,
+  StudentListSchema,
   UpdateStudentCoinsSchema,
 } from './schemas'
+import { STUDENT_LIST_SELECT, type StudentListResult } from './types'
 
 const transliterateToLatin = (value: string) => {
   const map: Record<string, string> = {
@@ -97,8 +99,14 @@ function generatePassword() {
 
 // ─── READ ────────────────────────────────────────────────────────────────────
 
-export const getStudents = authAction
-  .metadata({ actionName: 'getStudents' })
+/**
+ * Все ученики школы целиком — источник для выпадашек «добавить в группу» и
+ * «отметить на уроке». Не для таблицы: та берёт страницу через `getStudents`, а
+ * здесь нужны активные записи в группах, чтобы выпадашка не предлагала того, кто
+ * в группе уже есть.
+ */
+export const getAllStudents = authAction
+  .metadata({ actionName: 'getAllStudents' })
   .action(async ({ ctx }) => {
     return await prisma.student.findMany({
       where: { organizationId: ctx.session.organizationId! },
@@ -109,6 +117,88 @@ export const getStudents = authAction
       },
       orderBy: { id: 'asc' },
     })
+  })
+
+type StudentOrderBy = Prisma.StudentOrderByWithRelationInput
+
+/**
+ * Разрешённые колонки сортировки: id колонки таблицы → как её сортировать. Белый
+ * список, а не подстановка поля из запроса: `sort` приходит из адресной строки.
+ * Неизвестный ключ даёт порядок по умолчанию, без ошибки.
+ *
+ * Сумм и баланса здесь нет: в строке это ученик плюс все его кошельки, а такую
+ * сумму SQL по столбцу не отсортирует — сортировка по ней врала бы.
+ *
+ * Возраст сортируется по `birthDate` в обратную сторону: чем позже родился, тем
+ * младше. Иначе «по возрасту» ставило бы старших вниз.
+ */
+const STUDENT_ORDER_BY: Record<string, (dir: Prisma.SortOrder) => StudentOrderBy[]> = {
+  student: (dir) => [{ firstName: dir }, { lastName: dir }],
+  age: (dir) => [{ birthDate: dir === 'asc' ? 'desc' : 'asc' }],
+  dataActualizedAt: (dir) => [{ dataActualizedAt: dir }],
+}
+
+/**
+ * Порядок строк. Последним ключом всегда `id`: без него ученики с равным
+ * значением при листании переставляются местами, и один и тот же успевает
+ * показаться на двух страницах подряд.
+ */
+function resolveStudentOrderBy(sort: { id: string; desc: boolean } | null | undefined) {
+  const build = sort ? STUDENT_ORDER_BY[sort.id] : undefined
+  if (!sort || !build) return [{ id: 'desc' as const }]
+  return [...build(sort.desc ? 'desc' : 'asc'), { id: 'desc' as const }]
+}
+
+/**
+ * Поиск по тому, что видно в строке: имя ученика и имя родителя.
+ *
+ * Слова требуются все, но каждое может найтись в любом поле — иначе «Иван Петров»
+ * не нашёл бы никого: имя и фамилия лежат в разных колонках, и `contains` по
+ * каждой в отдельности не совпадёт с целой фразой. Заодно работает «Петров Иван».
+ */
+function studentSearchWhere(search: string | undefined): Prisma.StudentWhereInput[] | undefined {
+  const terms = search?.split(/\s+/).filter(Boolean) ?? []
+  if (terms.length === 0) return undefined
+
+  return terms.map((term) => {
+    const contains = { contains: term, mode: 'insensitive' as const }
+    return {
+      OR: [
+        { firstName: contains },
+        { lastName: contains },
+        { parents: { some: { parent: { firstName: contains } } } },
+        { parents: { some: { parent: { lastName: contains } } } },
+      ],
+    }
+  })
+}
+
+export const getStudents = permissionAction({ student: ['read'] })
+  .metadata({ actionName: 'getStudents' })
+  .inputSchema(StudentListSchema)
+  .action(async ({ ctx, parsedInput }): Promise<StudentListResult> => {
+    const { page, pageSize, sort, search } = parsedInput
+
+    const where: Prisma.StudentWhereInput = {
+      organizationId: ctx.session.organizationId!,
+      AND: studentSearchWhere(search),
+    }
+
+    // Одной транзакцией: строки и их количество обязаны быть посчитаны по одному и
+    // тому же состоянию базы, иначе между запросами кто-то заведёт ученика и
+    // «страница 3 из 5» разъедется с тем, что реально вернулось.
+    const [rows, total] = await prisma.$transaction([
+      prisma.student.findMany({
+        where,
+        select: STUDENT_LIST_SELECT,
+        orderBy: resolveStudentOrderBy(sort),
+        skip: page * pageSize,
+        take: pageSize,
+      }),
+      prisma.student.count({ where }),
+    ])
+
+    return { rows, total }
   })
 
 // Лёгкий поиск учеников по имени для async-комбобокса (id + ФИО, максимум 20)

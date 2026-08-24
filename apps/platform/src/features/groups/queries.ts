@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   addStudentToGroup,
@@ -13,6 +13,7 @@ import {
   editTeacherGroup,
   getGroup,
   getGroupDetail,
+  getAllGroups,
   getGroups,
   removeStudentFromGroup,
   removeTeacherFromGroup,
@@ -31,6 +32,7 @@ import type {
   DeleteGroupSchemaType,
   DeleteStudentGroupSchemaType,
   DeleteTeacherGroupSchemaType,
+  GroupListSchemaType,
   DismissStudentSchemaType,
   EditTeacherGroupSchemaType,
   TransferStudentSchemaType,
@@ -41,17 +43,40 @@ import type {
 
 export const groupKeys = {
   all: ['groups'] as const,
+  list: (params: GroupListSchemaType) => [...groupKeys.all, 'list', params] as const,
   detail: (id: number) => ['groups', 'detail', id] as const,
   futureLessonsCount: (groupId: number) => ['groups', 'futureLessonsCount', groupId] as const,
 }
 
 // ─── Queries ────────────────────────────────────────────────────────
 
-export const useGroupListQuery = () => {
+const EMPTY_PAGE = { rows: [], total: 0 }
+
+/** Страница таблицы групп: отбор, порядок и нарезка — на сервере. */
+export const useGroupListQuery = (params: GroupListSchemaType) => {
   return useQuery({
-    queryKey: groupKeys.all,
+    queryKey: groupKeys.list(params),
     queryFn: async () => {
-      const { data, serverError } = await getGroups()
+      const { data, serverError, validationErrors } = await getGroups(params)
+      if (serverError) throw serverError
+      // Ошибку валидации `next-safe-action` кладёт отдельно от серверной, и без
+      // этой проверки она превращалась бы в `data === undefined`, то есть в пустую
+      // таблицу с надписью «Нет групп» — как будто их и правда нет.
+      if (validationErrors) throw new Error('Некорректные параметры выборки групп')
+      return data ?? EMPTY_PAGE
+    },
+    // Пока грузится следующая страница, показываем предыдущую: иначе на каждый
+    // клик по «вперёд» таблица моргает пустотой и скачет по высоте.
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Все группы целиком — для выпадашек выбора группы, а не для таблицы. */
+export const useAllGroupsQuery = () => {
+  return useQuery({
+    queryKey: [...groupKeys.all, 'all'] as const,
+    queryFn: async () => {
+      const { data, serverError } = await getAllGroups()
       if (serverError) throw serverError
       return data ?? []
     },

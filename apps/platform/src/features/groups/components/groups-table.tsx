@@ -1,73 +1,112 @@
 'use client'
 
-import CourseLocationTeacherFilters from '@/src/components/course-location-teacher-filters'
-import DataTable from '@repo/ui/components/data-table'
-import { NumberInput } from '@repo/ui/components/number-input'
-import { Badge } from '@repo/ui/components/badge'
-import { Field, FieldGroup } from '@repo/ui/components/field'
-import { Input } from '@repo/ui/components/input'
-import { useTableSearchParams } from '@/src/hooks/use-table-search-params'
-import { DaysOfWeek, getGroupName } from '@/src/lib/utils'
+import { useMappedCourseListQuery } from '@/src/features/courses/queries'
+import { useMappedLocationListQuery } from '@/src/features/locations/queries'
+import { useMappedMemberListQuery } from '@/src/features/organization/members/queries'
 import {
-  type ColumnDef,
-  type ColumnFiltersState,
-  getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+  filterIds,
+  filterValues,
+  rangeValues,
+  useClampPage,
+  useTableState,
+} from '@/src/hooks/use-table-state'
+import { DaysOfWeek, getGroupName } from '@/src/lib/utils'
+import { Badge } from '@repo/ui/components/badge'
+import DataTable from '@repo/ui/components/data-table'
+import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
+import { Skeleton } from '@repo/ui/components/skeleton'
+import { type ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import Link from 'next/link'
-import { parseAsInteger, useQueryState } from 'nuqs'
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 import { useGroupListQuery } from '../queries'
-import type { GroupWithRelations } from '../types'
+import type { GroupListSchemaType } from '../schemas'
+import type { GroupListItem } from '../types'
+
+/** Числовые колонки. Моноширинные цифры — иначе столбик разъезжается. */
+const NUMERIC = 'tabular-nums'
+
+/** Ширина колонок с известным потолком длины — чисел, локации, курса, типа. */
+const COLUMN_WIDTH = 130
+
+/** Расписание — до трёх строк «Пн 17:00», и переносить их незачем. */
+const SCHEDULE_WIDTH = 120
+const TEACHER_WIDTH = 170
+
+/** Внешняя ссылка группы — колонка на одно слово. */
+const LINK_WIDTH = 100
+
+/**
+ * Колонки, по которым фильтруем: `useTableState` держит их в URL, а отсюда они
+ * уезжают в запрос. Всё строками, включая id, — значения приходят из адреса, и в
+ * числа их превращает уже сборка параметров запроса.
+ */
+const TABLE_FILTERS = {
+  course: 'string',
+  location: 'string',
+  teacher: 'string',
+  status: 'string',
+  students: 'range',
+} as const
+
+const STATUS_OPTIONS = [
+  { label: 'Активная', value: 'ACTIVE' },
+  { label: 'Завершена', value: 'COMPLETED' },
+  { label: 'Архивная', value: 'ARCHIVED' },
+]
 
 const groupStatusConfig: Record<
-  Exclude<GroupWithRelations['status'], 'ACTIVE'>,
+  Exclude<GroupListItem['status'], 'ACTIVE'>,
   { label: string; variant: 'secondary' | 'success'; className?: string }
 > = {
-  ARCHIVED: {
-    label: 'Архивная',
-    variant: 'secondary',
-    className: 'text-muted-foreground',
-  },
-  COMPLETED: {
-    label: 'Завершена',
-    variant: 'success',
-  },
+  ARCHIVED: { label: 'Архивная', variant: 'secondary', className: 'text-muted-foreground' },
+  COMPLETED: { label: 'Завершена', variant: 'success' },
 }
 
-const columns: ColumnDef<GroupWithRelations>[] = [
-  {
-    header: 'Группа',
-    accessorFn: (value) => value.id,
-    cell: ({ row }) => {
-      const statusConfig =
-        row.original.status === 'ACTIVE' ? null : groupStatusConfig[row.original.status]
+type FilterOption = { label: string; value: string }
 
-      return (
-        <div className="flex items-center gap-2">
-          <Link href={`/groups/${row.original.id}`} className="text-primary hover:underline">
-            {getGroupName(row.original)}
-          </Link>
-          {statusConfig && (
-            <Badge variant={statusConfig.variant} className={statusConfig.className}>
-              {statusConfig.label}
-            </Badge>
-          )}
-        </div>
-      )
+interface ColumnOptions {
+  courses: FilterOption[]
+  locations: FilterOption[]
+  teachers: FilterOption[]
+}
+
+function buildColumns({ courses, locations, teachers }: ColumnOptions): ColumnDef<GroupListItem>[] {
+  return [
+    {
+      id: 'group',
+      header: 'Группа',
+      accessorFn: (row) => getGroupName(row),
+      cell: ({ row }) => {
+        const statusConfig =
+          row.original.status === 'ACTIVE' ? null : groupStatusConfig[row.original.status]
+        return (
+          <div className="flex items-center gap-2">
+            <Link href={`/groups/${row.original.id}`} className="text-primary hover:underline">
+              {getGroupName(row.original)}
+            </Link>
+            {statusConfig && (
+              <Badge variant={statusConfig.variant} className={statusConfig.className}>
+                {statusConfig.label}
+              </Badge>
+            )}
+          </div>
+        )
+      },
+      // Сортировать по имени нечем: у части групп его нет вовсе, оно собирается
+      // из курса и расписания уже здесь. По курсу — соседняя колонка.
+      enableSorting: false,
+      meta: { title: 'Группа', flexible: true },
+      // Строка без названия группы бессмысленна — прятать нечего.
+      enableHiding: false,
     },
-  },
-  {
-    header: 'Расписание',
-    accessorKey: 'schedules',
-    cell: ({ row }) => {
-      const schedules = row.original.schedules
-      if (schedules.length > 0) {
+    {
+      id: 'schedule',
+      header: 'Расписание',
+      size: SCHEDULE_WIDTH,
+      cell: ({ row }) => {
+        const schedules = row.original.schedules
+        if (schedules.length === 0) return '—'
+        // Неделя с понедельника: в базе `dayOfWeek` считается с воскресенья.
         const sorted = [...schedules].sort(
           (a, b) => ((a.dayOfWeek + 6) % 7) - ((b.dayOfWeek + 6) % 7),
         )
@@ -80,154 +119,177 @@ const columns: ColumnDef<GroupWithRelations>[] = [
             ))}
           </div>
         )
-      }
-      return '-'
+      },
+      enableSorting: false,
+      meta: { title: 'Расписание', className: NUMERIC },
     },
-  },
-  {
-    id: 'course',
-    header: 'Курс',
-    accessorFn: (value) => value.courseId,
-    cell: ({ row }) => row.original.course.name,
-    filterFn: (row, id, filterValue) => {
-      return filterValue.length === 0 || filterValue.includes(row.original.course.id)
+    {
+      id: 'course',
+      header: 'Курс',
+      accessorFn: (row) => row.course.name,
+      size: COLUMN_WIDTH,
+      meta: { title: 'Курс', variant: 'multiSelect', options: courses },
     },
-  },
-  {
-    id: 'teacher',
-    header: 'Учителя',
-    cell: ({ row }) => (
-      <div className="flex gap-x-1">
-        {row.original.teachers.length === 0 ? (
-          <span>-</span>
-        ) : (
-          row.original.teachers.map((t, index) => (
-            <span key={t.teacher.id}>
-              <Link
-                href={`/organization/members/${t.teacher.id}`}
-                className="text-primary hover:underline"
-              >
-                {t.teacher.name}
-              </Link>
-              {index < row.original.teachers.length - 1 && ', '}
-            </span>
-          ))
-        )}
-      </div>
-    ),
-    filterFn: (row, columnId, filterValue) => {
-      const teacherIds = row.original.teachers.map((t) => t.teacher.id)
-      return (
-        filterValue.length === 0 || teacherIds.some((teacherId) => filterValue.includes(teacherId))
-      )
+    {
+      id: 'teacher',
+      header: 'Преподаватель',
+      accessorFn: (row) => row.teachers.map((t) => t.teacher.name).join(', '),
+      size: TEACHER_WIDTH,
+      cell: ({ row }) => {
+        const groupTeachers = row.original.teachers
+        if (groupTeachers.length === 0) return '—'
+        return groupTeachers.map((t, index) => (
+          <Fragment key={t.teacher.id}>
+            {index > 0 && ', '}
+            <Link
+              href={`/organization/members/${t.teacher.id}`}
+              className="text-primary hover:underline"
+            >
+              {t.teacher.name}
+            </Link>
+          </Fragment>
+        ))
+      },
+      // Преподавателей у группы несколько — сортировать по списку имён нечего.
+      enableSorting: false,
+      meta: { title: 'Преподаватель', variant: 'multiSelect', options: teachers },
     },
-  },
-  {
-    id: 'studentCount',
-    header: 'Учеников',
-    accessorFn: (value) => value.students.length,
-    filterFn: (row, columnId, filterValue) => {
-      const [min, max] = filterValue || []
-      const value = row.getValue(columnId) as number
-      if (min !== undefined && value < min) return false
-      if (max !== undefined && value > max) return false
-      return true
+    {
+      id: 'students',
+      header: 'Учеников',
+      accessorFn: (row) => row._count.students,
+      size: COLUMN_WIDTH,
+      meta: { title: 'Учеников', className: NUMERIC, variant: 'range' },
     },
-  },
-  {
-    id: 'location',
-    header: 'Локация',
-    accessorFn: (value) => value.location?.id,
-    cell: ({ row }) => row.original.location?.name,
-    filterFn: (row, columnId, filterValue) => {
-      return filterValue.length === 0 || filterValue.includes(row.original.location?.id)
+    {
+      id: 'location',
+      header: 'Локация',
+      accessorFn: (row) => row.location?.name ?? '',
+      size: COLUMN_WIDTH,
+      cell: ({ row }) => row.original.location?.name ?? '—',
+      meta: { title: 'Локация', variant: 'multiSelect', options: locations },
     },
-  },
-  {
-    header: 'Тип',
-    accessorFn: (value) => value.groupType?.name ?? '-',
-  },
-  {
-    header: 'Ссылка в БО',
-    accessorKey: 'url',
-    cell: ({ row }) => (
-      <a
-        href={row.original.url || ''}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-primary truncate hover:underline"
-      >
-        Ссылка
-      </a>
-    ),
-  },
-]
+    {
+      id: 'groupType',
+      header: 'Тип',
+      accessorFn: (row) => row.groupType?.name ?? '',
+      size: COLUMN_WIDTH,
+      cell: ({ row }) => row.original.groupType?.name ?? '—',
+      meta: { title: 'Тип' },
+    },
+    {
+      // Колонки как таковой у статуса нет — бейдж стоит рядом с названием. Она
+      // объявлена, чтобы в тулбаре появился фильтр, и по умолчанию скрыта.
+      id: 'status',
+      header: 'Статус',
+      accessorKey: 'status',
+      size: COLUMN_WIDTH,
+      cell: ({ row }) =>
+        row.original.status === 'ACTIVE'
+          ? 'Активная'
+          : groupStatusConfig[row.original.status].label,
+      meta: { title: 'Статус', variant: 'multiSelect', options: STATUS_OPTIONS },
+    },
+    {
+      id: 'link',
+      header: 'Ссылка в БО',
+      size: LINK_WIDTH,
+      cell: ({ row }) => {
+        const url = row.original.url
+        if (!url) return '—'
+        return (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            Открыть
+          </a>
+        )
+      },
+      enableSorting: false,
+      meta: { title: 'Ссылка в БО' },
+    },
+  ]
+}
+
+/** Статус — колонка ради фильтра: бейдж и так стоит рядом с названием. */
+const DEFAULT_HIDDEN = { status: false }
 
 export default function GroupsTable() {
-  const { data: groups = [], isLoading } = useGroupListQuery()
-
-  const {
-    columnFilters: baseColumnFilters,
-    setColumnFilters,
-    globalFilter,
-    setGlobalFilter,
-    pagination,
-    setPagination,
-    sorting,
-    setSorting,
-  } = useTableSearchParams({
-    filters: { course: 'integer', location: 'integer', teacher: 'integer' },
+  const t = useTableState({
+    id: 'groups',
+    filters: TABLE_FILTERS,
+    defaultVisibility: DEFAULT_HIDDEN,
   })
+  const { columnFilters, pagination, sorting } = t
 
-  // Student count range filter - managed separately via URL params
-  const [scMin, setScMin] = useQueryState(
-    'scMin',
-    parseAsInteger.withOptions({ shallow: true, throttleMs: 300 }),
-  )
-  const [scMax, setScMax] = useQueryState(
-    'scMax',
-    parseAsInteger.withOptions({ shallow: true, throttleMs: 300 }),
+  const params = useMemo(
+    () => ({
+      page: pagination.pageIndex,
+      pageSize: pagination.pageSize,
+      sort: sorting[0] ?? null,
+      search: t.search,
+      courseIds: filterIds(columnFilters, 'course'),
+      locationIds: filterIds(columnFilters, 'location'),
+      teacherIds: filterIds(columnFilters, 'teacher'),
+      statuses: filterValues(columnFilters, 'status') as GroupListSchemaType['statuses'],
+      studentsMin: rangeValues(columnFilters, 'students')[0] ?? null,
+      studentsMax: rangeValues(columnFilters, 'students')[1] ?? null,
+    }),
+    [pagination, sorting, t.search, columnFilters],
   )
 
-  // Combine base column filters with studentCount range filter
-  const columnFilters: ColumnFiltersState = useMemo(() => {
-    const filters = [...baseColumnFilters]
-    if (scMin !== null || scMax !== null) {
-      filters.push({
-        id: 'studentCount',
-        value: [scMin ?? undefined, scMax ?? undefined],
-      })
-    }
-    return filters
-  }, [baseColumnFilters, scMin, scMax])
+  const { data, isLoading, isFetching, isError } = useGroupListQuery(params)
+  useClampPage(pagination, t.setPagination, data?.total)
+
+  const { data: courses = [] } = useMappedCourseListQuery()
+  const { data: locations = [] } = useMappedLocationListQuery()
+  const { data: teachers = [] } = useMappedMemberListQuery()
+
+  const columns = useMemo(
+    () => buildColumns({ courses, locations, teachers }),
+    [courses, locations, teachers],
+  )
 
   const table = useReactTable({
-    data: groups,
+    data: data?.rows ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-    getFacetedRowModel: getFacetedRowModel(),
-    globalFilterFn: (row, columnId, filterValue) => {
-      const searchValue = String(filterValue).toLowerCase()
-      const groupName = getGroupName(row.original).toLowerCase()
-      return groupName.includes(searchValue)
-    },
-    onPaginationChange: setPagination,
-    getPaginationRowModel: getPaginationRowModel(),
-    onColumnFiltersChange: setColumnFilters,
-    onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
+    // Ключ строки — id группы, а не её место на странице: иначе после
+    // перелистывания React переиспользует разметку под чужую запись.
+    getRowId: (row) => String(row.id),
+    // Отбор, порядок и нарезка — в SQL. Клиентские модели строк выключены, поэтому
+    // `filterFn` у колонок нет: предикаты живут в `where` серверного экшена.
+    manualFiltering: true,
+    manualSorting: true,
+    manualPagination: true,
+    // Иначе пагинации не из чего считать число страниц: она видит только текущую.
+    rowCount: data?.total ?? 0,
+    onPaginationChange: t.setPagination,
+    onColumnFiltersChange: t.setColumnFilters,
+    onSortingChange: t.setSorting,
+    onColumnVisibilityChange: t.setColumnVisibility,
     state: {
-      columnFilters,
-      globalFilter,
       pagination,
       sorting,
+      columnFilters,
+      columnVisibility: t.columnVisibility,
     },
   })
 
   if (isLoading) {
-    return <div className="text-muted-foreground p-4 text-center text-sm">Загрузка...</div>
+    return (
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return <div className="text-destructive">Ошибка при загрузке групп.</div>
   }
 
   return (
@@ -235,32 +297,19 @@ export default function GroupsTable() {
       table={table}
       emptyMessage="Нет групп."
       showPagination
+      showColumnVisibility
+      isRefreshing={isFetching}
+      // Закрытая группа остаётся в списке, но читаться должна как закрытая —
+      // одного бейджа в широкой строке не видно.
+      rowClassName={(row) => (row.original.status === 'ACTIVE' ? undefined : 'opacity-55')}
       toolbar={
-        <FieldGroup className="flex flex-col items-end gap-2 md:flex-row">
-          <Input
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            placeholder="Поиск..."
-          />
-          <Field>
-            <NumberInput
-              placeholder="От..."
-              value={scMin ?? ''}
-              onChange={(v) => setScMin(v === '' ? null : v)}
-            />
-          </Field>
-          <Field>
-            <NumberInput
-              placeholder="До..."
-              value={scMax ?? ''}
-              onChange={(v) => setScMax(v === '' ? null : v)}
-            />
-          </Field>
-          <CourseLocationTeacherFilters
-            columnFilters={baseColumnFilters}
-            setFilters={setColumnFilters}
-          />
-        </FieldGroup>
+        <DataTableToolbar
+          table={table}
+          search={t.globalFilter}
+          onSearchChange={t.setGlobalFilter}
+          searchPlaceholder="Группа, курс, локация..."
+          onReset={t.reset}
+        />
       }
     />
   )

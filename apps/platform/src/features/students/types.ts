@@ -42,3 +42,36 @@ export type StudentDetail = Prisma.StudentGetPayload<{
     }
   }
 }>
+
+/**
+ * Поля, которые рисует таблица учеников, — и ничего сверх них. `include: true` по
+ * кошелькам и родителям тянул в браузер все их скаляры на каждую строку.
+ *
+ * Собственные `lessonsBalance`/`totalLessons`/`totalPayments` ученика остались
+ * рядом с кошельковыми: это доденьги-до-кошельков остаток, и итог в строке —
+ * сумма обоих. Убрать их можно только вместе с колонками в базе.
+ */
+export const STUDENT_LIST_SELECT = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  birthDate: true,
+  dataActualizedAt: true,
+  lessonsBalance: true,
+  totalLessons: true,
+  totalPayments: true,
+  wallets: { select: { lessonsBalance: true, totalLessons: true, totalPayments: true } },
+  parents: { select: { parent: { select: { id: true, firstName: true, lastName: true } } } },
+} satisfies Prisma.StudentSelect
+
+/** Строка таблицы. */
+export type StudentListItem = Prisma.StudentGetPayload<{ select: typeof STUDENT_LIST_SELECT }>
+
+/**
+ * Срез плюс общее число строк по тому же `where`. `total` нужен пагинации: сама
+ * она видит только текущую страницу и посчитать количество страниц не может.
+ */
+export type StudentListResult = {
+  rows: StudentListItem[]
+  total: number
+}

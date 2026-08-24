@@ -5,7 +5,7 @@ import { StatCard } from '@repo/ui/components/stat-card'
 import { Badge } from '@repo/ui/components/badge'
 import { Separator } from '@repo/ui/components/separator'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@repo/ui/components/tooltip'
-import { useGroupListQuery } from '@/src/features/groups/queries'
+import { useAllGroupsQuery } from '@/src/features/groups/queries'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { cn, getGroupName } from '@/src/lib/utils'
 import { CheckCircle2, Info, RefreshCw, Users, XCircle } from 'lucide-react'
@@ -126,7 +126,7 @@ export default function StudentGroupsSection({
   canCreateStudentGroup,
 }: StudentGroupsSectionProps) {
   const groupStats = computeGroupStats(student)
-  const { data: allGroups = [] } = useGroupListQuery()
+  const { data: allGroups = [] } = useAllGroupsQuery()
 
   const studentGroupIds = new Set(student.groups.map((g) => g.groupId))
   const availableGroups = allGroups.filter(

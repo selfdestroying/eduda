@@ -47,7 +47,7 @@ import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import {
   useDismissStudentMutation,
-  useGroupListQuery,
+  useAllGroupsQuery,
   useRemoveStudentFromGroupMutation,
   useTransferStudentMutation,
 } from '../../queries'
@@ -76,7 +76,7 @@ export default function GroupStudentActions({ sg }: UsersActionsProps) {
   const [dismissDialogOpen, setDismissDialogOpen] = useState(false)
   const [transferDialogOpen, setTransferDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const { data: allGroups } = useGroupListQuery()
+  const { data: allGroups } = useAllGroupsQuery()
   const groups = allGroups?.filter((g) => g.status === 'ACTIVE')
 
   const dismissMutation = useDismissStudentMutation()

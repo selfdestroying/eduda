@@ -1,23 +1,89 @@
 'use server'
 
-import { prisma } from '@repo/db'
+import { Prisma, prisma } from '@repo/db'
 import { CoinTxReason } from '@repo/db/enums'
 
 import { recordCoins } from '@/src/lib/coins'
 import { ConflictError } from '@/src/lib/error'
 import { featureAction } from '@/src/lib/safe-action'
-import { ChangeOrderStatusSchema } from './schemas'
+import { ChangeOrderStatusSchema, OrderListSchema } from './schemas'
+import { ORDER_LIST_SELECT, type OrderListResult } from './types'
+
+type OrderOrderBy = Prisma.OrderOrderByWithRelationInput
+
+/**
+ * Разрешённые колонки сортировки: id колонки таблицы → как её сортировать. Белый
+ * список, а не подстановка поля из запроса: `sort` приходит из адресной строки.
+ * Неизвестный ключ даёт порядок по умолчанию, без ошибки.
+ *
+ * Суммы здесь нет: она складывается из снимков цен в позициях, и такую SQL по
+ * столбцу не отсортирует — порядок врал бы.
+ */
+const ORDER_ORDER_BY: Record<string, (dir: Prisma.SortOrder) => OrderOrderBy[]> = {
+  student: (dir) => [{ student: { firstName: dir } }, { student: { lastName: dir } }],
+  status: (dir) => [{ status: dir }],
+  createdAt: (dir) => [{ createdAt: dir }],
+}
+
+/**
+ * Порядок строк. Последним ключом всегда `id`: без него заказы, сделанные в одну
+ * секунду, при листании переставляются местами.
+ */
+function resolveOrderOrderBy(sort: { id: string; desc: boolean } | null | undefined) {
+  const build = sort ? ORDER_ORDER_BY[sort.id] : undefined
+  if (!sort || !build) return [{ createdAt: 'desc' as const }, { id: 'desc' as const }]
+  return [...build(sort.desc ? 'desc' : 'asc'), { id: 'desc' as const }]
+}
+
+/**
+ * Поиск по тому, что видно в строке: ученик и названия товаров.
+ *
+ * Слова требуются все, но каждое может найтись в любом поле — иначе «Иван Петров»
+ * не нашёл бы никого: имя и фамилия лежат в разных колонках.
+ */
+function orderSearchWhere(search: string | undefined): Prisma.OrderWhereInput[] | undefined {
+  const terms = search?.split(/\s+/).filter(Boolean) ?? []
+  if (terms.length === 0) return undefined
+
+  return terms.map((term) => {
+    const contains = { contains: term, mode: 'insensitive' as const }
+    return {
+      OR: [
+        { student: { firstName: contains } },
+        { student: { lastName: contains } },
+        { items: { some: { shopItem: { name: contains } } } },
+      ],
+    }
+  })
+}
 
 export const getOrders = featureAction('shop')
   .metadata({ actionName: 'getOrders' })
-  .action(async ({ ctx }) => {
-    return await prisma.order.findMany({
-      where: {
-        organizationId: ctx.session.organizationId!,
-      },
-      include: { student: true, items: { include: { shopItem: true } } },
-      orderBy: { createdAt: 'desc' },
-    })
+  .inputSchema(OrderListSchema)
+  .action(async ({ ctx, parsedInput }): Promise<OrderListResult> => {
+    const { page, pageSize, sort, search, statuses } = parsedInput
+
+    const where: Prisma.OrderWhereInput = {
+      organizationId: ctx.session.organizationId!,
+      ...(statuses.length > 0 && { status: { in: statuses } }),
+      AND: orderSearchWhere(search),
+    }
+
+    // Одной транзакцией: строки и их количество обязаны быть посчитаны по одному и
+    // тому же состоянию базы, иначе между запросами кто-то оформит заказ и
+    // «страница 3 из 5» разъедется с тем, что реально вернулось.
+    const [rows, total] = await prisma.$transaction([
+      prisma.order.findMany({
+        where,
+        select: ORDER_LIST_SELECT,
+        orderBy: resolveOrderOrderBy(sort),
+        skip: page * pageSize,
+        take: pageSize,
+      }),
+      prisma.order.count({ where }),
+    ])
+
+    return { rows, total }
   })
 
 export const changeOrderStatus = featureAction('shop')

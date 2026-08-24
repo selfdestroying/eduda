@@ -1,6 +1,5 @@
 'use client'
 
-import { Expense } from '@repo/db'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -35,9 +34,10 @@ import { useForm } from 'react-hook-form'
 import { useExpenseDeleteMutation, useExpenseUpdateMutation } from '../queries'
 import { UpdateExpenseSchema, type UpdateExpenseSchemaType } from '../schemas'
 import ExpenseForm from './expense-form'
+import type { ExpenseListItem } from '../types'
 
 interface ExpenseActionsProps {
-  expense: Expense
+  expense: ExpenseListItem
 }
 
 export default function ExpenseActions({ expense }: ExpenseActionsProps) {

@@ -13,7 +13,7 @@ import {
 } from '@repo/ui/components/dialog'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
 import { Skeleton } from '@repo/ui/components/skeleton'
-import { useStudentListQuery } from '@/src/features/students/queries'
+import { useAllStudentsQuery } from '@/src/features/students/queries'
 import { useStudentWalletsQuery } from '@/src/features/wallets/queries'
 import { getFullName } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -106,7 +106,7 @@ interface AddAttendanceFormProps {
 }
 
 function AddAttendanceForm({ form, onSubmit }: AddAttendanceFormProps) {
-  const { data: students, isLoading: isStudentsLoading } = useStudentListQuery()
+  const { data: students, isLoading: isStudentsLoading } = useAllStudentsQuery()
   const studentId = form.watch('studentId')
   const { data: wallets } = useStudentWalletsQuery(studentId ?? 0, { enabled: !!studentId })
   // Архивные отсеивает сам запрос.

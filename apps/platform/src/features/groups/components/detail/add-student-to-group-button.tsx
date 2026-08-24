@@ -30,7 +30,7 @@ import {
 import { Input } from '@repo/ui/components/input'
 import { Switch } from '@repo/ui/components/switch'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
-import { useStudentListQuery } from '@/src/features/students/queries'
+import { useAllStudentsQuery } from '@/src/features/students/queries'
 import { useStudentWalletsQuery } from '@/src/features/wallets/queries'
 import { getWalletLabel } from '@/src/features/wallets/utils'
 import { getFullName } from '@/src/lib/utils'
@@ -51,7 +51,7 @@ export default function AddStudentToGroupButton({
   isFull,
 }: AddStudentToGroupButtonProps) {
   const { data: hasPermission } = useOrganizationPermissionQuery({ studentGroup: ['create'] })
-  const { data: allStudents } = useStudentListQuery()
+  const { data: allStudents } = useAllStudentsQuery()
   const addMutation = useAddStudentToGroupMutation()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isCreatingNewWallet, setIsCreatingNewWallet] = useState(false)

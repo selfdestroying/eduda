@@ -19,7 +19,7 @@ import { useMemo } from 'react'
  * параметрами, а не одним «1000-5000», чтобы «только от» и «только до»
  * выражались без придуманных заполнителей и адрес читался глазами.
  */
-type FilterConfig = Record<string, 'integer' | 'string' | 'range'>
+export type FilterConfig = Record<string, 'integer' | 'string' | 'range'>
 
 const SORT_ORDERS = ['asc', 'desc'] as const
 const DEFAULT_PAGE_SIZE = 10
@@ -28,22 +28,22 @@ const MAX_PAGE_SIZE = 100
 
 const QUERY_STATES_OPTIONS = { shallow: true, history: 'replace' as const }
 
-const SEARCH_PARSERS = {
-  q: parseAsString.withDefault('').withOptions({ shallow: true, throttleMs: 300 }),
-}
+const searchParsers = (p: string) => ({
+  [`${p}q`]: parseAsString.withDefault('').withOptions({ shallow: true, throttleMs: 300 }),
+})
 /**
  * `page` в адресе считается с единицы, а не с нуля: ссылками делятся и их читают
  * глазами, а подпись под таблицей говорит «Страница 2». Внутрь react-table идёт
  * его 0-based `pageIndex` — перевод живёт здесь, в одном месте.
  */
-const PAGINATION_PARSERS = {
-  page: parseAsInteger.withDefault(1),
-  pageSize: parseAsInteger.withDefault(DEFAULT_PAGE_SIZE),
-}
-const SORTING_PARSERS = {
-  sort: parseAsString.withDefault(''),
-  order: parseAsStringLiteral(SORT_ORDERS).withDefault('asc'),
-}
+const paginationParsers = (p: string) => ({
+  [`${p}page`]: parseAsInteger.withDefault(1),
+  [`${p}pageSize`]: parseAsInteger.withDefault(DEFAULT_PAGE_SIZE),
+})
+const sortingParsers = (p: string) => ({
+  [`${p}sort`]: parseAsString.withDefault(''),
+  [`${p}order`]: parseAsStringLiteral(SORT_ORDERS).withDefault('asc'),
+})
 
 /**
  * Синхронизирует состояние таблицы (фильтры, поиск, пагинация, сортировка)
@@ -51,11 +51,19 @@ const SORTING_PARSERS = {
  *
  * Возвращает все четыре среза; таблица берёт только те, что ей нужны.
  *
+ * `prefix` приписывается ко всем именам параметров. Он обязателен, когда на
+ * странице больше одной таблицы: имена `q`/`page`/`sort` фиксированы, и без
+ * приставки поиск в одной таблице отбирал бы заодно и в соседней. Страничные
+ * таблицы живут без приставки — их адреса уже разошлись по ссылкам.
+ *
  * @example
  * const { columnFilters, setColumnFilters, globalFilter, setGlobalFilter, pagination, setPagination, sorting, setSorting }
  *   = useTableSearchParams({ filters: { course: 'integer', location: 'integer' } })
  */
-export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {}) {
+export function useTableSearchParams({
+  filters,
+  prefix = '',
+}: { filters?: FilterConfig; prefix?: string } = {}) {
   // Каллеры передают объектный литерал, поэтому стабилизируем конфиг по значению —
   // иначе парсеры пересоздавались бы на каждый рендер.
   const filtersKey = JSON.stringify(filters ?? {})
@@ -67,25 +75,35 @@ export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {
       if (type === 'range') {
         // Диапазон — два параметра: «только от» и «только до» должны выражаться
         // без придуманной второй границы.
-        parsers[`${key}Min`] = parseAsInteger
-        parsers[`${key}Max`] = parseAsInteger
+        parsers[`${prefix}${key}Min`] = parseAsInteger
+        parsers[`${prefix}${key}Max`] = parseAsInteger
         continue
       }
-      parsers[key] =
+      parsers[`${prefix}${key}`] =
         type === 'integer'
           ? parseAsArrayOf(parseAsInteger).withDefault([])
           : parseAsArrayOf(parseAsString).withDefault([])
     }
     return parsers
-  }, [config])
+  }, [config, prefix])
+
+  const searchParserSet = useMemo(() => searchParsers(prefix), [prefix])
+  const paginationParserSet = useMemo(() => paginationParsers(prefix), [prefix])
+  const sortingParserSet = useMemo(() => sortingParsers(prefix), [prefix])
 
   const [filterValues, setFilterValues] = useQueryStates(filterParsers, QUERY_STATES_OPTIONS)
-  const [searchValues, setSearchValues] = useQueryStates(SEARCH_PARSERS, QUERY_STATES_OPTIONS)
+  const [searchValues, setSearchValues] = useQueryStates(searchParserSet, QUERY_STATES_OPTIONS)
   const [paginationValues, setPaginationValues] = useQueryStates(
-    PAGINATION_PARSERS,
+    paginationParserSet,
     QUERY_STATES_OPTIONS,
   )
-  const [sortingValues, setSortingValues] = useQueryStates(SORTING_PARSERS, QUERY_STATES_OPTIONS)
+  const [sortingValues, setSortingValues] = useQueryStates(sortingParserSet, QUERY_STATES_OPTIONS)
+
+  const searchValue = (searchValues[`${prefix}q`] ?? '') as string
+  const pageValue = (paginationValues[`${prefix}page`] ?? 1) as number
+  const pageSizeValue = (paginationValues[`${prefix}pageSize`] ?? DEFAULT_PAGE_SIZE) as number
+  const sortValue = (sortingValues[`${prefix}sort`] ?? '') as string
+  const orderValue = (sortingValues[`${prefix}order`] ?? 'asc') as 'asc' | 'desc'
 
   // Все три среза обязаны сохранять ссылку между рендерами. Модели строк
   // react-table мемоизированы по идентичности этих объектов, а на каждый
@@ -97,18 +115,18 @@ export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {
     const result: ColumnFiltersState = []
     for (const [key, type] of Object.entries(config)) {
       if (type === 'range') {
-        const min = filterValues[`${key}Min`] as number | null | undefined
-        const max = filterValues[`${key}Max`] as number | null | undefined
+        const min = filterValues[`${prefix}${key}Min`] as number | null | undefined
+        const max = filterValues[`${prefix}${key}Max`] as number | null | undefined
         if (min != null || max != null) {
           result.push({ id: key, value: [min ?? undefined, max ?? undefined] })
         }
         continue
       }
-      const value = filterValues[key]
+      const value = filterValues[`${prefix}${key}`]
       if (Array.isArray(value) && value.length > 0) result.push({ id: key, value })
     }
     return result
-  }, [config, filterValues])
+  }, [config, filterValues, prefix])
 
   const pagination: PaginationState = useMemo(
     // Обе границы не украшательство: в адресе может оказаться `page=0` или
@@ -117,16 +135,15 @@ export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {
     // подобранный руками `pageSize=0` уронил бы валидацию, то есть показал бы
     // ошибку загрузки вместо таблицы.
     () => ({
-      pageIndex: Math.max(0, paginationValues.page - 1),
-      pageSize: Math.min(MAX_PAGE_SIZE, Math.max(1, paginationValues.pageSize)),
+      pageIndex: Math.max(0, pageValue - 1),
+      pageSize: Math.min(MAX_PAGE_SIZE, Math.max(1, pageSizeValue)),
     }),
-    [paginationValues.page, paginationValues.pageSize],
+    [pageValue, pageSizeValue],
   )
 
   const sorting: SortingState = useMemo(
-    () =>
-      sortingValues.sort ? [{ id: sortingValues.sort, desc: sortingValues.order === 'desc' }] : [],
-    [sortingValues.sort, sortingValues.order],
+    () => (sortValue ? [{ id: sortValue, desc: orderValue === 'desc' }] : []),
+    [sortValue, orderValue],
   )
 
   // Сеттеры с API `useState` (значение или updater), как ждёт react-table.
@@ -141,18 +158,18 @@ export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {
       const value = next.find((f) => f.id === key)?.value
       if (type === 'range') {
         const [min, max] = (value as [number?, number?] | undefined) ?? []
-        patch[`${key}Min`] = min ?? null
-        patch[`${key}Max`] = max ?? null
+        patch[`${prefix}${key}Min`] = min ?? null
+        patch[`${prefix}${key}Max`] = max ?? null
         continue
       }
-      patch[key] = Array.isArray(value) && value.length > 0 ? value : null
+      patch[`${prefix}${key}`] = Array.isArray(value) && value.length > 0 ? value : null
     }
     setFilterValues(patch)
   }
 
   const setGlobalFilter = (value: string) => {
-    setSearchValues({ q: value || null })
-    setPaginationValues({ page: null })
+    setSearchValues({ [`${prefix}q`]: value || null })
+    setPaginationValues({ [`${prefix}page`]: null })
   }
 
   const setPagination = (
@@ -162,8 +179,8 @@ export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {
     setPaginationValues({
       // Первая страница — дефолт, а дефолт пишем как `null`, чтобы параметра в
       // адресе не было вовсе.
-      page: next.pageIndex === 0 ? null : next.pageIndex + 1,
-      pageSize: next.pageSize === DEFAULT_PAGE_SIZE ? null : next.pageSize,
+      [`${prefix}page`]: next.pageIndex === 0 ? null : next.pageIndex + 1,
+      [`${prefix}pageSize`]: next.pageSize === DEFAULT_PAGE_SIZE ? null : next.pageSize,
     })
   }
 
@@ -171,14 +188,16 @@ export function useTableSearchParams({ filters }: { filters?: FilterConfig } = {
     const next = typeof updater === 'function' ? updater(sorting) : updater
     const first = next[0]
     setSortingValues(
-      first ? { sort: first.id, order: first.desc ? 'desc' : 'asc' } : { sort: null, order: null },
+      first
+        ? { [`${prefix}sort`]: first.id, [`${prefix}order`]: first.desc ? 'desc' : 'asc' }
+        : { [`${prefix}sort`]: null, [`${prefix}order`]: null },
     )
   }
 
   return {
     columnFilters,
     setColumnFilters,
-    globalFilter: searchValues.q,
+    globalFilter: searchValue,
     setGlobalFilter,
     pagination,
     setPagination,
