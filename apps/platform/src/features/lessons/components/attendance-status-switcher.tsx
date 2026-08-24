@@ -2,8 +2,7 @@
 
 import type { Attendance } from '@repo/db'
 import { AttendanceStatus } from '@repo/db/enums'
-import { Button } from '@repo/ui/components/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover'
+import { Separator } from '@repo/ui/components/separator'
 import { Toggle } from '@repo/ui/components/toggle'
 import {
   Tooltip,
@@ -12,75 +11,38 @@ import {
   TooltipTrigger,
 } from '@repo/ui/components/tooltip'
 import { useOrganizationPermissionQuery } from '@/src/features/organization/queries'
-import { cva } from 'class-variance-authority'
 import { BellRing, Check, Loader, Minus, X } from 'lucide-react'
-import { useState } from 'react'
 import { useUpdateAttendanceStatusMutation } from '../queries'
-import { Separator } from '@repo/ui/components/separator'
 
 export type AttendanceForStatusSwitcher = Pick<
   Attendance,
   'studentId' | 'lessonId' | 'status' | 'isWarned'
->
+> & {
+  /** Ученик записан на отработку за этот пропуск. */
+  makeupAttendance: { id: number } | null
+}
 
 interface AttendanceStatusSwitcherProps {
   attendance: AttendanceForStatusSwitcher
   disabled?: boolean
 }
 
-const switcherVariant = cva(['cursor-pointer'], {
-  variants: {
-    variant: {
-      absent: {},
-      present: {},
-      unspecified: {},
-    },
-    active: {
-      true: {},
-      false: {},
-    },
-  },
-  compoundVariants: [
-    {
-      variant: 'absent',
-      active: true,
-      className:
-        'border-destructive aria-pressed:bg-destructive/20 text-destructive aria-pressed:opacity-100',
-    },
-    {
-      variant: 'absent',
-      active: false,
-      className: '',
-    },
-    {
-      variant: 'present',
-      active: true,
-      className: 'border-success aria-pressed:bg-success/20 text-success aria-pressed:opacity-100',
-    },
-    {
-      variant: 'present',
-      active: false,
-      className: '',
-    },
-    {
-      variant: 'unspecified',
-      active: true,
-      className: '',
-    },
-    {
-      variant: 'unspecified',
-      active: false,
-      className: '',
-    },
-  ],
-})
+/** Цвет нажатой кнопки. Ненажатая везде обычная, поэтому вариантов ровно три. */
+const ACTIVE_STYLE = {
+  absent: 'border-destructive aria-pressed:bg-destructive/20 text-destructive',
+  present: 'border-success aria-pressed:bg-success/20 text-success',
+  // Колокольчик, в отличие от остальных, в нажатом виде не выключен — по нему
+  // ещё раз кликают, чтобы снять предупреждение. Значит до него доходит
+  // `hover:text-foreground hover:bg-muted` из базового `toggleVariants`, и цвет
+  // надо перебить своим, иначе под курсором кнопка белеет.
+  warned: 'border-warning aria-pressed:bg-warning/20 text-warning hover:text-warning',
+} as const
 
 export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceStatusSwitcherProps) {
   const { data: hasPermission } = useOrganizationPermissionQuery({
     studentLesson: ['selectWarned'],
   })
   const { mutate, isPending } = useUpdateAttendanceStatusMutation(attendance.lessonId)
-  const [popoverOpen, setPopoverOpen] = useState<boolean>(false)
 
   const status = attendance.status
   const isWarned = attendance.isWarned
@@ -105,101 +67,99 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
       [AttendanceStatus.ABSENT]: 'text-destructive',
       [AttendanceStatus.UNSPECIFIED]: 'text-muted-foreground',
     }
-    return (
-      <span className={`text-sm ${statusColor[attendance.status]}`}>
-        {statusLabel[attendance.status]}
-      </span>
-    )
+    return <span className={`text-sm ${statusColor[status]}`}>{statusLabel[status]}</span>
   }
+
+  // Отработка уже назначена — оригинальный пропуск заморожен: смена статуса
+  // оставила бы отработку висеть за занятием, на котором ученик был. Сервер
+  // это тоже проверяет (`updateAttendanceStatus`), здесь — чтобы было видно.
+  const locked = attendance.makeupAttendance !== null
 
   return (
     <TooltipProvider delay={300}>
-      <div className="border-muted flex w-fit items-center gap-1.5 rounded-lg border px-1.5 py-1">
-        {hasPermission?.success ? (
-          <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <PopoverTrigger
-                    render={
-                      <Toggle
-                        size={'sm'}
-                        className={switcherVariant({
-                          variant: 'absent',
-                          active: status === 'ABSENT',
-                        })}
-                        pressed={status === 'ABSENT'}
-                        disabled={isPending || status === 'ABSENT'}
-                      >
-                        {isPending ? <Loader className="animate-spin" /> : <X />}
-                      </Toggle>
-                    }
-                  />
-                }
-              />
+      {/* Подсказка про блокировку — нативным title: у выключенных кнопок
+          отключены указатели, и Tooltip на них не открывается. */}
+      <div
+        className="border-muted flex w-fit items-center gap-1.5 rounded-lg border px-1.5 py-1"
+        title={locked ? 'Ученик записан на отработку — статус не меняется' : undefined}
+      >
+        {/* «Предупредили» бывает только у отсутствия, поэтому на остальных
+            статусах колокольчик сворачивается по ширине. Схлопывание через
+            grid 1fr→0fr — единственный способ доехать до ширины содержимого,
+            не замеряя её в JS; отрицательный отступ убирает `gap` пустой
+            ячейки, иначе в свёрнутом виде слева висит лишний зазор. */}
+        <div
+          // `overflow-hidden` только прячет — свёрнутая кнопка осталась бы
+          // в tab-порядке, `inert` убирает её и оттуда, и из дерева доступности.
+          inert={status !== 'ABSENT'}
+          className={`grid transition-[grid-template-columns,margin-right] duration-200 ${
+            status === 'ABSENT' ? 'grid-cols-[1fr]' : '-mr-1.5 grid-cols-[0fr]'
+          }`}
+        >
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            {/* Колокольчик — сам переключатель «предупредили»: повторный клик
+                снимает предупреждение, оставляя отсутствие. */}
+            {hasPermission?.success ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Toggle
+                      size={'sm'}
+                      className={isWarned ? ACTIVE_STYLE.warned : undefined}
+                      pressed={isWarned === true}
+                      onClick={() => handleStatusChange('ABSENT', !isWarned)}
+                      disabled={isPending || locked}
+                    >
+                      {isPending ? <Loader className="animate-spin" /> : <BellRing />}
+                    </Toggle>
+                  }
+                />
 
-              <TooltipContent>
-                <p>Отсутствует</p>
-              </TooltipContent>
-            </Tooltip>
+                <TooltipContent>
+                  <p>{isWarned ? 'Не предупредили (-1)' : 'Предупредили (0)'}</p>
+                </TooltipContent>
+              </Tooltip>
+            ) : isWarned ? (
+              <Tooltip>
+                <TooltipTrigger render={<BellRing className="text-warning size-4" />} />
+                <TooltipContent>Предупредили</TooltipContent>
+              </Tooltip>
+            ) : (
+              <BellRing className="text-muted size-4" />
+            )}
 
-            <PopoverContent className="w-fit">
-              <div className="flex items-center justify-center gap-2">
-                <Button
-                  variant={'destructive'}
-                  onClick={() => {
-                    handleStatusChange('ABSENT', false)
-                    setPopoverOpen(false)
-                  }}
-                >
-                  Не предупредили (-1)
-                </Button>
-                <Button
-                  className="bg-success/10 text-success hover:bg-success/20"
-                  onClick={() => {
-                    handleStatusChange('ABSENT', true)
-                    setPopoverOpen(false)
-                  }}
-                >
-                  Предупредили (0)
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
-        ) : (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Toggle
-                  size={'sm'}
-                  className={switcherVariant({
-                    variant: 'absent',
-                    active: status === 'ABSENT',
-                  })}
-                  pressed={status === 'ABSENT'}
-                  onClick={() => handleStatusChange('ABSENT', false)}
-                  disabled={isPending || status === 'ABSENT'}
-                >
-                  {isPending ? <Loader className="animate-spin" /> : <X />}
-                </Toggle>
-              }
-            />
-
-            <TooltipContent>
-              <p>Отсутствует</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
+            <Separator orientation="vertical" />
+          </div>
+        </div>
 
         <Tooltip>
           <TooltipTrigger
             render={
               <Toggle
                 size={'sm'}
-                className={switcherVariant({ variant: 'unspecified', active: isPending })}
+                className={status === 'ABSENT' ? ACTIVE_STYLE.absent : undefined}
+                pressed={status === 'ABSENT'}
+                onClick={() => handleStatusChange('ABSENT', false)}
+                disabled={isPending || locked || status === 'ABSENT'}
+              >
+                {isPending ? <Loader className="animate-spin" /> : <X />}
+              </Toggle>
+            }
+          />
+
+          <TooltipContent>
+            <p>Отсутствует</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Toggle
+                size={'sm'}
                 pressed={status === 'UNSPECIFIED'}
                 onClick={() => handleStatusChange('UNSPECIFIED', null)}
-                disabled={isPending || status === 'UNSPECIFIED'}
+                disabled={isPending || locked || status === 'UNSPECIFIED'}
               >
                 {isPending ? <Loader className="animate-spin" /> : <Minus />}
               </Toggle>
@@ -213,13 +173,13 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
 
         <Tooltip>
           <TooltipTrigger
-            className={switcherVariant({ variant: 'present', active: status === 'PRESENT' })}
             render={
               <Toggle
                 size={'sm'}
+                className={status === 'PRESENT' ? ACTIVE_STYLE.present : undefined}
                 pressed={status === 'PRESENT'}
                 onClick={() => handleStatusChange('PRESENT', null)}
-                disabled={isPending || status === 'PRESENT'}
+                disabled={isPending || locked || status === 'PRESENT'}
               >
                 {isPending ? <Loader className="animate-spin" /> : <Check />}
               </Toggle>
@@ -230,17 +190,6 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
             <p>Присутствует (-1)</p>
           </TooltipContent>
         </Tooltip>
-
-        <Separator orientation="vertical" />
-
-        {isWarned !== null && isWarned ? (
-          <Tooltip>
-            <TooltipTrigger render={<BellRing className="text-warning size-4" />} />
-            <TooltipContent>Предупредили</TooltipContent>
-          </Tooltip>
-        ) : (
-          <BellRing className="text-muted size-4" />
-        )}
       </div>
     </TooltipProvider>
   )

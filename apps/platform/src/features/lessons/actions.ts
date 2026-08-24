@@ -239,10 +239,17 @@ export const updateAttendanceStatus = authAction
         makeupForAttendance: {
           include: { lesson: true },
         },
+        makeupAttendance: { select: { id: true } },
       },
     })
 
     if (!oldAttendance) throw new NotFoundError('Запись посещаемости не найдена')
+
+    // Отработка уже назначена: сменить статус оригинала — значит оставить её
+    // висеть за занятием, на котором ученик был. Сначала отменяют отработку.
+    if (oldAttendance.makeupAttendance) {
+      throw new ConflictError('Ученик записан на отработку — статус пропуска не меняется')
+    }
 
     await prisma.$transaction(async (tx) => {
       // Статус переставляем первым: денежные функции ниже читают строку уже в

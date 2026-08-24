@@ -16,13 +16,10 @@ import { cn, getGroupName } from '@/src/lib/utils'
 import {
   Armchair,
   ArrowRight,
-  BellRing,
   CalendarDays,
-  Check,
   Clock,
   GraduationCap,
   MapPin,
-  Minus,
   Users,
   X,
 } from 'lucide-react'
@@ -34,7 +31,6 @@ import { fmtTime, hexA, parseYmd } from '../lib/date-utils'
 import type { CalendarEvent } from '../types'
 import { AttendanceStatusSwitcher } from '../../lessons/components/attendance-status-switcher'
 import { AttendanceCommentPopover } from '../../lessons/components/attendance-comment-popover'
-import { Badge } from '@repo/ui/components/badge'
 
 // ─── Форматирование ──────────────────────────────────────────────────────────
 
@@ -50,54 +46,6 @@ function fmtDur(mins: number): string {
   const m = mins % 60
   return [h ? `${h} ч` : '', m ? `${m} мин` : ''].filter(Boolean).join(' ') || '0 мин'
 }
-
-// ─── Статусы посещаемости ──────────────────────────────────────────────────────
-
-type UiStatus = 'present' | 'warned' | 'absent' | 'unspecified'
-
-/** Доменный статус посещения → визуальный статус карточки. */
-function uiStatus(a: AttendanceWithStudents): UiStatus {
-  if (a.status === 'PRESENT') return 'present'
-  if (a.status === 'ABSENT') return a.isWarned ? 'warned' : 'absent'
-  return 'unspecified'
-}
-
-const STATUS_UI: Record<
-  UiStatus,
-  { label: string; icon: typeof Check; text: string; badge: string; bar: string }
-> = {
-  present: {
-    label: 'Присутствовал',
-    icon: Check,
-    text: 'text-success',
-    badge: 'text-success bg-success/10 ',
-    bar: 'bg-success',
-  },
-  warned: {
-    label: 'Предупредил',
-    icon: BellRing,
-    text: 'text-warning',
-    badge: 'text-warning bg-warning/10 ',
-    bar: 'bg-warning',
-  },
-  absent: {
-    label: 'Отсутствовал',
-    icon: X,
-    text: 'text-destructive',
-    badge: 'text-destructive bg-destructive/10 ',
-    bar: 'bg-destructive',
-  },
-  unspecified: {
-    label: 'Не отмечен',
-    icon: Minus,
-    text: 'text-muted-foreground',
-    badge: 'text-muted-foreground bg-muted',
-    bar: 'bg-muted-foreground/30',
-  },
-}
-
-/** Порядок статусов для пилюль-счётчиков и сегментов полосы. */
-const STATUS_ORDER: UiStatus[] = ['present', 'warned', 'absent', 'unspecified']
 
 // ─── Мелкие части ──────────────────────────────────────────────────────────────
 
@@ -187,8 +135,6 @@ function LessonDetailBody({ ev }: { ev: CalendarEvent }) {
 
   const attendance = detail?.attendance ?? []
   const total = attendance.length
-  const counts: Record<UiStatus, number> = { present: 0, warned: 0, absent: 0, unspecified: 0 }
-  for (const a of attendance) counts[uiStatus(a)]++
 
   const duration = ev.end - ev.start
 
@@ -290,41 +236,12 @@ function LessonDetailBody({ ev }: { ev: CalendarEvent }) {
             Нет учеников на уроке
           </div>
         ) : (
-          <>
-            {/* Сводка (фиксированная) */}
-            <div className="flex-none px-4 pt-2">
-              <div className="mb-2.5 flex items-center justify-between gap-2">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[14px] font-semibold">Посещаемость</span>
-                  <span className="text-muted-foreground text-[12.5px] tabular-nums">
-                    {counts.present} из {total}
-                  </span>
-                </div>
-                <div className="flex flex-wrap justify-end gap-1.5">
-                  {STATUS_ORDER.filter((s) => counts[s] > 0).map((s) => {
-                    const Icon = STATUS_UI[s].icon
-                    return (
-                      <Badge
-                        key={s}
-                        title={STATUS_UI[s].label}
-                        className={cn('text-[11px] font-semibold tabular-nums', STATUS_UI[s].badge)}
-                      >
-                        <Icon className="size-3" />
-                        {counts[s]}
-                      </Badge>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Ростер (прокручиваемый) */}
-            <div className="thin-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-auto px-2 pb-3">
-              {attendance.map((a) => (
-                <StudentRow key={a.id} a={a} />
-              ))}
-            </div>
-          </>
+          /* Ростер (прокручиваемый) */
+          <div className="thin-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-auto px-2 pt-2 pb-3">
+            {attendance.map((a) => (
+              <StudentRow key={a.id} a={a} />
+            ))}
+          </div>
         )}
       </div>
 
