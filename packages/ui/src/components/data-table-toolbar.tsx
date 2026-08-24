@@ -1,8 +1,14 @@
 'use client'
 
 import { Button } from '@repo/ui/components/button'
+import { ButtonGroup } from '@repo/ui/components/button-group'
 import { Checkbox } from '@repo/ui/components/checkbox'
-import { Input } from '@repo/ui/components/input'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@repo/ui/components/input-group'
 import { NumberInput } from '@repo/ui/components/number-input'
 import { ScrollArea } from '@repo/ui/components/scroll-area'
 import { Separator } from '@repo/ui/components/separator'
@@ -105,61 +111,92 @@ export function DataTableToolbar<TData extends RowData>({
   return (
     <div data-slot="table-toolbar" className={cn('flex flex-wrap items-center gap-2', className)}>
       {onSearchChange && (
-        <div className="relative w-full sm:w-56">
-          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
-          <Input
+        <InputGroup className="w-full sm:w-56">
+          <InputGroupAddon>
+            <Search />
+          </InputGroupAddon>
+          <InputGroupInput
             value={search ?? ''}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={searchPlaceholder}
-            className="pl-8"
             aria-label={searchPlaceholder}
           />
-        </div>
+          {/* Крестик только когда есть что стирать: пустое поле с кнопкой очистки
+              обещает действие, которого нет. */}
+          {search && (
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton
+                size="icon-xs"
+                aria-label="Очистить поиск"
+                onClick={() => onSearchChange('')}
+              >
+                <X />
+              </InputGroupButton>
+            </InputGroupAddon>
+          )}
+        </InputGroup>
       )}
 
       {/* Снизу на телефоне, сбоку на остальных — как у фильтров календаря. */}
-      <Drawer swipeDirection={isMobile ? 'down' : 'right'} showSwipeHandle={isMobile}>
-        <DrawerTrigger render={<Button variant="outline" className="shrink-0" />}>
-          <ListFilter />
-          Фильтры
-          {activeTitles.length > 0 && (
-            <>
-              <Separator orientation="vertical" className="mx-0.5" />
-              {/* На телефоне имена сжимаются до счётчика: с ними кнопка не влезает
+      <ButtonGroup>
+        <Drawer swipeDirection={isMobile ? 'down' : 'right'} showSwipeHandle={isMobile}>
+          <DrawerTrigger render={<Button variant="outline" className="shrink-0" />}>
+            <ListFilter />
+            Фильтры
+            {activeTitles.length > 0 && (
+              <>
+                <Separator orientation="vertical" className="mx-0.5" />
+                {/* На телефоне имена сжимаются до счётчика: с ними кнопка не влезает
                     в ряд с «Колонками» и переносит её на отдельную строку, а
                     обрезанное «Мет…» всё равно ничего не сообщает. */}
-              <span className="text-muted-foreground max-w-48 truncate max-sm:hidden">
-                {activeTitles.slice(0, VISIBLE_FILTER_TITLES).join(', ')}
-                {activeTitles.length > VISIBLE_FILTER_TITLES &&
-                  ` +${activeTitles.length - VISIBLE_FILTER_TITLES}`}
-              </span>
-              <span className="text-muted-foreground tabular-nums sm:hidden">
-                {activeTitles.length}
-              </span>
-            </>
-          )}
-        </DrawerTrigger>
-        <DrawerContent>
-          <DrawerHeader className="pb-4">
-            <DrawerTitle>Фильтры</DrawerTitle>
-          </DrawerHeader>
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="flex flex-col gap-4 px-4">
-              {children}
-              {filters}
-            </div>
-          </ScrollArea>
-          <DrawerFooter className="pt-4">
-            {onReset && (
-              <Button variant="outline" onClick={onReset} disabled={!isFiltered}>
-                <X />
-                Сбросить
-              </Button>
+                <span className="text-muted-foreground max-w-48 truncate max-sm:hidden">
+                  {activeTitles.slice(0, VISIBLE_FILTER_TITLES).join(', ')}
+                  {activeTitles.length > VISIBLE_FILTER_TITLES &&
+                    ` +${activeTitles.length - VISIBLE_FILTER_TITLES}`}
+                </span>
+                <span className="text-muted-foreground tabular-nums sm:hidden">
+                  {activeTitles.length}
+                </span>
+              </>
             )}
-            <DrawerClose render={<Button />}>Готово</DrawerClose>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
+          </DrawerTrigger>
+          <DrawerContent>
+            <DrawerHeader className="pb-4">
+              <DrawerTitle>Фильтры</DrawerTitle>
+            </DrawerHeader>
+            <ScrollArea className="min-h-0 flex-1">
+              <div className="flex flex-col gap-4 px-4">
+                {children}
+                {filters}
+              </div>
+            </ScrollArea>
+            <DrawerFooter className="pt-4">
+              {onReset && (
+                <Button variant="outline" onClick={onReset} disabled={!isFiltered}>
+                  <X />
+                  Сбросить
+                </Button>
+              )}
+              <DrawerClose render={<Button />}>Готово</DrawerClose>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+
+        {/* Сброс под рукой, не открывая панель, — но только когда отобрано: иначе
+            рядом с кнопкой висел бы вечно неактивный крестик. Сбрасывает всё, как
+            и кнопка в панели, включая поиск. */}
+        {onReset && isFiltered && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onReset}
+            aria-label="Сбросить фильтры"
+            className="shrink-0"
+          >
+            <X />
+          </Button>
+        )}
+      </ButtonGroup>
     </div>
   )
 }
