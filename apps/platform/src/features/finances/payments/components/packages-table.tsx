@@ -104,7 +104,18 @@ function buildColumns(managerOptions: FilterOption[]): ColumnDef<PackageListItem
       header: 'Менеджер',
       accessorFn: (row) => row.manager?.name ?? '',
       size: COLUMN_WIDTH,
-      cell: ({ row }) => row.original.manager?.name ?? '—',
+      cell: ({ row }) => {
+        const manager = row.original.manager
+        if (!manager) return '—'
+        return (
+          <Link
+            href={`/organization/members/${manager.id}`}
+            className="text-primary hover:underline"
+          >
+            {manager.name}
+          </Link>
+        )
+      },
       meta: {
         title: 'Менеджер',
         variant: 'multiSelect',
