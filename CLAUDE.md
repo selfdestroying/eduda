@@ -167,13 +167,16 @@ Public docs live in their **own Next app** (fumadocs, port 3001) — no auth, no
 
 `effectiveAt` — бизнес-день (дата занятия или оплаты), `createdAt` — когда записали; отчёты строятся по первому, «как было на дату» — по второму. Оплату нельзя удалить, только отменить (`status = CANCELLED`): на неё ссылаются проводки проведённых занятий.
 
+**Правило выручки живёт в `src/features/finances/revenue/rule.ts`** и читается оттуда и отбором в базе, и подписью строки в таблице. Считать выручку из кода — `computeRevenue` / `computeRevenueGroups` (`revenue/compute.server.ts`): они принимают отбор (период, курс, преподаватель, локация) и необязательный клиент транзакции, сессии не требуют и зовутся из скриптов. Экшены страницы — тонкие обёртки над ними. Деньги признаются за проведённое занятие: ученик пришёл; пропустил, не предупредив; предупредил и отработал (тогда — на дате отработки). Предупреждённый пропуск не приносит ничего — ни сам, ни через отработку, которая не состоялась, **даже если списание по ней прошло** (пропущенная отработка отмечается как пропуск без предупреждения, и ядро её списывает). «Прибыль» и «Авансы» этим правилом пока не пользуются: они считают по `chargeable.server.ts`, где такая отработка идёт в выручку как обычный непредупреждённый пропуск, — на сегодня это ~89 строк расхождения.
+
 Проверки (гоняются против настоящей БД, ничего не меняют):
 
 ```bash
 pnpm --filter platform exec tsx scripts/check-ledger-core.ts       # ядро в откатываемой транзакции
 pnpm --filter platform exec tsx scripts/check-ledger.ts            # журнал против колонок
 pnpm --filter platform exec tsx scripts/check-wallet-balance.ts
-pnpm --filter platform exec tsx scripts/check-revenue-parity.ts
+pnpm --filter platform exec tsx scripts/check-revenue-parity.ts    # «Прибыль»/«Авансы»: chargeable.server против базы
+pnpm --filter platform exec tsx scripts/check-revenue.ts           # «Выручка»: revenue/rule.ts против базы
 pnpm --filter platform exec tsx scripts/check-package-statuses.ts  # статусы счёта против его пакетов
 pnpm --filter platform exec tsx scripts/check-package-product.ts   # продукт пакета: снимок и изоляция
 ```

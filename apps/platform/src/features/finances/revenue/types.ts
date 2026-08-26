@@ -1,67 +1,92 @@
-export interface RevenueStats {
-  totalLessons: number
-  doneLessons: number
-  presentCount: number
-  totalStudentVisits: number
-  attendanceRate: number
-  totalRevenue: number
-  chargedVisits: number
-  avgPerVisit: number
-  avgPerLesson: number
+import { Prisma } from '@repo/db'
+
+/**
+ * Поля строки выручки — и ничего сверх них: список за год это десятки тысяч
+ * посещений, и каждый лишний скаляр связи умножается на размер страницы.
+ *
+ * Курс, локация и преподаватели берутся с урока, на котором стоит отметка. У
+ * отработки это урок, куда ученик пришёл отрабатывать, а не тот, что он
+ * пропустил: деньги признаются там, где занятие фактически провели, и отбор по
+ * курсу или преподавателю обязан спрашивать про то же занятие.
+ */
+export const REVENUE_LIST_SELECT = {
+  id: true,
+  status: true,
+  price: true,
+  isTrial: true,
+  // Не колонка: по нему `revenueKindOf` отличает отработку от обычного занятия.
+  makeupForAttendanceId: true,
+  student: { select: { id: true, firstName: true, lastName: true } },
+  lesson: {
+    select: {
+      id: true,
+      date: true,
+      time: true,
+      group: {
+        select: {
+          id: true,
+          course: { select: { name: true } },
+          location: { select: { name: true } },
+        },
+      },
+      teachers: { select: { teacher: { select: { id: true, name: true } } } },
+    },
+  },
+  // Дата пропуска, который отрабатывают: без неё строка «Отработка» не объясняет,
+  // за какое занятие пришли деньги.
+  makeupForAttendance: { select: { lesson: { select: { date: true } } } },
+} satisfies Prisma.AttendanceSelect
+
+export type RevenueListItem = Prisma.AttendanceGetPayload<{
+  select: typeof REVENUE_LIST_SELECT
+}>
+
+/**
+ * Срез плюс итоги по всему отбору, а не по видимой странице: цифра «выручка за
+ * период» обязана считаться по тем же условиям, что и список, и одним запросом с
+ * ним — иначе между двумя походами в базу проходит отметка посещаемости, и итог
+ * не сходится со строками.
+ */
+export type RevenueListResult = {
+  rows: RevenueListItem[]
+  /** Занятий, попавших в правило выручки, — вместе с теми, что ждут оплаты. */
+  total: number
+  /** Признанная выручка, ₽. */
+  revenue: number
+  /** Занятий, за которые деньги уже списаны с пакета. */
+  paidCount: number
 }
 
-export interface AttendanceWithCost {
-  status: string
-  isWarned: boolean | null
-  isTrial: boolean
-  visitCost: number
-  costReason: string
-  student: {
-    id: number
-    firstName: string
-    lastName: string
-  }
-  wallet: {
-    id: number
-    name: string | null
-    lessonsBalance: number
-    totalLessons: number
-    totalPayments: number
-  } | null
-  makeupAttendance: {
-    status: string
-    lesson: {
-      date: string
-      group: { course: { name: string } }
-    }
-  } | null
+/**
+ * Строка сводки — день, группа, урок, курс, преподаватель или локация.
+ *
+ * Полей больше, чем нужно любому одному режиму: лишние равны `null` и своей
+ * колонки не получают. Так строка остаётся одним типом на все режимы, а таблица
+ * решает, что показывать, по выбранной свёртке.
+ */
+export type RevenueGroupRow = {
+  /** Ключ строки: день, id группы, урока, курса, набора преподавателей, локации. */
+  key: string
+  date: string | null
+  /** Ссылка на урок — только в режиме «по уроку». */
+  lessonId: number | null
+  /** Ссылка на группу — в режимах «по группе» и «по уроку». */
+  groupId: number | null
+  /** Подпись строки: группа, курс, преподаватель или локация. */
+  label: string | null
+  revenue: number
+  /** Занятий с ценой — из них и сложилась выручка строки. */
+  paid: number
+  /** Занятий всего, вместе с ждущими оплаты. */
+  total: number
 }
 
-export interface LessonWithCost {
-  id: number
-  date: string
-  time: string
-  status: string
-  dayOfWeek: string
-  group: {
-    id: number
-    course: { name: string }
-    location: { name: string } | null
-    groupType: { name: string } | null
-    schedules: { dayOfWeek: number; time: string }[]
-    teachers: { teacher: { name: string } }[]
-  }
-  attendance: AttendanceWithCost[]
-}
-
-export interface DayGroup {
-  date: string
-  dayOfWeek: string
-  dayRevenue: number
-  lessons: LessonWithCost[]
-}
-
-export interface RevenueData {
-  stats: RevenueStats
-  days: DayGroup[]
+export type RevenueGroupsResult = {
+  rows: RevenueGroupRow[]
+  /** Число групп: из него пагинация считает страницы. */
+  total: number
+  revenue: number
+  paidCount: number
+  /** Занятий по всему отбору — вместе с `paidCount` даёт «ждут оплаты». */
+  attendanceCount: number
 }
