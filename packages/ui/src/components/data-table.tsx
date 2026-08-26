@@ -313,10 +313,14 @@ function DataTableViewOptions<TData>({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={<Button variant="outline" className={cn('shrink-0', className)} />}
+        render={
+          <Button variant="outline" aria-label="Колонки" className={cn('shrink-0', className)} />
+        }
       >
         <Eye />
-        Колонки
+        {/* На телефоне — одна иконка, как и у «Фильтров»: ряд там узкий, а глаз
+            без подписи понятен. */}
+        <span className="max-sm:hidden">Колонки</span>
         {/* Только когда что-то скрыто: «6/6» рядом с полной таблицей ничего не
             сообщает. */}
         {visibleCount < columns.length && (

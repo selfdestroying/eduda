@@ -140,9 +140,13 @@ export function DataTableToolbar<TData extends RowData>({
       {/* Снизу на телефоне, сбоку на остальных — как у фильтров календаря. */}
       <ButtonGroup>
         <Drawer swipeDirection={isMobile ? 'down' : 'right'} showSwipeHandle={isMobile}>
-          <DrawerTrigger render={<Button variant="outline" className="shrink-0" />}>
+          <DrawerTrigger
+            render={<Button variant="outline" aria-label="Фильтры" className="shrink-0" />}
+          >
             <ListFilter />
-            Фильтры
+            {/* На телефоне остаётся одна иконка: подпись съедает ширину, которой
+                в ряду и так нет, а иконка воронки читается без слов. */}
+            <span className="max-sm:hidden">Фильтры</span>
             {activeTitles.length > 0 && (
               <>
                 <Separator orientation="vertical" className="mx-0.5" />
