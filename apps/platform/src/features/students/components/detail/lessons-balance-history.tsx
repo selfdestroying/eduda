@@ -7,7 +7,6 @@ import {
 } from '@repo/db'
 import DataTable from '@repo/ui/components/data-table'
 import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
-import { Hint } from '@repo/ui/components/hint'
 import { Button } from '@repo/ui/components/button'
 import {
   Dialog,
@@ -217,12 +216,7 @@ function createColumns(studentId: number, tz: string): ColumnDef<HistoryRow>[] {
     },
     {
       id: 'field',
-      header: () => (
-        <span className="flex items-center gap-0.5">
-          Поле
-          <Hint text="Какой показатель был изменён: баланс уроков, сумма оплат или общее количество оплаченных уроков." />
-        </span>
-      ),
+      header: 'Поле',
       accessorFn: (row) => row.field,
       size: COLUMN_WIDTH,
       cell: ({ row }) => fieldLabel[row.original.field] ?? row.original.field,
@@ -279,12 +273,7 @@ function createColumns(studentId: number, tz: string): ColumnDef<HistoryRow>[] {
     },
     {
       id: 'delta',
-      header: () => (
-        <span className="flex items-center gap-0.5">
-          Δ
-          <Hint text="Изменение значения: положительное число - начисление, отрицательное - списание." />
-        </span>
-      ),
+      header: 'Δ',
       accessorFn: (row) => row.delta,
       size: NUMBER_WIDTH,
       cell: ({ row }) =>

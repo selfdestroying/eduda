@@ -5,7 +5,6 @@ import { useTableState } from '@/src/hooks/use-table-state'
 import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
 import DataTable from '@repo/ui/components/data-table'
 import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
-import { Hint } from '@repo/ui/components/hint'
 import {
   type ColumnDef,
   getCoreRowModel,
@@ -61,12 +60,7 @@ function buildColumns(canEdit: boolean): ColumnDef<TeacherGroupWithRate>[] {
     },
     {
       id: 'bonusPerStudent',
-      header: () => (
-        <span className="flex items-center gap-0.5">
-          Бонус за уч.
-          <Hint text="Доплата преподавателю за каждого присутствующего ученика. Итого за урок = ставка + (бонус × кол-во учеников)." />
-        </span>
-      ),
+      header: 'Бонус за уч.',
       accessorFn: (row) => row.rate.bonusPerStudent,
       size: COLUMN_WIDTH,
       cell: ({ row }) => <BalanceBadge balance={row.original.rate.bonusPerStudent} />,

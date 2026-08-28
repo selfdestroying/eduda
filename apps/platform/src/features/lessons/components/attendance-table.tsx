@@ -7,7 +7,6 @@ import { getFullName } from '@/src/lib/utils'
 import { Badge } from '@repo/ui/components/badge'
 import DataTable from '@repo/ui/components/data-table'
 import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
-import { Hint } from '@repo/ui/components/hint'
 import { Input } from '@repo/ui/components/input'
 import {
   type ColumnDef,
@@ -118,12 +117,7 @@ function buildColumns({
     },
     {
       id: 'makeup',
-      header: () => (
-        <span className="flex items-center gap-0.5">
-          Отработка
-          <Hint text="Связь с отработкой: если ученик пропустил урок - ссылка на урок-отработку. Если пришёл на отработку - ссылка на пропущенный урок." />
-        </span>
-      ),
+      header: 'Отработка',
       size: MAKEUP_WIDTH,
       enableSorting: false,
       cell: ({ row }) => {

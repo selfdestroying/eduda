@@ -7,7 +7,6 @@ import { formatDateTimeInTz } from '@/src/lib/timezone'
 import { getAgeFromBirthDate, getFullName } from '@/src/lib/utils'
 import DataTable from '@repo/ui/components/data-table'
 import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
-import { Hint } from '@repo/ui/components/hint'
 import { Skeleton } from '@repo/ui/components/skeleton'
 import { type ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import Link from 'next/link'
@@ -95,12 +94,7 @@ function buildColumns(canDelete: boolean, tz: string): ColumnDef<StudentListItem
     },
     {
       id: 'lessonsBalance',
-      header: () => (
-        <span className="flex items-center gap-0.5">
-          Баланс уроков
-          <Hint text="Оставшееся количество оплаченных уроков по всем кошелькам. Красным выделяются ученики с балансом менее 2 - им скоро потребуется оплата." />
-        </span>
-      ),
+      header: 'Баланс уроков',
       accessorFn: (row) => walletTotal(row, 'lessonsBalance'),
       size: COLUMN_WIDTH,
       enableSorting: false,

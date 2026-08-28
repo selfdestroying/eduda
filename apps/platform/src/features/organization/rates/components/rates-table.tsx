@@ -5,7 +5,6 @@ import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
 import { formatCurrency } from '@/src/lib/utils'
 import DataTable from '@repo/ui/components/data-table'
 import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
-import { Hint } from '@repo/ui/components/hint'
 import { Skeleton } from '@repo/ui/components/skeleton'
 import {
   type ColumnDef,
@@ -56,12 +55,7 @@ function buildColumns(canEdit: boolean): ColumnDef<RateWithCount>[] {
     },
     {
       id: 'bonusPerStudent',
-      header: () => (
-        <span className="flex items-center gap-0.5">
-          Бонус за уч.
-          <Hint text="Дополнительная надбавка к ставке преподавателя за каждого присутствующего ученика на уроке." />
-        </span>
-      ),
+      header: 'Бонус за уч.',
       accessorKey: 'bonusPerStudent',
       size: COLUMN_WIDTH,
       cell: ({ row }) =>
@@ -70,12 +64,7 @@ function buildColumns(canEdit: boolean): ColumnDef<RateWithCount>[] {
     },
     {
       id: 'linkedGroups',
-      header: () => (
-        <span className="flex items-center gap-0.5">
-          Привязано групп
-          <Hint text="Количество связей «преподаватель - группа», использующих эту ставку." />
-        </span>
-      ),
+      header: 'Привязано групп',
       accessorFn: (row) => row._count.teacherGroups,
       size: COLUMN_WIDTH,
       meta: { title: 'Привязано групп', className: NUMERIC },
