@@ -135,10 +135,25 @@ export const createAttendance = authAction
   .action(async ({ ctx, parsedInput }) => {
     const lesson = await prisma.lesson.findUnique({
       where: { id: parsedInput.lessonId },
-      select: { status: true },
+      select: { status: true, groupId: true },
     })
     if (lesson?.status === 'CANCELLED') {
       throw new ConflictError('Нельзя добавить ученика в отменённый урок')
+    }
+
+    // Разовое посещение без кошелька оплатить нечем: списание ищет кошелёк по
+    // записи ученика в группу урока, а её нет — и занятие навсегда остаётся
+    // «ждёт оплаты». За всю историю базы ни одна такая строка цены не получила.
+    if (lesson && !parsedInput.isTrial && !parsedInput.walletId) {
+      const enrollment = await prisma.studentGroup.findUnique({
+        where: { studentId_groupId: { studentId: parsedInput.studentId, groupId: lesson.groupId } },
+        select: { walletId: true },
+      })
+      if (!enrollment?.walletId) {
+        throw new ConflictError(
+          'Ученика нет в группе этого урока: выберите кошелёк для списания или отметьте занятие пробным',
+        )
+      }
     }
 
     return await prisma.attendance.create({
