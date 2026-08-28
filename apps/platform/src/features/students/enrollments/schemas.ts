@@ -47,6 +47,49 @@ export const EnrollmentListSchema = z.object({
 
 export type EnrollmentListSchemaType = z.infer<typeof EnrollmentListSchema>
 
+/**
+ * Отбор, общий для таблицы и графика над ней: период, курс, локация,
+ * преподаватель, поиск. Страницы и порядка здесь нет — графику они не нужны, а с
+ * ними он перезапрашивался бы на каждый клик по пагинации.
+ *
+ * Статусов тоже нет. Таблице их задаёт страница, а оба ряда графика строятся по
+ * фактическим урокам: урок прошлого марта не перестаёт быть проведённым оттого,
+ * что ученик с тех пор ушёл. Иначе прошлое переписывалось бы задним числом —
+ * столбик сентября усыхал бы с каждым уходом.
+ */
+export const EnrollmentScopeSchema = EnrollmentListSchema.omit({
+  page: true,
+  pageSize: true,
+  sort: true,
+  statuses: true,
+})
+
+export type EnrollmentScopeSchemaType = z.infer<typeof EnrollmentScopeSchema>
+
+/**
+ * Отбор графика плюс разрез. `view` уезжает на сервер, потому что режим
+ * «Активные» считает пары «ученик — группа» без повторов: одна пара приходит за
+ * месяц восемь раз, а считается один, и из дневных чисел такое не пересчитать.
+ * Складывать корзины обязан тот, кто видит строки.
+ */
+export const EnrollmentChartSchema = EnrollmentScopeSchema.extend({
+  view: z.enum(['week', 'month', 'year']),
+})
+
+export type EnrollmentChartSchemaType = z.infer<typeof EnrollmentChartSchema>
+
+/**
+ * По чему сворачивать строки в сводке. Даты здесь нет, в отличие от выручки:
+ * запись — это не событие, у неё нет дня, к которому её честно отнести.
+ */
+export const EnrollmentGroupBy = z.enum(['group', 'course', 'teacher', 'location'])
+export type EnrollmentGroupBy = z.infer<typeof EnrollmentGroupBy>
+
+/** Сводка живёт на тех же статусах, периоде, отборе и поиске, что и список. */
+export const EnrollmentGroupsSchema = EnrollmentListSchema.extend({ by: EnrollmentGroupBy })
+
+export type EnrollmentGroupsSchemaType = z.infer<typeof EnrollmentGroupsSchema>
+
 export const ReturnToGroupSchema = z.object({
   groupId: z.number().int().positive(),
   studentId: z.number().int().positive(),

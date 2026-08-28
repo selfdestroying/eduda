@@ -1,19 +1,30 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
-import ActiveStatistics from '@/src/features/statistics/components/active/active-statistics'
+import EnrollmentsChart from '@/src/features/students/enrollments/components/enrollments-chart'
 import EnrollmentsTable from '@/src/features/students/enrollments/components/enrollments-table'
 
 export const metadata = { title: 'Активные ученики' }
 
 /**
- * Пробные считаются активными: ученик ходит на занятия, и его место в группе
- * занято — отделять их отдельной страницей нечем.
+ * Только `ACTIVE`. Пробные раньше считались активными «потому что ходят», но от
+ * этого страница отвечала на два вопроса сразу: сколько учеников у школы и
+ * сколько из них ещё не решили остаться.
+ *
+ * Пробных записей сейчас нет ни в одной школе, так что список от этого ничего не
+ * теряет. Появятся — своего списка у статуса `TRIAL` в интерфейсе нет, и они
+ * будут видны только в карточке ученика и в составе группы.
  */
-const ACTIVE_STATUSES = ['ACTIVE', 'TRIAL'] as const
+const ACTIVE_STATUSES = ['ACTIVE'] as const
+
+/**
+ * Один id на график и таблицу: отбор у них общий и живёт в адресной строке, а по
+ * этому ключу лежит видимость колонок.
+ */
+const TABLE_ID = 'active-students'
 
 export default function Page() {
   return (
-    <div className="grid grid-cols-1 gap-2">
-      <ActiveStatistics />
+    <div className="space-y-2">
+      <EnrollmentsChart tableId={TABLE_ID} />
       <Card>
         <CardHeader>
           <CardTitle>Активные ученики</CardTitle>
@@ -22,7 +33,7 @@ export default function Page() {
         <CardContent className="overflow-hidden">
           <EnrollmentsTable
             statuses={[...ACTIVE_STATUSES]}
-            tableId="active-students"
+            tableId={TABLE_ID}
             emptyMessage="Нет активных учеников."
           />
         </CardContent>

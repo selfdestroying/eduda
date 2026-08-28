@@ -1,16 +1,29 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { getEnrollments, returnToGroup } from './actions'
-import type { EnrollmentListSchemaType, ReturnToGroupSchemaType } from './schemas'
+import {
+  getEnrollmentChartData,
+  getEnrollmentGroups,
+  getEnrollments,
+  returnToGroup,
+} from './actions'
+import type {
+  EnrollmentChartSchemaType,
+  EnrollmentGroupsSchemaType,
+  EnrollmentListSchemaType,
+  ReturnToGroupSchemaType,
+} from './schemas'
 
 export const enrollmentKeys = {
   all: ['enrollments'] as const,
   list: (params: EnrollmentListSchemaType) => [...enrollmentKeys.all, params] as const,
+  groups: (params: EnrollmentGroupsSchemaType) =>
+    [...enrollmentKeys.all, 'groups', params] as const,
+  chart: (params: EnrollmentChartSchemaType) => [...enrollmentKeys.all, 'chart', params] as const,
 }
 
 const EMPTY_PAGE = { rows: [], total: 0 }
 
-export const useEnrollmentListQuery = (params: EnrollmentListSchemaType) => {
+export const useEnrollmentListQuery = (params: EnrollmentListSchemaType, enabled = true) => {
   return useQuery({
     queryKey: enrollmentKeys.list(params),
     queryFn: async () => {
@@ -22,8 +35,42 @@ export const useEnrollmentListQuery = (params: EnrollmentListSchemaType) => {
       if (validationErrors) throw new Error('Некорректные параметры выборки учеников')
       return data ?? EMPTY_PAGE
     },
+    enabled,
     // Пока грузится следующая страница, показываем предыдущую: иначе на каждый
     // клик по «вперёд» таблица моргает пустотой и скачет по высоте.
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Сводка. Выключена, пока смотрят плоский список, — иначе платим за обе выборки. */
+export const useEnrollmentGroupsQuery = (params: EnrollmentGroupsSchemaType, enabled: boolean) => {
+  return useQuery({
+    queryKey: enrollmentKeys.groups(params),
+    queryFn: async () => {
+      const { data, serverError, validationErrors } = await getEnrollmentGroups(params)
+      if (serverError) throw serverError
+      if (validationErrors) throw new Error('Некорректные параметры сводки')
+      return data ?? EMPTY_PAGE
+    },
+    enabled,
+    placeholderData: keepPreviousData,
+  })
+}
+
+/**
+ * Оба ряда графика одним запросом: считаются они из одних строк посещаемости, и
+ * переключение режима поэтому на сервер не ходит вовсе.
+ */
+export const useEnrollmentChartQuery = (params: EnrollmentChartSchemaType) => {
+  return useQuery({
+    queryKey: enrollmentKeys.chart(params),
+    queryFn: async () => {
+      const { data, serverError } = await getEnrollmentChartData(params)
+      if (serverError) throw serverError
+      return data ?? { view: params.view, enrolled: [], studied: [] }
+    },
+    // Пока грузится новый отбор или разрез, показываем прошлые столбики — иначе
+    // график схлопывается в скелетон на каждую галочку в фильтре.
     placeholderData: keepPreviousData,
   })
 }
