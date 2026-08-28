@@ -1,10 +1,18 @@
 'use client'
 
+import ChartTabs from '@/src/components/chart-tabs'
 import { useAbsentChartQuery } from '@/src/features/students/absent/queries'
 import type { AbsentChartPoint } from '@/src/features/students/absent/types'
 import { useAbsentFilters } from '@/src/features/students/absent/use-absent-filters'
-import type { Period } from '@/src/hooks/use-table-state'
-import { dateToYmd, ymdToLocalDate } from '@/src/lib/timezone'
+import {
+  MAX_BUCKETS,
+  NEXT_VIEW,
+  VIEW_LABEL,
+  bucketKey,
+  bucketLabel,
+  bucketRange,
+  type View,
+} from '@/src/lib/chart-buckets'
 import { cn } from '@/src/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
 import {
@@ -17,15 +25,8 @@ import {
 } from '@repo/ui/components/chart'
 import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { Skeleton } from '@repo/ui/components/skeleton'
-import { Tabs, TabsIndicator, TabsList, TabsTrigger } from '@repo/ui/components/tabs'
-import { addDays, endOfMonth, format, startOfWeek } from 'date-fns'
-import { ru } from 'date-fns/locale'
 import { useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
-
-type View = 'week' | 'month' | 'year'
-
-const VIEW_LABEL: Record<View, string> = { week: 'Неделя', month: 'Месяц', year: 'Год' }
 
 /** Что откладываем по вертикали: число пропусков или потерянные за них деньги. */
 type Mode = 'count' | 'money'
@@ -42,24 +43,6 @@ const compactNumber = new Intl.NumberFormat('ru-RU', {
 const Y_AXIS_WIDTH = 44
 
 /**
- * Сколько корзин помещается в столбики читаемой ширины. За всю историю их
- * набирается под сотню, и на телефоне каждой достаётся два-три пикселя.
- *
- * Показываем хвост — свежие периоды, за которыми к графику и приходят. Старое
- * никуда не девается: его достают периодом в тулбаре или разрезом покрупнее.
- */
-const MAX_BUCKETS = { mobile: 8, desktop: 26 }
-
-/**
- * Вкладки как на входе (`app/auth/_components/sign-in.tsx`): фон активной рисует
- * `TabsIndicator`, поэтому у триггера `data-active:bg-transparent`, а длительность
- * задана явно — в базовом классе `transition-all` без неё, и подпись
- * перекрашивалась бы вдвое быстрее пилюли.
- */
-const TAB_TRIGGER_CLASS =
-  'text-muted-foreground px-2.5 font-semibold duration-(--duration-tab) ease-(--ease-tab) data-active:bg-transparent dark:data-active:border-transparent dark:data-active:bg-transparent'
-
-/**
  * Столбик — пропуски за период целиком, поделённые на две части. Предупреждённые
  * внизу: они читаются как доля общего, а высота столбика остаётся числом
  * пропусков.
@@ -73,48 +56,6 @@ const chartConfig = {
   lost: { label: 'Потеряно родителями, ₽', color: 'var(--chart-1)' },
   saved: { label: 'Спасено отработкой, ₽', color: 'var(--chart-2)' },
 } satisfies ChartConfig
-
-/**
- * Ключ корзины. Год и месяц — префиксы даты: `YYYY-MM-DD` отрезается без разбора.
- * Неделя так не берётся, поэтому ключ — её понедельник, тоже `YYYY-MM-DD`.
- *
- * Ключи всех трёх видов упорядочены лексикографически так же, как хронологически,
- * и монотонны по дате — значит корзины ложатся в Map в порядке прихода точек, и
- * сортировать их отдельно не нужно.
- */
-function bucketKey(date: string, view: View) {
-  if (view === 'year') return date.slice(0, 4)
-  if (view === 'month') return date.slice(0, 7)
-  return format(startOfWeek(ymdToLocalDate(date), { weekStartsOn: 1 }), 'yyyy-MM-dd')
-}
-
-function bucketLabel(key: string, view: View) {
-  if (view === 'year') return key
-  // Месяцу дописываем первое число: `ymdToLocalDate` ждёт полную дату. У недели
-  // ключ уже полный — это её понедельник, его и показываем.
-  const date = ymdToLocalDate(view === 'month' ? `${key}-01` : key)
-  return format(date, view === 'month' ? 'LLL yy' : 'd MMM yy', { locale: ru })
-}
-
-/**
- * Границы корзины — тем же форматом `YYYY-MM-DD`, что ждёт фильтр периода. Обе
- * включительно, как и его сравнение.
- */
-function bucketRange(key: string, view: View): Period {
-  if (view === 'year') return { from: `${key}-01-01`, to: `${key}-12-31` }
-  if (view === 'month') {
-    return { from: `${key}-01`, to: dateToYmd(endOfMonth(ymdToLocalDate(`${key}-01`))) }
-  }
-  // Ключ недели — её понедельник, конец — воскресенье.
-  return { from: key, to: dateToYmd(addDays(ymdToLocalDate(key), 6)) }
-}
-
-/**
- * Куда проваливаться по клику. Год показывает месяцы, месяц — недели, неделя
- * остаётся собой: дробить её на дни график не умеет, да и незачем — с недельным
- * периодом всё видно в таблице под ним.
- */
-const NEXT_VIEW: Record<View, View> = { year: 'month', month: 'week', week: 'week' }
 
 export default function AbsentChart() {
   const [view, setView] = useState<View>('week')
@@ -178,44 +119,13 @@ export default function AbsentChart() {
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-        <CardTitle>Динамика пропусков</CardTitle>
+        <CardTitle>Сводка</CardTitle>
         {/* На узком экране каждая группа занимает свою строку целиком: втроём с
             заголовком они в 375 px не помещаются, а ужатые до половины вкладки
             обрезают «Неделя» — подписи `whitespace-nowrap` не переносятся. */}
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-          <Tabs
-            value={mode}
-            onValueChange={(value) => setMode(String(value) as Mode)}
-            className="w-full sm:w-auto"
-          >
-            <TabsList className="bg-muted/70 grid w-full grid-cols-2 group-data-horizontal/tabs:h-7 sm:w-fit">
-              <TabsIndicator className="bg-card" />
-              {(Object.keys(MODE_LABEL) as Mode[]).map((m) => (
-                <TabsTrigger key={m} value={m} className={TAB_TRIGGER_CLASS}>
-                  {MODE_LABEL[m]}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-          <Tabs
-            value={view}
-            onValueChange={(value) => setView(String(value) as View)}
-            className="w-full sm:w-auto"
-          >
-            {/* `h-7` — высота `Button` по умолчанию, чтобы шапка шла по одной линии
-                с кнопками; задаём вариантом, иначе базовый
-                `group-data-horizontal/tabs:h-8` окажется специфичнее. `grid-cols-3`
-                — чтобы вкладки были одной ширины: базовый `inline-flex` с `w-fit`
-                даёт каждой свою, по длине подписи. */}
-            <TabsList className="bg-muted/70 grid w-full grid-cols-3 group-data-horizontal/tabs:h-7 sm:w-fit">
-              <TabsIndicator className="bg-card" />
-              {(Object.keys(VIEW_LABEL) as View[]).map((v) => (
-                <TabsTrigger key={v} value={v} className={TAB_TRIGGER_CLASS}>
-                  {VIEW_LABEL[v]}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          <ChartTabs value={mode} onValueChange={setMode} labels={MODE_LABEL} />
+          <ChartTabs value={view} onValueChange={setView} labels={VIEW_LABEL} />
         </div>
       </CardHeader>
       <CardContent>
