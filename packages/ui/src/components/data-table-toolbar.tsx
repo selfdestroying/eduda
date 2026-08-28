@@ -81,11 +81,11 @@ export function DataTableToolbar<TData extends RowData>({
   const filterableColumns = table.getAllColumns().filter((c) => c.columnDef.meta?.variant)
   const isMobile = useIsMobile()
 
-  const activeFilterCount = table.getState().columnFilters.length
-
-  // Сброс предлагаем, только когда есть что сбрасывать: пустая кнопка «Сбросить»
-  // рядом с чистой таблицей — шум.
-  const isFiltered = activeFilterCount > 0 || Boolean(search) || extraFilterTitles.length > 0
+  // Сброс предлагаем, только когда включён фильтр: пустая кнопка «Сбросить»
+  // рядом с чистой таблицей — шум. Набранный поиск фильтром здесь не считается —
+  // у поля своя кнопка очистки, а крестик, выехавший рядом с воронкой, обещал бы
+  // снять отбор, которого нет. Сам сброс поиск всё равно чистит: он «сбросить всё».
+  const isFiltered = table.getState().columnFilters.length > 0 || extraFilterTitles.length > 0
 
   // Включённые фильтры называем поимённо: панель закрыта, и цифра «2» на кнопке
   // не говорит, по чему именно отобрано, — а таблица показывает подмножество, и
