@@ -1,11 +1,42 @@
+import { navEntries } from './nav-config'
 import type { NavGroup, NavSubGroup } from './types'
 import { isSubGroup } from './types'
 
-/** Match exact path or any nested sub-path. Special-cased for root '/'. */
+/** Путь либо сам пункт, либо лежит внутри него. */
+const isUnder = (pathname: string, url: string) =>
+  pathname === url || pathname.startsWith(url + '/')
+
+/**
+ * Все адреса меню плоским списком — чтобы у вложенного пути было с чем сверить
+ * точность. Список статический (роли и фичи его не режут): подсветка — чистая
+ * функция от пути, а страница, закрытая для роли, до сайдбара и не доходит.
+ */
+const NAV_URLS: string[] = navEntries.flatMap((entry) =>
+  entry.kind === 'leaf'
+    ? [entry.url]
+    : [
+        ...(entry.url ? [entry.url] : []),
+        ...entry.items.flatMap((child) =>
+          isSubGroup(child)
+            ? [...(child.url ? [child.url] : []), ...child.items.map((item) => item.url)]
+            : [child.url],
+        ),
+      ],
+)
+
+/**
+ * Подсвечен ли пункт меню. Точное совпадение — всегда; вложенный путь — только
+ * если в меню нет пункта поточнее.
+ *
+ * Без последней оговорки один `startsWith` не отличал `/students/123` (карточка
+ * ученика, своего пункта нет — светит «Все ученики») от `/students/active`
+ * (соседний пункт того же меню), и «Все ученики» горели вместе с «Активными».
+ */
 export function isPathActive(pathname: string, url: string): boolean {
   if (url === '/') return pathname === '/'
   if (pathname === url) return true
-  return pathname.startsWith(url + '/')
+  if (!isUnder(pathname, url)) return false
+  return !NAV_URLS.some((other) => other.length > url.length && isUnder(pathname, other))
 }
 
 /**
