@@ -12,12 +12,11 @@ import {
   SelectValue,
 } from '@repo/ui/components/select'
 import { Skeleton } from '@repo/ui/components/skeleton'
-import { StatCard } from '@repo/ui/components/stat-card'
 import PeriodFilter, { PERIOD_TITLE } from '@/src/components/period-filter'
 import { useMappedCourseListQuery } from '@/src/features/courses/queries'
 import { useMappedLocationListQuery } from '@/src/features/locations/queries'
 import { useMappedMemberListQuery } from '@/src/features/organization/members/queries'
-import { filterIds, useClampPage, useTableState } from '@/src/hooks/use-table-state'
+import { useClampPage } from '@/src/hooks/use-table-state'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { formatCurrency, getFullName } from '@/src/lib/utils'
 import {
@@ -26,24 +25,17 @@ import {
   type Table as TanstackTable,
   useReactTable,
 } from '@tanstack/react-table'
-import { CalendarCheck, CircleDollarSign, Clock } from 'lucide-react'
 import Link from 'next/link'
 import { parseAsStringLiteral, useQueryState } from 'nuqs'
 import { Fragment, useMemo } from 'react'
 import { useRevenueGroupsQuery, useRevenueListQuery } from '../queries'
+import { useRevenueFilters } from '../use-revenue-filters'
 import { REVENUE_KIND_LABELS, type RevenueKind, revenueKindOf } from '../rule'
 import type { RevenueGroupBy } from '../schemas'
 import type { RevenueGroupRow, RevenueListItem } from '../types'
 
 const NUMERIC = 'tabular-nums'
 const COLUMN_WIDTH = 130
-
-/** Колонки с отбором. Всё строками: значения приходят из адресной строки. */
-const TABLE_FILTERS = {
-  course: 'string',
-  teacher: 'string',
-  location: 'string',
-} as const
 
 type FilterOption = { label: string; value: string }
 
@@ -329,7 +321,8 @@ function buildColumns(
  * же запросом, что и строки, — карточки и таблица разойтись не могут.
  */
 export default function RevenueTable() {
-  const t = useTableState({ id: 'revenue', filters: TABLE_FILTERS })
+  // Отбор общий с графиком над таблицей и живёт в адресной строке.
+  const { t, filters } = useRevenueFilters()
   const { columnFilters, pagination, sorting, period } = t
 
   // Режим свёртки — в адресе, как и всё остальное состояние таблицы: ссылкой на
@@ -347,14 +340,9 @@ export default function RevenueTable() {
       page: pagination.pageIndex,
       pageSize: pagination.pageSize,
       sort: sorting[0] ?? null,
-      search: t.search,
-      from: period.from ?? undefined,
-      to: period.to ?? undefined,
-      courseIds: filterIds(columnFilters, 'course'),
-      teacherIds: filterIds(columnFilters, 'teacher'),
-      locationIds: filterIds(columnFilters, 'location'),
+      ...filters,
     }),
-    [pagination, sorting, t.search, period, columnFilters],
+    [pagination, sorting, filters],
   )
 
   const isGrouped = mode !== 'none'
@@ -424,11 +412,6 @@ export default function RevenueTable() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-[4.5rem] rounded-lg" />
-          ))}
-        </div>
         <Skeleton className="h-9 w-full" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -438,12 +421,6 @@ export default function RevenueTable() {
   if (isError) {
     return <div className="text-destructive">Ошибка при загрузке выручки.</div>
   }
-
-  const revenue = active.data?.revenue ?? 0
-  const paidCount = active.data?.paidCount ?? 0
-  // У сводки строк столько же, сколько групп, поэтому занятия она считает отдельно.
-  const attendanceCount = isGrouped ? (grouped.data?.attendanceCount ?? 0) : (flat.data?.total ?? 0)
-  const unpaidCount = attendanceCount - paidCount
 
   // Обе таблицы рисуются одинаково, а строки у них разного типа — отсюда дженерик:
   // разложить это в две ветки JSX значило бы держать две копии тулбара.
@@ -502,37 +479,5 @@ export default function RevenueTable() {
     />
   )
 
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <StatCard
-          label="Выручка"
-          value={formatCurrency(revenue)}
-          icon={CircleDollarSign}
-          variant="success"
-          description="Занятия, которые школа уже заработала"
-        />
-        <StatCard
-          label="Занятий в выручке"
-          value={paidCount.toLocaleString('ru-RU')}
-          icon={CalendarCheck}
-          description={
-            paidCount > 0
-              ? `В среднем ${formatCurrency(Math.round(revenue / paidCount))} за занятие`
-              : 'За выбранный отбор нет ни одного'
-          }
-        />
-        <StatCard
-          label="Ждут оплаты"
-          value={unpaidCount.toLocaleString('ru-RU')}
-          icon={Clock}
-          variant={unpaidCount > 0 ? 'warning' : 'default'}
-          hint="Занятия провели, но оплаты под них ещё нет: цена появится вместе с ней, и тогда они войдут в выручку."
-          description="В сумму выше не входят"
-        />
-      </div>
-
-      {isGrouped ? renderTable(groupTable) : renderTable(flatTable)}
-    </div>
-  )
+  return isGrouped ? renderTable(groupTable) : renderTable(flatTable)
 }

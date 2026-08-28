@@ -1,11 +1,16 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { getRevenue, getRevenueGroups } from './actions'
-import type { RevenueGroupsSchemaType, RevenueListSchemaType } from './schemas'
+import { getRevenue, getRevenueChart, getRevenueGroups } from './actions'
+import type {
+  RevenueChartSchemaType,
+  RevenueGroupsSchemaType,
+  RevenueListSchemaType,
+} from './schemas'
 
 export const revenueKeys = {
   all: ['revenue'] as const,
   list: (params: RevenueListSchemaType) => [...revenueKeys.all, params] as const,
   groups: (params: RevenueGroupsSchemaType) => [...revenueKeys.all, 'groups', params] as const,
+  chart: (params: RevenueChartSchemaType) => [...revenueKeys.all, 'chart', params] as const,
 }
 
 const EMPTY_PAGE = { rows: [], total: 0, revenue: 0, paidCount: 0 }
@@ -39,6 +44,25 @@ export const useRevenueGroupsQuery = (params: RevenueGroupsSchemaType, enabled =
       if (validationErrors) throw new Error('Некорректные параметры выборки')
       return data ?? EMPTY_GROUPS
     },
+    placeholderData: keepPreviousData,
+  })
+}
+
+/**
+ * Дни отбора для графика. Оба ряда — деньги и занятия — приходят одним ответом:
+ * считаются они из одних строк, и переключение режима на сервер не ходит.
+ */
+export const useRevenueChartQuery = (params: RevenueChartSchemaType) => {
+  return useQuery({
+    queryKey: revenueKeys.chart(params),
+    queryFn: async () => {
+      const { data, serverError, validationErrors } = await getRevenueChart(params)
+      if (serverError) throw serverError
+      if (validationErrors) throw new Error('Некорректные параметры выборки')
+      return data ?? []
+    },
+    // Пока грузится новый отбор, показываем прошлые столбики — иначе график
+    // схлопывается в скелетон на каждую галочку в фильтре.
     placeholderData: keepPreviousData,
   })
 }

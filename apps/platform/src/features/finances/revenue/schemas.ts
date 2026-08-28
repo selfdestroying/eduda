@@ -39,3 +39,15 @@ export type RevenueGroupBy = z.infer<typeof RevenueGroupBy>
 export const RevenueGroupsSchema = RevenueListSchema.extend({ by: RevenueGroupBy })
 
 export type RevenueGroupsSchemaType = z.infer<typeof RevenueGroupsSchema>
+
+/**
+ * Отбор без страницы и порядка: график берёт всю выборку целиком и рисует её
+ * столбиками, поэтому нарезка и сортировка таблицы ему не нужны.
+ */
+export const RevenueChartSchema = RevenueListSchema.omit({
+  page: true,
+  pageSize: true,
+  sort: true,
+})
+
+export type RevenueChartSchemaType = z.infer<typeof RevenueChartSchema>

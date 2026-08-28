@@ -4,8 +4,13 @@ import { Prisma, prisma } from '@repo/db'
 import { ForbiddenError } from '@/src/lib/error'
 import { featureAction } from '@/src/lib/safe-action'
 import { computeRevenue, computeRevenueGroups, revenueScopeWhere } from './compute.server'
-import { RevenueGroupsSchema, RevenueListSchema } from './schemas'
-import { REVENUE_LIST_SELECT, type RevenueGroupsResult, type RevenueListResult } from './types'
+import { RevenueChartSchema, RevenueGroupsSchema, RevenueListSchema } from './schemas'
+import {
+  REVENUE_LIST_SELECT,
+  type RevenueChartPoint,
+  type RevenueGroupsResult,
+  type RevenueListResult,
+} from './types'
 
 /**
  * Выручка школы целиком — отчёт владельца. Гейт продублирован намеренно: боковое
@@ -111,4 +116,34 @@ export const getRevenueGroups = revenueAction
       total: rows.length,
       ...totals,
     }
+  })
+
+/**
+ * Выручка по дням — ряд для графика над таблицей. Та же свёртка `by: 'date'`, что
+ * и в сводке, только без нарезки на страницы и без лишних полей строки.
+ *
+ * Разреза (неделя/месяц/год) здесь нет намеренно: выручка дня целиком принадлежит
+ * одному дню, поэтому корзины любой крупности складываются из дневных чисел
+ * обычным сложением — на клиенте, без похода на сервер за каждой вкладкой.
+ */
+export const getRevenueChart = revenueAction
+  .metadata({ actionName: 'getRevenueChart' })
+  .inputSchema(RevenueChartSchema)
+  .action(async ({ ctx, parsedInput }): Promise<RevenueChartPoint[]> => {
+    const { rows } = await computeRevenueGroups({
+      ...parsedInput,
+      organizationId: ctx.session.organizationId!,
+      by: 'date',
+      // По возрастанию: график складывает точки в корзины в порядке прихода и
+      // сортировать их ещё раз не станет.
+      sort: { id: 'date', desc: false },
+    })
+
+    return rows.map((row) => ({
+      // При `by: 'date'` дата у строки есть всегда — она и есть ключ корзины.
+      date: row.date!,
+      revenue: row.revenue,
+      paid: row.paid,
+      total: row.total,
+    }))
   })
