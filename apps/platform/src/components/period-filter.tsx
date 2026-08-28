@@ -17,11 +17,21 @@ import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { dateToYmd, nowInTz, ymdToLocalDate } from '@/src/lib/timezone'
 import { cn } from '@/src/lib/utils'
-import { endOfMonth, endOfYear, format, startOfMonth, startOfYear, subMonths } from 'date-fns'
+import {
+  endOfMonth,
+  endOfWeek,
+  endOfYear,
+  format,
+  startOfMonth,
+  startOfWeek,
+  startOfYear,
+  subMonths,
+  subWeeks,
+  subYears,
+} from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { DateRange } from 'react-day-picker'
 
 /** Заголовок секции; он же — имя фильтра на кнопке закрытой панели. */
 export const PERIOD_TITLE = 'Период'
@@ -52,9 +62,13 @@ const toPeriod = (from: Date, to: Date): FilledPeriod => ({
   to: dateToYmd(to),
 })
 
+/** Неделя с понедельника: у ru-локали date-fns `weekStartsOn: 1`, как и в календаре. */
+const WEEK = { locale: ru }
+
 /**
- * Готовые периоды. Месяцами и годами, а не «последние 30 дней»: оплаты сводят по
- * закрытому месяцу, и скользящее окно тут ничего не отвечает.
+ * Готовые периоды. Календарными неделями, месяцами и годами, а не «последние 30
+ * дней»: оплаты сводят по закрытому месяцу, и скользящее окно тут ничего не
+ * отвечает.
  *
  * `get` ленивый — момент берётся при клике, а не при сборке списка; считается в
  * поясе организации, потому что «этот месяц» у школы во Владивостоке начинается
@@ -62,6 +76,17 @@ const toPeriod = (from: Date, to: Date): FilledPeriod => ({
  */
 function makePresets(tz: string) {
   return [
+    {
+      label: 'Эта неделя',
+      get: () => toPeriod(startOfWeek(nowInTz(tz), WEEK), endOfWeek(nowInTz(tz), WEEK)),
+    },
+    {
+      label: 'Прошлая неделя',
+      get: () => {
+        const prev = subWeeks(nowInTz(tz), 1)
+        return toPeriod(startOfWeek(prev, WEEK), endOfWeek(prev, WEEK))
+      },
+    },
     {
       label: 'Этот месяц',
       get: () => toPeriod(startOfMonth(nowInTz(tz)), endOfMonth(nowInTz(tz))),
@@ -77,13 +102,49 @@ function makePresets(tz: string) {
       label: 'Этот год',
       get: () => toPeriod(startOfYear(nowInTz(tz)), endOfYear(nowInTz(tz))),
     },
+    {
+      label: 'Прошлый год',
+      get: () => {
+        const prev = subYears(nowInTz(tz), 1)
+        return toPeriod(startOfYear(prev), endOfYear(prev))
+      },
+    },
   ]
 }
 
+/** Подписи границы: заглушка на кнопке и заголовок ящика на телефоне. */
+const BOUNDS = {
+  from: { placeholder: 'с', title: 'Начало периода' },
+  to: { placeholder: 'по', title: 'Конец периода' },
+} as const
+
 /**
- * Период — секцией в панели фильтров, рядом с колоночными. Календарь прячется за
- * кнопку: в отличие от списка галочек, он не складывается по высоте и, стоя в
- * панели раскрытым, уводит остальные фильтры за нижний край.
+ * Период — секцией в панели фильтров, рядом с колоночными. Границы независимы и
+ * выбираются по отдельности, двумя кнопками через тире, как числовой диапазон в
+ * тулбаре: «по 31 августа», без левой границы, — такой же законный отбор, а
+ * календарь-диапазон первым кликом всегда ставил левую.
+ *
+ * Значение — две date-only строки `YYYY-MM-DD`, как `Payment.date`. Порядок
+ * границ не навязываем: запрет выбрать «с» позже уже стоящего «по» упирался бы в
+ * самый обычный сценарий — сдвинуть период на месяц вперёд.
+ */
+export default function PeriodFilter({ value, onChange }: PeriodFilterProps) {
+  return (
+    <div className="flex w-full flex-col">
+      <div className={SECTION_TITLE}>{PERIOD_TITLE}</div>
+      <div className="flex items-center gap-2 px-2">
+        <BoundPicker side="from" value={value} onChange={onChange} />
+        <span className="text-muted-foreground/70">—</span>
+        <BoundPicker side="to" value={value} onChange={onChange} />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Одна граница периода. Календарь прячется за кнопку: в отличие от списка
+ * галочек, он не складывается по высоте и, стоя в панели раскрытым, уводит
+ * остальные фильтры за нижний край.
  *
  * На мыши кнопка открывает поповер, на телефоне — вложенный ящик: панель фильтров
  * там сама ящик снизу, и поповер поверх неё пришлось бы ловить пальцем в остатке
@@ -94,21 +155,16 @@ function makePresets(tz: string) {
  * месяца добираться стрелками — здесь месяц и год выбираются выпадашками прямо
  * в шапке.
  *
- * Значение — две date-only строки `YYYY-MM-DD`, как `Payment.date`. Границы
- * независимы: один клик даёт открытый интервал «с такого-то дня».
+ * Пресеты — в обеих половинах: они задают период целиком, и какую из кнопок
+ * человек нажал, чтобы до них добраться, значения не имеет.
  */
-export default function PeriodFilter({ value, onChange }: PeriodFilterProps) {
+function BoundPicker({ side, value, onChange }: { side: 'from' | 'to' } & PeriodFilterProps) {
   const tz = useOrgTimezone()
   const isMobile = useIsMobile()
   const [isOpen, setIsOpen] = useState(false)
 
-  const { from, to } = value
-
-  // Календарь работает с `Date`, поэтому строки разворачиваем на входе и
-  // сворачиваем обратно на выходе — в URL и на сервер уезжают только строки.
-  const selected: DateRange | undefined = from
-    ? { from: ymdToLocalDate(from), to: to ? ymdToLocalDate(to) : undefined }
-    : undefined
+  const current = value[side]
+  const { placeholder, title } = BOUNDS[side]
 
   // Год берём в поясе организации: у школы во Владивостоке «сейчас» может быть
   // уже следующим годом.
@@ -122,28 +178,30 @@ export default function PeriodFilter({ value, onChange }: PeriodFilterProps) {
 
   const presets = useMemo(() => makePresets(tz), [tz])
 
-  // Показанный месяц — под контролем, потому что пресет обязан его подвинуть:
-  // календарь остаётся открытым, и «Прошлый месяц» иначе выделял бы дни за
-  // пределами видимой сетки, то есть внешне не делал бы ничего.
-  const [month, setMonth] = useState(() => (from ? ymdToLocalDate(from) : nowInTz(tz)))
+  // Показанный месяц — под контролем: его двигает открытие панели.
+  const [month, setMonth] = useState(() => monthOf(current ?? value.from ?? value.to, tz))
 
-  const isEmpty = !from && !to
+  const setOpen = (next: boolean) => {
+    setIsOpen(next)
+    // Открываем на том месяце, который человек и ждёт увидеть: своя граница,
+    // иначе соседняя, иначе текущий. Без этого «по» после выбранного «с» в
+    // прошлом году открывалось бы на сегодня, и до нужных дней пришлось бы листать.
+    if (next) setMonth(monthOf(current ?? value.from ?? value.to, tz))
+  }
 
-  const label = isEmpty
-    ? 'Выберите период'
-    : from && to
-      ? // Год у левой границы опускаем, только когда его назовёт правая: у периода
-        // через Новый год «1 дек. — 31 янв. 2026» читается как декабрь 2026, то есть
-        // как промежуток, которого не бывает.
-        `${from.slice(0, 4) === to.slice(0, 4) ? short(from) : long(from)} — ${long(to)}`
-      : from
-        ? `с ${long(from)}`
-        : `по ${long(to!)}`
+  // Выбор границы завершается одним кликом, поэтому сразу закрываемся: держать
+  // календарь открытым — значит ждать второго действия, которого нет.
+  const commit = (next: Period) => {
+    onChange(next)
+    setIsOpen(false)
+  }
 
   const trigger = (
-    <Button variant="outline" className="w-full justify-start gap-2">
+    <Button variant="outline" aria-label={title} className="min-w-0 flex-1 justify-start">
       {/* Приглушаем подсказку: это не выбранное значение, а его отсутствие. */}
-      <span className={cn('truncate', isEmpty && 'text-muted-foreground')}>{label}</span>
+      <span className={cn('truncate', !current && 'text-muted-foreground')}>
+        {current ? format(ymdToLocalDate(current), 'd MMM yyyy', { locale: ru }) : placeholder}
+      </span>
       <ChevronDown className="ml-auto opacity-50" />
     </Button>
   )
@@ -156,24 +214,21 @@ export default function PeriodFilter({ value, onChange }: PeriodFilterProps) {
             key={preset.label}
             variant="ghost"
             className="justify-start text-xs"
-            onClick={() => {
-              const next = preset.get()
-              onChange(next)
-              setMonth(ymdToLocalDate(next.from))
-            }}
+            onClick={() => commit(preset.get())}
           >
             {preset.label}
           </Button>
         ))}
-        {(from || to) && (
-          // Снять только период: «Сбросить» в подвале панели фильтров чистит
-          // заодно поиск и колоночные. `mt-auto` — чтобы кнопка села на нижний
-          // край колонки, а не липла к пресетам: она не выбирает, а отменяет.
-          // Без уточнения «период»: колонка узкая, а стоит она внутри периода.
+        {(value.from || value.to) && (
+          // Снимает период целиком, обе границы: «Сбросить» в подвале панели
+          // фильтров чистит заодно поиск и колоночные. `mt-auto` — чтобы кнопка
+          // села на нижний край колонки, а не липла к пресетам: она не выбирает,
+          // а отменяет. Без уточнения «период»: колонка узкая, а стоит она внутри
+          // периода.
           <Button
             variant="ghost"
             className="text-muted-foreground mt-auto justify-start text-xs"
-            onClick={() => onChange({ from: null, to: null })}
+            onClick={() => commit({ from: null, to: null })}
           >
             Сбросить
           </Button>
@@ -184,14 +239,11 @@ export default function PeriodFilter({ value, onChange }: PeriodFilterProps) {
         // `w-fit` и жмётся влево, оставляя пустую полосу до края.
         className="min-w-0 flex-1"
         classNames={{ root: 'w-full' }}
-        mode="range"
-        selected={selected}
-        onSelect={(range) =>
-          onChange({
-            from: range?.from ? dateToYmd(range.from) : null,
-            to: range?.to ? dateToYmd(range.to) : null,
-          })
-        }
+        mode="single"
+        selected={current ? ymdToLocalDate(current) : undefined}
+        // Клик по уже выбранному дню снимает его — это и есть «убрать эту
+        // границу», то есть период, открытый с одного конца.
+        onSelect={(day) => commit({ ...value, [side]: day ? dateToYmd(day) : null })}
         month={month}
         onMonthChange={setMonth}
         // Всегда шесть недель: у месяца их бывает 4–6, и без этого сетка при
@@ -208,45 +260,36 @@ export default function PeriodFilter({ value, onChange }: PeriodFilterProps) {
     </div>
   )
 
+  if (isMobile) {
+    return (
+      <Drawer open={isOpen} onOpenChange={setOpen} swipeDirection="down" showSwipeHandle>
+        <DrawerTrigger render={trigger} />
+        <DrawerContent>
+          <DrawerHeader className="pb-2">
+            <DrawerTitle>{title}</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-2">{body}</div>
+          <DrawerFooter className="pt-2">
+            <DrawerClose render={<Button variant="outline" />}>Закрыть</DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+    )
+  }
+
   return (
-    <div className="flex w-full flex-col">
-      <div className={SECTION_TITLE}>{PERIOD_TITLE}</div>
-      <div className="px-2">
-        {isMobile ? (
-          <Drawer open={isOpen} onOpenChange={setIsOpen} swipeDirection="down" showSwipeHandle>
-            <DrawerTrigger render={trigger} />
-            <DrawerContent>
-              <DrawerHeader className="pb-2">
-                <DrawerTitle>{PERIOD_TITLE}</DrawerTitle>
-              </DrawerHeader>
-              <div className="px-2">{body}</div>
-              <DrawerFooter className="pt-2">
-                <DrawerClose render={<Button />}>Готово</DrawerClose>
-              </DrawerFooter>
-            </DrawerContent>
-          </Drawer>
-        ) : (
-          <Popover open={isOpen} onOpenChange={setIsOpen}>
-            <PopoverTrigger render={trigger} />
-            {/* Ширина — по кнопке (`--anchor-width` даёт позиционер Base UI), а не
-                по содержимому: иначе поповер уже кнопки, под которой раскрылся.
-                Выравниваем по её краю — панель и так слой поверх страницы. */}
-            <PopoverContent className="w-(--anchor-width) gap-0 p-0" align="start">
-              {body}
-            </PopoverContent>
-          </Popover>
-        )}
-      </div>
-    </div>
+    <Popover open={isOpen} onOpenChange={setOpen}>
+      <PopoverTrigger render={trigger} />
+      {/* Ширину по кнопке не берём — это половина секции, и календарь остался бы
+          в ней без сетки. Фиксированной хватает на колонку пресетов и месяц. */}
+      <PopoverContent className="w-84 gap-0 p-0" align="start">
+        {body}
+      </PopoverContent>
+    </Popover>
   )
 }
 
-/** «1 авг.» — год опускаем: его назовёт вторая граница. */
-function short(ymd: string) {
-  return format(ymdToLocalDate(ymd), 'd MMM', { locale: ru })
-}
-
-/** «31 авг. 2026» — граница, по которой читается год всего периода. */
-function long(ymd: string) {
-  return format(ymdToLocalDate(ymd), 'd MMM yyyy', { locale: ru })
+/** Месяц, на котором открыть календарь: у границы — её собственный, иначе текущий. */
+function monthOf(ymd: string | null, tz: string) {
+  return ymd ? ymdToLocalDate(ymd) : nowInTz(tz)
 }
