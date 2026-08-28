@@ -1,37 +1,46 @@
 #!/usr/bin/env bash
 #
-# Деплой платформы на боевой сервер. Запускать из корня чекаута:
+# Деплой монорепо на боевой сервер. Запускать из корня чекаута:
 #
 #   ./scripts/deploy.sh
 #
-# Порядок выбран так, чтобы упавшая сборка не роняла сайт: код собирается, пока
-# старое приложение работает, и только на миграцию с рестартом оно
-# останавливается. Обратная сторона — во время сборки `.next` переписывается под
-# живым процессом, и минуту-другую пользователь может поймать битый чанк. Это
-# дешевле, чем простой на всю сборку, но если понадобится ноль ошибок — собирать
-# надо в отдельный каталог и переключать симлинк.
+# Три приложения на одной машине: платформа, кабинет ученика и документация.
+# Порядок выбран так, чтобы упавшая сборка не роняла сайт: всё собирается, пока
+# старые процессы работают, и только на миграцию с рестартом они
+# останавливаются. Сборка базу не трогает (проверено на всех трёх), поэтому
+# собирать до миграции безопасно.
+#
+# Обратная сторона — во время сборки `.next` переписывается под живым процессом,
+# и минуту-другую пользователь может поймать битый чанк. Это дешевле, чем простой
+# на всю сборку; понадобится ноль ошибок — собирать в отдельный каталог и
+# переключать симлинк.
 #
 # Пароля здесь нет: строка подключения читается из `apps/platform/.env`.
 #
-# Одноразовый переход на монорепо и разбор денежных миграций — не тут, а в
-# `scripts/migrate-prod-once.sh`.
+# Одноразовый переезд со старых отдельных приложений — не тут, а в
+# `scripts/cutover-prod-once.sh`.
 set -Eeuo pipefail
 
 # Весь код в функции: `git pull` посреди прогона может переписать этот же файл, а
 # bash дочитывает скрипт с диска по ходу выполнения. Функция разбирается целиком
 # до первого вызова, поэтому подмена под ногами уже не страшна.
 main() {
-  APP_DIR=${APP_DIR:-/var/www/alg/dashboard}
-  PM2_APP=${PM2_APP:-dashboard}
-  APP_PORT=${APP_PORT:-3001}
+  APP_DIR=${APP_DIR:-/var/www/alg/eduda}
   BACKUP_DIR=${BACKUP_DIR:-/var/www/alg/backups}
   KEEP_DAYS=${KEEP_DAYS:-30}
   PG_BIN=${PG_BIN:-/usr/lib/postgresql/17/bin}
+  # Имя pm2-процесса = имя пакета в воркспейсе, порт — тот, на который смотрит
+  # nginx. Порядок важен: платформа поднимается первой.
+  APPS=${APPS:-"platform:3001 shop:3002 docs:3005"}
 
   cd "$APP_DIR"
 
   say() { echo "==> $*"; }
-  die() { echo "!! $*" >&2; exit 1; }
+  die() {
+    echo "!! $*" >&2
+    exit 1
+  }
+  names() { for a in $APPS; do echo "${a%%:*}"; done; }
 
   # ── Проверки до того, как что-то трогать ──────────────────────────────
   [ -z "$(git status --porcelain)" ] || die "в дереве есть незакоммиченные правки — деплой должен быть воспроизводимым:
@@ -42,11 +51,9 @@ $(git status --short)"
   . "$HOME/.nvm/nvm.sh" && nvm use default >/dev/null
   corepack enable pnpm >/dev/null 2>&1 || die "corepack не смог поставить pnpm"
 
-  local env_file=apps/platform/.env
-  [ -f "$env_file" ] || die "нет $env_file"
   local db_url
-  db_url=$(grep -E '^DATABASE_URL=' "$env_file" | head -1 | cut -d= -f2- | tr -d "\"'")
-  [ -n "$db_url" ] || die "в $env_file нет DATABASE_URL"
+  db_url=$(grep -E '^DATABASE_URL=' apps/platform/.env | head -1 | cut -d= -f2- | tr -d "\"'")
+  [ -n "$db_url" ] || die "в apps/platform/.env нет DATABASE_URL"
 
   local before
   before=$(git rev-parse --short HEAD)
@@ -61,7 +68,7 @@ $(git status --short)"
   say "дамп готов: $dump ($(du -h "$dump" | cut -f1))"
   find "$BACKUP_DIR" -name 'dump_*.fc' -mtime "+$KEEP_DAYS" -delete
 
-  # ── Код и сборка: приложение ещё живо ─────────────────────────────────
+  # ── Код и сборка: приложения ещё живы ─────────────────────────────────
   say "обновление кода"
   git pull --ff-only
 
@@ -71,42 +78,54 @@ $(git status --short)"
   say "prisma client"
   pnpm --filter @repo/db generate
 
-  say "сборка"
-  # Только платформа: docs и shop на этом сервере не обслуживаются. Появятся —
-  # дописать сюда их фильтры.
-  pnpm --filter platform build
+  # По одному: на сервере одно ядро и 2 ГБ памяти, параллельная сборка трёх
+  # Next-приложений уходит в своп и падает по OOM.
+  local name
+  for name in $(names); do
+    say "сборка $name"
+    pnpm --filter "$name" build
+  done
 
-  # ── Дальше приложение стоит: любая ошибка обязана его вернуть ─────────
-  restore_app() {
-    echo "!! деплой упал — поднимаю приложение обратно" >&2
-    pm2 restart "$PM2_APP" >/dev/null 2>&1 || pm2 start "$PM2_APP" >/dev/null 2>&1 || true
+  # ── Дальше приложения стоят: любая ошибка обязана их вернуть ──────────
+  restore_apps() {
+    echo "!! деплой упал — поднимаю приложения обратно" >&2
+    pm2 start $(names | tr '\n' ' ') >/dev/null 2>&1 || true
     echo "   дамп до деплоя: $dump" >&2
-    echo "   откат кода:     git checkout $before && pnpm install --frozen-lockfile && pnpm --filter platform build && pm2 restart $PM2_APP" >&2
+    echo "   откат кода:     git checkout $before && pnpm install --frozen-lockfile && ./scripts/deploy.sh" >&2
   }
-  trap restore_app ERR
+  trap restore_apps ERR
 
-  say "остановка приложения"
-  pm2 stop "$PM2_APP"
+  # Документация базы не касается, её можно не трогать вовсе — но проще
+  # остановить всё разом, чем держать в голове, кто из трёх переживёт миграцию.
+  say "остановка приложений"
+  pm2 stop $(names | tr '\n' ' ')
 
   say "миграции"
   pnpm --filter @repo/db migrate:deploy
 
   say "запуск"
-  pm2 restart "$PM2_APP" --update-env
+  pm2 restart $(names | tr '\n' ' ') --update-env
   pm2 save >/dev/null
 
-  # ── Приложение обязано ответить, а не просто числиться запущенным ─────
-  say "проверка отклика"
-  local i
-  for i in $(seq 1 15); do
-    if curl -fsS -o /dev/null --max-time 5 "http://127.0.0.1:$APP_PORT/"; then
-      trap - ERR
-      say "готово: $before → $(git rev-parse --short HEAD), дамп $dump"
-      return 0
-    fi
-    sleep 2
+  # ── Приложения обязаны отвечать, а не просто числиться запущенными ────
+  local app port i ok
+  for app in $APPS; do
+    name=${app%%:*}
+    port=${app##*:}
+    ok=""
+    for i in $(seq 1 15); do
+      if curl -fsS -o /dev/null --max-time 5 "http://127.0.0.1:$port/"; then
+        ok=1
+        break
+      fi
+      sleep 2
+    done
+    [ -n "$ok" ] || die "$name не отвечает на порту $port — смотреть pm2 logs $name"
+    say "$name отвечает на $port"
   done
-  die "приложение не отвечает на порту $APP_PORT после рестарта — смотреть pm2 logs $PM2_APP"
+
+  trap - ERR
+  say "готово: $before → $(git rev-parse --short HEAD), дамп $dump"
 }
 
 main "$@"
