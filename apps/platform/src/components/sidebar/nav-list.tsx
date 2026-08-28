@@ -26,7 +26,7 @@ import {
   useSidebar,
 } from '@repo/ui/components/sidebar'
 import { Skeleton } from '@repo/ui/components/skeleton'
-import { ChevronRight, LayoutDashboard } from 'lucide-react'
+import { CalendarDays, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Fragment } from 'react'
@@ -71,9 +71,14 @@ export default function NavList({ entries, forceOpen, isLoading, emptyHint }: Na
       <SidebarGroup>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton isActive={pathname === '/'} render={<Link href={'/'} />}>
-              <LayoutDashboard />
-              <span>Панель управления</span>
+            {/* Главная — календарь: панель управления с неё убрана. Ведём на «/»,
+                а не на «/calendar»: страница та же, но у главной свой префетч. */}
+            <SidebarMenuButton
+              isActive={pathname === '/' || pathname === '/calendar'}
+              render={<Link href={'/'} />}
+            >
+              <CalendarDays />
+              <span>Календарь</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

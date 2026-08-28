@@ -4,7 +4,6 @@ import { Button } from '@repo/ui/components/button'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { CalendarController } from '../../hooks/use-calendar'
 import { getMobilePeriod } from '../../lib/period'
-import { ClassicViewButton } from '../classic-view-button'
 import { FiltersDrawer } from '../filters-drawer'
 import { ViewTabs } from '../view-tabs'
 
@@ -33,7 +32,6 @@ export function MobileHeader({ ctrl }: { ctrl: CalendarController }) {
           <Button variant="outline" size="icon" onClick={() => ctrl.nav(1)} aria-label="Вперёд">
             <ChevronRight />
           </Button>
-          <ClassicViewButton iconOnly />
           <FiltersDrawer ctrl={ctrl} />
         </div>
       </div>
