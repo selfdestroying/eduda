@@ -1,6 +1,12 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  // На боевом сервере (одно ядро, 2 ГБ) `next build` не помещается в память:
+  // проверку типов он гоняет внутри себя, и это как раз тот пик, на котором
+  // сборку убивает OOM. На деплое её отключает `SKIP_BUILD_CHECKS=1` — `tsc`
+  // к тому моменту уже прошёл в `pnpm check`, повторять его на машине, которая
+  // его не тянет, незачем. Локально флага нет, и всё как было.
+  typescript: { ignoreBuildErrors: process.env.SKIP_BUILD_CHECKS === '1' },
   transpilePackages: ['@repo/db', '@repo/ui'],
   // Кабинет живёт на `shop.{rootDomain}`, а не на localhost, поэтому в dev
   // запросы к /_next иначе считаются кросс-доменными. Так же настроены

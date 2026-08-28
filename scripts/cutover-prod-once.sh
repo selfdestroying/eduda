@@ -119,6 +119,10 @@ main() {
   run pnpm --filter @repo/db generate
 
   # По одному: одно ядро и 2 ГБ памяти, параллельно три Next-сборки уходят в OOM.
+  # `SKIP_BUILD_CHECKS=1` снимает с `next build` проверку типов и линт — именно на
+  # них сборка на этой машине и не помещалась в память. Проверки уже прошли в
+  # `pnpm check` до коммита.
+  export SKIP_BUILD_CHECKS=1
   local name
   for name in $(names); do
     say "сборка $name"
