@@ -1,16 +1,32 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { getAbsentAttendances, getAbsentChartPoints } from './actions'
-import type { AbsentChartSchemaType, AbsentListSchemaType } from './schemas'
+import { getAbsentAttendances, getAbsentChartPoints, getAbsentGroups } from './actions'
+import type { AbsentChartSchemaType, AbsentGroupsSchemaType, AbsentListSchemaType } from './schemas'
 
 export const absentKeys = {
   all: ['absent'] as const,
   list: (params: AbsentListSchemaType) => [...absentKeys.all, params] as const,
+  groups: (params: AbsentGroupsSchemaType) => [...absentKeys.all, 'groups', params] as const,
   chart: (params: AbsentChartSchemaType) => [...absentKeys.all, 'chart', params] as const,
 }
 
 const EMPTY_PAGE = { rows: [], total: 0 }
 
-export const useAbsentListQuery = (params: AbsentListSchemaType) => {
+/** Сводка. Выключена, пока смотрят плоский список, — иначе платим за обе выборки. */
+export const useAbsentGroupsQuery = (params: AbsentGroupsSchemaType, enabled: boolean) => {
+  return useQuery({
+    queryKey: absentKeys.groups(params),
+    queryFn: async () => {
+      const { data, serverError, validationErrors } = await getAbsentGroups(params)
+      if (serverError) throw serverError
+      if (validationErrors) throw new Error('Некорректные параметры сводки пропусков')
+      return data ?? EMPTY_PAGE
+    },
+    enabled,
+    placeholderData: keepPreviousData,
+  })
+}
+
+export const useAbsentListQuery = (params: AbsentListSchemaType, enabled = true) => {
   return useQuery({
     queryKey: absentKeys.list(params),
     queryFn: async () => {
@@ -22,6 +38,7 @@ export const useAbsentListQuery = (params: AbsentListSchemaType) => {
       if (validationErrors) throw new Error('Некорректные параметры выборки пропусков')
       return data ?? EMPTY_PAGE
     },
+    enabled,
     // Пока грузится следующая страница, показываем предыдущую: иначе на каждый
     // клик по «вперёд» таблица моргает пустотой и скачет по высоте.
     placeholderData: keepPreviousData,

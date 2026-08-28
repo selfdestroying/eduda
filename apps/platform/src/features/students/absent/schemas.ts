@@ -45,3 +45,15 @@ export type AbsentListSchemaType = z.infer<typeof AbsentListSchema>
 export const AbsentChartSchema = AbsentListSchema.omit({ page: true, pageSize: true, sort: true })
 
 export type AbsentChartSchemaType = z.infer<typeof AbsentChartSchema>
+
+/**
+ * По чему сворачивать строки в сводке. Дня здесь нет: время показывает график
+ * над таблицей, и дублировать его строками незачем.
+ */
+export const AbsentGroupBy = z.enum(['student', 'group', 'course', 'teacher', 'location'])
+export type AbsentGroupBy = z.infer<typeof AbsentGroupBy>
+
+/** Сводка живёт на тех же периоде, отборе и поиске, что и список. */
+export const AbsentGroupsSchema = AbsentListSchema.extend({ by: AbsentGroupBy })
+
+export type AbsentGroupsSchemaType = z.infer<typeof AbsentGroupsSchema>

@@ -9,13 +9,28 @@ import { formatDateOnly } from '@/src/lib/timezone'
 import { getFullName, getGroupName } from '@/src/lib/utils'
 import DataTable from '@repo/ui/components/data-table'
 import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@repo/ui/components/select'
 import { Skeleton } from '@repo/ui/components/skeleton'
-import { type ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import {
+  type ColumnDef,
+  type Table as TanstackTable,
+  getCoreRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
 import Link from 'next/link'
+import { parseAsStringLiteral, useQueryState } from 'nuqs'
 import { Fragment, useMemo } from 'react'
 import { useAbsentFilters } from '../use-absent-filters'
-import { useAbsentListQuery } from '../queries'
-import type { AbsentListItem } from '../types'
+import { useAbsentGroupsQuery, useAbsentListQuery } from '../queries'
+import type { AbsentGroupBy } from '../schemas'
+import type { AbsentGroupRow, AbsentListItem } from '../types'
 
 /** Даты. Моноширинные цифры: без них столбик разъезжается на каждой единице. */
 const NUMERIC = 'tabular-nums'
@@ -46,6 +61,27 @@ const MAKEUP_OPTIONS = [
   { label: 'Назначена', value: 'yes' },
   { label: 'Не назначена', value: 'no' },
 ]
+
+const GROUP_MODES = ['none', 'student', 'group', 'course', 'teacher', 'location'] as const
+type GroupMode = (typeof GROUP_MODES)[number]
+
+const GROUP_MODE_LABELS: Record<GroupMode, string> = {
+  none: 'Без группировки',
+  student: 'По ученику',
+  group: 'По группе',
+  course: 'По курсу',
+  teacher: 'По преподавателю',
+  location: 'По локации',
+}
+
+/** Подпись колонки со свёрнутым измерением — она же заголовок и имя в меню. */
+const GROUP_LABEL_TITLES: Record<AbsentGroupBy, string> = {
+  student: 'Ученик',
+  group: 'Группа',
+  course: 'Курс',
+  teacher: 'Преподаватель',
+  location: 'Локация',
+}
 
 type FilterOption = { label: string; value: string }
 
@@ -231,6 +267,120 @@ function buildColumns({
   ]
 }
 
+/**
+ * Колонки сводки. Курс, преподаватель, локация, «Предупреждён» и «Отработка»
+ * объявлены пустыми и скрытыми: панель фильтров собирается из `meta` колонок, и
+ * без них отбор продолжал бы применяться, но исчез бы с экрана — таблица
+ * оказалась бы молча урезанной. Показывать их в строке нечем: строка сводки это
+ * уже несколько пропусков.
+ */
+function buildGroupColumns(
+  by: AbsentGroupBy,
+  { courses, locations, teachers }: ColumnOptions,
+): ColumnDef<AbsentGroupRow>[] {
+  const hidden = (
+    id: string,
+    title: string,
+    options: FilterOption[],
+  ): ColumnDef<AbsentGroupRow> => ({
+    id,
+    header: () => null,
+    cell: () => null,
+    enableSorting: false,
+    meta: { title, variant: 'multiSelect', options },
+  })
+
+  return [
+    {
+      id: 'label',
+      header: GROUP_LABEL_TITLES[by],
+      accessorFn: (row) => row.label,
+      cell: ({ row }) => {
+        const { studentId, groupId, label, teachers: rowTeachers } = row.original
+        if (studentId !== null) {
+          return (
+            <Link href={`/students/${studentId}`} className="text-primary hover:underline">
+              {label}
+            </Link>
+          )
+        }
+        if (groupId !== null) {
+          return (
+            <Link href={`/groups/${groupId}`} className="text-primary hover:underline">
+              {label}
+            </Link>
+          )
+        }
+        // Преподавателей у строки бывает несколько: пара ведёт одну общую
+        // корзину, и ссылок в ней тоже две. Пустой список — «Без преподавателя».
+        if (rowTeachers && rowTeachers.length > 0) {
+          return rowTeachers.map((teacher, index) => (
+            <Fragment key={teacher.id}>
+              {index > 0 && ', '}
+              <Link
+                href={`/organization/members/${teacher.id}`}
+                className="text-primary hover:underline"
+              >
+                {teacher.name}
+              </Link>
+            </Fragment>
+          ))
+        }
+        return label
+      },
+      meta: { title: GROUP_LABEL_TITLES[by], flexible: true },
+      enableHiding: false,
+    },
+    {
+      id: 'count',
+      header: 'Пропусков',
+      accessorFn: (row) => row.count,
+      size: COLUMN_WIDTH,
+      meta: { title: 'Пропусков', className: NUMERIC },
+    },
+    {
+      id: 'unwarned',
+      header: 'Без предупреждения',
+      accessorFn: (row) => row.unwarned,
+      size: GROUP_WIDTH,
+      meta: { title: 'Без предупреждения', className: NUMERIC },
+    },
+    // В разрезе «по ученику» колонка всегда показывала бы единицу.
+    ...(by === 'student'
+      ? []
+      : [
+          {
+            id: 'students',
+            header: 'Учеников',
+            accessorFn: (row: AbsentGroupRow) => row.students,
+            size: COLUMN_WIDTH,
+            meta: { title: 'Учеников', className: NUMERIC },
+          } satisfies ColumnDef<AbsentGroupRow>,
+        ]),
+    {
+      id: 'lost',
+      header: 'Потеряно, ₽',
+      accessorFn: (row) => row.lost,
+      size: COLUMN_WIDTH,
+      cell: ({ row }) => row.original.lost.toLocaleString('ru-RU'),
+      meta: { title: 'Потеряно, ₽', className: NUMERIC },
+    },
+    {
+      id: 'saved',
+      header: 'Спасено, ₽',
+      accessorFn: (row) => row.saved,
+      size: COLUMN_WIDTH,
+      cell: ({ row }) => row.original.saved.toLocaleString('ru-RU'),
+      meta: { title: 'Спасено, ₽', className: NUMERIC },
+    },
+    hidden('teacher', 'Преподаватель', teachers),
+    hidden('location', 'Локация', locations),
+    hidden('course', 'Курс', courses),
+    hidden('warned', 'Предупреждён', YES_NO_OPTIONS),
+    hidden('makeup', 'Отработка', MAKEUP_OPTIONS),
+  ]
+}
+
 export default function AbsentTable() {
   // Отбор общий с графиком над таблицей — он живёт в `useAbsentFilters`.
   const { t, filters } = useAbsentFilters()
@@ -248,40 +398,83 @@ export default function AbsentTable() {
     [pagination, sorting, filters],
   )
 
-  const { data, isLoading, isFetching, isError } = useAbsentListQuery(params)
-  useClampPage(pagination, t.setPagination, data?.total)
+  // Режим свёртки — в адресе, как и всё остальное состояние таблицы: ссылкой на
+  // «пропуски по преподавателям за март» делятся так же, как на отфильтрованный
+  // список.
+  const [mode, setMode] = useQueryState(
+    'by',
+    parseAsStringLiteral(GROUP_MODES).withDefault('none').withOptions({
+      shallow: true,
+      history: 'replace',
+    }),
+  )
+  const isGrouped = mode !== 'none'
+
+  const flat = useAbsentListQuery(params, !isGrouped)
+  // `by` при выключенном запросе значения не имеет, но схема ждёт его всегда.
+  const grouped = useAbsentGroupsQuery({ ...params, by: isGrouped ? mode : 'student' }, isGrouped)
+
+  const active = isGrouped ? grouped : flat
+  const { isLoading, isFetching, isError } = active
+  useClampPage(pagination, t.setPagination, active.data?.total)
 
   const { data: courses = [] } = useMappedCourseListQuery()
   const { data: locations = [] } = useMappedLocationListQuery()
   const { data: teachers = [] } = useMappedMemberListQuery()
 
-  const columns = useMemo(
-    () => buildColumns({ courses, locations, teachers }),
-    [courses, locations, teachers],
+  const options = useMemo(() => ({ courses, locations, teachers }), [courses, locations, teachers])
+  const columns = useMemo(() => buildColumns(options), [options])
+  const groupColumns = useMemo(
+    () => buildGroupColumns(isGrouped ? mode : 'student', options),
+    [mode, isGrouped, options],
   )
 
-  const table = useReactTable({
-    data: data?.rows ?? [],
-    columns,
+  // Общее у обеих таблиц: состояние живёт в одном `useTableState`, поэтому период,
+  // отбор и поиск переживают переключение режима.
+  const shared = {
     getCoreRowModel: getCoreRowModel(),
-    // Ключ строки — id посещения, а не её место на странице.
-    getRowId: (row) => String(row.id),
-    // Отбор, порядок и нарезка — в SQL. Клиентские модели строк выключены, поэтому
-    // `filterFn` у колонок нет: предикаты живут в `where` серверного экшена.
+    // Отбор, порядок и нарезка — на сервере. Клиентские модели строк выключены,
+    // поэтому `filterFn` у колонок нет: предикаты живут в `where` экшена.
     manualFiltering: true,
     manualSorting: true,
     manualPagination: true,
-    // Иначе пагинации не из чего считать число страниц: она видит только текущую.
-    rowCount: data?.total ?? 0,
     onPaginationChange: t.setPagination,
     onColumnFiltersChange: t.setColumnFilters,
     onSortingChange: t.setSorting,
     onColumnVisibilityChange: t.setColumnVisibility,
+  } as const
+
+  const flatTable = useReactTable({
+    ...shared,
+    data: flat.data?.rows ?? [],
+    columns,
+    // Ключ строки — id посещения, а не её место на странице.
+    getRowId: (row) => String(row.id),
+    // Иначе пагинации не из чего считать число страниц: она видит только текущую.
+    rowCount: flat.data?.total ?? 0,
+    state: { pagination, sorting, columnFilters, columnVisibility: t.columnVisibility },
+  })
+
+  const groupTable = useReactTable({
+    ...shared,
+    data: grouped.data?.rows ?? [],
+    columns: groupColumns,
+    getRowId: (row) => row.key,
+    rowCount: grouped.data?.total ?? 0,
     state: {
       pagination,
       sorting,
       columnFilters,
-      columnVisibility: t.columnVisibility,
+      // Колонки отбора у сводки служебные и всегда скрыты: строка сводки — это
+      // уже несколько пропусков, показывать в ней курс или отработку нечем.
+      columnVisibility: {
+        ...t.columnVisibility,
+        course: false,
+        teacher: false,
+        location: false,
+        warned: false,
+        makeup: false,
+      },
     },
   })
 
@@ -298,25 +491,58 @@ export default function AbsentTable() {
     return <div className="text-destructive">Ошибка при загрузке пропусков.</div>
   }
 
-  return (
+  // Обе таблицы рисуются одинаково, а строки у них разного типа — отсюда дженерик:
+  // разложить это в две ветки JSX значило бы держать две копии тулбара.
+  const renderTable = <T,>(instance: TanstackTable<T>) => (
     <DataTable
-      table={table}
+      table={instance}
       emptyMessage="Нет пропусков."
       showPagination
       showColumnVisibility
       isRefreshing={isFetching}
       toolbar={
-        <DataTableToolbar
-          table={table}
-          search={t.globalFilter}
-          onSearchChange={t.setGlobalFilter}
-          searchPlaceholder="Ученик, группа, комментарий..."
-          onReset={t.reset}
-          extraFilterTitles={period.from || period.to ? [PERIOD_TITLE] : []}
-        >
-          <PeriodFilter value={period} onChange={t.setPeriod} />
-        </DataTableToolbar>
+        <>
+          <DataTableToolbar
+            table={instance}
+            search={t.globalFilter}
+            onSearchChange={t.setGlobalFilter}
+            searchPlaceholder="Ученик, группа, комментарий..."
+            onReset={t.reset}
+            extraFilterTitles={period.from || period.to ? [PERIOD_TITLE] : []}
+          >
+            <PeriodFilter value={period} onChange={t.setPeriod} />
+          </DataTableToolbar>
+          <Select
+            value={mode}
+            onValueChange={(next) => {
+              // Дефолт пишем как `null`, чтобы параметра в адресе не было вовсе.
+              setMode(next === 'none' ? null : (next as GroupMode))
+              // Строк в другом режиме меньше: страница, оставшаяся от прошлого,
+              // показала бы пустую таблицу.
+              t.resetPage()
+            }}
+          >
+            {/* На телефоне забирает остаток строки рядом с «Фильтрами», на
+                широком — фиксированные 9rem. */}
+            <SelectTrigger className="min-w-0 flex-1 sm:w-36 sm:flex-none">
+              {/* Без функции `SelectValue` показывает само значение — на кнопке
+                  оказывалось бы «none» вместо «Без группировки». */}
+              <SelectValue>{(value) => GROUP_MODE_LABELS[value as GroupMode]}</SelectValue>
+            </SelectTrigger>
+            <SelectContent alignItemWithTrigger={false}>
+              <SelectGroup>
+                {GROUP_MODES.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {GROUP_MODE_LABELS[value]}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </>
       }
     />
   )
+
+  return isGrouped ? renderTable(groupTable) : renderTable(flatTable)
 }

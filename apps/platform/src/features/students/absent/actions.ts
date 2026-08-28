@@ -2,8 +2,22 @@
 
 import { Prisma, prisma } from '@repo/db'
 import { permissionAction } from '@/src/lib/safe-action'
-import { AbsentChartSchema, AbsentListSchema, type AbsentChartSchemaType } from './schemas'
-import { ABSENT_LIST_SELECT, type AbsentChartPoint, type AbsentListResult } from './types'
+import { getFullName, getGroupName } from '@/src/lib/utils'
+import { foldAbsentGroups, sortAbsentGroups, type AbsentDimensions } from './group'
+import {
+  AbsentChartSchema,
+  AbsentGroupsSchema,
+  AbsentListSchema,
+  type AbsentChartSchemaType,
+} from './schemas'
+import {
+  ABSENT_GROUP_SELECT,
+  ABSENT_LIST_SELECT,
+  type AbsentChartPoint,
+  type AbsentGroupItem,
+  type AbsentGroupsResult,
+  type AbsentListResult,
+} from './types'
 
 type AbsentOrderBy = Prisma.AttendanceOrderByWithRelationInput
 
@@ -138,6 +152,67 @@ export const getAbsentAttendances = permissionAction({ student: ['read'] })
     ])
 
     return { rows, total }
+  })
+
+/**
+ * Измерения пропуска для свёртки. Имена разрешаются здесь, а не в `group.ts`:
+ * `getGroupName` собирает подпись группы из курса и расписания, когда своего
+ * имени у неё нет, и свёртка остаётся без зависимостей.
+ */
+function toDimensions(row: AbsentGroupItem): AbsentDimensions {
+  // Ключ преподавателей — по отсортированным id, чтобы «Иванов, Петров» и
+  // «Петров, Иванов» попали в одну корзину. Подпись собирается в том же порядке.
+  const teachers = [...row.lesson.teachers].map((t) => t.teacher).sort((a, b) => a.id - b.id)
+  return {
+    studentId: row.studentId,
+    studentName: getFullName(row.student.firstName, row.student.lastName),
+    groupId: row.lesson.group.id,
+    groupName: getGroupName(row.lesson.group),
+    courseId: row.lesson.group.course.id,
+    courseName: row.lesson.group.course.name,
+    locationId: row.lesson.group.location?.id ?? null,
+    locationName: row.lesson.group.location?.name ?? null,
+    teacherKey: teachers.length === 0 ? 'none' : teachers.map((t) => t.id).join(','),
+    teachers,
+    // `isWarned` в базе nullable: предупреждением считаем ровно `true`.
+    isWarned: row.isWarned === true,
+    price: row.price,
+    makeupAttended: row.makeupAttendance?.status === 'PRESENT',
+    makeupPrice: row.makeupAttendance?.price ?? null,
+  }
+}
+
+/**
+ * Сводка: те же пропуски, свёрнутые по ученику, группе, курсу, преподавателю или
+ * локации. Отбор — тот же `absentWhere`, что у списка и графика, поэтому сумма
+ * `count` по всем строкам сводки равна числу строк списка; это сторожит
+ * `scripts/check-absent-groups.ts`.
+ *
+ * Пагинация идёт по корзинам, а не по пропускам: строк тут столько, сколько
+ * получилось групп.
+ *
+ * ponytail: под свёртку читаются все отобранные пропуски разом — 2848 на самой
+ * большой школе сегодня. Начнёт тормозить: свёртка по ученику, группе, курсу и
+ * локации выражается через `groupBy`, а набор преподавателей нет, и ради него всё
+ * равно понадобится сырой SQL.
+ */
+export const getAbsentGroups = permissionAction({ student: ['read'] })
+  .metadata({ actionName: 'getAbsentGroups' })
+  .inputSchema(AbsentGroupsSchema)
+  .action(async ({ ctx, parsedInput }): Promise<AbsentGroupsResult> => {
+    const { page, pageSize, sort, by } = parsedInput
+
+    const rows = await prisma.attendance.findMany({
+      where: absentWhere(parsedInput, ctx.session.organizationId!),
+      select: ABSENT_GROUP_SELECT,
+    })
+
+    const folded = sortAbsentGroups(foldAbsentGroups(by, rows.map(toDimensions)), sort)
+
+    return {
+      rows: folded.slice(page * pageSize, page * pageSize + pageSize),
+      total: folded.length,
+    }
   })
 
 /**
