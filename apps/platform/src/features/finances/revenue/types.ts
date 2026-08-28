@@ -13,7 +13,6 @@ export const REVENUE_LIST_SELECT = {
   id: true,
   status: true,
   price: true,
-  isTrial: true,
   // Не колонка: по нему `revenueKindOf` отличает отработку от обычного занятия.
   makeupForAttendanceId: true,
   student: { select: { id: true, firstName: true, lastName: true } },

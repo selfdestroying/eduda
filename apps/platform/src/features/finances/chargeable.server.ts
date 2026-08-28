@@ -40,10 +40,14 @@ export function chargeableClassesWhere(
  *   прошлых месяцев, и оплата не должна списывать их заново.
  * - `makeupAttendance: { is: null }` — у пропуска с назначенной отработкой деньги
  *   живут на строке отработки. Без этого условия оплата закрыла бы оба занятия.
+ * - `isTrial: false` — пробное бесплатно. Отметка сотрудника денег на нём не
+ *   трогает (`lessons/actions.ts`), но списание по приходу оплаты идёт этим
+ *   предикатом, и без условия первая же оплата ученика съела бы урок за пробное.
  */
 export const UNPAID_ATTENDANCE_WHERE = {
   price: null,
   packageId: null,
+  isTrial: false,
   makeupAttendance: { is: null },
   lesson: { status: 'ACTIVE' },
   OR: chargeableClassesWhere(['present', 'absent_no_warn', 'makeup_success']),

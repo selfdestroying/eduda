@@ -108,6 +108,9 @@ export function revenueScopeWhere(scope: RevenueScope): {
   return {
     where: {
       organizationId,
+      // Пробное денег не приносит и оплаты не ждёт: на денежной странице ему нечего
+      // делать ни строкой, ни в счётчике «ждут оплаты», где оно висело бы вечно.
+      isTrial: false,
       OR: REVENUE_CLASSES,
       AND: searchWhere(search),
       lesson,

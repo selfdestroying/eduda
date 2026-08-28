@@ -232,15 +232,11 @@ function buildColumns(
       accessorFn: (row) => row.price,
       size: COLUMN_WIDTH,
       cell: ({ row }) => {
-        const { price, isTrial } = row.original
+        const { price } = row.original
         if (price !== null) return formatCurrency(price)
-        // Цены нет — списания не было. У пробного его и не будет, пока занятие
-        // остаётся пробным; у остального она появится вместе с оплатой.
-        return (
-          <span className="text-muted-foreground text-xs">
-            {isTrial ? 'пробное' : 'не оплачено'}
-          </span>
-        )
+        // Цены нет — списания не было: занятие провели, а оплаты под него ещё нет.
+        // Пробных здесь не бывает, их отбор выручки не пускает.
+        return <span className="text-muted-foreground text-xs">не оплачено</span>
       },
       meta: { title: 'Сумма', className: NUMERIC },
     },
