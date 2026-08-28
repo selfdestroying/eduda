@@ -79,6 +79,23 @@ export const EnrollmentChartSchema = EnrollmentScopeSchema.extend({
 export type EnrollmentChartSchemaType = z.infer<typeof EnrollmentChartSchema>
 
 /**
+ * Отбор без страницы и порядка — то, из чего собирается `where`. Тем же набором
+ * пользуется график отчислений: он показывает ровно то, что отобрано в таблице,
+ * только в разрезе времени.
+ *
+ * Статусы здесь, в отличие от `EnrollmentScopeSchema`, есть: столбик обязан
+ * считать ровно те записи, которые показывает список под ним, а задаёт их
+ * страница.
+ */
+export const EnrollmentStatusChartSchema = EnrollmentListSchema.omit({
+  page: true,
+  pageSize: true,
+  sort: true,
+})
+
+export type EnrollmentStatusChartSchemaType = z.infer<typeof EnrollmentStatusChartSchema>
+
+/**
  * По чему сворачивать строки в сводке. Даты здесь нет, в отличие от выручки:
  * запись — это не событие, у неё нет дня, к которому её честно отнести.
  */

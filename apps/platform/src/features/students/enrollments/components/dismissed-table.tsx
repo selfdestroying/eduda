@@ -1,21 +1,36 @@
 'use client'
 
+import GroupSelect from '@/src/components/group-select'
 import PeriodFilter, { PERIOD_TITLE } from '@/src/components/period-filter'
 import { useMappedCourseListQuery } from '@/src/features/courses/queries'
 import { useMappedLocationListQuery } from '@/src/features/locations/queries'
 import { useMappedMemberListQuery } from '@/src/features/organization/members/queries'
-import { filterIds, useClampPage, useTableState } from '@/src/hooks/use-table-state'
+import { useClampPage } from '@/src/hooks/use-table-state'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { getFullName, getGroupName } from '@/src/lib/utils'
 import DataTable from '@repo/ui/components/data-table'
 import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
 import { Skeleton } from '@repo/ui/components/skeleton'
-import { type ColumnDef, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import {
+  type ColumnDef,
+  type Table as TanstackTable,
+  getCoreRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
 import Link from 'next/link'
+import { parseAsStringLiteral, useQueryState } from 'nuqs'
 import { Fragment, useMemo } from 'react'
-import { useEnrollmentListQuery } from '../queries'
+import { useEnrollmentGroupsQuery, useEnrollmentListQuery } from '../queries'
 import type { EnrollmentListItem } from '../types'
+import { useEnrollmentFilters } from '../use-enrollment-filters'
 import DismissedActions from './dismissed-actions'
+import {
+  GROUP_MODES,
+  GROUP_MODE_LABELS,
+  buildGroupColumns,
+  type ColumnOptions,
+  type GroupMode,
+} from './enrollments-table'
 
 /** Даты. Моноширинные цифры: без них столбик разъезжается на каждой единице. */
 const NUMERIC = 'tabular-nums'
@@ -23,7 +38,7 @@ const NUMERIC = 'tabular-nums'
 /** Ширина колонок с известным потолком длины — дат, локации, курса. */
 const COLUMN_WIDTH = 130
 
-/** Группа и преподаватели длиннее даты, но короче имени и комментария. */
+/** Группа и преподаватели длиннее даты, но короче имени и причины. */
 const GROUP_WIDTH = 200
 const TEACHER_WIDTH = 170
 
@@ -33,27 +48,8 @@ const LINK_WIDTH = 100
 /** Меню строки — иконка и ничего больше. */
 const ACTIONS_WIDTH = 56
 
-/**
- * Колонки, по которым фильтруем: `useTableState` держит их в URL, а отсюда они
- * уезжают в запрос. Всё строками, включая id, — значения приходят из адреса, и в
- * числа их превращает уже сборка параметров запроса.
- */
-const TABLE_FILTERS = {
-  course: 'string',
-  location: 'string',
-  teacher: 'string',
-} as const
-
 /** Страница показывает только отчисленных; человек этот отбор не меняет. */
 const STATUSES = ['DISMISSED'] as const
-
-type FilterOption = { label: string; value: string }
-
-interface ColumnOptions {
-  courses: FilterOption[]
-  locations: FilterOption[]
-  teachers: FilterOption[]
-}
 
 function buildColumns({
   courses,
@@ -84,8 +80,7 @@ function buildColumns({
       header: 'Дата отчисления',
       accessorKey: 'statusChangedAt',
       size: COLUMN_WIDTH,
-      cell: ({ row }) =>
-        row.original.statusChangedAt ? formatDateOnly(row.original.statusChangedAt) : '—',
+      cell: ({ row }) => formatDateOnly(row.original.statusChangedAt),
       meta: { title: 'Дата отчисления', className: NUMERIC },
     },
     {
@@ -183,60 +178,101 @@ function buildColumns({
   ]
 }
 
-export default function DismissedTable() {
-  const t = useTableState({ id: 'dismissed', filters: TABLE_FILTERS })
+interface DismissedTableProps {
+  /** Тот же id, что у графика над таблицей: период и фильтры у них общие. */
+  tableId: string
+}
+
+export default function DismissedTable({ tableId }: DismissedTableProps) {
+  // Отбор общий с графиком над таблицей — он живёт в `useEnrollmentFilters`.
+  // Статусы в него не входят: их задаёт страница.
+  const { t, filters } = useEnrollmentFilters({ id: tableId })
   const { columnFilters, pagination, sorting, period } = t
 
+  // Всё состояние таблицы уезжает в запрос: сервер сам отбирает, сортирует и режет
+  // на страницы. Период здесь, в отличие от «Активных», осмыслен: у отчисленного
+  // `statusChangedAt` — это день ухода, а не день заведения записи.
   const params = useMemo(
     () => ({
       page: pagination.pageIndex,
       pageSize: pagination.pageSize,
       sort: sorting[0] ?? null,
-      search: t.search,
       statuses: [...STATUSES],
-      from: period.from ?? undefined,
-      to: period.to ?? undefined,
-      courseIds: filterIds(columnFilters, 'course'),
-      locationIds: filterIds(columnFilters, 'location'),
-      teacherIds: filterIds(columnFilters, 'teacher'),
+      ...filters,
     }),
-    [pagination, sorting, t.search, period, columnFilters],
+    [pagination, sorting, filters],
   )
 
-  const { data, isLoading, isFetching, isError } = useEnrollmentListQuery(params)
-  useClampPage(pagination, t.setPagination, data?.total)
+  // Режим свёртки — в адресе, как и всё остальное состояние таблицы: ссылкой на
+  // «отчисленных по преподавателям за март» делятся так же, как на
+  // отфильтрованный список.
+  const [mode, setMode] = useQueryState(
+    'by',
+    parseAsStringLiteral(GROUP_MODES).withDefault('none').withOptions({
+      shallow: true,
+      history: 'replace',
+    }),
+  )
+  const isGrouped = mode !== 'none'
+
+  const flat = useEnrollmentListQuery(params, !isGrouped)
+  // `by` при выключенном запросе значения не имеет, но схема ждёт его всегда.
+  const grouped = useEnrollmentGroupsQuery({ ...params, by: isGrouped ? mode : 'group' }, isGrouped)
+
+  const active = isGrouped ? grouped : flat
+  const { isLoading, isFetching, isError } = active
+  useClampPage(pagination, t.setPagination, active.data?.total)
 
   const { data: courses = [] } = useMappedCourseListQuery()
   const { data: locations = [] } = useMappedLocationListQuery()
   const { data: teachers = [] } = useMappedMemberListQuery()
 
-  const columns = useMemo(
-    () => buildColumns({ courses, locations, teachers }),
-    [courses, locations, teachers],
+  const options = useMemo(() => ({ courses, locations, teachers }), [courses, locations, teachers])
+  const columns = useMemo(() => buildColumns(options), [options])
+  const groupColumns = useMemo(
+    () => buildGroupColumns(isGrouped ? mode : 'group', options, 'Отчислений'),
+    [mode, isGrouped, options],
   )
 
-  const table = useReactTable({
-    data: data?.rows ?? [],
-    columns,
+  // Общее у обеих таблиц: состояние живёт в одном `useTableState`, поэтому период,
+  // отбор и поиск переживают переключение режима.
+  const shared = {
     getCoreRowModel: getCoreRowModel(),
-    // Ключ строки — составной первичный ключ записи, а не её место на странице.
-    getRowId: (row) => `${row.studentId}-${row.groupId}`,
-    // Отбор, порядок и нарезка — в SQL. Клиентские модели строк выключены, поэтому
-    // `filterFn` у колонок нет: предикаты живут в `where` серверного экшена.
+    // Отбор, порядок и нарезка — на сервере. Клиентские модели строк выключены,
+    // поэтому `filterFn` у колонок нет: предикаты живут в `where` экшена.
     manualFiltering: true,
     manualSorting: true,
     manualPagination: true,
-    // Иначе пагинации не из чего считать число страниц: она видит только текущую.
-    rowCount: data?.total ?? 0,
     onPaginationChange: t.setPagination,
     onColumnFiltersChange: t.setColumnFilters,
     onSortingChange: t.setSorting,
     onColumnVisibilityChange: t.setColumnVisibility,
+  } as const
+
+  const flatTable = useReactTable({
+    ...shared,
+    data: flat.data?.rows ?? [],
+    columns,
+    // Ключ строки — составной первичный ключ записи, а не её место на странице.
+    getRowId: (row) => `${row.studentId}-${row.groupId}`,
+    // Иначе пагинации не из чего считать число страниц: она видит только текущую.
+    rowCount: flat.data?.total ?? 0,
+    state: { pagination, sorting, columnFilters, columnVisibility: t.columnVisibility },
+  })
+
+  const groupTable = useReactTable({
+    ...shared,
+    data: grouped.data?.rows ?? [],
+    columns: groupColumns,
+    getRowId: (row) => row.key,
+    rowCount: grouped.data?.total ?? 0,
     state: {
       pagination,
       sorting,
       columnFilters,
-      columnVisibility: t.columnVisibility,
+      // Колонки отбора у сводки служебные и всегда скрыты: строка сводки — это
+      // уже несколько отчислений, показывать в ней курс или преподавателя нечем.
+      columnVisibility: { ...t.columnVisibility, course: false, teacher: false, location: false },
     },
   })
 
@@ -253,25 +289,42 @@ export default function DismissedTable() {
     return <div className="text-destructive">Ошибка при загрузке отчисленных.</div>
   }
 
-  return (
+  // Обе таблицы рисуются одинаково, а строки у них разного типа — отсюда дженерик:
+  // разложить это в две ветки JSX значило бы держать две копии тулбара.
+  const renderTable = <T,>(instance: TanstackTable<T>) => (
     <DataTable
-      table={table}
+      table={instance}
       emptyMessage="Нет отчисленных учеников."
       showPagination
       showColumnVisibility
       isRefreshing={isFetching}
       toolbar={
-        <DataTableToolbar
-          table={table}
-          search={t.globalFilter}
-          onSearchChange={t.setGlobalFilter}
-          searchPlaceholder="Ученик, группа, причина..."
-          onReset={t.reset}
-          extraFilterTitles={period.from || period.to ? [PERIOD_TITLE] : []}
-        >
-          <PeriodFilter value={period} onChange={t.setPeriod} />
-        </DataTableToolbar>
+        <>
+          <DataTableToolbar
+            table={instance}
+            search={t.globalFilter}
+            onSearchChange={t.setGlobalFilter}
+            searchPlaceholder="Ученик, группа, причина..."
+            onReset={t.reset}
+            extraFilterTitles={period.from || period.to ? [PERIOD_TITLE] : []}
+          >
+            <PeriodFilter value={period} onChange={t.setPeriod} />
+          </DataTableToolbar>
+          <GroupSelect
+            value={mode}
+            labels={GROUP_MODE_LABELS}
+            onValueChange={(next: GroupMode) => {
+              // Дефолт пишем как `null`, чтобы параметра в адресе не было вовсе.
+              setMode(next === 'none' ? null : next)
+              // Строк в другом режиме меньше: страница, оставшаяся от прошлого,
+              // показала бы пустую таблицу.
+              t.resetPage()
+            }}
+          />
+        </>
       }
     />
   )
+
+  return isGrouped ? renderTable(groupTable) : renderTable(flatTable)
 }

@@ -5,16 +5,9 @@ import { useMappedLocationListQuery } from '@/src/features/locations/queries'
 import { useMappedMemberListQuery } from '@/src/features/organization/members/queries'
 import { useClampPage } from '@/src/hooks/use-table-state'
 import { getFullName, getGroupName } from '@/src/lib/utils'
+import GroupSelect from '@/src/components/group-select'
 import DataTable from '@repo/ui/components/data-table'
 import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@repo/ui/components/select'
 import { Skeleton } from '@repo/ui/components/skeleton'
 import {
   type ColumnDef,
@@ -43,10 +36,16 @@ const TEACHER_WIDTH = 170
 /** Внешняя ссылка ученика — колонка на одно слово. */
 const LINK_WIDTH = 100
 
-const GROUP_MODES = ['none', 'group', 'course', 'teacher', 'location'] as const
-type GroupMode = (typeof GROUP_MODES)[number]
+/**
+ * Разрезы свёртки. Общие у всех списков записей: «Активные», «Завершившие» и
+ * «Отчисленные» — это одни и те же пары «ученик — группа» с разным статусом, и
+ * сворачиваются они одинаково. Ученика среди разрезов нет: в списке он занимает
+ * одну-две строки, и свёртка по нему ничего не собирает.
+ */
+export const GROUP_MODES = ['none', 'group', 'course', 'teacher', 'location'] as const
+export type GroupMode = (typeof GROUP_MODES)[number]
 
-const GROUP_MODE_LABELS: Record<GroupMode, string> = {
+export const GROUP_MODE_LABELS: Record<GroupMode, string> = {
   none: 'Без группировки',
   group: 'По группе',
   course: 'По курсу',
@@ -67,7 +66,7 @@ const LOW_BALANCE = 2
 
 type FilterOption = { label: string; value: string }
 
-interface ColumnOptions {
+export interface ColumnOptions {
   courses: FilterOption[]
   locations: FilterOption[]
   teachers: FilterOption[]
@@ -210,10 +209,14 @@ function buildColumns({
  * панель фильтров собирается из `meta` колонок, и без них отбор продолжал бы
  * применяться, но исчез бы с экрана — таблица оказалась бы молча урезанной.
  * Показывать их в строке нечем: строка сводки это уже несколько записей.
+ *
+ * Одни и те же колонки на все списки записей — отличается только подпись счётчика:
+ * у отчисленных строка считает отчисления, а не «записей вообще».
  */
-function buildGroupColumns(
+export function buildGroupColumns(
   by: EnrollmentGroupBy,
   { courses, locations, teachers }: ColumnOptions,
+  countTitle = 'Записей',
 ): ColumnDef<EnrollmentGroupRow>[] {
   const hidden = (
     id: string,
@@ -264,10 +267,10 @@ function buildGroupColumns(
     },
     {
       id: 'count',
-      header: 'Записей',
+      header: countTitle,
       accessorFn: (row) => row.count,
       size: COLUMN_WIDTH,
-      meta: { title: 'Записей', className: NUMERIC },
+      meta: { title: countTitle, className: NUMERIC },
     },
     {
       id: 'students',
@@ -448,33 +451,17 @@ export default function EnrollmentsTable({
             searchPlaceholder="Ученик, группа, курс..."
             onReset={t.reset}
           />
-          <Select
+          <GroupSelect
             value={mode}
+            labels={GROUP_MODE_LABELS}
             onValueChange={(next) => {
               // Дефолт пишем как `null`, чтобы параметра в адресе не было вовсе.
-              setMode(next === 'none' ? null : (next as GroupMode))
+              setMode(next === 'none' ? null : next)
               // Строк в другом режиме меньше: страница, оставшаяся от прошлого,
               // показала бы пустую таблицу.
               t.resetPage()
             }}
-          >
-            {/* На телефоне забирает остаток строки рядом с «Фильтрами», на
-                широком — фиксированные 9rem. */}
-            <SelectTrigger className="min-w-0 flex-1 sm:w-36 sm:flex-none">
-              {/* Без функции `SelectValue` показывает само значение — на кнопке
-                  оказывалось бы «none» вместо «Без группировки». */}
-              <SelectValue>{(value) => GROUP_MODE_LABELS[value as GroupMode]}</SelectValue>
-            </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false}>
-              <SelectGroup>
-                {GROUP_MODES.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {GROUP_MODE_LABELS[value]}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+          />
         </>
       }
     />

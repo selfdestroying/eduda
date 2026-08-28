@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import {
   getEnrollmentChartData,
   getEnrollmentGroups,
+  getEnrollmentStatusPoints,
   getEnrollments,
   returnToGroup,
 } from './actions'
@@ -10,6 +11,7 @@ import type {
   EnrollmentChartSchemaType,
   EnrollmentGroupsSchemaType,
   EnrollmentListSchemaType,
+  EnrollmentStatusChartSchemaType,
   ReturnToGroupSchemaType,
 } from './schemas'
 
@@ -19,6 +21,8 @@ export const enrollmentKeys = {
   groups: (params: EnrollmentGroupsSchemaType) =>
     [...enrollmentKeys.all, 'groups', params] as const,
   chart: (params: EnrollmentChartSchemaType) => [...enrollmentKeys.all, 'chart', params] as const,
+  statusChart: (params: EnrollmentStatusChartSchemaType) =>
+    [...enrollmentKeys.all, 'status-chart', params] as const,
 }
 
 const EMPTY_PAGE = { rows: [], total: 0 }
@@ -71,6 +75,21 @@ export const useEnrollmentChartQuery = (params: EnrollmentChartSchemaType) => {
     },
     // Пока грузится новый отбор или разрез, показываем прошлые столбики — иначе
     // график схлопывается в скелетон на каждую галочку в фильтре.
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Отчисления по дням: тот же отбор, что у таблицы под графиком. */
+export const useEnrollmentStatusPointsQuery = (params: EnrollmentStatusChartSchemaType) => {
+  return useQuery({
+    queryKey: enrollmentKeys.statusChart(params),
+    queryFn: async () => {
+      const { data, serverError } = await getEnrollmentStatusPoints(params)
+      if (serverError) throw serverError
+      return data ?? []
+    },
+    // Как у таблицы: пока грузится новый отбор, показываем прошлые столбики —
+    // иначе график схлопывается в скелетон на каждую галочку в фильтре.
     placeholderData: keepPreviousData,
   })
 }

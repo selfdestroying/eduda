@@ -10,13 +10,15 @@ import {
   EnrollmentChartSchema,
   EnrollmentGroupsSchema,
   EnrollmentListSchema,
+  EnrollmentStatusChartSchema,
   ReturnToGroupSchema,
-  type EnrollmentListSchemaType,
+  type EnrollmentStatusChartSchemaType,
 } from './schemas'
 import {
   ENROLLMENT_GROUP_SELECT,
   ENROLLMENT_LIST_SELECT,
   type EnrollmentChartData,
+  type EnrollmentChartPoint,
   type EnrollmentGroupItem,
   type EnrollmentGroupsResult,
   type EnrollmentListResult,
@@ -88,7 +90,7 @@ function searchWhere(search: string | undefined): Prisma.StudentGroupWhereInput[
  * которое показывает список при том же отборе.
  */
 function enrollmentWhere(
-  input: EnrollmentListSchemaType,
+  input: EnrollmentStatusChartSchemaType,
   organizationId: number,
 ): Prisma.StudentGroupWhereInput {
   const { search, statuses, from, to, courseIds, locationIds, teacherIds } = input
@@ -198,6 +200,40 @@ export const getEnrollmentGroups = permissionAction({ student: ['read'] })
       rows: folded.slice(page * pageSize, page * pageSize + pageSize),
       total: folded.length,
     }
+  })
+
+/**
+ * Смены статуса по дням: сколько записей получило нужный статус в каждый
+ * календарный день. Отбор — тот же `enrollmentWhere`, что у списка и сводки,
+ * поэтому сумма столбиков равна числу строк таблицы под графиком; это сторожит
+ * `scripts/check-dismissed-chart.ts`.
+ *
+ * День берётся из `statusChangedAt` — того самого поля, по которому таблица
+ * отбирает период и сортируется по умолчанию. Историей это не является: колонка
+ * одна и перезаписывается при каждой смене, так что видна только последняя.
+ * Отчисленным этого хватает — уходят обычно один раз.
+ *
+ * Дальше день остаётся строкой `YYYY-MM-DD`: в недели, месяцы и годы их
+ * складывает браузер, поэтому переключение разреза на сервер не ходит.
+ */
+export const getEnrollmentStatusPoints = permissionAction({ student: ['read'] })
+  .metadata({ actionName: 'getEnrollmentStatusPoints' })
+  .inputSchema(EnrollmentStatusChartSchema)
+  .action(async ({ ctx, parsedInput }): Promise<EnrollmentChartPoint[]> => {
+    // `groupBy`, а не чтение строк, как в свёртке рядом: считать нечего, кроме
+    // количества, а день — готовая колонка, и складывать его в памяти незачем.
+    const rows = await prisma.studentGroup.groupBy({
+      by: ['statusChangedAt'],
+      where: enrollmentWhere(parsedInput, ctx.session.organizationId!),
+      _count: { _all: true },
+    })
+
+    // Порядок задаётся здесь: браузер раскладывает точки по корзинам подряд и
+    // достраивает пустые обходом от первой к последней — обоим нужен
+    // возрастающий порядок.
+    return rows
+      .map((row) => ({ date: row.statusChangedAt, count: row._count._all }))
+      .sort((a, b) => a.date.localeCompare(b.date))
   })
 
 /**

@@ -7,16 +7,9 @@ import { useMappedMemberListQuery } from '@/src/features/organization/members/qu
 import { useClampPage } from '@/src/hooks/use-table-state'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { getFullName, getGroupName } from '@/src/lib/utils'
+import GroupSelect from '@/src/components/group-select'
 import DataTable from '@repo/ui/components/data-table'
 import { DataTableToolbar } from '@repo/ui/components/data-table-toolbar'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@repo/ui/components/select'
 import { Skeleton } from '@repo/ui/components/skeleton'
 import {
   type ColumnDef,
@@ -512,33 +505,17 @@ export default function AbsentTable() {
           >
             <PeriodFilter value={period} onChange={t.setPeriod} />
           </DataTableToolbar>
-          <Select
+          <GroupSelect
             value={mode}
+            labels={GROUP_MODE_LABELS}
             onValueChange={(next) => {
               // Дефолт пишем как `null`, чтобы параметра в адресе не было вовсе.
-              setMode(next === 'none' ? null : (next as GroupMode))
+              setMode(next === 'none' ? null : next)
               // Строк в другом режиме меньше: страница, оставшаяся от прошлого,
               // показала бы пустую таблицу.
               t.resetPage()
             }}
-          >
-            {/* На телефоне забирает остаток строки рядом с «Фильтрами», на
-                широком — фиксированные 9rem. */}
-            <SelectTrigger className="min-w-0 flex-1 sm:w-36 sm:flex-none">
-              {/* Без функции `SelectValue` показывает само значение — на кнопке
-                  оказывалось бы «none» вместо «Без группировки». */}
-              <SelectValue>{(value) => GROUP_MODE_LABELS[value as GroupMode]}</SelectValue>
-            </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false}>
-              <SelectGroup>
-                {GROUP_MODES.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {GROUP_MODE_LABELS[value]}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+          />
         </>
       }
     />
