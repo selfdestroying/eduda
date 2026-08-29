@@ -1,3 +1,4 @@
+import OwnerOnly from '@/src/components/owner-only'
 import DismissedChart from '@/src/features/students/enrollments/components/dismissed-chart'
 import DismissedTable from '@/src/features/students/enrollments/components/dismissed-table'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
@@ -13,7 +14,9 @@ const TABLE_ID = 'dismissed'
 export default function Page() {
   return (
     <div className="space-y-2">
-      <DismissedChart tableId={TABLE_ID} />
+      <OwnerOnly>
+        <DismissedChart tableId={TABLE_ID} />
+      </OwnerOnly>
       <Card>
         <CardHeader>
           <CardTitle>Отчисленные</CardTitle>

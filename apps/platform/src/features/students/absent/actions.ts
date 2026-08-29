@@ -1,6 +1,7 @@
 'use server'
 
 import { Prisma, prisma } from '@repo/db'
+import { ForbiddenError } from '@/src/lib/error'
 import { permissionAction } from '@/src/lib/safe-action'
 import { getFullName, getGroupName } from '@/src/lib/utils'
 import { foldAbsentGroups, sortAbsentGroups, type AbsentDimensions } from './group'
@@ -20,6 +21,19 @@ import {
 } from './types'
 
 type AbsentOrderBy = Prisma.AttendanceOrderByWithRelationInput
+
+/**
+ * График — сводка по школе целиком, а здесь ещё и в рублях. Отчёт владельца, как
+ * выручка, и гейт продублирован по той же причине: страница не монтирует график
+ * не-владельцу, но экшен зовётся и напрямую. Таблица под графиком остаётся всем,
+ * у кого есть `student: ['read']`, — она про учеников, а не про школу.
+ */
+const chartAction = permissionAction({ student: ['read'] }).use(async ({ next, ctx }) => {
+  if (ctx.session.memberRole !== 'owner') {
+    throw new ForbiddenError('График доступен только владельцу')
+  }
+  return next()
+})
 
 /**
  * Разрешённые колонки сортировки: id колонки таблицы → как её сортировать. Белый
@@ -223,7 +237,7 @@ export const getAbsentGroups = permissionAction({ student: ['read'] })
  * Дальше день остаётся строкой `YYYY-MM-DD` — в недели, месяцы и годы их
  * складывает браузер, поэтому переключение вида графика на сервер не ходит.
  */
-export const getAbsentChartPoints = permissionAction({ student: ['read'] })
+export const getAbsentChartPoints = chartAction
   .metadata({ actionName: 'getAbsentChartPoints' })
   .inputSchema(AbsentChartSchema)
   .action(async ({ ctx, parsedInput }): Promise<AbsentChartPoint[]> => {

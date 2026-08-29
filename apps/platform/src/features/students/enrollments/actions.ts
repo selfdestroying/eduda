@@ -1,6 +1,7 @@
 'use server'
 
 import { bucketKey } from '@/src/lib/chart-buckets'
+import { ForbiddenError } from '@/src/lib/error'
 import { permissionAction } from '@/src/lib/safe-action'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import { getGroupName } from '@/src/lib/utils'
@@ -25,6 +26,20 @@ import {
 } from './types'
 
 type EnrollmentOrderBy = Prisma.StudentGroupOrderByWithRelationInput
+
+/**
+ * Графики — сводка по школе целиком: сколько учеников пришло и сколько ушло за
+ * год. Отчёт владельца, как выручка, и гейт продублирован по той же причине:
+ * страница не монтирует график не-владельцу, но экшен зовётся и напрямую.
+ * Таблица под графиком остаётся всем, у кого есть `student: ['read']`, — она про
+ * учеников, а не про школу.
+ */
+const chartAction = permissionAction({ student: ['read'] }).use(async ({ next, ctx }) => {
+  if (ctx.session.memberRole !== 'owner') {
+    throw new ForbiddenError('График доступен только владельцу')
+  }
+  return next()
+})
 
 /**
  * Разрешённые колонки сортировки: id колонки таблицы → как её сортировать. Белый
@@ -216,7 +231,7 @@ export const getEnrollmentGroups = permissionAction({ student: ['read'] })
  * Дальше день остаётся строкой `YYYY-MM-DD`: в недели, месяцы и годы их
  * складывает браузер, поэтому переключение разреза на сервер не ходит.
  */
-export const getEnrollmentStatusPoints = permissionAction({ student: ['read'] })
+export const getEnrollmentStatusPoints = chartAction
   .metadata({ actionName: 'getEnrollmentStatusPoints' })
   .inputSchema(EnrollmentStatusChartSchema)
   .action(async ({ ctx, parsedInput }): Promise<EnrollmentChartPoint[]> => {
@@ -265,7 +280,7 @@ export const getEnrollmentStatusPoints = permissionAction({ student: ['read'] })
  * средствами Prisma такая группировка не выражается, а `$queryRaw` в проекте пока
  * нигде нет.
  */
-export const getEnrollmentChartData = permissionAction({ student: ['read'] })
+export const getEnrollmentChartData = chartAction
   .metadata({ actionName: 'getEnrollmentChartData' })
   .inputSchema(EnrollmentChartSchema)
   .action(async ({ ctx, parsedInput }): Promise<EnrollmentChartData> => {

@@ -1,3 +1,4 @@
+import OwnerOnly from '@/src/components/owner-only'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card'
 import EnrollmentsChart from '@/src/features/students/enrollments/components/enrollments-chart'
 import EnrollmentsTable from '@/src/features/students/enrollments/components/enrollments-table'
@@ -24,7 +25,9 @@ const TABLE_ID = 'active-students'
 export default function Page() {
   return (
     <div className="space-y-2">
-      <EnrollmentsChart tableId={TABLE_ID} />
+      <OwnerOnly>
+        <EnrollmentsChart tableId={TABLE_ID} />
+      </OwnerOnly>
       <Card>
         <CardHeader>
           <CardTitle>Активные ученики</CardTitle>
