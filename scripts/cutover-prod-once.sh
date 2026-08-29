@@ -207,7 +207,7 @@ main() {
   run pnpm --filter platform exec tsx scripts/price-legacy-free-lessons.ts --apply
   run pnpm --filter platform exec tsx scripts/backfill-legacy-package-money.ts --apply
   run pnpm --filter platform exec tsx scripts/close-unbillable-attendances.ts --apply
-  run pnpm --filter platform exec tsx scripts/charge-missed-makeups.ts --apply
+  run pnpm --filter platform exec tsx scripts/forgive-missed-makeups.ts --apply
 
   say "сверки"
   local check
