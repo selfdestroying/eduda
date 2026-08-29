@@ -33,7 +33,11 @@ import { Loader, MoreVertical, Pen, Trash } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useProductDeleteMutation, useProductUpdateMutation } from '../queries'
-import { UpdateProductSchema, type UpdateProductSchemaType } from '../schemas'
+import {
+  UpdateProductSchema,
+  type UpdateProductInput,
+  type UpdateProductSchemaType,
+} from '../schemas'
 import ProductForm from './product-form'
 
 interface ProductActionsProps {
@@ -48,7 +52,9 @@ export default function ProductActions({ product }: ProductActionsProps) {
   const updateMutation = useProductUpdateMutation()
   const deleteMutation = useProductDeleteMutation()
 
-  const form = useForm<UpdateProductSchemaType>({
+  // Три параметра, а не один: у `externalId` вход и выход разные — пустое поле
+  // приходит строкой, а в базу уходит `null`.
+  const form = useForm<UpdateProductInput, unknown, UpdateProductSchemaType>({
     resolver: zodResolver(UpdateProductSchema),
     defaultValues: {
       id: product.id,
@@ -56,6 +62,7 @@ export default function ProductActions({ product }: ProductActionsProps) {
       price: product.price,
       lessonCount: product.lessonCount,
       description: product.description ?? '',
+      externalId: product.externalId ?? '',
       isActive: product.isActive,
     },
   })

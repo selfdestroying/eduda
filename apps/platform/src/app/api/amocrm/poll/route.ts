@@ -1,4 +1,6 @@
+import { importPaidInvoice, type ImportOutcome } from '@/src/features/amocrm/import.server'
 import { fetchPaidInvoices } from '@/src/features/amocrm/poll'
+import { prisma } from '@repo/db'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
@@ -9,10 +11,9 @@ import { NextRequest, NextResponse } from 'next/server'
  * Снаружи, а не внутри Next: у него нет планировщика, а таймер в памяти процесса
  * умирает с каждым деплоем — ровно так и останавливался прежний парсер, молча и
  * до тех пор, пока кто-нибудь не заметит. `flock` заодно не даёт запускам
- * наложиться, поэтому флаг «уже выполняется» здесь не нужен.
+ * наложиться, поэтому флага «уже выполняется» здесь нет.
  *
- * Пока роут только читает CRM и показывает, что в ней нашлось: разбор оплаты в
- * счёт и пакет — следующий шаг.
+ * `?dry=1` — прогон вхолостую: показывает, что завелось бы, и не пишет ничего.
  */
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -21,10 +22,28 @@ export const maxDuration = 300
  * перекрытие безвредно, а простой парсера лечится сам собой. */
 const DEFAULT_WINDOW_DAYS = 7
 
-/** Потолок окна: `since` приходит из запроса, а каждый день — это лишние запросы к CRM. */
+/** Потолок окна: `since` приходит из запроса, а каждый день — лишние запросы к CRM. */
 const MAX_WINDOW_DAYS = 30
 
 const DAY_SECONDS = 24 * 60 * 60
+
+/** Школа, чью CRM опрашиваем. Одна на установку — как и сами креды amo. */
+async function pollingOrganization() {
+  const id = Number(process.env.AMOCRM_ORGANIZATION_ID)
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error('AMOCRM_ORGANIZATION_ID не задан — непонятно, чьи оплаты забирать')
+  }
+
+  const organization = await prisma.organization.findUnique({
+    where: { id },
+    select: { id: true, timezone: true },
+  })
+  if (!organization) {
+    throw new Error(`Школа ${id} из AMOCRM_ORGANIZATION_ID не найдена`)
+  }
+
+  return organization
+}
 
 export async function GET(request: NextRequest) {
   // Роут выставлен наружу вместе со всем приложением (nginx проксирует `/`
@@ -42,9 +61,41 @@ export async function GET(request: NextRequest) {
       ? Math.max(requested, floor)
       : now - DEFAULT_WINDOW_DAYS * DAY_SECONDS
 
+  const dryRun = request.nextUrl.searchParams.get('dry') === '1'
+
   try {
+    const organization = await pollingOrganization()
     const invoices = await fetchPaidInvoices(since)
-    return NextResponse.json({ ok: true, since, count: invoices.length, invoices })
+
+    // По одному, а не пачкой: каждая оплата — своя транзакция, и счёт, который не
+    // сопоставился, не должен утаскивать за собой те, что сопоставились.
+    const results: ImportOutcome[] = []
+    for (const invoice of invoices) {
+      results.push(
+        await importPaidInvoice(invoice, {
+          organizationId: organization.id,
+          tz: organization.timezone,
+          dryRun,
+        }),
+      )
+    }
+
+    const count = (status: ImportOutcome['status']) =>
+      results.filter((result) => result.status === status).length
+
+    return NextResponse.json({
+      ok: true,
+      since,
+      dryRun,
+      fetched: invoices.length,
+      imported: count('imported'),
+      planned: count('planned'),
+      skipped: count('skipped'),
+      unprocessed: count('unprocessed'),
+      // Пропущенные не показываем: в недельном окне их сотни, и за ними не видно
+      // того, ради чего в ответ вообще смотрят.
+      results: results.filter((result) => result.status !== 'skipped'),
+    })
   } catch (error) {
     console.error('amocrm/poll: опрос не удался', error)
     const message = error instanceof Error ? error.message : String(error)

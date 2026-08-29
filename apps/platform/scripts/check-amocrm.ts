@@ -1,15 +1,18 @@
 /**
- * Что платформа видит в amoCRM: тянет оплаченные счета за период и печатает
- * разбор. Ничего не пишет — ни в CRM, ни в базу.
+ * Что опрос сделает с оплатами из amoCRM: тянет оплаченные счета за период и
+ * прогоняет их через настоящий разбор вхолостую. Ничего не пишет — ни в CRM, ни
+ * в базу.
  *
- * Проверяет то, на чём держится клиент: фильтр по дате отдаёт события «от и
- * новее», у счёта находятся позиции, сумма и дата оплаты, а у сделки — имя.
+ * Он же предполётная сверка справочника: строки «товар не привязан» — это ровно
+ * те продукты, которым школе нужно проставить `externalId`, с готовым номером.
  *
  *   pnpm --filter platform exec tsx scripts/check-amocrm.ts [дней]
  */
 import './load-env'
 
 import assert from 'node:assert/strict'
+import { prisma } from '@repo/db'
+import { planImport } from '../src/features/amocrm/import.server'
 import { fetchPaidInvoices } from '../src/features/amocrm/poll'
 
 const days = Number(process.argv[2]) || 7
@@ -20,41 +23,72 @@ async function main() {
     throw new Error('В apps/platform/.env нет AMOCRM_SUBDOMAIN и AMOCRM_TOKEN')
   }
 
-  console.log(`Оплаченные счета за ${days} дн. (с ${new Date(since * 1000).toISOString()})\n`)
+  const organizationId = Number(process.env.AMOCRM_ORGANIZATION_ID)
+  if (!Number.isInteger(organizationId) || organizationId <= 0) {
+    throw new Error('В apps/platform/.env нет AMOCRM_ORGANIZATION_ID')
+  }
+
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { name: true, timezone: true },
+  })
+  if (!organization) throw new Error(`Школа ${organizationId} не найдена`)
+
+  console.log(
+    `${organization.name}: оплаченные счета за ${days} дн. ` +
+      `(с ${new Date(since * 1000).toISOString().slice(0, 10)})\n`,
+  )
+
   const invoices = await fetchPaidInvoices(since)
+  const reasons = new Map<string, number>()
+  let planned = 0
 
   for (const invoice of invoices) {
     const paid = new Date(invoice.paidAt * 1000).toISOString().slice(0, 10)
-    const items = invoice.items
-      .map((item) => `[${item.productId}] ${item.name} ×${item.quantity} = ${item.total} ₽`)
-      .join('; ')
-
-    console.log(`#${invoice.invoiceId}  ${paid}  ${invoice.total ?? '—'} ₽`)
-    console.log(`  сделка:     ${invoice.leadName ?? '— (удалена или не привязана)'}`)
-    console.log(`  плательщик: ${invoice.payerName ?? '—'} ${invoice.payerPhone ?? ''}`)
-    console.log(`  позиции:    ${items || '—'}`)
+    console.log(
+      `#${invoice.invoiceId}  ${paid}  ${invoice.total ?? '—'} ₽  ${invoice.leadName ?? '— без сделки'}`,
+    )
 
     // Фильтр запроса обязан отсекать старое: на нём держится размер окна опроса.
     assert.ok(invoice.paidAt >= since, `счёт ${invoice.invoiceId} старше запрошенного окна`)
     // Ключ идемпотентности: без него повторный опрос заведёт оплату второй раз.
     assert.ok(Number.isInteger(invoice.invoiceId), 'у счёта нет числового id')
+
+    // Разбор идёт в транзакции только потому, что `planImport` принимает клиента
+    // транзакции: писать ему нечего, и откатывать нечего.
+    const result = await prisma.$transaction((tx) =>
+      planImport(tx, invoice, { organizationId, tz: organization.timezone }),
+    )
+
+    if (!result.ok) {
+      console.log(`  ✗ ${result.reason}`)
+      reasons.set(result.reason, (reasons.get(result.reason) ?? 0) + 1)
+      continue
+    }
+
+    planned += 1
+    const packages = result.plan.packages
+      .map((packet) => `${packet.productName} — ${packet.lessonCount} зан. за ${packet.price} ₽`)
+      .join('; ')
+    console.log(
+      `  ✓ ${result.plan.studentName}, кошелёк ${result.plan.walletId}, ${result.plan.date}`,
+    )
+    console.log(`    ${packages}`)
   }
 
-  console.log(`\nВсего: ${invoices.length}`)
+  console.log(`\nЗаведётся автоматически: ${planned} из ${invoices.length}`)
 
-  const nameless = invoices.filter((invoice) => !invoice.leadName).length
-  const emptyItems = invoices.filter((invoice) => invoice.items.length === 0).length
-  const noDate = invoices.filter((invoice) => invoice.paymentDate === null).length
-  const multiItem = invoices.filter((invoice) => invoice.items.length > 1).length
-
-  // Не ошибки, а то, что придётся разбирать руками: пусть цифры будут видны сразу.
-  console.log(`Без имени сделки: ${nameless}`)
-  console.log(`Без позиций:      ${emptyItems}`)
-  console.log(`Без даты оплаты:  ${noDate}`)
-  console.log(`Больше одной позиции: ${multiItem}`)
+  if (reasons.size > 0) {
+    console.log('\nУйдёт в разбор руками:')
+    for (const [reason, count] of [...reasons].sort((a, b) => b[1] - a[1])) {
+      console.log(`  ${String(count).padStart(3)}  ${reason}`)
+    }
+  }
 }
 
-main().catch((error) => {
-  console.error(error)
-  process.exit(1)
-})
+main()
+  .catch((error) => {
+    console.error(error)
+    process.exitCode = 1
+  })
+  .finally(() => prisma.$disconnect())

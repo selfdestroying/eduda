@@ -1,6 +1,7 @@
 'use server'
 
 import { Prisma, prisma } from '@repo/db'
+import { invoiceIdOfRawData } from '@/src/features/amocrm/import.server'
 import {
   activatePackageTx,
   cancelPackageTx,
@@ -360,10 +361,20 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
         throw new ConflictError('Кошелёк не принадлежит этому ученику')
       if (wallet.status !== 'ACTIVE') throw new ConflictError('Кошелёк архивирован')
 
+      // Разобранная оплата уносит с собой id счёта CRM: иначе опрос увидит тот же
+      // счёт в своём недельном окне и заведёт по нему вторую оплату. Строку
+      // разбора после этого можно хоть удалять — метка живёт на самом счёте.
+      const unprocessed = await tx.unprocessedPayment.findFirst({
+        where: { id: unprocessedPaymentId, organizationId: ctx.session.organizationId! },
+        select: { rawData: true },
+      })
+      if (!unprocessed) throw new NotFoundError('Неразобранная оплата не найдена')
+
       const payment = await tx.payment.create({
         select: { id: true },
         data: {
           organizationId: ctx.session.organizationId!,
+          externalId: invoiceIdOfRawData(unprocessed.rawData),
           price,
           date,
           status: received ? 'ACTIVE' : 'PENDING',

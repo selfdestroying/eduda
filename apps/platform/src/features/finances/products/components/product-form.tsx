@@ -118,6 +118,32 @@ export default function ProductForm<T extends FieldValues>({ form, formId }: Pro
         />
         <Controller
           control={form.control}
+          name={'externalId' as Path<T>}
+          render={({ field, fieldState }) => (
+            <Field>
+              <FieldLabel htmlFor={`${formId}-externalId`}>
+                Номер товара в amoCRM <FieldOptional />
+              </FieldLabel>
+              <NumberInput
+                id={`${formId}-externalId`}
+                {...field}
+                value={field.value ?? ''}
+                aria-invalid={fieldState.invalid}
+              />
+              {fieldState.invalid ? (
+                <FieldError errors={[fieldState.error]} />
+              ) : (
+                // Номер видно в причине неразобранной оплаты: «Товар CRM 1784397
+                // … не привязан ни к одному продукту» — оттуда его и переносят.
+                <FieldDescription>
+                  Оплаты этого товара разберутся сами. Номер показан в причине неразобранной оплаты
+                </FieldDescription>
+              )}
+            </Field>
+          )}
+        />
+        <Controller
+          control={form.control}
           name={'isActive' as Path<T>}
           render={({ field }) => (
             <Field>

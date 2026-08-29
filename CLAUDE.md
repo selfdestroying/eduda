@@ -248,6 +248,28 @@ pnpm --filter platform exec tsx scripts/check-package-statuses.ts  # стату�
 pnpm --filter platform exec tsx scripts/check-package-product.ts   # продукт пакета: снимок и изоляция
 ```
 
+## Опрос оплат из amoCRM
+
+Оплаты приезжают из CRM школы: `src/features/amocrm/` — клиент (`client.ts`), нормализация счёта (`poll.ts`), разбор в счёт с пакетами (`import.server.ts`). Своей денежной арифметики там нет: пакеты выдаёт `activatePackageTx`, поэтому очередь, журнал и гашение ждавших занятий получаются те же, что при оплате, заведённой руками.
+
+- **Планировщик снаружи.** Роут `/api/amocrm/poll` закрыт ключом `AMOCRM_POLL_KEY`, дёргает его системный cron: `flock -n /tmp/amocrm.lock curl -fsS -m 300 -H "X-Poller-Key: …" http://localhost:3001/api/amocrm/poll`. В Next планировщика нет, а таймер в памяти процесса умирает с каждым деплоем — прежний парсер так и останавливался, молча. `flock` заменяет флаг «уже выполняется». `?dry=1` — прогон вхолостую.
+- **Окно, а не курсор.** Опрашивается неделя назад; повтор безвреден, потому что ключ идемпотентности — `Payment.externalId` (id счёта в amo) плюс открытая строка `UnprocessedPayment` по тому же счёту. Файла состояния нет, простой лечится сам собой. Оплата, разобранная руками, тоже уносит `externalId` — иначе окно завело бы её второй раз.
+- **Деньги из счёта, занятия из справочника.** Сумма позиции — это то, что заплатили, со скидками и акциями; сколько за ней занятий, знает только `Product`, и связка держится на `Product.externalId` = id товара в amo (поле есть в форме продукта). Вывести количество из названия нельзя: «36 занятий с разбивкой на 3 платежа» — это 12 занятий, треть годового абонемента.
+- **Не сопоставилось — в разбор.** `UnprocessedPayment` с целым счётом в `rawData`; страница `/finances/unprocessed` уже умеет завести по ней настоящую оплату. Удалить строку разбора значит «попробовать ещё раз»: ближайший опрос подберёт счёт снова, уже с исправленным справочником.
+- **Кошелёк.** Активный один — берётся он. Их несколько (школа заводит новый под сезон, а прежний оставляет активным) — берётся тот, где есть активная запись в группу: ученик платит за то, на что ходит. Не развязалось — в разбор; на дампе прода правило снимает 116 случаев из 234.
+
+Предполётная сверка, она же проверка клиента (ничего не пишет):
+
+```bash
+pnpm --filter platform exec tsx scripts/check-amocrm.ts 30
+```
+
+Строки «товар не привязан» — это список продуктов, которым школе надо проставить номер в amoCRM, с готовыми номерами.
+
+Переменные: `AMOCRM_SUBDOMAIN`, `AMOCRM_TOKEN`, `AMOCRM_POLL_KEY`, `AMOCRM_ORGANIZATION_ID`.
+
+До катовера оплаты заводит прежний парсер (`/var/www/alg/webhook`, pm2 `parser`, порт 3003) — он пишет по досплитовой схеме и на новой упадёт. В день переезда его останавливают, из nginx убирают `location /poller/`, и только тогда заводят cron: иначе обе половины будут заводить одни и те же оплаты.
+
 ## Feature flags
 
 `src/lib/features/registry.ts` is the source of truth for toggleable features (hierarchical keys like `finances.packages`). The DB stores only **disabled** overrides (`OrganizationFeature`, default = enabled). Each entry carries its own `routes` prefixes, from which the registry derives the URL → feature key table (longest prefix wins); the proxy blocks disabled routes and the sidebar hides them.

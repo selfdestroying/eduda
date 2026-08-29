@@ -202,6 +202,9 @@ export default function PackageForm({ form, formId, onSubmit, disabled }: Packag
         name: newProduct.name.trim(),
         lessonCount: newProduct.lessonCount as number,
         price: newProduct.price as number,
+        // Продукт заводят на ходу, посреди оформления оплаты: номер товара в CRM
+        // здесь не спрашивают — его проставят в справочнике, когда понадобится.
+        externalId: null,
         isActive: true,
       },
       {

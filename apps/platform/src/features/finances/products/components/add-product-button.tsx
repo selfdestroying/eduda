@@ -34,6 +34,7 @@ export default function AddProductButton() {
       price: undefined,
       lessonCount: undefined,
       description: '',
+      externalId: '',
       isActive: true,
     },
   })
