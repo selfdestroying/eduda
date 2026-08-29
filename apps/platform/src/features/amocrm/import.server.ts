@@ -1,11 +1,11 @@
 /**
  * Оплата из amoCRM превращается в счёт с пакетами.
  *
- * Вся денежная часть делается денежным ядром: счёт и пакеты заводятся так же, как
- * их заводит менеджер руками, и выдаются через `activatePackageTx`. Значит и
- * очередь списания, и журнал, и гашение занятий, которые ждали оплаты, получаются
- * теми же самыми. Своей арифметики здесь нет ни строчки — только сопоставление
- * того, что приехало из CRM, с тем, что есть в базе.
+ * Денежную часть делает не этот файл: пару «счёт + пакет» заводит
+ * `createPaymentWithPackageTx` — та же функция, что и у менеджера в форме. Значит
+ * и очередь списания, и журнал, и гашение занятий, которые ждали оплаты,
+ * получаются теми же самыми. Своей арифметики здесь нет ни строчки — только
+ * сопоставление того, что приехало из CRM, с тем, что есть в базе.
  *
  * Разбор отделён от записи (`planImport` / `importPaidInvoice`): по тому же плану
  * идёт прогон вхолостую, поэтому «что будет» и «что произошло» считаются одним
@@ -15,21 +15,17 @@
  * ждёт готовая форма. Догадки здесь неуместны: цена ошибки — деньги в чужом
  * кошельке.
  */
-import { activatePackageTx, unitPriceOf } from '@/src/features/finances/ledger.server'
+import {
+  createPaymentWithPackageTx,
+  PAYMENT_TX_OPTIONS,
+} from '@/src/features/finances/payments/create.server'
 import { formatInTz } from '@/src/lib/timezone'
 import { Prisma, prisma } from '@repo/db'
 import type { PaidInvoice } from './poll'
 
-/**
- * Оплата закрывает занятия, которые её ждали, а каждое — отдельное списание со
- * своим журналом. У ученика, который долго ходил без оплаты, таких десятки, и в
- * дефолтные пять секунд Prisma длинный хвост не укладывается. В
- * `payments/actions.ts` стоит столько же и по той же причине.
- */
-const IMPORT_TX_OPTIONS = { timeout: 30_000 }
-
 type PlannedPackage = {
   productId: number
+  /** Только для показа в прогоне вхолостую: в базу название кладёт создание пакета. */
   productName: string
   lessonCount: number
   price: number
@@ -293,53 +289,30 @@ export async function importPaidInvoice(
       return { status: 'planned', invoiceId: invoice.invoiceId, plan }
     }
 
-    const { packet } = plan
-
-    // Счёт: деньги. `ACTIVE` — событие CRM называется «счёт оплачен», то есть
-    // деньги уже получены, и пакет выдаётся тем же движением.
-    const payment = await tx.payment.create({
-      select: { id: true },
-      data: {
-        organizationId: args.organizationId,
-        externalId: invoice.invoiceId,
-        // Сумма позиции, а не поле «Стоимость»: только так цена счёта сходится с
-        // ценой пакета при любой скидке.
-        price: packet.price,
-        date: plan.date,
-        status: 'ACTIVE',
-        // Способа оплаты в счёте нет, а завести «онлайн» с выдуманной комиссией
-        // эквайринга нельзя: процент называет школа.
-        paymentMethodId: null,
-      },
-    })
-
-    const created = await tx.package.create({
-      select: { id: true },
-      data: {
-        organizationId: args.organizationId,
-        studentId: plan.studentId,
-        walletId: plan.walletId,
-        paymentId: payment.id,
-        // Продавца нет: продажу оформила CRM, а премия причитается человеку.
-        managerId: null,
-        lessonCount: packet.lessonCount,
-        remaining: packet.lessonCount,
-        price: packet.price,
-        unitPrice: unitPriceOf(packet),
-        date: plan.date,
-        productId: packet.productId,
-        productName: packet.productName,
-      },
-    })
-
-    const settled = await activatePackageTx(tx, {
-      packageId: created.id,
+    const { paymentId, settled } = await createPaymentWithPackageTx(tx, {
       organizationId: args.organizationId,
+      studentId: plan.studentId,
+      walletId: plan.walletId,
+      productId: plan.packet.productId,
+      lessonCount: plan.packet.lessonCount,
+      // Сумма позиции, а не поле «Стоимость»: только так цена счёта сходится с
+      // ценой пакета при любой скидке.
+      price: plan.packet.price,
+      date: plan.date,
+      // Событие CRM называется «счёт оплачен» — деньги уже получены, значит уроки
+      // выдаются тем же движением.
+      received: true,
+      externalId: invoice.invoiceId,
+      // Способа оплаты в счёте нет, а завести «онлайн» с выдуманной комиссией
+      // эквайринга нельзя: процент называет школа. Продавца нет по той же логике:
+      // продажу оформила CRM, а премия причитается человеку.
+      paymentMethodId: null,
+      managerId: null,
       // Автора нет: оплату завела не рука, а опрос CRM.
       actorUserId: null,
       meta: { amocrmInvoiceId: invoice.invoiceId },
     })
 
-    return { status: 'imported', invoiceId: invoice.invoiceId, paymentId: payment.id, settled }
-  }, IMPORT_TX_OPTIONS)
+    return { status: 'imported', invoiceId: invoice.invoiceId, paymentId, settled }
+  }, PAYMENT_TX_OPTIONS)
 }

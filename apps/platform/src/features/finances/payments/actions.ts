@@ -2,12 +2,11 @@
 
 import { Prisma, prisma } from '@repo/db'
 import { invoiceIdOfRawData } from '@/src/features/amocrm/import.server'
+import { activatePackageTx, cancelPackageTx } from '@/src/features/finances/ledger.server'
 import {
-  activatePackageTx,
-  cancelPackageTx,
-  unitPriceOf,
-} from '@/src/features/finances/ledger.server'
-import { loadPackageProductTx } from '@/src/features/finances/products/resolve.server'
+  createPaymentWithPackageTx,
+  PAYMENT_TX_OPTIONS,
+} from '@/src/features/finances/payments/create.server'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import { permissionAction } from '@/src/lib/safe-action'
@@ -20,14 +19,6 @@ import {
   CreatePackageSchema,
 } from './schemas'
 import { PACKAGE_LIST_SELECT, type PackageListResult } from './types'
-
-/**
- * Оплата закрывает накопившиеся неоплаченные занятия, а каждое из них — отдельное
- * списание со своим пакетом, журналом и историей. У ученика, который долго ходил
- * без оплаты, таких занятий десятки, и в дефолтные пять секунд Prisma длинный
- * хвост не укладывается: транзакция откатится целиком, и оплата не пройдёт вовсе.
- */
-const PAYMENT_TX_OPTIONS = { timeout: 30_000 }
 
 /**
  * Разрешённые колонки сортировки: id колонки таблицы → как её сортировать. Каждая
@@ -155,77 +146,12 @@ export const createPackage = permissionAction({ payment: ['create'] })
   .metadata({ actionName: 'createPackage' })
   .inputSchema(CreatePackageSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const {
-      studentId,
-      walletId,
-      lessonCount,
-      price,
-      date,
-      paymentMethodId,
-      productId,
-      managerId,
-      received,
-    } = parsedInput
-
     await prisma.$transaction(async (tx) => {
-      const product = await loadPackageProductTx(tx, productId, ctx.session.organizationId!)
-
-      // Кошелёк ищем в своей организации: `walletId` приходит из запроса, и без
-      // этого условия чужой id нашёлся бы, а пакет лёг бы в чужую школу —
-      // `organizationId` для него брался из самого кошелька.
-      const wallet = await tx.wallet.findFirst({
-        where: { id: walletId, organizationId: ctx.session.organizationId! },
-        select: { studentId: true, status: true },
+      await createPaymentWithPackageTx(tx, {
+        ...parsedInput,
+        organizationId: ctx.session.organizationId!,
+        actorUserId: Number(ctx.session.user.id),
       })
-      if (!wallet) throw new NotFoundError('Кошелёк не найден')
-      if (wallet.studentId !== studentId)
-        throw new ConflictError('Кошелёк не принадлежит этому ученику')
-      // Архивный кошелёк из интерфейса не выбрать, но запросом — можно.
-      if (wallet.status !== 'ACTIVE') throw new ConflictError('Кошелёк архивирован')
-
-      // Счёт: деньги. Уроков он не знает — они на пакете.
-      const payment = await tx.payment.create({
-        select: { id: true },
-        data: {
-          organizationId: ctx.session.organizationId!,
-          price,
-          date,
-          status: received ? 'ACTIVE' : 'PENDING',
-          paymentMethodId: paymentMethodId ?? null,
-        },
-      })
-
-      // Пакет: уроки. Пока счёт не подтверждён, лежит `PENDING` — в очередь не
-      // встаёт и баланса не двигает.
-      const packet = await tx.package.create({
-        select: { id: true },
-        data: {
-          organizationId: ctx.session.organizationId!,
-          studentId,
-          walletId,
-          paymentId: payment.id,
-          managerId: managerId ?? null,
-          lessonCount,
-          remaining: lessonCount,
-          price,
-          unitPrice: unitPriceOf({ price, lessonCount }),
-          date,
-          productId: product.id,
-          // Снимок названия: продукт потом переименуют или удалят, а подпись этого
-          // пакета обязана остаться прежней.
-          productName: product.name,
-        },
-      })
-
-      // Деньги уже в руках — выдаём уроки тем же движением: для администратора с
-      // наличными создание и подтверждение это один шаг.
-      if (received) {
-        await activatePackageTx(tx, {
-          packageId: packet.id,
-          organizationId: ctx.session.organizationId!,
-          actorUserId: Number(ctx.session.user.id),
-        })
-      }
     }, PAYMENT_TX_OPTIONS)
   })
 
@@ -336,31 +262,9 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
   .metadata({ actionName: 'resolveUnprocessedPayment' })
   .inputSchema(ResolveUnprocessedPaymentSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const {
-      unprocessedPaymentId,
-      studentId,
-      walletId,
-      lessonCount,
-      price,
-      date,
-      paymentMethodId,
-      productId,
-      managerId,
-      received,
-    } = parsedInput
+    const { unprocessedPaymentId, ...packet } = parsedInput
 
     await prisma.$transaction(async (tx) => {
-      const product = await loadPackageProductTx(tx, productId, ctx.session.organizationId!)
-
-      const wallet = await tx.wallet.findFirst({
-        where: { id: walletId, organizationId: ctx.session.organizationId! },
-        select: { studentId: true, status: true },
-      })
-      if (!wallet) throw new NotFoundError('Кошелёк не найден')
-      if (wallet.studentId !== studentId)
-        throw new ConflictError('Кошелёк не принадлежит этому ученику')
-      if (wallet.status !== 'ACTIVE') throw new ConflictError('Кошелёк архивирован')
-
       // Разобранная оплата уносит с собой id счёта CRM: иначе опрос увидит тот же
       // счёт в своём недельном окне и заведёт по нему вторую оплату. Строку
       // разбора после этого можно хоть удалять — метка живёт на самом счёте.
@@ -370,49 +274,18 @@ export const resolveUnprocessedPayment = permissionAction({ payment: ['create'] 
       })
       if (!unprocessed) throw new NotFoundError('Неразобранная оплата не найдена')
 
-      const payment = await tx.payment.create({
-        select: { id: true },
-        data: {
-          organizationId: ctx.session.organizationId!,
-          externalId: invoiceIdOfRawData(unprocessed.rawData),
-          price,
-          date,
-          status: received ? 'ACTIVE' : 'PENDING',
-          paymentMethodId: paymentMethodId ?? null,
-        },
-      })
-
-      const packet = await tx.package.create({
-        select: { id: true },
-        data: {
-          organizationId: ctx.session.organizationId!,
-          studentId,
-          walletId,
-          paymentId: payment.id,
-          managerId: managerId ?? null,
-          lessonCount,
-          remaining: lessonCount,
-          price,
-          unitPrice: unitPriceOf({ price, lessonCount }),
-          date,
-          productId: product.id,
-          productName: product.name,
-        },
+      await createPaymentWithPackageTx(tx, {
+        ...packet,
+        organizationId: ctx.session.organizationId!,
+        externalId: invoiceIdOfRawData(unprocessed.rawData),
+        actorUserId: Number(ctx.session.user.id),
+        meta: { unprocessedPaymentId },
       })
 
       await tx.unprocessedPayment.update({
         where: { id: unprocessedPaymentId, organizationId: ctx.session.organizationId! },
         data: { resolved: true },
       })
-
-      if (received) {
-        await activatePackageTx(tx, {
-          packageId: packet.id,
-          organizationId: ctx.session.organizationId!,
-          actorUserId: Number(ctx.session.user.id),
-          meta: { unprocessedPaymentId },
-        })
-      }
     }, PAYMENT_TX_OPTIONS)
   })
 

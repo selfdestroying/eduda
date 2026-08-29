@@ -246,7 +246,10 @@ pnpm --filter platform exec tsx scripts/check-revenue-parity.ts    # «Приб�
 pnpm --filter platform exec tsx scripts/check-revenue.ts           # «Выручка»: revenue/rule.ts против базы
 pnpm --filter platform exec tsx scripts/check-package-statuses.ts  # статусы счёта против его пакетов
 pnpm --filter platform exec tsx scripts/check-package-product.ts   # продукт пакета: снимок и изоляция
+pnpm --filter platform exec tsx scripts/check-payment-create.ts    # продажа: пара «счёт + пакет», выдача, изоляция
 ```
+
+Пару «счёт + пакет» заводит одна функция — `payments/create.server.ts`, `createPaymentWithPackageTx`. Её зовут трое: форма менеджера, разбор неразобранной оплаты и опрос amoCRM. Кошелёк она проверяет сама (свой ли школе, тому ли ученику, не архивный ли), название продукта читает из базы, а при `received` тут же выдаёт уроки через `activatePackageTx`. Собирать эту пару руками мимо неё не надо.
 
 ## Опрос оплат из amoCRM
 
