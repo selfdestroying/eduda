@@ -242,6 +242,13 @@ model Product {
     lessonCount Int
     description String?
 
+    /// Id товара в amoCRM: по нему опрос оплат находит, какой продукт школы
+    /// продали. Заполняется руками — из CRM приезжает только id, а сколько за ним
+    /// занятий, знает школа. И знает по-своему: «36 занятий с разбивкой на 3
+    /// платежа» — это 12 занятий, треть годового абонемента, так что вывести
+    /// количество из названия позиции нельзя.
+    externalId Int?
+
     /// Снятый с продажи продукт не удаляют: на него ссылаются проданные пакеты, и в
     /// форме новой оплаты он просто больше не предлагается. Как у `PaymentMethod`.
     isActive  Boolean  @default(true)
@@ -253,6 +260,10 @@ model Product {
     organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     packages       Package[]
 
+    /// Один товар CRM — один продукт школы: иначе оплата не знает, какой из двух
+    /// выбрать. NULL уникальность не задевает, поэтому школы без интеграции
+    /// ограничение не чувствуют.
+    @@unique([organizationId, externalId])
     @@index([organizationId])
 }
 

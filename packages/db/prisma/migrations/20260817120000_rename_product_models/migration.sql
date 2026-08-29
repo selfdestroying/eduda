@@ -2,8 +2,10 @@
 --
 -- 1) Магазинный `Product` (товар за астрокоины) → `ShopItem`.
 -- 2) Финансовый `PaymentProduct` (прайс-лист абонементов) → `Product`.
--- 3) `PaymentProduct.productId` удаляется: колонка висит с 0_init, ссылается в
---    никуда, её не пишет ни один экшен и даже демо-сид.
+-- 3) `PaymentProduct.productId` переименовывается в `externalId`. Это id товара
+--    в amoCRM: по нему парсер оплат находит продукт школы. Ни один экшен его не
+--    пишет — колонку заполняли руками, — и именно поэтому удалять её нельзя:
+--    соответствие «товар CRM → продукт школы» больше нигде не записано.
 --
 -- Зачем: в языке школы родителю продают продукт, а ученик покупает товар. В
 -- коде было наоборот, и справочник абонементов — тот, на котором держится вся
@@ -50,7 +52,13 @@ ALTER INDEX "PaymentProduct_organizationId_idx" RENAME TO "Product_organizationI
 ALTER SEQUENCE "PaymentProduct_id_seq" RENAME TO "PaymentProduct_id_seq_tmp";
 ALTER SEQUENCE "PaymentProduct_id_seq_tmp" RENAME TO "Product_id_seq";
 
-ALTER TABLE "Product" DROP COLUMN "productId";
+-- Имя было приставкой к чужому: `Product.productId` читается как «id продукта у
+-- продукта». Это внешний ключ CRM, поэтому `externalId`.
+ALTER TABLE "Product" RENAME COLUMN "productId" TO "externalId";
+-- Один товар CRM — один продукт школы, иначе оплата не знает, какой из двух
+-- выбрать. NULL уникальность не задевает, так что школы без интеграции живут
+-- как жили.
+CREATE UNIQUE INDEX "Product_organizationId_externalId_key" ON "Product"("organizationId", "externalId");
 
 -- ── 3. Сверка: не забыли ли что-нибудь ──────────────────────────────────────
 -- Каждый RENAME падает сам, если объекта нет, — опечатку он ловит. Не ловит он
