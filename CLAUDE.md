@@ -103,7 +103,7 @@ pnpm --filter platform exec tsx scripts/forgive-missed-makeups.ts --apply       
 | `platform` | `/var/www/alg/eduda/apps/platform` | 3001 | `eduda.online`, `*.eduda.online` |
 | `shop`     | `…/apps/shop`                      | 3002 | `shop.eduda.online`              |
 | `docs`     | `…/apps/docs`                      | 3005 | `docs.eduda.online`              |
-| `parser`   | `/var/www/alg/webhook`             | 3003 | `storage.eduda.online`           |
+| `parser`   | `/var/www/alg/webhook`             | 3003 | `*.eduda.online/poller/`         |
 | `exam`     | `/var/www/alg/exam`                | 3004 | `exam.eduda.online`              |
 
 Сертификат один и wildcard (`*.eduda.online` + `eduda.online`), поэтому новый поддомен требует только server-блока, но не выпуска.
