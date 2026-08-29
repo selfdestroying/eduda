@@ -17,7 +17,7 @@
  */
 import { activatePackageTx, unitPriceOf } from '@/src/features/finances/ledger.server'
 import { formatInTz } from '@/src/lib/timezone'
-import { Prisma, prisma, StudentStatus } from '@repo/db'
+import { Prisma, prisma } from '@repo/db'
 import type { PaidInvoice } from './poll'
 
 /**
@@ -141,30 +141,6 @@ async function findStudentsTx(
 }
 
 /**
- * Кошелёк, в который идут деньги, — или `null`, если выбрать нельзя.
- *
- * Один активный кошелёк — берём его. Дальше начинается настоящая неоднозначность:
- * школа заводит новый кошелёк под сезон, а прежний оставляет активным с нулевым
- * балансом, так что у вернувшегося ученика их обычно два.
- *
- * Развязывает её запись в группу. Ученик платит за то, на что ходит: если занятия
- * сейчас списываются ровно с одного кошелька, топливо нужно ему. Это не догадка
- * про курс по названию сделки, а наблюдаемый факт про то, какой кошелёк тратится.
- * На дампе прода правило снимает 116 случаев из 234 — половину ручной стопки.
- *
- * Ходит в две группы разом (и в оба кошелька) — выбор за человеком: ошибка здесь
- * кладёт деньги не за тот курс.
- */
-function pickWallet<T extends { id: number; _count: { studentGroups: number } }>(
-  wallets: T[],
-): T | null {
-  if (wallets.length === 1) return wallets[0] ?? null
-
-  const enrolled = wallets.filter((wallet) => wallet._count.studentGroups > 0)
-  return enrolled.length === 1 ? (enrolled[0] ?? null) : null
-}
-
-/**
  * План импорта или причина отказа. Ничего не пишет — на этом держится прогон
  * вхолостую.
  */
@@ -198,21 +174,25 @@ export async function planImport(
 
   // Кошелёк, а не группа: у ученика из двух групп на одном абонементе выбирать не
   // из чего, и прежний отказ «состоит в нескольких группах» был ложной тревогой.
+  //
+  // Кошельков несколько — решает человек, и никакого правила «догадаться» здесь
+  // нет намеренно. Школа заводит новый кошелёк под сезон, а прежний оставляет
+  // активным, так что у вернувшегося ученика их обычно два, и за какой курс
+  // пришли деньги, из счёта не видно. Ошибка кладёт оплату не за тот курс.
   const wallets = await tx.wallet.findMany({
     where: { studentId: student.id, organizationId: args.organizationId, status: 'ACTIVE' },
-    select: {
-      id: true,
-      _count: { select: { studentGroups: { where: { status: StudentStatus.ACTIVE } } } },
-    },
+    select: { id: true },
+    // Двух достаточно: нужен ответ «ровно один или нет», а не список.
+    take: 2,
   })
-  const wallet = pickWallet(wallets)
+  const [wallet] = wallets
   if (!wallet) {
+    return { ok: false, reason: 'У ученика нет активного кошелька', studentId: student.id }
+  }
+  if (wallets.length > 1) {
     return {
       ok: false,
-      reason:
-        wallets.length === 0
-          ? 'У ученика нет активного кошелька'
-          : 'У ученика несколько кошельков — за какой курс оплата, из счёта не видно',
+      reason: 'У ученика несколько кошельков — за какой курс оплата, из счёта не видно',
       studentId: student.id,
     }
   }

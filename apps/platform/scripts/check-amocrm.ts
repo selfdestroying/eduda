@@ -84,6 +84,47 @@ async function main() {
       console.log(`  ${String(count).padStart(3)}  ${reason}`)
     }
   }
+
+  await reportUnlinkedProducts(invoices)
+}
+
+/**
+ * Товары CRM, которым не сопоставлен продукт школы, — отдельным проходом по всем
+ * позициям, а не по причинам отказа.
+ *
+ * Разбор останавливается на первой же нестыковке, и до товара он не доходит, если
+ * раньше не выбрался кошелёк. Список для сверки справочника от этого получался бы
+ * неполным, а нужен он целиком: по нему школа проставляет номера.
+ */
+async function reportUnlinkedProducts(invoices: Awaited<ReturnType<typeof fetchPaidInvoices>>) {
+  const organizationId = Number(process.env.AMOCRM_ORGANIZATION_ID)
+  const seen = new Map<number, { name: string; count: number }>()
+
+  for (const invoice of invoices) {
+    for (const item of invoice.items) {
+      const entry = seen.get(item.productId)
+      if (entry) entry.count += 1
+      else seen.set(item.productId, { name: item.name, count: 1 })
+    }
+  }
+
+  const linked = await prisma.product.findMany({
+    where: { organizationId, externalId: { in: [...seen.keys()] } },
+    select: { externalId: true },
+  })
+  for (const product of linked) {
+    if (product.externalId !== null) seen.delete(product.externalId)
+  }
+
+  if (seen.size === 0) {
+    console.log('\nВсе товары CRM привязаны к продуктам.')
+    return
+  }
+
+  console.log('\nТовары CRM без продукта школы — проставить номер в карточке продукта:')
+  for (const [productId, { name, count }] of [...seen].sort((a, b) => b[1].count - a[1].count)) {
+    console.log(`  ${String(count).padStart(3)} поз.  ${productId}  ${name}`)
+  }
 }
 
 main()
