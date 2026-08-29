@@ -67,13 +67,11 @@ async function main() {
     }
 
     planned += 1
-    const packages = result.plan.packages
-      .map((packet) => `${packet.productName} — ${packet.lessonCount} зан. за ${packet.price} ₽`)
-      .join('; ')
+    const { packet } = result.plan
     console.log(
       `  ✓ ${result.plan.studentName}, кошелёк ${result.plan.walletId}, ${result.plan.date}`,
     )
-    console.log(`    ${packages}`)
+    console.log(`    ${packet.productName} — ${packet.lessonCount} зан. за ${packet.price} ₽`)
   }
 
   console.log(`\nЗаведётся автоматически: ${planned} из ${invoices.length}`)

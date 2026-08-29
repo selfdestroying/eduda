@@ -41,8 +41,7 @@ export type ImportPlan = {
   walletId: number
   /** Бизнес-день оплаты: по нему пакет встаёт в очередь кошелька. */
   date: string
-  price: number
-  packages: PlannedPackage[]
+  packet: PlannedPackage
 }
 
 export type ImportOutcome =
@@ -149,8 +148,21 @@ export async function planImport(
   invoice: PaidInvoice,
   args: { organizationId: number; tz: string },
 ): Promise<{ ok: true; plan: ImportPlan } | { ok: false; reason: string; studentId?: number }> {
-  if (invoice.items.length === 0) {
+  const [item, ...restItems] = invoice.items
+  if (!item) {
     return { ok: false, reason: 'В счёте нет ни одной позиции' }
+  }
+
+  // Схема несколько пакетов на счёт держит, а счёт CRM не говорит, чей какой.
+  // В живых примерах это то два курса одного ученика, то два ребёнка сразу
+  // («36 занятий» плюс «36 занятий со скидкой для второго ребёнка»), а в сделке
+  // назван только один из них. Считать, что всё это одному, — та же догадка, что
+  // и выбор кошелька наугад. За всю историю базы таких счетов 49.
+  if (restItems.length > 0) {
+    return {
+      ok: false,
+      reason: `В счёте ${invoice.items.length} позиции — кому какая, из счёта не видно`,
+    }
   }
 
   if (!invoice.leadName) {
@@ -197,40 +209,26 @@ export async function planImport(
     }
   }
 
-  const packages: PlannedPackage[] = []
-  for (const item of invoice.items) {
-    const product = await tx.product.findFirst({
-      where: { organizationId: args.organizationId, externalId: item.productId },
-      select: { id: true, name: true, lessonCount: true },
-    })
-    if (!product) {
-      return {
-        ok: false,
-        reason: `Товар CRM ${item.productId} «${item.name}» не привязан ни к одному продукту`,
-        studentId: student.id,
-      }
+  const product = await tx.product.findFirst({
+    where: { organizationId: args.organizationId, externalId: item.productId },
+    select: { id: true, name: true, lessonCount: true },
+  })
+  if (!product) {
+    return {
+      ok: false,
+      reason: `Товар CRM ${item.productId} «${item.name}» не привязан ни к одному продукту`,
+      studentId: student.id,
     }
+  }
 
-    // Количество в счёте — штуки товара, а не занятия: две штуки абонемента на
-    // 4 занятия дают 8. Дробная штука абонемента смысла не имеет.
-    if (!Number.isInteger(item.quantity) || item.quantity < 1) {
-      return {
-        ok: false,
-        reason: `Непонятное количество товара «${item.name}»: ${item.quantity}`,
-        studentId: student.id,
-      }
+  // Количество в счёте — штуки товара, а не занятия: две штуки абонемента на
+  // 4 занятия дают 8. Дробная штука абонемента смысла не имеет.
+  if (!Number.isInteger(item.quantity) || item.quantity < 1) {
+    return {
+      ok: false,
+      reason: `Непонятное количество товара «${item.name}»: ${item.quantity}`,
+      studentId: student.id,
     }
-
-    packages.push({
-      productId: product.id,
-      // Снимок названия из справочника школы, а не из счёта: подпись пакета — то,
-      // что школа продаёт, а формулировка в CRM живёт своей жизнью.
-      productName: product.name,
-      lessonCount: product.lessonCount * item.quantity,
-      // Деньги из счёта, а не из прайса: платят со скидками и по акциям, а
-      // прайсовая цена урока осела бы в проводках занятий навсегда.
-      price: item.total,
-    })
   }
 
   // Бизнес-день — дата оплаты со счёта. Она расходится с датой события, когда
@@ -244,10 +242,16 @@ export async function planImport(
       studentName: `${student.firstName} ${student.lastName}`,
       walletId: wallet.id,
       date: formatInTz(paidAt, args.tz, 'yyyy-MM-dd'),
-      // Сумма счёта складывается из позиций, а не берётся из поля «Стоимость»:
-      // только так цена счёта сходится с суммой пакетов при любой скидке.
-      price: packages.reduce((sum, packet) => sum + packet.price, 0),
-      packages,
+      packet: {
+        productId: product.id,
+        // Снимок названия из справочника школы, а не из счёта: подпись пакета — то,
+        // что школа продаёт, а формулировка в CRM живёт своей жизнью.
+        productName: product.name,
+        lessonCount: product.lessonCount * item.quantity,
+        // Деньги из счёта, а не из прайса: платят со скидками и по акциям, а
+        // прайсовая цена урока осела бы в проводках занятий навсегда.
+        price: item.total,
+      },
     },
   }
 }
@@ -289,14 +293,18 @@ export async function importPaidInvoice(
       return { status: 'planned', invoiceId: invoice.invoiceId, plan }
     }
 
+    const { packet } = plan
+
     // Счёт: деньги. `ACTIVE` — событие CRM называется «счёт оплачен», то есть
-    // деньги уже получены, и пакеты выдаются тем же движением.
+    // деньги уже получены, и пакет выдаётся тем же движением.
     const payment = await tx.payment.create({
       select: { id: true },
       data: {
         organizationId: args.organizationId,
         externalId: invoice.invoiceId,
-        price: plan.price,
+        // Сумма позиции, а не поле «Стоимость»: только так цена счёта сходится с
+        // ценой пакета при любой скидке.
+        price: packet.price,
         date: plan.date,
         status: 'ACTIVE',
         // Способа оплаты в счёте нет, а завести «онлайн» с выдуманной комиссией
@@ -305,35 +313,32 @@ export async function importPaidInvoice(
       },
     })
 
-    let settled = 0
-    for (const packet of plan.packages) {
-      const created = await tx.package.create({
-        select: { id: true },
-        data: {
-          organizationId: args.organizationId,
-          studentId: plan.studentId,
-          walletId: plan.walletId,
-          paymentId: payment.id,
-          // Продавца нет: продажу оформила CRM, а премия причитается человеку.
-          managerId: null,
-          lessonCount: packet.lessonCount,
-          remaining: packet.lessonCount,
-          price: packet.price,
-          unitPrice: unitPriceOf(packet),
-          date: plan.date,
-          productId: packet.productId,
-          productName: packet.productName,
-        },
-      })
-
-      settled += await activatePackageTx(tx, {
-        packageId: created.id,
+    const created = await tx.package.create({
+      select: { id: true },
+      data: {
         organizationId: args.organizationId,
-        // Автора нет: оплату завела не рука, а опрос CRM.
-        actorUserId: null,
-        meta: { amocrmInvoiceId: invoice.invoiceId },
-      })
-    }
+        studentId: plan.studentId,
+        walletId: plan.walletId,
+        paymentId: payment.id,
+        // Продавца нет: продажу оформила CRM, а премия причитается человеку.
+        managerId: null,
+        lessonCount: packet.lessonCount,
+        remaining: packet.lessonCount,
+        price: packet.price,
+        unitPrice: unitPriceOf(packet),
+        date: plan.date,
+        productId: packet.productId,
+        productName: packet.productName,
+      },
+    })
+
+    const settled = await activatePackageTx(tx, {
+      packageId: created.id,
+      organizationId: args.organizationId,
+      // Автора нет: оплату завела не рука, а опрос CRM.
+      actorUserId: null,
+      meta: { amocrmInvoiceId: invoice.invoiceId },
+    })
 
     return { status: 'imported', invoiceId: invoice.invoiceId, paymentId: payment.id, settled }
   }, IMPORT_TX_OPTIONS)
