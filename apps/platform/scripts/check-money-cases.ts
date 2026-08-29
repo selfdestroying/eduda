@@ -154,12 +154,12 @@ async function main() {
         ) => {
           const before = await tx.attendance.findUniqueOrThrow({
             where: { id: attendanceId },
-            select: { status: true, isWarned: true },
+            select: { status: true, isWarned: true, makeupForAttendanceId: true },
           })
           await tx.attendance.update({ where: { id: attendanceId }, data: { status, isWarned } })
 
-          const was = isLessonCharged(before.status, before.isWarned === true)
-          const now = isLessonCharged(status, isWarned === true)
+          const was = isLessonCharged(before)
+          const now = isLessonCharged({ ...before, status, isWarned })
           if (was === now) return
           const money = { attendanceId, organizationId, actorUserId: null }
           if (now) await chargeAttendanceTx(tx, money)
@@ -449,6 +449,57 @@ async function main() {
           assert.equal(await charged(makeup), true)
           assert.equal(await remainingOf(p.id), 9)
           ok('посещённая отработка списывает урок на своей дате')
+        }
+
+        {
+          const s = await scene('Пропущенная отработка')
+          const p = await pay(s.walletId, s.studentId, '2026-09-01', 10_000, 10)
+          const missed = await visit({ studentId: s.studentId })
+          await mark(missed, AttendanceStatus.ABSENT, true)
+          assert.equal(await remainingOf(p.id), 10)
+
+          const makeup = await visit({
+            studentId: s.studentId,
+            status: AttendanceStatus.UNSPECIFIED,
+            makeupFor: missed,
+          })
+          await mark(makeup, AttendanceStatus.ABSENT, false)
+          assert.equal(await charged(makeup), true)
+          assert.equal(await charged(missed), false)
+          assert.equal(await remainingOf(p.id), 9)
+          ok('пропущенная отработка списывает урок, как пропуск без предупреждения')
+
+          // Предупреждение на отработке ничего не меняет: попытка одна, и цена у
+          // неё та же. Перехода между платным и неплатным здесь нет вовсе.
+          await mark(makeup, AttendanceStatus.ABSENT, true)
+          assert.equal(await charged(makeup), true)
+          assert.equal(await remainingOf(p.id), 9)
+          ok('предупреждение о пропуске отработки списания не отменяет')
+
+          await mark(makeup, AttendanceStatus.UNSPECIFIED)
+          assert.equal(await charged(makeup), false)
+          assert.equal(await remainingOf(p.id), 10)
+          assert.equal(await balanceOf(s.walletId), 10)
+          ok('снятие отметки с отработки возвращает урок в пакет и на баланс')
+        }
+
+        {
+          const s = await scene('Пропущенная отработка без оплаты')
+          const missed = await visit({ studentId: s.studentId })
+          await mark(missed, AttendanceStatus.ABSENT, true)
+          const makeup = await visit({
+            studentId: s.studentId,
+            status: AttendanceStatus.UNSPECIFIED,
+            makeupFor: missed,
+          })
+          await mark(makeup, AttendanceStatus.ABSENT, false)
+          assert.equal(await charged(makeup), false)
+
+          const p = await pay(s.walletId, s.studentId, '2027-01-01', 4_000, 4)
+          assert.equal(p.settled, 1)
+          assert.equal((await entryOf(makeup)).packageId, p.id)
+          assert.equal(await charged(missed), false)
+          ok('оплата гасит и пропущенную отработку — она ждала денег наравне с посещением')
         }
 
         {

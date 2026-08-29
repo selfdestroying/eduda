@@ -40,7 +40,14 @@ async function main() {
         AND a.amount > 0
         AND (
           (a.status = 'PRESENT')
-          OR (a.status = 'ABSENT' AND a."isWarned" IS DISTINCT FROM true)
+          OR (
+            a.status = 'ABSENT'
+            AND a."makeupForAttendanceId" IS NULL
+            AND a."isWarned" IS DISTINCT FROM true
+          )
+          -- Пропущенная отработка платится как непредупреждённый пропуск: флаг
+          -- предупреждения на ней ничего не решает.
+          OR (a.status = 'ABSENT' AND a."makeupForAttendanceId" IS NOT NULL)
         )`
     const fromDb = Number(direct?.total ?? 0)
 

@@ -211,14 +211,23 @@ const updateCoins = async (
   })
 }
 
+/**
+ * Отработкой строка быть не перестаёт, поэтому `makeupForAttendanceId` берётся
+ * один на оба состояния: меняются только статус и флаг предупреждения.
+ */
 const getLessonsBalanceDelta = (
-  oldStatus: AttendanceStatus,
-  newStatus: AttendanceStatus,
-  oldIsWarned: boolean | null,
-  newIsWarned: boolean | null,
+  before: {
+    status: AttendanceStatus
+    isWarned: boolean | null
+    makeupForAttendanceId: number | null
+  },
+  after: { status: AttendanceStatus; isWarned: boolean | null },
 ): number => {
-  const wasCharged = isLessonCharged(oldStatus, oldIsWarned === true)
-  const isCharged = isLessonCharged(newStatus, newIsWarned === true)
+  const wasCharged = isLessonCharged(before)
+  const isCharged = isLessonCharged({
+    ...after,
+    makeupForAttendanceId: before.makeupForAttendanceId,
+  })
   if (wasCharged === isCharged) return 0
   return isCharged ? -1 : +1
 }
@@ -289,12 +298,10 @@ export const updateAttendanceStatus = authAction
         oldAttendance.id,
       )
 
-      const delta = getLessonsBalanceDelta(
-        oldAttendance.status,
-        status as AttendanceStatus,
-        oldAttendance.isWarned,
+      const delta = getLessonsBalanceDelta(oldAttendance, {
+        status: status as AttendanceStatus,
         isWarned,
-      )
+      })
       if (delta === 0) return
 
       const money = {

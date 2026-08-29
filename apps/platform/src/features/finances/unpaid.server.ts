@@ -20,6 +20,8 @@ export type UnpaidLesson = {
   groupName: string
   status: AttendanceStatus
   isWarned: boolean | null
+  /** Строка-отработка: её пропуск платный так же, как пропуск без предупреждения. */
+  isMakeup: boolean
 }
 
 export async function getUnpaidLessonsOfStudent(
@@ -33,6 +35,7 @@ export async function getUnpaidLessonsOfStudent(
       id: true,
       status: true,
       isWarned: true,
+      makeupForAttendanceId: true,
       lesson: {
         select: {
           id: true,
@@ -60,6 +63,7 @@ export async function getUnpaidLessonsOfStudent(
     groupName: getGroupName(r.lesson.group),
     status: r.status,
     isWarned: r.isWarned,
+    isMakeup: r.makeupForAttendanceId !== null,
   }))
 }
 

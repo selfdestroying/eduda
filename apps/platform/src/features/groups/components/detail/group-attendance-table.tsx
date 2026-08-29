@@ -150,7 +150,9 @@ function AttendanceCell({
 
   const handleAbsentClick = () => {
     if (currentStatus === 'ABSENT') return
-    if (hasPermission?.success) {
+    // На отработке выбирать нечего: попытка одна, и её пропуск списывает занятие
+    // независимо от предупреждения. Кнопка «Предупредил (0)» тут обещала бы ноль.
+    if (hasPermission?.success && !attendance.makeupForAttendanceId) {
       setShowWarnedChoice(true)
     } else {
       handleStatusChange('ABSENT', false)

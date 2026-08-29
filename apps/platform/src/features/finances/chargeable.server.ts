@@ -18,12 +18,25 @@ export function chargeableClassesWhere(
   if (chargeableStatuses.includes('absent_no_warn')) {
     // `isWarned: { not: true }` здесь не годится: в SQL сравнение с NULL даёт NULL,
     // и пропуски с непроставленным флагом — а таких большинство — выпали бы из выручки.
-    classes.push({ status: 'ABSENT', OR: [{ isWarned: false }, { isWarned: null }] })
+    //
+    // `makeupForAttendanceId: null` — пропущенная отработка идёт своим классом
+    // (`makeup_fail`), и без этого условия одна строка попала бы в оба сразу.
+    classes.push({
+      status: 'ABSENT',
+      makeupForAttendanceId: null,
+      OR: [{ isWarned: false }, { isWarned: null }],
+    })
   }
   // Отработка зарабатывает на своей дате, а не на дате пропущенного урока: деньги
   // признаются тогда, когда занятие фактически провели.
   if (chargeableStatuses.includes('makeup_success')) {
     classes.push({ status: 'PRESENT', makeupForAttendanceId: { not: null } })
+  }
+  // Отработку не отработали. Занятие всё равно провели, место держали — платится
+  // оно так же, как пропуск без предупреждения, и на своей дате. Про `isWarned`
+  // тут не спрашиваем: отработка это вторая попытка, третьей нет.
+  if (chargeableStatuses.includes('makeup_fail')) {
+    classes.push({ status: 'ABSENT', makeupForAttendanceId: { not: null } })
   }
   return classes
 }
@@ -39,7 +52,8 @@ export function chargeableClassesWhere(
  *   правилам, цена проставлена (пусть и нулевая) — они уже посчитаны в выручке
  *   прошлых месяцев, и оплата не должна списывать их заново.
  * - `makeupAttendance: { is: null }` — у пропуска с назначенной отработкой деньги
- *   живут на строке отработки. Без этого условия оплата закрыла бы оба занятия.
+ *   живут на строке отработки, пришёл на неё ученик или нет. Без этого условия
+ *   оплата закрыла бы оба занятия.
  * - `isTrial: false` — пробное бесплатно. Отметка сотрудника денег на нём не
  *   трогает (`lessons/actions.ts`), но списание по приходу оплаты идёт этим
  *   предикатом, и без условия первая же оплата ученика съела бы урок за пробное.
@@ -50,7 +64,7 @@ export const UNPAID_ATTENDANCE_WHERE = {
   isTrial: false,
   makeupAttendance: { is: null },
   lesson: { status: 'ACTIVE' },
-  OR: chargeableClassesWhere(['present', 'absent_no_warn', 'makeup_success']),
+  OR: chargeableClassesWhere(['present', 'absent_no_warn', 'makeup_success', 'makeup_fail']),
 } as const satisfies Prisma.AttendanceWhereInput
 
 /**
@@ -60,10 +74,10 @@ export const UNPAID_ATTENDANCE_WHERE = {
  *
  * Используется «Авансами» и «Прибылью».
  *
- * Про `chargeableStatuses`: списание случается только у присутствовавших и у тех, кто
- * пропустил без предупреждения, — у остальных цены нет. Поэтому фильтр отбирает
- * ровно эти классы, а «Предупредил, без отработки» и «отработка не засчитана» денег
- * не приносят ни при каком выборе: их уроки школе не оплачивались.
+ * Про `chargeableStatuses`: списание случается у присутствовавших, у тех, кто
+ * пропустил без предупреждения, и на отработке — пришёл на неё ученик или нет.
+ * У остальных цены нет, поэтому «Предупредил, без отработки» денег не приносит ни
+ * при каком выборе: это занятие школе не оплачивалось.
  */
 export async function computeAttendanceRevenue(params: {
   organizationId: number

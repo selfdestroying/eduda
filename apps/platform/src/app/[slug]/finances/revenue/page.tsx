@@ -13,7 +13,7 @@ export default function Page() {
           <CardTitle>Выручка</CardTitle>
           <CardDescription>
             Занятия, за которые школа считает деньги заработанными: посещения, пропуски без
-            предупреждения и засчитанные отработки.
+            предупреждения и отработки — и засчитанные, и пропущенные.
           </CardDescription>
         </CardHeader>
         <CardContent>

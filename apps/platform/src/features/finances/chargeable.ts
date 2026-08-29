@@ -26,13 +26,20 @@ export const CHARGEABLE_STATUS_OPTIONS: {
   { value: 'absent_no_warn', label: 'Не предупредил', depth: 0 },
   { value: 'absent_warned', label: 'Предупредил, без отработки', depth: 0 },
   { value: 'makeup_success', label: 'Предупредил, отработка засчитана', depth: 1 },
-  { value: 'makeup_fail', label: 'Предупредил, отработка не засчитана', depth: 1 },
+  { value: 'makeup_fail', label: 'Предупредил, отработку пропустил', depth: 1 },
 ]
 
+/**
+ * Что считается платным по умолчанию. Пропущенная отработка здесь наравне с
+ * пропуском без предупреждения: вторая попытка одна, и не прийти на неё стоит
+ * занятия. Без денег остаётся только предупреждённый пропуск, отработки за
+ * который ещё не случилось.
+ */
 export const DEFAULT_CHARGEABLE_STATUSES: ChargeableStatus[] = [
   'present',
   'absent_no_warn',
   'makeup_success',
+  'makeup_fail',
 ]
 
 // ---------------------------------------------------------------------------
@@ -44,7 +51,7 @@ export const CLASSIFICATION_LABELS: Record<ChargeableStatus, string> = {
   absent_no_warn: 'Не предупредил',
   absent_warned: 'Предупредил, без отработки',
   makeup_success: 'Предупредил, отработка засчитана',
-  makeup_fail: 'Предупредил, отработка не засчитана',
+  makeup_fail: 'Предупредил, отработку пропустил',
 }
 
 // ---------------------------------------------------------------------------
@@ -61,10 +68,11 @@ export function classifyAttendance(att: AttendanceClassifiable): ChargeableStatu
   if (att.status === 'PRESENT') return 'present'
   if (att.status === 'ABSENT' && !att.isWarned) return 'absent_no_warn'
   if (att.status === 'ABSENT' && att.isWarned) {
-    if (att.makeupAttendance) {
-      if (att.makeupAttendance.status === 'PRESENT') return 'makeup_success'
-      if (att.makeupAttendance.status !== 'PRESENT') return 'makeup_fail'
-    }
+    // Неотмеченная отработка ещё ничего не решила: её день может не наступить.
+    // Классы отработки достаются только состоявшемуся исходу — тому же, что
+    // отбирает `chargeableClassesWhere`.
+    if (att.makeupAttendance?.status === 'PRESENT') return 'makeup_success'
+    if (att.makeupAttendance?.status === 'ABSENT') return 'makeup_fail'
     return 'absent_warned'
   }
   return null

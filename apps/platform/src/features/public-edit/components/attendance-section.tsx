@@ -83,8 +83,9 @@ function chipClass(att: Attendance | null, lesson: LessonItem) {
 function isCharged(att: Attendance | null) {
   if (!att) return false
   if (att.status === 'PRESENT') return true
-  if (att.status === 'ABSENT' && !att.isWarned) return true
-  return false
+  if (att.status !== 'ABSENT') return false
+  // Отработка платная и при пропуске: предупредить о ней нельзя, попытка одна.
+  return att.makeupForAttendanceId !== null || !att.isWarned
 }
 
 export default function AttendanceSection({ token }: { token: string }) {

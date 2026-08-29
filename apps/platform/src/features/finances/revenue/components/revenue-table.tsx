@@ -43,6 +43,8 @@ const KIND_VARIANT: Record<RevenueKind, 'success' | 'warning' | 'secondary'> = {
   attended: 'success',
   missed: 'warning',
   makeup: 'secondary',
+  // Как и обычный пропуск: занятие провели, ученик не пришёл.
+  makeup_missed: 'warning',
 }
 
 /**
@@ -254,7 +256,9 @@ function buildColumns(
           // таблица прыгала по высоте на каждом листании.
           <span className="flex items-center gap-1 overflow-hidden whitespace-nowrap">
             <Badge variant={KIND_VARIANT[kind]}>{REVENUE_KIND_LABELS[kind]}</Badge>
-            {kind === 'makeup' && missedDate && (
+            {/* Дата пропуска — у обеих отработок: пропущенная объясняется тем же
+                занятием, что и посещённая. */}
+            {missedDate && (
               <span className="text-muted-foreground truncate text-xs">
                 за {formatDateOnly(missedDate)}
               </span>

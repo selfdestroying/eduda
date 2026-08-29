@@ -49,7 +49,10 @@ function isUnpaid(attendance: AttendanceWithStudents): boolean {
   if (attendance.isTrial) return false
   if (attendance.price !== null || attendance.packageId !== null) return false
   if (attendance.makeupAttendance) return false
-  return attendance.status === 'PRESENT' || (attendance.status === 'ABSENT' && !attendance.isWarned)
+  if (attendance.status === 'PRESENT') return true
+  if (attendance.status !== 'ABSENT') return false
+  // На отработке платно и отсутствие: предупреждение там ничего не решает.
+  return attendance.makeupForAttendanceId !== null || !attendance.isWarned
 }
 
 interface ColumnOptions {

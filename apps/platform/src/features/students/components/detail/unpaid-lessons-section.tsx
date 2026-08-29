@@ -53,7 +53,11 @@ export default function UnpaidLessonsSection({ studentId }: { studentId: number 
                 {lesson.groupName}
               </Link>
               <Badge variant="outline">
-                {lesson.status === 'PRESENT' ? 'Был' : 'Пропуск без предупреждения'}
+                {lesson.status === 'PRESENT'
+                  ? 'Был'
+                  : lesson.isMakeup
+                    ? 'Пропущенная отработка'
+                    : 'Пропуск без предупреждения'}
               </Badge>
             </li>
           ))}

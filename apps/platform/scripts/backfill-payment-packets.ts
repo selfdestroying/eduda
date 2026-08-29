@@ -155,6 +155,7 @@ async function main() {
       walletId: true,
       status: true,
       isWarned: true,
+      makeupForAttendanceId: true,
       lesson: { select: { date: true, groupId: true } },
       makeupForAttendance: { select: { lesson: { select: { groupId: true } } } },
     },
@@ -170,7 +171,7 @@ async function main() {
   // сколько уроков ему принесли оплаты, у которых кошелёк известен точно.
   const demand = new Map<number, number>()
   for (const a of attendances) {
-    if (!isLessonCharged(a.status, a.isWarned === true)) continue
+    if (!isLessonCharged(a)) continue
     const walletId = walletOfVisit(a)
     if (walletId) demand.set(walletId, (demand.get(walletId) ?? 0) + 1)
   }
@@ -231,7 +232,7 @@ async function main() {
     list.push({
       id: a.id,
       date: a.lesson.date,
-      charged: isLessonCharged(a.status, a.isWarned === true),
+      charged: isLessonCharged(a),
     })
     visits.set(walletId, list)
   }

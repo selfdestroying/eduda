@@ -60,7 +60,15 @@ const UNBILLABLE = `
     )
     AND (
       a."status" = 'PRESENT'
-      OR (a."status" = 'ABSENT' AND (a."isWarned" IS FALSE OR a."isWarned" IS NULL))
+      OR (
+        a."status" = 'ABSENT'
+        AND (
+          -- Пропущенная отработка платная при любом флаге: попытка была одна.
+          a."makeupForAttendanceId" IS NOT NULL
+          OR a."isWarned" IS FALSE
+          OR a."isWarned" IS NULL
+        )
+      )
     )
     AND NOT EXISTS (
       SELECT 1 FROM "StudentGroup" sg

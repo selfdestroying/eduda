@@ -72,7 +72,10 @@ async function main() {
     // Эталоны считаем прямо по строкам, а не свёрткой: иначе проверка сверяла бы
     // свёртку сама с собой.
     const unwarned = dimensions.filter((d) => !d.isWarned).length
-    const lost = dimensions.reduce((sum, d) => (d.isWarned ? sum : sum + (d.price ?? 0)), 0)
+    // Потеряно = списано, а списание видно по цене на строке: у пропуска без
+    // предупреждения и у пропущенной отработки она есть, у предупреждённого
+    // пропуска — нет.
+    const lost = dimensions.reduce((sum, d) => sum + (d.price ?? 0), 0)
     const saved = dimensions.reduce(
       (sum, d) => (d.isWarned && d.makeupAttended ? sum + (d.makeupPrice ?? 0) : sum),
       0,

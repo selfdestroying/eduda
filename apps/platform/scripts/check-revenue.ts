@@ -6,8 +6,9 @@
  *    условиям, выписанным в SQL руками;
  *  - `amount` у оценённых строк всегда единица — иначе суммировать одну цену
  *    (что и делает `aggregate`) было бы нельзя;
- *  - предупреждённый пропуск и несостоявшаяся отработка денег не приносят,
- *    засчитанная отработка приносит.
+ *  - предупреждённый пропуск денег не приносит, а обе отработки — и посещённая, и
+ *    пропущенная — приносят, каждая на своей дате;
+ *  - неотмеченная отработка не приносит: её день мог и не наступить.
  *
  * Только читает, ничего не меняет.
  *
@@ -37,6 +38,7 @@ async function main() {
   const orgs = await prisma.organization.findMany({ select: { id: true, name: true } })
   let checkedOrgs = 0
   let makeupCounted = 0
+  let missedMakeupCounted = 0
   let pairedTeacherRows = 0
 
   for (const org of orgs) {
@@ -64,26 +66,56 @@ async function main() {
             AND a."makeupForAttendanceId" IS NULL
             AND a."isWarned" IS DISTINCT FROM true
           )
+          -- Пропущенная отработка: платится как непредупреждённый пропуск, флаг
+          -- предупреждения на ней ничего не решает.
+          OR (a.status = 'ABSENT' AND a."makeupForAttendanceId" IS NOT NULL)
         )`
     const fromDb = Number(direct?.total ?? 0)
 
     assert.equal(fromRule, fromDb, `${org.name}: правило ${fromRule} ≠ база ${fromDb}`)
 
-    // Пропуск с предупреждением денег не приносит — ни сам, ни через
-    // несостоявшуюся отработку.
+    // Предупреждённый пропуск денег не приносит, пока отработка не состоялась:
+    // на самой его строке выручки нет никогда.
     const warned = await prisma.attendance.count({
-      where: { ...where, status: 'ABSENT', isWarned: true },
+      where: {
+        ...where,
+        status: 'ABSENT',
+        isWarned: true,
+        makeupForAttendanceId: null,
+      },
     })
     assert.equal(warned, 0, `${org.name}: предупреждённый пропуск попал в выручку (${warned})`)
 
-    const failedMakeup = await prisma.attendance.count({
-      where: { ...where, makeupForAttendanceId: { not: null }, NOT: { status: 'PRESENT' } },
+    // Неотмеченная отработка не состоялась: её день мог и не наступить.
+    const unmarkedMakeup = await prisma.attendance.count({
+      where: { ...where, makeupForAttendanceId: { not: null }, status: 'UNSPECIFIED' },
     })
     assert.equal(
-      failedMakeup,
+      unmarkedMakeup,
       0,
-      `${org.name}: непосещённая отработка попала в выручку (${failedMakeup})`,
+      `${org.name}: неотмеченная отработка попала в выручку (${unmarkedMakeup})`,
     )
+
+    // А вот пропущенная — приносит, наравне с пропуском без предупреждения.
+    // Правило не имеет права потерять ни одной такой строки.
+    const missedMakeupInRule = await prisma.attendance.count({
+      where: { ...where, makeupForAttendanceId: { not: null }, status: 'ABSENT' },
+    })
+    const missedMakeupInDb = await prisma.attendance.count({
+      where: {
+        organizationId: org.id,
+        isTrial: false,
+        status: 'ABSENT',
+        makeupForAttendanceId: { not: null },
+        lesson: { status: 'ACTIVE', date: { gte: START, lte: END } },
+      },
+    })
+    assert.equal(
+      missedMakeupInRule,
+      missedMakeupInDb,
+      `${org.name}: пропущенных отработок в выручке ${missedMakeupInRule} из ${missedMakeupInDb}`,
+    )
+    missedMakeupCounted += missedMakeupInRule
 
     makeupCounted += await prisma.attendance.count({
       where: { ...where, makeupForAttendanceId: { not: null }, status: 'PRESENT' },
@@ -143,7 +175,8 @@ async function main() {
 
   console.log(
     `\nСверка выручки: правило совпадает с базой, свёртки сходятся ` +
-      `(строк с парой преподавателей: ${pairedTeacherRows}).`,
+      `(строк с парой преподавателей: ${pairedTeacherRows}, ` +
+      `пропущенных отработок в выручке: ${missedMakeupCounted}).`,
   )
   await prisma.$disconnect()
 }

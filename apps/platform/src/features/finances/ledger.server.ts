@@ -42,12 +42,23 @@ export const LEDGER_SWITCH_COMMENT = 'Переход на учёт неопла�
  * Списывается ли урок при таком статусе.
  * - PRESENT — всегда списывается
  * - ABSENT без предупреждения — списывается
- * - ABSENT с предупреждением, UNSPECIFIED — нет
+ * - ABSENT на отработке — списывается, предупреждали о ней или нет: отработка
+ *   это вторая попытка, и не прийти на неё значит потратить занятие
+ * - ABSENT с предупреждением на обычном уроке, UNSPECIFIED — нет
+ *
+ * Аргументом идёт сама строка, а не пара «статус + флаг»: с появлением отработок
+ * решение принимают три поля, и позиционные булевы у вызова уже не читались бы.
  */
-export function isLessonCharged(status: AttendanceStatus, isWarned: boolean): boolean {
-  if (status === AttendanceStatus.PRESENT) return true
-  if (status === AttendanceStatus.ABSENT && !isWarned) return true
-  return false
+export function isLessonCharged(attendance: {
+  status: AttendanceStatus
+  isWarned: boolean | null
+  makeupForAttendanceId: number | null
+}): boolean {
+  if (attendance.status === AttendanceStatus.PRESENT) return true
+  if (attendance.status !== AttendanceStatus.ABSENT) return false
+  // Флаг nullable, и не проставлен он у большинства пропусков: предупреждением
+  // считается ровно `true`.
+  return attendance.makeupForAttendanceId !== null || attendance.isWarned !== true
 }
 
 /** Что нужно знать о строке посещаемости, чтобы провести по ней деньги. */
@@ -562,7 +573,10 @@ async function moveBalanceTx(
 }
 
 const chargeReason = (attendance: MoneyAttendance): StudentLessonsBalanceChangeReason => {
-  if (attendance.makeupForAttendanceId) {
+  // Пропущенная отработка списывается как обычный непредупреждённый пропуск —
+  // и называется в истории так же: «посещение отработки» было бы неправдой, а
+  // отработку от обычного урока отличает `isMakeupAttendance` в `meta`.
+  if (attendance.makeupForAttendanceId && attendance.status === AttendanceStatus.PRESENT) {
     return StudentLessonsBalanceChangeReason.MAKEUP_ATTENDED_CHARGED
   }
   return attendance.status === AttendanceStatus.PRESENT

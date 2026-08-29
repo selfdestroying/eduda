@@ -16,7 +16,7 @@ import { useUpdateAttendanceStatusMutation } from '../queries'
 
 export type AttendanceForStatusSwitcher = Pick<
   Attendance,
-  'studentId' | 'lessonId' | 'status' | 'isWarned'
+  'studentId' | 'lessonId' | 'status' | 'isWarned' | 'makeupForAttendanceId'
 > & {
   /** Ученик записан на отработку за этот пропуск. */
   makeupAttendance: { id: number } | null
@@ -45,7 +45,11 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
   const { mutate, isPending } = useUpdateAttendanceStatusMutation(attendance.lessonId)
 
   const status = attendance.status
-  const isWarned = attendance.isWarned
+  // Отработка — вторая попытка, а не бесконечная: её пропуск списывает занятие
+  // независимо от предупреждения. Колокольчика у такой строки нет вовсе —
+  // нажатый и ничего не меняющий переключатель обещал бы то, чего не будет.
+  const isMakeup = attendance.makeupForAttendanceId !== null
+  const isWarned = isMakeup ? null : attendance.isWarned
 
   const handleStatusChange = (newStatus: AttendanceStatus, newIsWarned: boolean | null) => {
     mutate({
@@ -75,6 +79,9 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
   // это тоже проверяет (`updateAttendanceStatus`), здесь — чтобы было видно.
   const locked = attendance.makeupAttendance !== null
 
+  /** Колокольчик показываем только там, где предупреждение что-то решает. */
+  const canWarn = status === 'ABSENT' && !isMakeup
+
   return (
     <TooltipProvider delay={300}>
       {/* Подсказка про блокировку — нативным title: у выключенных кнопок
@@ -83,17 +90,18 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
         className="border-muted flex w-fit items-center gap-1.5 rounded-lg border px-1.5 py-1"
         title={locked ? 'Ученик записан на отработку — статус не меняется' : undefined}
       >
-        {/* «Предупредили» бывает только у отсутствия, поэтому на остальных
-            статусах колокольчик сворачивается по ширине. Схлопывание через
-            grid 1fr→0fr — единственный способ доехать до ширины содержимого,
-            не замеряя её в JS; отрицательный отступ убирает `gap` пустой
-            ячейки, иначе в свёрнутом виде слева висит лишний зазор. */}
+        {/* «Предупредили» бывает только у отсутствия на обычном уроке, поэтому
+            на остальных статусах и на отработке колокольчик сворачивается по
+            ширине. Схлопывание через grid 1fr→0fr — единственный способ доехать
+            до ширины содержимого, не замеряя её в JS; отрицательный отступ
+            убирает `gap` пустой ячейки, иначе в свёрнутом виде слева висит
+            лишний зазор. */}
         <div
           // `overflow-hidden` только прячет — свёрнутая кнопка осталась бы
           // в tab-порядке, `inert` убирает её и оттуда, и из дерева доступности.
-          inert={status !== 'ABSENT'}
+          inert={!canWarn}
           className={`grid transition-[grid-template-columns,margin-right] duration-200 ${
-            status === 'ABSENT' ? 'grid-cols-[1fr]' : '-mr-1.5 grid-cols-[0fr]'
+            canWarn ? 'grid-cols-[1fr]' : '-mr-1.5 grid-cols-[0fr]'
           }`}
         >
           <div className="flex items-center gap-1.5 overflow-hidden">
@@ -148,7 +156,9 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
           />
 
           <TooltipContent>
-            <p>Отсутствует</p>
+            {/* На отработке пропуск платный всегда — говорим об этом там же, где
+                про него спрашивают. */}
+            <p>{isMakeup ? 'Отсутствует (-1)' : 'Отсутствует'}</p>
           </TooltipContent>
         </Tooltip>
 

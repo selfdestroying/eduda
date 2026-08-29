@@ -10,18 +10,24 @@ import type { Prisma } from '@repo/db'
  * 1. `attended` — ученик пришёл;
  * 2. `missed`   — пропустил, не предупредив: место держали, занятие сгорело;
  * 3. `makeup`   — предупредил и отработал. Деньги признаются на дате отработки,
- *    а не пропуска: занятие провели именно тогда.
+ *    а не пропуска: занятие провели именно тогда;
+ * 4. `makeup_missed` — предупредил, записался на отработку и не пришёл на неё.
+ *    Отработка — вторая попытка, а не бесконечная: её пропуск стоит ровно
+ *    столько же, сколько пропуск без предупреждения, и деньги признаются на её
+ *    дате. Предупреждение здесь не спрашивается вовсе — предупредить об
+ *    отработке нечем, третьей попытки нет.
  *
- * Выручки нет у предупреждённого пропуска — ни пока отработки нет, ни когда она
- * назначена, но не состоялась. Такая пара строк не даёт денег вовсе: ни на дате
- * пропуска, ни на дате несостоявшейся отработки.
+ * Выручки нет у предупреждённого пропуска, пока отработки не случилось: ни когда
+ * её нет вовсе, ни когда она назначена, но её день ещё не прошёл и ученик не
+ * отмечен. Деньги приносит проведённое занятие, а не запись на него.
  */
-export type RevenueKind = 'attended' | 'missed' | 'makeup'
+export type RevenueKind = 'attended' | 'missed' | 'makeup' | 'makeup_missed'
 
 export const REVENUE_KIND_LABELS: Record<RevenueKind, string> = {
   attended: 'Посещение',
   missed: 'Без предупреждения',
   makeup: 'Отработка',
+  makeup_missed: 'Отработка пропущена',
 }
 
 /**
@@ -35,9 +41,8 @@ export const REVENUE_CLASSES: Prisma.AttendanceWhereInput[] = [
   // `makeupForAttendanceId` — за какую дату занятие отрабатывают, — а на признание
   // денег это не влияет.
   { status: 'PRESENT' },
-  // Правило 2. `makeupForAttendanceId: null` обязателен: без него сюда попала бы
-  // пропущенная отработка, а она денег не приносит — исходный пропуск был с
-  // предупреждением.
+  // Правило 2. `makeupForAttendanceId: null` обязателен: пропущенная отработка
+  // идёт следующей веткой, и без этого условия одна строка попала бы в обе.
   //
   // Обе ветки `isWarned` перечислены явно: сравнение с NULL в SQL даёт NULL, а
   // флаг у большинства пропусков не проставлен вовсе — `not: true` выбросил бы
@@ -47,6 +52,9 @@ export const REVENUE_CLASSES: Prisma.AttendanceWhereInput[] = [
     makeupForAttendanceId: null,
     OR: [{ isWarned: false }, { isWarned: null }],
   },
+  // Правило 4. Про `isWarned` здесь не спрашиваем: на отработке флаг ничего не
+  // решает — не пришёл значит потратил занятие.
+  { status: 'ABSENT', makeupForAttendanceId: { not: null } },
 ]
 
 /**
@@ -57,6 +65,8 @@ export function revenueKindOf(attendance: {
   status: string
   makeupForAttendanceId: number | null
 }): RevenueKind {
-  if (attendance.makeupForAttendanceId !== null) return 'makeup'
+  if (attendance.makeupForAttendanceId !== null) {
+    return attendance.status === 'PRESENT' ? 'makeup' : 'makeup_missed'
+  }
   return attendance.status === 'PRESENT' ? 'attended' : 'missed'
 }
