@@ -275,6 +275,11 @@ export const updateAttendanceStatus = authAction
       throw new ConflictError('Ученик записан на отработку — статус пропуска не меняется')
     }
 
+    // Предупреждения на отработке не существует: попытка одна, и её пропуск платный
+    // в любом случае. Флаг гасим здесь, а не только в интерфейсе, — иначе «возможность
+    // указать» остаётся у любого, кто дойдёт до экшена мимо кнопок.
+    const nextIsWarned = oldAttendance.makeupForAttendanceId === null ? isWarned : null
+
     await prisma.$transaction(async (tx) => {
       // Статус переставляем первым: денежные функции ниже читают строку уже в
       // новом виде и сами решают, чем она расплатилась.
@@ -284,7 +289,7 @@ export const updateAttendanceStatus = authAction
         },
         // parentMarkedAt сбрасываем: статус переставил сотрудник, значит отметка
         // больше не «со слов родителя» и родитель её из кабинета уже не тронет.
-        data: { status, isWarned, parentMarkedAt: null },
+        data: { status, isWarned: nextIsWarned, parentMarkedAt: null },
       })
 
       if (oldAttendance.isTrial) return
@@ -300,7 +305,7 @@ export const updateAttendanceStatus = authAction
 
       const delta = getLessonsBalanceDelta(oldAttendance, {
         status: status as AttendanceStatus,
-        isWarned,
+        isWarned: nextIsWarned,
       })
       if (delta === 0) return
 
@@ -315,7 +320,7 @@ export const updateAttendanceStatus = authAction
           oldStatus: oldAttendance.status,
           newStatus: status,
           oldIsWarned: oldAttendance.isWarned,
-          newIsWarned: isWarned,
+          newIsWarned: nextIsWarned,
         },
       }
 
