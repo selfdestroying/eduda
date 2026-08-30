@@ -89,9 +89,12 @@ const EXPENSE_ROWS: { key: keyof ProfitMonthEntry; label: string; color: string 
 function MonthlyTooltip({
   active,
   payload,
+  year,
 }: {
   active?: boolean
   payload?: Array<{ payload: ProfitMonthEntry }>
+  /** Год приходит пропом: recharts клонирует элемент, сохраняя заданные props. */
+  year?: number
 }) {
   if (!active || !payload?.length) return null
   const month = payload[0]?.payload
@@ -104,7 +107,7 @@ function MonthlyTooltip({
     <div className="bg-popover text-popover-foreground min-w-64 rounded-lg border p-3 text-xs shadow-md">
       <div className="mb-2 flex items-baseline justify-between gap-3 border-b pb-2">
         <span className="font-semibold">
-          {MONTH_FULL_RU[month.monthIndex]} {new Date(month.startDate).getFullYear()}
+          {MONTH_FULL_RU[month.monthIndex]} {year}
         </span>
       </div>
 
@@ -208,6 +211,11 @@ export default function ProfitMonthly() {
             {data && (
               <span className="text-muted-foreground ml-auto text-xs">
                 Налоги: {data.taxSystemLabel}
+                {!data.taxSupported && (
+                  <span className="text-destructive ml-2">
+                    расчёт пока не поддержан — налоги показаны нулём
+                  </span>
+                )}
               </span>
             )}
           </div>
@@ -266,7 +274,10 @@ export default function ProfitMonthly() {
                     tick={{ fontSize: 10 }}
                     tickFormatter={(v: number) => formatCompact(v)}
                   />
-                  <ChartTooltip cursor={{ fillOpacity: 0.05 }} content={<MonthlyTooltip />} />
+                  <ChartTooltip
+                    cursor={{ fillOpacity: 0.05 }}
+                    content={<MonthlyTooltip year={data.year} />}
+                  />
                   <ChartLegend content={<ChartLegendContent />} />
                   <Bar dataKey="revenue" fill="var(--color-revenue)" radius={[4, 4, 4, 4]} />
                   <Bar
@@ -310,7 +321,7 @@ export default function ProfitMonthly() {
               <CardTitle className="text-sm">Разбивка по месяцам</CardTitle>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="by-pivot">
+              <Tabs defaultValue="pivot">
                 <TabsList>
                   <TabsTrigger value="pivot">Сводная</TabsTrigger>
                   <TabsTrigger value="by-month">По месяцам</TabsTrigger>
@@ -560,7 +571,7 @@ function collectSubRows(months: ProfitMonthEntry[], category: CategoryKey): SubR
         if (!keys.has(k)) {
           keys.set(k, {
             label: `${item.methodName} (${item.commissionPercent}%)`,
-            values: new Array<number>(12).fill(0),
+            values: new Array<number>(months.length).fill(0),
           })
         }
         keys.get(k)!.values[i] = item.fee
@@ -575,7 +586,8 @@ function collectSubRows(months: ProfitMonthEntry[], category: CategoryKey): SubR
     const keys = new Map<string, number[]>()
     months.forEach((m, i) => {
       for (const item of m.breakdowns.rent) {
-        if (!keys.has(item.locationName)) keys.set(item.locationName, new Array<number>(12).fill(0))
+        if (!keys.has(item.locationName))
+          keys.set(item.locationName, new Array<number>(months.length).fill(0))
         keys.get(item.locationName)![i] = item.amount
       }
     })
@@ -588,7 +600,7 @@ function collectSubRows(months: ProfitMonthEntry[], category: CategoryKey): SubR
     const keys = new Map<string, number[]>()
     months.forEach((m, i) => {
       for (const item of m.breakdowns.expenses) {
-        if (!keys.has(item.name)) keys.set(item.name, new Array<number>(12).fill(0))
+        if (!keys.has(item.name)) keys.set(item.name, new Array<number>(months.length).fill(0))
         keys.get(item.name)![i] = item.amount
       }
     })

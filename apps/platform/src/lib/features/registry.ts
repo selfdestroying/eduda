@@ -26,7 +26,6 @@ export const FEATURE_KEYS = [
   'finances.paymentMethods',
   'finances.products',
   'finances.profit',
-  'finances.profitMonthly',
   'shop',
   'shop.products',
   'shop.categories',
@@ -97,11 +96,6 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureEntry> = {
     routes: ['/finances/products'],
   },
   'finances.profit': { label: 'Прибыль', parent: 'finances', routes: ['/finances/profit'] },
-  'finances.profitMonthly': {
-    label: 'Прибыль по месяцам',
-    parent: 'finances',
-    routes: ['/finances/profit-monthly'],
-  },
 
   // - Магазин -
   shop: { label: 'Магазин', routes: ['/shop'] },
@@ -150,8 +144,7 @@ export function isFeatureDisabled(disabledFeatures: string[], featureKey: string
 /**
  * Роут-таблица «префикс пути → feature key», выведенная из `FEATURE_REGISTRY`.
  * Порядок больше не ведётся руками: сортируем по длине префикса (длинный — первым),
- * чтобы более специфичный путь (`/finances/profit-monthly`) выигрывал у общего
- * (`/finances/profit`).
+ * чтобы более специфичный путь (`/shop/products`) выигрывал у общего (`/shop`).
  */
 const ROUTE_TABLE: [string, FeatureKey][] = (
   Object.entries(FEATURE_REGISTRY) as [FeatureKey, (typeof FEATURE_REGISTRY)[FeatureKey]][]

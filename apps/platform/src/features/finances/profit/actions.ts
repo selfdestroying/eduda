@@ -7,11 +7,12 @@ import {
   type UsnIncomeConfig,
 } from '@/src/features/organization/tax-systems/schemas'
 import { prisma } from '@repo/db'
-import { authAction } from '@/src/lib/safe-action'
-import { nowInTz } from '@/src/lib/timezone'
-import { endOfMonth, startOfMonth } from 'date-fns'
+import { ForbiddenError } from '@/src/lib/error'
+import { featureAction } from '@/src/lib/safe-action'
+import { nowInTz, todayYmdInTz } from '@/src/lib/timezone'
 import { DEFAULT_CHARGEABLE_STATUSES } from '../chargeable'
 import { computeAttendanceRevenue } from '../chargeable.server'
+import { allocateRentByMonth, monthIdxOf, monthOf } from './months'
 import { ProfitMonthlyFiltersSchema } from './schemas'
 import type {
   AcquiringBreakdownItem,
@@ -38,7 +39,20 @@ const MONTH_LABELS_RU = [
   'дек',
 ]
 
-export const getProfitMonthlyData = authAction
+/**
+ * Прибыль школы целиком — отчёт владельца. Гейт продублирован намеренно: боковое
+ * меню прячет раздел, прокси закрывает маршрут при выключенной фиче, но экшен
+ * зовётся и напрямую, и без этой проверки преподаватель прочитал бы выручку школы,
+ * зарплаты коллег, аренду и все расходы.
+ */
+const profitAction = featureAction('finances.profit').use(async ({ next, ctx }) => {
+  if (ctx.session.memberRole !== 'owner') {
+    throw new ForbiddenError('Прибыль доступна только владельцу')
+  }
+  return next()
+})
+
+export const getProfitMonthlyData = profitAction
   .metadata({ actionName: 'getProfitMonthlyData' })
   .inputSchema(ProfitMonthlyFiltersSchema)
   .action(async ({ ctx, parsedInput }): Promise<ProfitMonthlyData> => {
@@ -48,16 +62,12 @@ export const getProfitMonthlyData = authAction
     // Границы года как date-only строки для фильтров по строковым колонкам дат.
     const yearStartYmd = `${year}-01-01`
     const yearEndYmd = `${year}-12-31`
-
-    // Pre-compute month boundaries
-    const monthStarts = Array.from({ length: 12 }, (_, i) => startOfMonth(new Date(year, i, 1)))
-    const monthEnds = monthStarts.map((d) => endOfMonth(d))
+    const todayYmd = todayYmdInTz(ctx.tz)
 
     // Init per-month accumulators
     const revenuePerMonth = new Array<number>(12).fill(0)
     const acquiringPerMonth = new Array<number>(12).fill(0)
     const salariesPerMonth = new Array<number>(12).fill(0)
-    const rentPerMonth = new Array<number>(12).fill(0)
     const expensesPerMonth = new Array<number>(12).fill(0)
 
     // Per-month breakdown accumulators
@@ -65,7 +75,6 @@ export const getProfitMonthlyData = authAction
       number,
       { name: string; commission: number; totalPayments: number }
     >[] = Array.from({ length: 12 }, () => new Map())
-    const rentLocationsPerMonth: Map<string, number>[] = Array.from({ length: 12 }, () => new Map())
     const expenseNamesPerMonth: Map<string, number>[] = Array.from({ length: 12 }, () => new Map())
     const salaryLessonsPerMonth = new Array<number>(12).fill(0)
     const salaryPaychecksPerMonth = new Array<number>(12).fill(0)
@@ -75,36 +84,126 @@ export const getProfitMonthlyData = authAction
     const managerIdsPerMonth: Set<number>[] = Array.from({ length: 12 }, () => new Set())
     const lessonCountPerMonth = new Array<number>(12).fill(0)
 
-    // ── 1. Revenue (per attendance/lesson date) ─────────────────────────────
-    const revenueEntries = await computeAttendanceRevenue({
-      organizationId,
-      startDate: yearStartYmd,
-      endDate: yearEndYmd,
-      chargeableStatuses: [...DEFAULT_CHARGEABLE_STATUSES],
-    })
+    // ── 0. Все выборки независимы — берём их одним заходом ──────────────────
+    // Последовательно это девять round-trip'ов до отдельного хоста БД, и ждёт
+    // пользователь их сумму, хотя ни одна не зависит от предыдущей.
+    const [
+      revenueEntries,
+      payments,
+      lessons,
+      paychecks,
+      members,
+      managerSalaries,
+      rents,
+      expensesRaw,
+      taxConfig,
+    ] = await Promise.all([
+      // 1. Revenue (per attendance/lesson date)
+      computeAttendanceRevenue({
+        organizationId,
+        startDate: yearStartYmd,
+        endDate: yearEndYmd,
+        chargeableStatuses: [...DEFAULT_CHARGEABLE_STATUSES],
+      }),
+      // 2. Acquiring (per payment.date)
+      prisma.payment.findMany({
+        where: {
+          organizationId,
+          status: 'ACTIVE',
+          date: { gte: yearStartYmd, lte: yearEndYmd },
+        },
+        select: {
+          date: true,
+          price: true,
+          paymentMethod: {
+            select: { id: true, name: true, commission: true },
+          },
+        },
+      }),
+      // 3. Уроки преподавателей — только уже проведённые. Занятие, до которого
+      // ещё не дошёл календарь, никто не отработал и не оплатил; без этой
+      // границы текущий месяц нёс бы зарплату за весь остаток месяца против
+      // выручки только по прошедшим дням и всегда выглядел бы убыточным.
+      prisma.lesson.findMany({
+        where: {
+          organizationId,
+          date: {
+            gte: yearStartYmd,
+            lte: todayYmd < yearEndYmd ? todayYmd : yearEndYmd,
+          },
+          status: 'ACTIVE',
+        },
+        select: {
+          date: true,
+          teachers: {
+            select: { bid: true, bonusPerStudent: true, teacherId: true },
+          },
+          _count: { select: { attendance: { where: { status: 'PRESENT' } } } },
+        },
+      }),
+      // 4. Чеки — разовые выплаты, заведённые руками: доплата за интенсив, за
+      // индивидуальное занятие, компенсация. Это работа мимо ставок за уроки,
+      // поэтому затрата настоящая.
+      //
+      // По типу не отбираем. Тип спрашивают только при редактировании, так что в
+      // данных он почти везде дефолтный `SALARY` и не значит ничего: отбор по нему
+      // выбросил бы как раз эти доплаты. Отсюда же известное допущение — премию
+      // менеджеру не отличить от выдачи его же оклада, и заведённый ему
+      // плюс-чек «Зарплата» посчитается вторым разом поверх `ManagerSalary`.
+      //
+      // Отрицательный чек — не затрата, а отметка, что часть зарплаты уже выдана
+      // на руки (наличными от ученика; минусом уменьшают сумму к переводу на
+      // карту). Работа при этом оплачена полностью, и её стоимость уже посчитана
+      // выше по урокам. Учесть минус ещё раз — занизить затраты.
+      prisma.payCheck.findMany({
+        where: {
+          organizationId,
+          date: { gte: yearStartYmd, lte: yearEndYmd },
+          amount: { gt: 0 },
+        },
+        select: { date: true, amount: true, userId: true },
+      }),
+      prisma.member.findMany({
+        where: { organizationId },
+        select: { userId: true, role: true },
+      }),
+      prisma.managerSalary.findMany({
+        where: { organizationId },
+        orderBy: { startDate: 'desc' },
+      }),
+      // 5. Аренда, пересекающаяся с годом
+      prisma.rent.findMany({
+        where: {
+          organizationId,
+          startDate: { lte: yearEndYmd },
+          OR: [{ endDate: null }, { endDate: { gte: yearStartYmd } }],
+        },
+        select: {
+          amount: true,
+          isMonthly: true,
+          startDate: true,
+          endDate: true,
+          location: { select: { name: true } },
+        },
+      }),
+      // 6. Прочие расходы (per expense.date)
+      prisma.expense.findMany({
+        where: {
+          organizationId,
+          date: { gte: yearStartYmd, lte: yearEndYmd },
+        },
+        select: { date: true, name: true, amount: true },
+      }),
+      prisma.taxConfig.findUnique({ where: { organizationId } }),
+    ])
+
     for (const e of revenueEntries) {
-      const m = new Date(e.lessonDate).getMonth()
-      revenuePerMonth[m]! += e.visitCost
+      revenuePerMonth[monthOf(e.lessonDate)]! += e.visitCost
     }
 
-    // ── 2. Acquiring (per payment.date) ─────────────────────────────────────
-    const payments = await prisma.payment.findMany({
-      where: {
-        organizationId,
-        status: 'ACTIVE',
-        date: { gte: yearStartYmd, lte: yearEndYmd },
-      },
-      select: {
-        date: true,
-        price: true,
-        paymentMethod: {
-          select: { id: true, name: true, commission: true },
-        },
-      },
-    })
     for (const p of payments) {
       if (!p.paymentMethod) continue
-      const m = new Date(p.date).getMonth()
+      const m = monthOf(p.date)
       acquiringPerMonth[m]! += p.price * (p.paymentMethod.commission / 100)
       const bucket = acquiringMethodsPerMonth[m]!
       const { id, name, commission } = p.paymentMethod
@@ -113,23 +212,8 @@ export const getProfitMonthlyData = authAction
       else bucket.set(id, { name, commission, totalPayments: p.price })
     }
 
-    // ── 3. Salaries: lessons + paychecks (per their date) ───────────────────
-    const lessons = await prisma.lesson.findMany({
-      where: {
-        organizationId,
-        date: { gte: yearStartYmd, lte: yearEndYmd },
-        status: { not: 'CANCELLED' },
-      },
-      select: {
-        date: true,
-        teachers: {
-          select: { bid: true, bonusPerStudent: true, teacherId: true },
-        },
-        _count: { select: { attendance: { where: { status: 'PRESENT' } } } },
-      },
-    })
     for (const lesson of lessons) {
-      const m = new Date(lesson.date).getMonth()
+      const m = monthOf(lesson.date)
       const presentCount = lesson._count?.attendance ?? 0
       let lessonTotal = 0
       for (const tl of lesson.teachers) {
@@ -141,30 +225,16 @@ export const getProfitMonthlyData = authAction
       lessonCountPerMonth[m]! += 1
     }
 
-    // Отрицательный чек — не затрата, а отметка, что часть зарплаты уже выдана на руки
-    // (минусом уменьшают сумму к переводу на карту). Работа при этом оплачена полностью,
-    // и её стоимость уже посчитана выше по урокам. Учесть минус ещё раз — занизить затраты.
-    // Держится на договорённости «минус = уже выдано»: тип чека спрашивают только при
-    // редактировании, так что штраф, заведённый минус-чеком, здесь завысит прибыль.
-    const paychecks = await prisma.payCheck.findMany({
-      where: {
-        organizationId,
-        date: { gte: yearStartYmd, lte: yearEndYmd },
-        amount: { gt: 0 },
-      },
-      select: { date: true, amount: true, userId: true, type: true },
-    })
-    const membersForYear = await prisma.member.findMany({
-      where: { organizationId },
-      select: { userId: true, role: true },
-    })
-    const managerUserIdsYear = new Set(
-      membersForYear.filter((m) => m.role === 'manager' || m.role === 'owner').map((m) => m.userId),
+    const managerUserIds = new Set(
+      members.filter((m) => m.role === 'manager' || m.role === 'owner').map((m) => m.userId),
     )
     for (const p of paychecks) {
-      const m = new Date(p.date).getMonth()
+      const m = monthOf(p.date)
       salariesPerMonth[m]! += p.amount
-      if (managerUserIdsYear.has(p.userId) && p.type === 'BONUS') {
+      // Преподаватель или менеджер — по роли в организации, а не по типу чека:
+      // тип почти везде дефолтный, и раньше условие `type === 'BONUS'` уводило
+      // все чеки менеджеров в корзину «Начисления преподавателям».
+      if (managerUserIds.has(p.userId)) {
         salaryManagerPaychecksPerMonth[m]! += p.amount
         managerIdsPerMonth[m]!.add(p.userId)
       } else {
@@ -173,24 +243,19 @@ export const getProfitMonthlyData = authAction
     }
 
     // Manager fixed salaries per month (whole-month with supersession)
-    const managerSalariesYear = await prisma.managerSalary.findMany({
-      where: { organizationId },
-      orderBy: { startDate: 'desc' },
-    })
-    const managerSalariesByUserYear = new Map<number, typeof managerSalariesYear>()
-    for (const s of managerSalariesYear) {
-      const arr = managerSalariesByUserYear.get(s.userId) ?? []
+    const managerSalariesByUser = new Map<number, typeof managerSalaries>()
+    for (const s of managerSalaries) {
+      const arr = managerSalariesByUser.get(s.userId) ?? []
       arr.push(s)
-      managerSalariesByUserYear.set(s.userId, arr)
+      managerSalariesByUser.set(s.userId, arr)
     }
-    for (const [userId, rows] of managerSalariesByUserYear) {
+    for (const [userId, rows] of managerSalariesByUser) {
       for (let m = 0; m < 12; m++) {
-        const monthStart = monthStarts[m]!
-        const monthEnd = monthEnds[m]!
+        const monthIdx = year * 12 + m
         const applicable = rows.find(
           (s) =>
-            new Date(s.startDate).getTime() <= monthEnd.getTime() &&
-            (s.endDate === null || new Date(s.endDate).getTime() >= monthStart.getTime()),
+            monthIdxOf(s.startDate) <= monthIdx &&
+            (s.endDate === null || monthIdxOf(s.endDate) >= monthIdx),
         )
         if (applicable) {
           salariesPerMonth[m]! += applicable.monthlyAmount
@@ -200,107 +265,26 @@ export const getProfitMonthlyData = authAction
       }
     }
 
-    // ── 4. Rent (distribute pro-rata by overlap days) ───────────────────────
-    const rents = await prisma.rent.findMany({
-      where: {
-        organizationId,
-        startDate: { lte: yearEndYmd },
-        OR: [{ endDate: null }, { endDate: { gte: yearStartYmd } }],
-      },
-      select: {
-        amount: true,
-        isMonthly: true,
-        startDate: true,
-        endDate: true,
-        locationId: true,
-        location: { select: { name: true } },
-      },
-    })
+    const { perMonth: rentPerMonth, byLocation: rentLocationsPerMonth } = allocateRentByMonth(
+      rents,
+      year,
+    )
 
-    // Compute per-monthly-rent cutoff month index (exclusive): a newer monthly
-    // rent at the same location supersedes the earlier one from its start month.
-    const monthIdxOf = (d: Date) => d.getUTCFullYear() * 12 + d.getUTCMonth()
-    const monthlyEndIdx = new Map<number, number>()
-    const monthlyByLocation = new Map<number, { idx: number; startIdx: number }[]>()
-    rents.forEach((r, idx) => {
-      if (!r.isMonthly) return
-      if (!monthlyByLocation.has(r.locationId)) monthlyByLocation.set(r.locationId, [])
-      monthlyByLocation.get(r.locationId)!.push({
-        idx,
-        startIdx: monthIdxOf(new Date(r.startDate)),
-      })
-    })
-    for (const arr of monthlyByLocation.values()) {
-      arr.sort((a, b) => a.startIdx - b.startIdx)
-      for (let i = 0; i < arr.length; i++) {
-        monthlyEndIdx.set(arr[i]!.idx, arr[i + 1]?.startIdx ?? Number.POSITIVE_INFINITY)
-      }
-    }
-
-    rents.forEach((r, idx) => {
-      const rStart = new Date(r.startDate)
-      const locationName = r.location.name
-
-      if (r.isMonthly) {
-        // Monthly recurring: add full amount for each month in this year
-        // from rStart's month up to (but not including) cutoff month.
-        const startIdx = monthIdxOf(rStart)
-        const cutoffIdx = monthlyEndIdx.get(idx) ?? Number.POSITIVE_INFINITY
-        for (let m = 0; m < 12; m++) {
-          const monthIdx = year * 12 + m
-          if (monthIdx < startIdx || monthIdx >= cutoffIdx) continue
-          rentPerMonth[m]! += r.amount
-          const bucket = rentLocationsPerMonth[m]!
-          bucket.set(locationName, (bucket.get(locationName) ?? 0) + r.amount)
-        }
-        return
-      }
-
-      const rEnd = r.endDate ? new Date(r.endDate) : null
-      if (!rEnd) return // safety: non-monthly should always have endDate
-      const totalRentMs = rEnd.getTime() - rStart.getTime()
-      if (totalRentMs <= 0) {
-        // Single-day or invalid range: attribute to month of startDate (if in year)
-        const m = rStart.getFullYear() === year ? rStart.getMonth() : -1
-        if (m >= 0) {
-          rentPerMonth[m]! += r.amount
-          const bucket = rentLocationsPerMonth[m]!
-          bucket.set(locationName, (bucket.get(locationName) ?? 0) + r.amount)
-        }
-        return
-      }
-      for (let i = 0; i < 12; i++) {
-        const overlapStart = Math.max(rStart.getTime(), monthStarts[i]!.getTime())
-        const overlapEnd = Math.min(rEnd.getTime(), monthEnds[i]!.getTime())
-        if (overlapEnd <= overlapStart) continue
-        const ratio = (overlapEnd - overlapStart) / totalRentMs
-        const share = r.amount * ratio
-        rentPerMonth[i]! += share
-        const bucket = rentLocationsPerMonth[i]!
-        bucket.set(locationName, (bucket.get(locationName) ?? 0) + share)
-      }
-    })
-
-    // ── 5. Other expenses (per expense.date) ────────────────────────────────
-    const expensesRaw = await prisma.expense.findMany({
-      where: {
-        organizationId,
-        date: { gte: yearStartYmd, lte: yearEndYmd },
-      },
-      select: { date: true, name: true, amount: true },
-    })
     for (const e of expensesRaw) {
-      const m = new Date(e.date).getMonth()
+      const m = monthOf(e.date)
       expensesPerMonth[m]! += e.amount
       const bucket = expenseNamesPerMonth[m]!
       bucket.set(e.name, (bucket.get(e.name) ?? 0) + e.amount)
     }
 
-    // ── 6. Taxes (USN_INCOME): evenly spread annual contributions ──────────
-    const taxConfig = await prisma.taxConfig.findUnique({ where: { organizationId } })
+    // ── Налоги (USN_INCOME): годовые взносы размазаны по месяцам ────────────
     const taxSystem = (taxConfig?.taxSystem ?? 'USN_INCOME') as TaxSystemKey
     const taxSystemMeta = TAX_SYSTEMS.find((s) => s.value === taxSystem)
     const taxSystemLabel = taxSystemMeta?.label ?? taxSystem
+    // Считать умеем пока только УСН «Доходы». Для остальных отдаём признак, а не
+    // молчаливый ноль: ноль неотличим от «налогов нет» и завышает прибыль ровно
+    // на всю их сумму.
+    const taxSupported = taxSystem === 'USN_INCOME'
 
     const taxesPerMonth = new Array<number>(12).fill(0)
     const incomeTaxPerMonth = new Array<number>(12).fill(0)
@@ -308,7 +292,7 @@ export const getProfitMonthlyData = authAction
     let monthlyFixedAnnual = 0
     let incomeTaxRate = 0
 
-    if (taxSystem === 'USN_INCOME') {
+    if (taxSupported) {
       const schema = TAX_SYSTEM_CONFIG_SCHEMAS.USN_INCOME
       const config = schema.parse(
         (taxConfig?.config as Record<string, unknown>) ?? {},
@@ -333,13 +317,13 @@ export const getProfitMonthlyData = authAction
       }
     }
 
-    // ── 7. Build response ───────────────────────────────────────────────────
+    // ── Build response ──────────────────────────────────────────────────────
     // Future months (past the current month in the current year) show zeros.
     const now = nowInTz(ctx.tz)
     const isCurrentYear = now.getFullYear() === year
     const currentMonthIndex = now.getMonth()
 
-    const months: ProfitMonthEntry[] = monthStarts.map((startDate, i) => {
+    const months: ProfitMonthEntry[] = Array.from({ length: 12 }, (_, i) => {
       const isFuture = isCurrentYear && i > currentMonthIndex
       const revenue = isFuture ? 0 : Math.round(revenuePerMonth[i]!)
       const taxes = isFuture ? 0 : Math.round(taxesPerMonth[i]!)
@@ -395,8 +379,6 @@ export const getProfitMonthlyData = authAction
       return {
         monthIndex: i,
         label: MONTH_LABELS_RU[i]!,
-        startDate: startDate.toISOString(),
-        endDate: monthEnds[i]!.toISOString(),
         revenue,
         taxes,
         acquiring,
@@ -438,6 +420,7 @@ export const getProfitMonthlyData = authAction
     return {
       year,
       taxSystemLabel,
+      taxSupported,
       months,
       totals,
     }

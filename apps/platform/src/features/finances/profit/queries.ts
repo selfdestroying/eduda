@@ -1,10 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { getProfitMonthlyData } from './actions'
-import type { ProfitFilters } from './schemas'
 
 export const profitKeys = {
-  all: ['profit'] as const,
-  data: (filters: ProfitFilters) => ['profit', 'data', filters] as const,
   monthly: (year: number) => ['profit', 'monthly', year] as const,
 }
 
