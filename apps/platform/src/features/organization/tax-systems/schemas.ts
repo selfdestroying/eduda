@@ -129,6 +129,17 @@ export const UpsertTaxConfigSchema = z
       })
       return
     }
+    // Форма показывает невыпущенные системы с бейджем «Скоро», но выбрать их не
+    // даёт — здесь та же проверка, потому что экшен зовётся и напрямую. Считать
+    // по ним «Прибыль» не умеет и молча показала бы нулевой налог.
+    if (!TAX_SYSTEMS.find((s) => s.value === val.taxSystem)?.enabled) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Эта система налогообложения пока не поддерживается',
+        path: ['taxSystem'],
+      })
+      return
+    }
     const result = systemSchema.safeParse(val.config)
     if (!result.success) {
       for (const issue of result.error.issues) {
