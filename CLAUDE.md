@@ -272,7 +272,7 @@ pnpm --filter platform exec tsx scripts/check-amocrm.ts 30
 
 Переменные: `AMOCRM_SUBDOMAIN`, `AMOCRM_TOKEN`, `AMOCRM_POLL_KEY`, `AMOCRM_ORGANIZATION_ID`.
 
-До катовера оплаты заводит прежний парсер (`/var/www/alg/webhook`, pm2 `parser`, порт 3003) — он пишет по досплитовой схеме и на новой упадёт. В день переезда его останавливают, из nginx убирают `location /poller/`, и только тогда заводят cron: иначе обе половины будут заводить одни и те же оплаты.
+До катовера оплаты заводит прежний парсер (`/var/www/alg/webhook`, pm2 `parser`, порт 3003) — он пишет по досплитовой схеме и на новой упадёт. Останавливает его `cutover-prod-once.sh` вместе с `dashboard` и `shop`, а вот убрать из nginx `location /poller/`, дописать `AMOCRM_*` в `.env` платформы и завести cron — руками, по инструкции в конце скрипта. Порядок именно такой: пока парсер жив, обе половины заводят одни и те же оплаты.
 
 ## Feature flags
 

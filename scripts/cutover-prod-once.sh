@@ -146,14 +146,16 @@ main() {
       pm2 start npm --name dashboard --cwd "$OLD_DASHBOARD" -- start -- -p 3001 >/dev/null 2>&1 || true
     pm2 describe shop >/dev/null 2>&1 ||
       pm2 start npm --name shop --cwd "$OLD_SHOP" -- start -- -p 3002 >/dev/null 2>&1 || true
-    pm2 start dashboard shop >/dev/null 2>&1 || true
+    pm2 start dashboard shop parser >/dev/null 2>&1 || true
     echo "   база могла остаться в промежуточном состоянии" >&2
     echo "   восстановить: $PG_BIN/pg_restore --clean --if-exists -d '<DATABASE_URL>' $dump" >&2
   }
   trap bail ERR
 
   say "остановка старых приложений (старый код с новой схемой не работает)"
-  run pm2 stop dashboard shop
+  # parser тоже: он заводит оплаты по досплитовой схеме и на новой падает, а
+  # после катовера его работу делает cron на /api/amocrm/poll (см. инструкции).
+  run pm2 stop dashboard shop parser
 
   # ── Миграции с двумя ожидаемыми остановками ───────────────────────────
   # Какая миграция числится упавшей: строка есть, финиша нет, откат не отмечен.
@@ -251,7 +253,7 @@ main() {
   say "переезд завершён"
   cat <<INSTRUCTIONS
 
-Осталось два шага руками.
+Осталось пять шагов руками.
 
 1. Документация. Ей нужен свой server-блок, иначе docs.$root_domain уйдёт по
    wildcard в платформу. Положить в /etc/nginx/sites-available/docs, слинковать
@@ -276,11 +278,39 @@ server {
 
    Сертификат общий, wildcard — выпускать ничего не нужно.
 
-2. Предупредить учеников: в кабинет надо войти заново. Логины и пароли те же —
+2. Опрос оплат из amoCRM. Старый parser остановлен этим скриптом, и пока не
+   заведён cron, оплаты из CRM не приезжают вовсе. Три шага, все обязательные.
+
+   а) Дописать в $APP_DIR/apps/platform/.env четыре переменные и перезапустить
+      платформу. Значения берутся из старого $ROOT/webhook/.env, кроме ключа
+      опроса — его придумывает администратор:
+
+        AMOCRM_SUBDOMAIN=...
+        AMOCRM_TOKEN=...
+        AMOCRM_ORGANIZATION_ID=...
+        AMOCRM_POLL_KEY=\$(openssl rand -hex 32)
+
+        pm2 restart platform --update-env
+
+   б) Убрать из nginx блок "location /poller/" — он ведёт на порт 3003, которого
+      больше нет, — и перезагрузить nginx.
+
+   в) Прогнать предполётную сверку (ничего не пишет; печатает продукты, которым
+      не проставлен номер товара в amo) и завести cron от admin:
+
+        cd $APP_DIR && pnpm --filter platform exec tsx scripts/check-amocrm.ts 30
+
+        crontab -e
+        */10 * * * * flock -n /tmp/amocrm.lock curl -fsS -m 300 -H "X-Poller-Key: КЛЮЧ" http://localhost:3001/api/amocrm/poll >/dev/null
+
+      Счета непривязанных продуктов не теряются: они уходят в
+      https://<школа>.$root_domain/finances/unprocessed и разбираются руками.
+
+3. Предупредить учеников: в кабинет надо войти заново. Логины и пароли те же —
    их перенёс backfill-student-auth, — но сессии старого кабинета не переезжают:
    там была своя самописная сессия, а не better-auth.
 
-3. Сохранить STUDENT_PW_KEY в менеджер паролей:
+4. Сохранить STUDENT_PW_KEY в менеджер паролей:
 
      grep STUDENT_PW_KEY $APP_DIR/apps/platform/.env
 
@@ -289,7 +319,7 @@ server {
    продолжит работать, он идёт по хешу). Лежит ключ только в .env, а .env не в
    git, так что переустановка каталога без копии ключа необратима.
 
-4. Старое убрать, когда новое отработает день:
+5. Старое убрать, когда новое отработает день:
 
      rm -rf $OLD_DASHBOARD $OLD_SHOP
 
