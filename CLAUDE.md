@@ -98,13 +98,13 @@ pnpm --filter platform exec tsx scripts/forgive-missed-makeups.ts --apply       
 
 Одна машина `eduda.online` (1 ядро, 2 ГБ + 2 ГБ свопа), база — отдельный хост в приватной сети. Всё под pm2 от пользователя `admin`, node из nvm, nginx проксирует по портам:
 
-| Процесс    | Каталог                            | Порт | Домен                            |
-| ---------- | ---------------------------------- | ---- | -------------------------------- |
-| `platform` | `/var/www/alg/eduda/apps/platform` | 3001 | `eduda.online`, `*.eduda.online` |
-| `shop`     | `…/apps/shop`                      | 3002 | `shop.eduda.online`              |
-| `docs`     | `…/apps/docs`                      | 3005 | `docs.eduda.online`              |
-| `parser`   | `/var/www/alg/webhook`             | 3003 | `*.eduda.online/poller/`         |
-| `exam`     | `/var/www/alg/exam`                | 3004 | `exam.eduda.online`              |
+| Процесс    | Каталог                        | Порт | Домен                            |
+| ---------- | ------------------------------ | ---- | -------------------------------- |
+| `platform` | `/var/www/eduda/apps/platform` | 3001 | `eduda.online`, `*.eduda.online` |
+| `shop`     | `…/apps/shop`                  | 3002 | `shop.eduda.online`              |
+| `docs`     | `…/apps/docs`                  | 3005 | `docs.eduda.online`              |
+| `parser`   | `/var/www/alg/webhook`         | 3003 | `*.eduda.online/poller/`         |
+| `exam`     | `/var/www/alg/exam`            | 3004 | `exam.eduda.online`              |
 
 Сертификат один и wildcard (`*.eduda.online` + `eduda.online`), поэтому новый поддомен требует только server-блока, но не выпуска.
 
@@ -113,7 +113,7 @@ pnpm --filter platform exec tsx scripts/forgive-missed-makeups.ts --apply       
 Сборка на этой машине не помещается в память, если `next build` гоняет проверку типов: это его пик (Next 16 линт при сборке уже не запускает — ключа `eslint` в конфиге нет). Деплой её снимает — `SKIP_BUILD_CHECKS=1`, флаг читают все три `next.config.ts`. `tsc` к тому моменту уже прошёл в `pnpm check`, так что теряется только его повтор. Локально флага нет.
 
 - **`scripts/deploy.sh`** — обычный деплой. Собирает по одному (на одном ядре параллельная сборка трёх Next уходит в OOM) и до остановки процессов: сборка базы не касается, поэтому упавшая ничего не роняет. Дамп проверяется и ротируется, при ошибке приложения поднимаются обратно, успех решает не код возврата pm2, а отклик на порту.
-- **`scripts/cutover-prod-once.sh`** — одноразовый переезд с двух старых репозиториев (`alg-dashboard` + `alg-shop`) на монорепо, вместе со всеми миграциями. Старые каталоги и pm2-записи не удаляет: пока они на месте, откат — одна команда.
+- **`scripts/cutover-prod-once.sh`** — одноразовый переезд с двух старых репозиториев (`alg-dashboard` + `alg-shop`) на монорепо, вместе со всеми миграциями. Старые каталоги и pm2-записи не удаляет: пока они на месте, откат — одна команда. Монорепо живёт в `/var/www/eduda`, а `/var/www` принадлежит root, поэтому каталог заводится заранее (`sudo mkdir -p /var/www/eduda && sudo chown admin:admin /var/www/eduda`) — скрипт это проверяет в преflight'е. Дампы остались в `/var/www/alg/backups`, там же вся прежняя история.
 
 ## Git / commits
 

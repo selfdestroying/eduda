@@ -25,7 +25,10 @@ set -Eeuo pipefail
 # bash дочитывает скрипт с диска по ходу выполнения. Функция разбирается целиком
 # до первого вызова, поэтому подмена под ногами уже не страшна.
 main() {
-  APP_DIR=${APP_DIR:-/var/www/alg/eduda}
+  APP_DIR=${APP_DIR:-/var/www/eduda}
+  # Дампы остаются там же, где их складывал прежний деплой: рядом лежит вся
+  # история, а `/var/www/alg` после переезда никуда не девается — в нём exam и,
+  # до отключения, старые чекауты.
   BACKUP_DIR=${BACKUP_DIR:-/var/www/alg/backups}
   KEEP_DAYS=${KEEP_DAYS:-30}
   PG_BIN=${PG_BIN:-/usr/lib/postgresql/17/bin}

@@ -6,7 +6,7 @@
 #
 # Что меняется. Сейчас на машине два отдельных чекаута двух старых репозиториев —
 # `dashboard` (порт 3001) и `shop` (3002), оба ходят в одну базу. Становится один
-# монорепо в `/var/www/alg/eduda` и три приложения из него: платформа (3001),
+# монорепо в `/var/www/eduda` и три приложения из него: платформа (3001),
 # кабинет ученика (3002) и документация (3005). Порты платформы и шопа сохранены,
 # поэтому nginx для них не трогается; документации нужен новый server-блок — его
 # скрипт напечатает в конце, это единственный шаг под sudo.
@@ -23,8 +23,12 @@
 set -Eeuo pipefail
 
 main() {
+  # ROOT — это старое хозяйство: два прежних чекаута, дампы и парсер. Монорепо
+  # переезжает из него в `/var/www/eduda`, поэтому путь свой, а не `$ROOT/eduda`.
+  # Каталог создаётся под sudo заранее (`/var/www` принадлежит root) — скрипт
+  # проверяет это в преflight'е.
   ROOT=${ROOT:-/var/www/alg}
-  APP_DIR=${APP_DIR:-$ROOT/eduda}
+  APP_DIR=${APP_DIR:-/var/www/eduda}
   OLD_DASHBOARD=${OLD_DASHBOARD:-$ROOT/dashboard}
   OLD_SHOP=${OLD_SHOP:-$ROOT/shop}
   REPO=${REPO:-https://github.com/selfdestroying/eduda.git}
@@ -50,6 +54,11 @@ main() {
   # ── Преflight ─────────────────────────────────────────────────────────
   [ "$(id -u)" != 0 ] || die "запускать от admin, а не от root: pm2 и node живут в его профиле"
   [ -f "$OLD_DASHBOARD/.env" ] || die "нет $OLD_DASHBOARD/.env — из него берутся настройки платформы"
+  # `/var/www` принадлежит root, поэтому каталог заводится заранее и под sudo —
+  # единственный шаг переезда, который admin сделать не может. Проверяем здесь, а
+  # не в `git clone` на десятой минуте.
+  [ -w "$APP_DIR" ] || [ -w "$(dirname "$APP_DIR")" ] || die "в $APP_DIR не записать. Один раз под sudo:
+     sudo mkdir -p $APP_DIR && sudo chown $USER:$USER $APP_DIR"
   [ -x "$PG_BIN/pg_dump" ] || die "нет $PG_BIN/pg_dump"
 
   # shellcheck disable=SC1091
