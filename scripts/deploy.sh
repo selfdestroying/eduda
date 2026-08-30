@@ -52,7 +52,14 @@ $(git status --short)"
   # pm2 крутится на nvm-овском node, сборка обязана идти на нём же.
   # shellcheck disable=SC1091
   . "$HOME/.nvm/nvm.sh" && nvm use default >/dev/null
-  corepack enable pnpm >/dev/null 2>&1 || die "corepack не смог поставить pnpm"
+  # corepack не годится: Node 25 его больше не поставляет, и имя резолвится в
+  # системный /usr/bin/corepack, который ставит симлинки в /usr/bin и без root не
+  # может. Ставим pnpm через npm — тот из nvm и пишет в свой префикс, а он
+  # принадлежит пользователю. Версия та же, что в `packageManager`; дальше pnpm
+  # доводит себя до неё сам, если разъедется.
+  command -v pnpm >/dev/null 2>&1 ||
+    npm install -g pnpm@11.15.1 >/dev/null ||
+    die "не удалось поставить pnpm через npm"
 
   local db_url
   db_url=$(grep -E '^DATABASE_URL=' apps/platform/.env | head -1 | cut -d= -f2- | tr -d "\"'")
