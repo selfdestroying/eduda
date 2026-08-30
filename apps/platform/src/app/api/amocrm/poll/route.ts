@@ -27,6 +27,26 @@ const MAX_WINDOW_DAYS = 30
 
 const DAY_SECONDS = 24 * 60 * 60
 
+/**
+ * Раньше этого момента не смотрим вовсе (unix-секунды, `AMOCRM_SINCE_FLOOR`).
+ *
+ * Ключ идемпотентности — `Payment.externalId`, и он появился вместе с этим
+ * опросом. У оплат, заведённых прежним парсером, он пустой, поэтому скользящее
+ * окно приняло бы их за новые и завело второй раз — с выдачей уроков, потому что
+ * счёт приходит уже оплаченным. Восстановить ключ задним числом нечем: парсер
+ * держал курсор в файле, а не в строке, а угадывать счёт по сумме, дате и
+ * ученику нельзя — родитель платит за двоих детей одинаковыми абонементами в
+ * один день.
+ *
+ * Значение — курсор прежнего парсера на момент его остановки: всё до него он уже
+ * завёл. Через неделю порог сам перестаёт что-либо значить, но остаётся как
+ * граница ответственности.
+ */
+const sinceFloor = () => {
+  const floor = Number(process.env.AMOCRM_SINCE_FLOOR)
+  return Number.isFinite(floor) && floor > 0 ? floor : 0
+}
+
 /** Школа, чью CRM опрашиваем. Одна на установку — как и сами креды amo. */
 async function pollingOrganization() {
   const id = Number(process.env.AMOCRM_ORGANIZATION_ID)
@@ -56,10 +76,12 @@ export async function GET(request: NextRequest) {
   const now = Math.floor(Date.now() / 1000)
   const requested = Number(request.nextUrl.searchParams.get('since'))
   const floor = now - MAX_WINDOW_DAYS * DAY_SECONDS
-  const since =
+  const since = Math.max(
     Number.isFinite(requested) && requested > 0
       ? Math.max(requested, floor)
-      : now - DEFAULT_WINDOW_DAYS * DAY_SECONDS
+      : now - DEFAULT_WINDOW_DAYS * DAY_SECONDS,
+    sinceFloor(),
+  )
 
   const dryRun = request.nextUrl.searchParams.get('dry') === '1'
 
