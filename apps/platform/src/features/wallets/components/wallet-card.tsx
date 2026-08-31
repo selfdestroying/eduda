@@ -56,6 +56,10 @@ export function WalletCard({ wallet, actions, children, className }: WalletCardP
         <div className="flex shrink-0 items-center gap-1">
           <Badge variant="outline">Архив</Badge>
           <Badge variant={getBadgeVariant(variant)}>{wallet.lessonsBalance} ур.</Badge>
+          {/* Архивная карточка read-only, и единственное исключение — перенос: вернуть
+              кошелёк из архива нельзя, так что иначе остаток заперт навсегда.
+              Кабинет родителя действий не передаёт и остаётся без изменений. */}
+          {actions}
         </div>
       </div>
     )

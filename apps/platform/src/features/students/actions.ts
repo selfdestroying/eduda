@@ -520,10 +520,11 @@ export const getStudentLessonsBalanceHistory = authAction
       groupId: z.number().int().positive().optional(),
     }),
   )
-  .action(async ({ parsedInput }) => {
+  .action(async ({ ctx, parsedInput }) => {
     return await prisma.studentLessonsBalanceHistory.findMany({
       where: {
         studentId: parsedInput.studentId,
+        organizationId: ctx.session.organizationId!,
         ...(parsedInput.groupId != null ? { groupId: parsedInput.groupId } : {}),
       },
       take: parsedInput.take,

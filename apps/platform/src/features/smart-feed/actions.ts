@@ -84,6 +84,8 @@ export const getLowBalance = authAction
     const wallets = await prisma.wallet.findMany({
       where: {
         organizationId: ctx.session.organizationId!,
+        // Архивный кошелёк напоминать не о чем: оплату на него уже не зачислить.
+        status: 'ACTIVE',
         lessonsBalance: { lte: 1 },
       },
       include: {

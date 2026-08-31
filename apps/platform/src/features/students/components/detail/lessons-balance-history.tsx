@@ -108,6 +108,13 @@ type AttendanceMeta = {
   isMakeupAttendance: boolean
 }
 
+type TransferMeta = {
+  count: number
+  fromWalletName?: string
+  toWalletName?: string
+  productName?: string
+}
+
 type MakeupGrantedMeta = {
   makeUpLessonId: number
   makeUpLessonName?: string
@@ -158,6 +165,23 @@ function getMetaDetails(
         >
           {makeupMeta.makeUpLessonName ?? `Урок #${makeupMeta.makeUpLessonId}`}
         </Link>
+      )
+    }
+
+    case 'WALLET_TRANSFER': {
+      const transferMeta = m as TransferMeta
+      // Направление называется словами прямо в строке: таблица показывает историю
+      // ученика целиком, без колонки кошелька, и без этого пара строк переноса
+      // выглядит противоречиво — «стало 0», а следующая строка начинается с трёх.
+      const what =
+        transferMeta.productName ??
+        (transferMeta.count > 1 ? `${transferMeta.count} пак.` : 'Пакет')
+      const from = transferMeta.fromWalletName
+      const to = transferMeta.toWalletName
+      return (
+        <span className="text-muted-foreground text-sm">
+          {from && to ? `${what}: из «${from}» в «${to}»` : what}
+        </span>
       )
     }
 

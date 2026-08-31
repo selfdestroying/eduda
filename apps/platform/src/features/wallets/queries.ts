@@ -1,21 +1,30 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { packageKeys } from '@/src/features/finances/payments/queries'
+import { studentKeys } from '@/src/features/students/queries'
 import {
   archiveWallet,
   createWallet,
   getStudentWallets,
+  getTransferablePackages,
+  getTransferPreview,
   getWalletPreview,
   linkGroupToWallet,
+  transferPackages,
 } from './actions'
 import type {
   ArchiveWalletSchemaType,
   CreateWalletSchemaType,
   LinkGroupToWalletSchemaType,
+  TransferPackagesSchemaType,
 } from './schemas'
 
 export const walletKeys = {
   all: ['wallets'] as const,
   byStudent: (studentId: number) => ['wallets', 'student', studentId] as const,
+  packages: (walletId: number) => ['wallets', 'packages', walletId] as const,
+  transferPreview: (packageIds: number[], toWalletId: number) =>
+    ['wallets', 'transfer-preview', packageIds, toWalletId] as const,
 }
 
 export const useStudentWalletsQuery = (studentId: number, options?: { enabled?: boolean }) => {
@@ -96,5 +105,61 @@ export const useArchiveWalletMutation = (studentId: number) => {
       toast.success('Кошелёк архивирован')
     },
     onError: () => toast.error('Не удалось архивировать кошелёк'),
+  })
+}
+
+export const useTransferablePackagesQuery = (walletId: number | null) => {
+  return useQuery({
+    queryKey: walletKeys.packages(walletId ?? 0),
+    queryFn: async () => {
+      const { data, serverError, validationErrors } = await getTransferablePackages({
+        walletId: walletId!,
+      })
+      if (serverError) throw serverError
+      // Пустого значения по умолчанию нет намеренно, как и в предпросмотре кошелька:
+      // подставленный пустой список означал бы «пакетов нет» — утверждение про деньги,
+      // которого сервер не делал.
+      if (validationErrors || !data) throw new Error('Не удалось прочитать пакеты')
+      return data
+    },
+    enabled: walletId != null,
+  })
+}
+
+export const useTransferPreviewQuery = (packageIds: number[], toWalletId: number | null) => {
+  return useQuery({
+    queryKey: walletKeys.transferPreview(packageIds, toWalletId ?? 0),
+    queryFn: async () => {
+      const { data, serverError, validationErrors } = await getTransferPreview({
+        packageIds,
+        toWalletId: toWalletId!,
+      })
+      if (serverError) throw serverError
+      if (validationErrors || !data) throw new Error('Не удалось посчитать перенос')
+      return data
+    },
+    enabled: toWalletId != null && packageIds.length > 0,
+  })
+}
+
+export const useTransferPackagesMutation = (studentId: number) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (values: TransferPackagesSchemaType) => {
+      const { data, serverError } = await transferPackages(values)
+      if (serverError) throw serverError
+      return data
+    },
+    onSuccess: (data) => {
+      // Перенос виден и в кошельках, и в карточке ученика, и в списке пакетов.
+      queryClient.invalidateQueries({ queryKey: walletKeys.all })
+      queryClient.invalidateQueries({ queryKey: studentKeys.detail(studentId) })
+      queryClient.invalidateQueries({ queryKey: studentKeys.all })
+      queryClient.invalidateQueries({ queryKey: packageKeys.all })
+      const settled = data?.settled ?? 0
+      toast.success(settled > 0 ? `Перенесено. Закрыто занятий: ${settled}` : 'Пакеты перенесены')
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось перенести пакеты'),
   })
 }

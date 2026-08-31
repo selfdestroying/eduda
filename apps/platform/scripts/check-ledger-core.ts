@@ -335,9 +335,9 @@ async function main() {
       const again = await settleUnpaidAttendancesTx(tx, {
         walletId: wallet.id,
         organizationId,
-        packageId: c.id,
         take: 12,
         actorUserId: null,
+        meta: { settledByPackageId: c.id },
       })
       assert.equal(again, 0, 'закрывать больше нечего')
       assert.equal(await remainingOf(c.id), 10, 'и пакет не тронут')

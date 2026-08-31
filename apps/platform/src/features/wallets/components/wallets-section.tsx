@@ -34,6 +34,8 @@ import {
 } from '@/src/features/wallets/actions'
 import { walletKeys } from '@/src/features/wallets/queries'
 import { WalletCard } from '@/src/features/wallets/components/wallet-card'
+import { TransferPackagesSheet } from '@/src/features/wallets/components/transfer-packages-sheet'
+import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
 import { getWalletLabel } from '@/src/features/wallets/utils'
 import { cn, getGroupName } from '@/src/lib/utils'
 import { useQueryClient } from '@tanstack/react-query'
@@ -44,6 +46,7 @@ import {
   Loader,
   Pen,
   Plus,
+  Send,
   TrendingDown,
   TriangleAlert,
   Wallet,
@@ -51,7 +54,10 @@ import {
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
-type SheetType = 'create' | 'merge' | 'transfer' | 'link' | 'edit' | 'reassign' | null
+// Права проверяются по ссылке на объект, поэтому он живёт в module scope.
+const CAN_MOVE_MONEY = { wallet: ['update'] } as const
+
+type SheetType = 'create' | 'transfer' | 'link' | 'edit' | 'reassign' | null
 
 interface WalletsSectionProps {
   student: StudentDetail
@@ -61,6 +67,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
   const [isPending, startTransition] = useTransition()
   const [activeSheet, setActiveSheet] = useState<SheetType>(null)
   const queryClient = useQueryClient()
+  const canMoveMoney = useHasPermission(CAN_MOVE_MONEY)
 
   const invalidateStudent = () => {
     queryClient.invalidateQueries({ queryKey: studentKeys.detail(student.id) })
@@ -70,7 +77,8 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
   // Create wallet state
   const [newWalletName, setNewWalletName] = useState('')
 
-  // Merge state
+  // Transfer state
+  const [transferFromWalletId, setTransferFromWalletId] = useState<number | null>(null)
 
   // Link state
   const [linkWalletId, setLinkWalletId] = useState<string>('')
@@ -105,6 +113,11 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
     setEditWalletId(w.id)
     setEditWalletName(w.name ?? '')
     setActiveSheet('edit')
+  }
+
+  const openTransferSheet = (walletId: number) => {
+    setTransferFromWalletId(walletId)
+    setActiveSheet('transfer')
   }
 
   const openLinkSheetForWallet = (walletId: number) => {
@@ -260,9 +273,30 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {student.wallets.map((w) => {
-            // Archived wallets are read-only: minimal card, no actions
+            // Archived wallets are read-only: minimal card, no actions.
+            // Исключение — перенос, и только когда на кошельке остались уроки: вернуть
+            // его из архива нельзя, так что иначе остаток заперт навсегда.
             if (w.status === 'ARCHIVED') {
-              return <WalletCard key={w.id} wallet={w} />
+              return (
+                <WalletCard
+                  key={w.id}
+                  wallet={w}
+                  actions={
+                    canMoveMoney && w.lessonsBalance > 0 && activeWallets.length > 0 ? (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-6"
+                        onClick={() => openTransferSheet(w.id)}
+                        disabled={isPending}
+                        title="Перенести пакеты на активный кошелёк"
+                      >
+                        <Send className="size-3" />
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              )
             }
 
             return (
@@ -290,6 +324,18 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                         title="Привязать группу"
                       >
                         <Link2 className="size-3" />
+                      </Button>
+                    )}
+                    {canMoveMoney && activeWallets.length >= 2 && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-6"
+                        onClick={() => openTransferSheet(w.id)}
+                        disabled={isPending}
+                        title="Перенести пакеты на другой кошелёк"
+                      >
+                        <Send className="size-3" />
                       </Button>
                     )}
                     <Button
@@ -439,6 +485,17 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
             </>
           )}
 
+          {activeSheet === 'transfer' && transferFromWalletId !== null && (
+            <TransferPackagesSheet
+              student={student}
+              fromWalletId={transferFromWalletId}
+              onDone={() => {
+                setActiveSheet(null)
+                setTransferFromWalletId(null)
+              }}
+            />
+          )}
+
           {activeSheet === 'link' && (
             <>
               <SheetHeader>
@@ -521,7 +578,8 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                 </Field>
                 <FieldDescription>
                   Баланс и суммы здесь не правятся: они складываются из оплат и посещений. Нужно
-                  добавить уроки — заведите оплату; попала не в тот кошелёк — перенесите её.
+                  добавить уроки — заведите оплату; попала не в тот кошелёк — перенесите пакет
+                  кнопкой со стрелкой в шапке карточки.
                 </FieldDescription>
               </div>
               <SheetFooter>

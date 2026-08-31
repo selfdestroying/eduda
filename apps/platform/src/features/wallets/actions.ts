@@ -2,13 +2,19 @@
 
 import { prisma } from '@repo/db'
 import { countUnpaidAttendancesOfWallet } from '@/src/features/finances/ledger.server'
-import { authAction } from '@/src/lib/safe-action'
+import { transferPackagesTx } from '@/src/features/finances/transfer.server'
+import { NotFoundError } from '@/src/lib/error'
+import { authAction, permissionAction } from '@/src/lib/safe-action'
+import { todayYmdInTz } from '@/src/lib/timezone'
+import { getGroupName } from '@/src/lib/utils'
 import * as z from 'zod'
 import {
   ArchiveWalletSchema,
   CreateWalletSchema,
   LinkGroupToWalletSchema,
   RenameWalletSchema,
+  TransferPackagesSchema,
+  WalletPackagesSchema,
 } from './schemas'
 
 // ─── READ ────────────────────────────────────────────────────────────────────
@@ -102,10 +108,10 @@ export const createWallet = authAction
     })
   })
 
-// Экшенов правки, перевода баланса и объединения кошельков здесь нет намеренно:
-// остаток кошелька — это то, что осталось от оплат после посещений, а не число,
-// которому назначают значение. Единственный способ его изменить — завести оплату
-// или отметить посещение.
+// Экшенов правки баланса и объединения кошельков здесь нет намеренно: остаток —
+// это то, что осталось от оплат после посещений, а не число, которому назначают
+// значение. Перенос ниже этого правила не нарушает: он не назначает баланс, а
+// меняет пакету владельца — баланс едет следом, ровно на непотраченный остаток.
 
 // ─── RENAME ──────────────────────────────────────────────────────────────────
 
@@ -133,13 +139,14 @@ export const renameWallet = authAction
 export const linkGroupToWallet = authAction
   .metadata({ actionName: 'linkGroupToWallet' })
   .inputSchema(LinkGroupToWalletSchema)
-  .action(async ({ parsedInput }) => {
+  .action(async ({ ctx, parsedInput }) => {
     const { studentId, groupId, walletId } = parsedInput
+    const organizationId = ctx.session.organizationId!
 
     // Validate wallet belongs to same student
-    const wallet = await prisma.wallet.findUnique({
-      where: { id: walletId },
-      select: { studentId: true, organizationId: true, status: true },
+    const wallet = await prisma.wallet.findFirst({
+      where: { id: walletId, organizationId },
+      select: { studentId: true, status: true },
     })
     if (!wallet) throw new Error('Кошелёк не найден')
     if (wallet.studentId !== studentId) {
@@ -149,12 +156,13 @@ export const linkGroupToWallet = authAction
       throw new Error('К архивному кошельку нельзя привязать группу')
     }
 
-    await prisma.studentGroup.update({
-      where: {
-        studentId_groupId: { studentId, groupId },
-      },
+    // `updateMany`, а не `update`: у составного ключа нет места для школы, а без неё
+    // запись чужой школы обновилась бы по угаданной паре id.
+    const linked = await prisma.studentGroup.updateMany({
+      where: { studentId, groupId, organizationId },
       data: { walletId },
     })
+    if (linked.count !== 1) throw new Error('Запись ученика в группе не найдена')
   })
 
 // ─── ARCHIVE ─────────────────────────────────────────────────────────────────
@@ -177,4 +185,169 @@ export const archiveWallet = authAction
       where: { id: parsedInput.walletId },
       data: { status: 'ARCHIVED', archivedAt: new Date() },
     })
+  })
+
+// ─── TRANSFER ────────────────────────────────────────────────────────────────
+
+/**
+ * Пакеты кошелька, которые можно перенести: выданные и ещё не оплаченные.
+ *
+ * Отдельным экшеном, а не полем в `getWalletPreview`: тот намеренно показывает
+ * только выданные («неоплаченные уроков не дали») и его читает форма оплаты —
+ * менять там смысл ради формы переноса нельзя.
+ */
+export const getTransferablePackages = authAction
+  .metadata({ actionName: 'getTransferablePackages' })
+  .inputSchema(WalletPackagesSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    return await prisma.package.findMany({
+      where: {
+        walletId: parsedInput.walletId,
+        organizationId: ctx.session.organizationId!,
+        status: { in: ['ACTIVE', 'PENDING'] },
+      },
+      orderBy: [{ date: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        date: true,
+        status: true,
+        price: true,
+        unitPrice: true,
+        lessonCount: true,
+        remaining: true,
+        productName: true,
+      },
+    })
+  })
+
+/**
+ * Что покажет экран подтверждения переноса.
+ *
+ * Считается на сервере целиком: в браузере есть не всё (занятия, ждущие оплаты, и
+ * очередь получателя), а утверждения про деньги клиент здесь не выдумывает — та же
+ * причина, что в `wallet-preview.tsx`.
+ */
+export const getTransferPreview = authAction
+  .metadata({ actionName: 'getTransferPreview' })
+  .inputSchema(TransferPackagesSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const organizationId = ctx.session.organizationId!
+    const { packageIds, toWalletId } = parsedInput
+
+    const packages = await prisma.package.findMany({
+      where: { id: { in: packageIds }, organizationId, status: { in: ['ACTIVE', 'PENDING'] } },
+      orderBy: [{ date: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        date: true,
+        status: true,
+        remaining: true,
+        unitPrice: true,
+        walletId: true,
+      },
+    })
+    if (packages.length === 0) throw new NotFoundError('Пакеты не найдены')
+
+    const fromWalletId = packages[0]!.walletId
+    const [source, target] = await Promise.all([
+      prisma.wallet.findFirst({
+        where: { id: fromWalletId, organizationId },
+        select: {
+          id: true,
+          name: true,
+          lessonsBalance: true,
+          studentGroups: {
+            where: { status: { in: ['ACTIVE', 'TRIAL'] } },
+            select: {
+              group: {
+                select: { name: true, course: { select: { name: true } }, schedules: true },
+              },
+            },
+          },
+        },
+      }),
+      prisma.wallet.findFirst({
+        where: { id: toWalletId, organizationId },
+        select: { id: true, name: true, lessonsBalance: true },
+      }),
+    ])
+    if (!source || !target) throw new NotFoundError('Кошелёк не найден')
+
+    // Уроки едут только с выданных пакетов: неоплаченный баланса не двигал.
+    const moved = packages
+      .filter((p) => p.status === 'ACTIVE')
+      .reduce((sum, p) => sum + p.remaining, 0)
+
+    const [unpaidOnTarget, headOfTarget, leftOnSource] = await Promise.all([
+      countUnpaidAttendancesOfWallet({ walletId: toWalletId, organizationId }),
+      prisma.package.findFirst({
+        where: { walletId: toWalletId, organizationId, status: 'ACTIVE', remaining: { gt: 0 } },
+        orderBy: [{ date: 'asc' }, { id: 'asc' }],
+        select: { date: true, unitPrice: true },
+      }),
+      prisma.package.count({
+        where: {
+          walletId: fromWalletId,
+          organizationId,
+          status: { in: ['ACTIVE', 'PENDING'] },
+          id: { notIn: packages.map((p) => p.id) },
+        },
+      }),
+    ])
+
+    const targetAfter = target.lessonsBalance + moved
+
+    // Переносимый пакет старше головы — он сам станет головой и начнёт задавать цену
+    // будущим занятиям получателя. Это верно (за те уроки заплатили по своей цене), но
+    // в отчёте выглядит неожиданно, поэтому про это надо сказать заранее.
+    const earliest = packages.find((p) => p.status === 'ACTIVE')
+    const reprices =
+      earliest && headOfTarget && earliest.date < headOfTarget.date
+        ? { lessons: earliest.remaining, price: earliest.unitPrice, was: headOfTarget.unitPrice }
+        : null
+
+    return {
+      moved,
+      packages: packages.length,
+      source: {
+        name: source.name,
+        before: source.lessonsBalance,
+        after: source.lessonsBalance - moved,
+      },
+      target: { name: target.name, before: target.lessonsBalance, after: targetAfter },
+      // Больше, чем кошелёк держит, не спишется — и больше, чем занятий ждёт.
+      willSettle: Math.min(unpaidOnTarget, targetAfter),
+      unpaidOnTarget,
+      reprices,
+      // Живые группы, которые останутся без единого пакета. Перепривязка здесь не
+      // делается: интерфейс называет их и отправляет к ручной кнопке.
+      orphanedGroups:
+        leftOnSource === 0 ? source.studentGroups.map((sg) => getGroupName(sg.group)) : [],
+    }
+  })
+
+/**
+ * Перенести пакеты на другой кошелёк того же ученика.
+ *
+ * Право `wallet: ['update']` — владелец и менеджер: операция двигает деньги, и
+ * преподавателю, у которого только `wallet: ['read']`, она недоступна.
+ */
+export const transferPackages = permissionAction({ wallet: ['update'] })
+  .metadata({ actionName: 'transferPackages' })
+  .inputSchema(TransferPackagesSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    return await prisma.$transaction(
+      async (tx) =>
+        await transferPackagesTx(tx, {
+          packageIds: parsedInput.packageIds,
+          toWalletId: parsedInput.toWalletId,
+          organizationId: ctx.session.organizationId!,
+          actorUserId: Number(ctx.session.user.id),
+          // День переноса, а не день продажи: это новое событие, а не переписывание
+          // старого. Так же датирует снятие остатка отмена пакета.
+          effectiveAt: todayYmdInTz(ctx.tz),
+        }),
+      // Гашение длинного хвоста занятий бывает небыстрым — как у продажи.
+      { timeout: 30_000 },
+    )
   })

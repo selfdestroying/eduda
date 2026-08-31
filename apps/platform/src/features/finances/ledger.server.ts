@@ -29,6 +29,34 @@ import { ConflictError } from '../../lib/error'
  * Живёт отдельно от экшенов, чтобы `scripts/check-ledger-core.ts` мог прогнать
  * денежную логику против настоящей БД, не поднимая сессию. По той же причине
  * здесь нет `server-only` и импортов из `@/src/lib`.
+ *
+ * Рядом лежит `transfer.server.ts` — второе место, которое двигает
+ * `wallet.lessonsBalance`: там пакет меняет кошелёк. Из-за него два следствия,
+ * которые ниоткуда больше не видны.
+ *
+ * 1. Списание остаётся на кошельке, где оно случилось, а его откат ложится на тот,
+ *    где к тому моменту лежит пакет. Общая сверка выручки (`check-ledger.ts`) по
+ *    кошелькам не группирует и потому цела, но выручка **отдельного** кошелька
+ *    перестаёт быть суммой его строк. Обратный вариант — возвращать урок туда, где
+ *    списывали, — ломает `check-wallet-balance.ts`, потому что остаток пакета и
+ *    баланс кошелька связаны жёстко. Сторона выбрана сознательно.
+ *
+ *    Когда понадобится отчёт в разрезе кошельков, строку надо относить к кошельку её
+ *    **списания**, а не к `walletId` самой строки. Данные для этого есть:
+ *
+ *      SELECT COALESCE(c."walletId", e."walletId") AS wallet,
+ *             SUM(-e.quantity * e."unitPrice") AS revenue
+ *      FROM "WalletEntry" e
+ *      LEFT JOIN "WalletEntry" c ON c.id = e."reversalOfId"
+ *      WHERE e."attendanceId" IS NOT NULL
+ *      GROUP BY 1
+ *
+ *    Сирот у откатов не бывает — этого требует `check-ledger.ts`. Для остатков
+ *    правило обратное: там правда именно в `walletId` строки.
+ *
+ * 2. Журнал больше не восстанавливается из колонок: `scripts/backfill-wallet-ledger.ts`
+ *    выводит кошелёк исторического списания из текущего владельца пакета, а тот
+ *    мог с тех пор переехать.
  */
 
 /**
@@ -429,8 +457,15 @@ export async function countUnpaidAttendancesOfWallet(args: {
  * баланс, и строка журнала, и история получаются такими же, как если бы оплата
  * пришла вовремя. Строка журнала датируется днём занятия, а не днём оплаты.
  *
- * `take` — сколько уроков в пакете: больше него всё равно не спишется, а лишние
- * занятия перебирать незачем.
+ * `take` — сколько уроков доступно: больше всё равно не спишется, а лишние занятия
+ * перебирать незачем. У оплаты это размер пакета, у переноса — баланс получателя.
+ *
+ * `meta` — чем подписать закрытые занятия в истории. У оплаты это `packageId` её
+ * пакета, и подпись верна: он же и есть голова очереди. У переноса нескольких
+ * пакетов такого пакета нет — первые занятия закрывает один, следующие другой, —
+ * поэтому там передаётся причина целиком, а не имя платящего пакета. Точный ответ
+ * «чем заплатили» и так лежит на самой строке занятия (`Attendance.packageId`) и на
+ * строке `CHARGE` в журнале.
  *
  * Возвращает, сколько занятий закрыли.
  */
@@ -439,9 +474,9 @@ export async function settleUnpaidAttendancesTx(
   args: {
     walletId: number
     organizationId: number
-    packageId: number
     take: number
     actorUserId: number | null
+    meta: Record<string, unknown>
   },
 ): Promise<number> {
   if (args.take <= 0) return 0
@@ -458,7 +493,7 @@ export async function settleUnpaidAttendancesTx(
       attendanceId: attendance.id,
       organizationId: args.organizationId,
       actorUserId: args.actorUserId,
-      meta: { settledByPackageId: args.packageId },
+      meta: args.meta,
     })
     // Пакет мог кончиться на предыдущем занятии — тогда списания не случилось.
     const charged = await tx.attendance.findUnique({
@@ -718,9 +753,9 @@ export async function activatePackageTx(
   return await settleUnpaidAttendancesTx(tx, {
     walletId: packet.walletId,
     organizationId: args.organizationId,
-    packageId: packet.id,
     take: packet.lessonCount,
     actorUserId: args.actorUserId,
+    meta: { settledByPackageId: packet.id },
   })
 }
 
