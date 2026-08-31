@@ -72,7 +72,11 @@ export function TransferPackagesDrawer({
   const transferMutation = useTransferPackagesMutation(student.id)
 
   const targetId = toWalletId ? Number(toWalletId) : null
-  const { data: preview, isFetching } = useTransferPreviewQuery(selected, targetId)
+  const { data: lastPreview, isFetching } = useTransferPreviewQuery(selected, targetId)
+  // `keepPreviousData` отдаёт прошлый ответ и выключенному запросу, поэтому сводка
+  // переживала опустевший выбор — и снятие последней галочки, и выключение свитчера.
+  // Описывать ей нечего: нет выбранных пакетов — нет и сводки.
+  const preview = selected.length > 0 ? lastPreview : undefined
 
   const source = student.wallets.find((w) => w.id === fromWalletId)
   const targets = student.wallets.filter((w) => w.status === 'ACTIVE' && w.id !== fromWalletId)
