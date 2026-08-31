@@ -147,7 +147,9 @@ export const useTransferPackagesMutation = (studentId: number) => {
   return useMutation({
     mutationFn: async (values: TransferPackagesSchemaType) => {
       const { data, serverError } = await transferPackages(values)
-      if (serverError) throw serverError
+      // `handleServerError` отдаёт строку, а не `Error`, — без обёртки `onError` ниже
+      // всегда падал бы в общее «не удалось» и прятал настоящую причину отказа.
+      if (serverError) throw new Error(serverError)
       return data
     },
     onSuccess: (data) => {
