@@ -36,6 +36,7 @@ import {
 } from '@/src/features/wallets/actions'
 import { walletKeys } from '@/src/features/wallets/queries'
 import { WalletCard } from '@/src/features/wallets/components/wallet-card'
+import { WalletSelect } from '@/src/features/wallets/components/wallet-select'
 import { TransferPackagesDrawer } from '@/src/features/wallets/components/transfer-packages-drawer'
 import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
 import { getWalletLabel } from '@/src/features/wallets/utils'
@@ -520,18 +521,10 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                     {linkWalletId ? (
                       <Input disabled value={walletLabelById(linkWalletId)} />
                     ) : (
-                      <CustomCombobox
-                        items={activeWallets.map((w) => ({
-                          label: getWalletLabel(w),
-                          value: w.id.toString(),
-                        }))}
-                        value={
-                          linkWalletId
-                            ? { label: walletLabelById(linkWalletId), value: linkWalletId }
-                            : null
-                        }
-                        onValueChange={(item) => setLinkWalletId(item?.value ?? '')}
-                        placeholder="Выберите кошелёк"
+                      <WalletSelect
+                        wallets={activeWallets}
+                        value={linkWalletId}
+                        onValueChange={setLinkWalletId}
                       />
                     )}
                   </Field>
@@ -634,25 +627,10 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                     </Field>
                     <Field>
                       <FieldLabel>Новый кошелёк</FieldLabel>
-                      <CustomCombobox
-                        items={activeWallets
-                          .filter((w) => w.id !== reassignFromWalletId)
-                          .map((w) => ({ label: getWalletLabel(w), value: w.id.toString() }))}
-                        value={
-                          reassignToWalletId
-                            ? {
-                                label: (() => {
-                                  const w = student.wallets.find(
-                                    (w) => w.id.toString() === reassignToWalletId,
-                                  )
-                                  return w ? getWalletLabel(w) : ''
-                                })(),
-                                value: reassignToWalletId,
-                              }
-                            : null
-                        }
-                        onValueChange={(item) => setReassignToWalletId(item?.value ?? '')}
-                        placeholder="Выберите кошелёк"
+                      <WalletSelect
+                        wallets={activeWallets.filter((w) => w.id !== reassignFromWalletId)}
+                        value={reassignToWalletId}
+                        onValueChange={setReassignToWalletId}
                       />
                     </Field>
                   </div>

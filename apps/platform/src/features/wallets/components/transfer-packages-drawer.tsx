@@ -5,7 +5,6 @@ import { Badge } from '@repo/ui/components/badge'
 import { Button } from '@repo/ui/components/button'
 import { Checkbox } from '@repo/ui/components/checkbox'
 import { ScrollArea } from '@repo/ui/components/scroll-area'
-import { CustomCombobox } from '@repo/ui/components/custom-combobox'
 import { Field, FieldLabel } from '@repo/ui/components/field'
 import {
   DrawerClose,
@@ -20,6 +19,7 @@ import {
   useTransferPackagesMutation,
   useTransferPreviewQuery,
 } from '@/src/features/wallets/queries'
+import { WalletSelect } from '@/src/features/wallets/components/wallet-select'
 import { getWalletLabel } from '@/src/features/wallets/utils'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { Loader, TriangleAlert } from 'lucide-react'
@@ -164,19 +164,7 @@ export function TransferPackagesDrawer({
                 У ученика нет другого активного кошелька — сначала создайте его.
               </p>
             ) : (
-              <CustomCombobox
-                items={targets.map((w) => ({ label: getWalletLabel(w), value: w.id.toString() }))}
-                value={
-                  targetId
-                    ? {
-                        label: getWalletLabel(targets.find((w) => w.id === targetId)!),
-                        value: toWalletId,
-                      }
-                    : null
-                }
-                onValueChange={(item) => setToWalletId(item?.value ?? '')}
-                placeholder="Выберите кошелёк"
-              />
+              <WalletSelect wallets={targets} value={toWalletId} onValueChange={setToWalletId} />
             )}
           </Field>
 
