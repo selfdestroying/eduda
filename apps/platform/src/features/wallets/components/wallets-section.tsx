@@ -395,18 +395,9 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                               </Badge>
                             )}
                           </div>
-                          {!isInactive && activeWallets.length >= 2 && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="size-5 shrink-0"
-                              onClick={() => openReassignDrawer(sg.groupId, w.id)}
-                              disabled={isPending}
-                              title="Перепривязать к другому кошельку"
-                            >
-                              <ArrowLeftRight className="size-2.5" />
-                            </Button>
-                          )}
+                          {/* Кнопки перепривязки здесь больше нет: перевешивать группу
+                              будут из окна переноса пакетов, вместе с деньгами. Форма
+                              `reassign` ниже пока остаётся — её туда и переносить. */}
                         </div>
                       )
                     })}

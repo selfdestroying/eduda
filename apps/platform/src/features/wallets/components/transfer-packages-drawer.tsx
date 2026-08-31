@@ -5,6 +5,7 @@ import { Badge } from '@repo/ui/components/badge'
 import { Button } from '@repo/ui/components/button'
 import { Checkbox } from '@repo/ui/components/checkbox'
 import { ScrollArea } from '@repo/ui/components/scroll-area'
+import { Switch } from '@repo/ui/components/switch'
 import { Field, FieldLabel } from '@repo/ui/components/field'
 import {
   DrawerClose,
@@ -64,6 +65,7 @@ export function TransferPackagesDrawer({
 }: TransferPackagesDrawerProps) {
   const [selected, setSelected] = useState<number[]>([])
   const [toWalletId, setToWalletId] = useState<string>('')
+  const [movePackages, setMovePackages] = useState(true)
 
   const { data: packages, isPending } = useTransferablePackagesQuery(fromWalletId)
   const transferMutation = useTransferPackagesMutation(student.id)
@@ -105,8 +107,34 @@ export function TransferPackagesDrawer({
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-4 px-4">
           <Field>
-            <FieldLabel>Пакеты</FieldLabel>
-            {isPending ? (
+            <FieldLabel>Кошелёк-получатель</FieldLabel>
+            {targets.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                У ученика нет другого активного кошелька — сначала создайте его.
+              </p>
+            ) : (
+              <WalletSelect wallets={targets} value={toWalletId} onValueChange={setToWalletId} />
+            )}
+          </Field>
+
+          <Field>
+            {/* Переключатель готовит окно к слиянию с перепривязкой групп: скоро
+                отсюда можно будет перевесить группу, не трогая деньги. Пока выключать
+                нечего в пользу чего, поэтому по умолчанию включён. */}
+            <div className="flex items-center justify-between gap-2">
+              <FieldLabel htmlFor="transfer-packages-toggle">Пакеты</FieldLabel>
+              <Switch
+                id="transfer-packages-toggle"
+                checked={movePackages}
+                onCheckedChange={(on) => {
+                  setMovePackages(Boolean(on))
+                  if (!on) setSelected([])
+                }}
+              />
+            </div>
+            {!movePackages ? (
+              <p className="text-muted-foreground text-sm">Пакеты остаются на этом кошельке.</p>
+            ) : isPending ? (
               <p className="text-muted-foreground text-sm">Загрузка…</p>
             ) : !packages || packages.length === 0 ? (
               <p className="text-muted-foreground text-sm">Нет доступных пакетов</p>
@@ -154,17 +182,6 @@ export function TransferPackagesDrawer({
                   </label>
                 ))}
               </div>
-            )}
-          </Field>
-
-          <Field>
-            <FieldLabel>Кошелёк-получатель</FieldLabel>
-            {targets.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                У ученика нет другого активного кошелька — сначала создайте его.
-              </p>
-            ) : (
-              <WalletSelect wallets={targets} value={toWalletId} onValueChange={setToWalletId} />
             )}
           </Field>
 
@@ -239,8 +256,7 @@ export function TransferPackagesDrawer({
               <TriangleAlert />
               <AlertTitle>Кошелёк останется без уроков</AlertTitle>
               <AlertDescription>
-                Занятия будут ждать оплаты: {preview.orphanedGroups.join(', ')}. Перепривяжите
-                группы кнопкой в их строке.
+                Занятия будут ждать оплаты: {preview.orphanedGroups.join(', ')}.
               </AlertDescription>
             </Alert>
           )}
