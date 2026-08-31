@@ -250,6 +250,9 @@ export const getStudentDetail = authAction
         account: true,
         parents: { include: { parent: true } },
         groups: {
+          // Свежие записи сверху: карточку открывают ради текущей группы, а не той,
+          // куда ученика записали два года назад.
+          orderBy: { createdAt: 'desc' },
           include: {
             group: {
               include: {
@@ -272,6 +275,9 @@ export const getStudentDetail = authAction
           },
         },
         wallets: {
+          // Тем же порядком, что и группы: последний заведённый кошелёк — обычно
+          // текущий сезон, и искать его в конце списка незачем.
+          orderBy: { createdAt: 'desc' },
           include: {
             studentGroups: {
               include: {
