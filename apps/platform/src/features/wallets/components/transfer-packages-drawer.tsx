@@ -95,11 +95,8 @@ export function TransferPackagesDrawer({
   return (
     <>
       <DrawerHeader className="pb-4">
-        <DrawerTitle>Перенести пакеты</DrawerTitle>
-        <DrawerDescription>
-          Из «{source ? getWalletLabel(source) : 'Кошелёк'}». Пакет переезжает целиком — уроки несут
-          его цену.
-        </DrawerDescription>
+        <DrawerTitle>Перенос</DrawerTitle>
+        <DrawerDescription>Из «{source ? getWalletLabel(source) : 'Кошелёк'}».</DrawerDescription>
       </DrawerHeader>
 
       {/* Прокрутка внутри панели: шапка и кнопки остаются на месте, едет содержимое.
