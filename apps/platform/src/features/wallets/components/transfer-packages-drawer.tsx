@@ -37,45 +37,6 @@ const plural = (n: number, one: string, few: string, many: string) => {
   return many
 }
 
-type Summary = {
-  total: number
-  lessons: number
-  spent: number
-  price: number
-  from: string | null
-  to: string | null
-}
-
-/**
- * Что на кошельке, когда переносить нечего.
- *
- * Голое «пакетов нет» оставляло менеджера гадать, тот ли кошелёк он открыл. Сводка
- * отвечает на этот вопрос: сколько пакетов было, сколько уроков по ним отходили и за
- * какие деньги.
- */
-function WalletSummary({ summary }: { summary?: Summary }) {
-  if (!summary || summary.total === 0) {
-    return <p className="text-muted-foreground text-sm">На кошельке нет ни одного пакета.</p>
-  }
-
-  return (
-    <div className="bg-muted/50 space-y-1.5 rounded-lg border p-3">
-      <p className="text-sm font-medium">Все уроки отходили — переносить нечего</p>
-      <p className="text-muted-foreground text-xs">
-        {summary.total} {plural(summary.total, 'пакет', 'пакета', 'пакетов')} · {summary.spent} из{' '}
-        {summary.lessons} ур. · {money(summary.price)}
-      </p>
-      {summary.from && summary.to && (
-        <p className="text-muted-foreground text-xs">
-          {summary.from === summary.to
-            ? formatDateOnly(summary.from)
-            : `с ${formatDateOnly(summary.from)} по ${formatDateOnly(summary.to)}`}
-        </p>
-      )}
-    </div>
-  )
-}
-
 interface TransferPackagesDrawerProps {
   student: StudentDetail
   fromWalletId: number
@@ -104,9 +65,7 @@ export function TransferPackagesDrawer({
   const [selected, setSelected] = useState<number[]>([])
   const [toWalletId, setToWalletId] = useState<string>('')
 
-  const { data, isPending } = useTransferablePackagesQuery(fromWalletId)
-  const packages = data?.packages
-  const summary = data?.summary
+  const { data: packages, isPending } = useTransferablePackagesQuery(fromWalletId)
   const transferMutation = useTransferPackagesMutation(student.id)
 
   const targetId = toWalletId ? Number(toWalletId) : null
@@ -118,8 +77,6 @@ export function TransferPackagesDrawer({
   const toggle = (id: number, on: boolean) =>
     setSelected((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)))
 
-  // Выработанные пакеты в список не попадают — сводка объясняет, куда они делись.
-  const hidden = summary ? summary.total - (packages?.length ?? 0) : 0
   // Неоплаченный меняет только владельца: баланса он не двигал и двигать не будет,
   // пока счёт не подтвердят. В «переедет уроков» его нет, и это надо назвать словами.
   const pending =
@@ -152,7 +109,7 @@ export function TransferPackagesDrawer({
             {isPending ? (
               <p className="text-muted-foreground text-sm">Загрузка…</p>
             ) : !packages || packages.length === 0 ? (
-              <WalletSummary summary={summary} />
+              <p className="text-muted-foreground text-sm">Нет доступных пакетов</p>
             ) : (
               <div className="space-y-2">
                 {packages.map((p) => (
@@ -196,11 +153,6 @@ export function TransferPackagesDrawer({
                     </div>
                   </label>
                 ))}
-                {hidden > 0 && (
-                  <p className="text-muted-foreground pt-1 text-xs">
-                    Выработанные пакеты скрыты: {hidden}.
-                  </p>
-                )}
               </div>
             )}
           </Field>

@@ -209,10 +209,6 @@ const TRANSFERABLE_PACKAGE_WHERE = {
  * списаний заморожена в проводках. Пользы ноль, а список у школы со стажем
  * распухает на десятки строк — на скриншоте из-за них не помещалось ничего.
  *
- * Рядом со списком идёт сводка по всему кошельку: она объясняет короткий список и
- * заменяет собой «переносить нечего» — у выработанного кошелька видно, сколько
- * пакетов на нём было и за какие деньги.
- *
  * Отдельным экшеном, а не полем в `getWalletPreview`: тот намеренно показывает
  * только выданные («неоплаченные уроков не дали») и его читает форма оплаты —
  * менять там смысл ради формы переноса нельзя.
@@ -221,44 +217,24 @@ export const getTransferablePackages = authAction
   .metadata({ actionName: 'getTransferablePackages' })
   .inputSchema(WalletPackagesSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const organizationId = ctx.session.organizationId!
-    const where = { walletId: parsedInput.walletId, organizationId }
-
-    // Сводка — про весь кошелёк, а не про список: она объясняет, почему строк мало
-    // или нет вовсе. Отменённые в неё не входят: их остаток уже снят с баланса.
-    const [packages, all] = await Promise.all([
-      prisma.package.findMany({
-        where: { ...where, ...TRANSFERABLE_PACKAGE_WHERE },
-        orderBy: [{ date: 'asc' }, { id: 'asc' }],
-        select: {
-          id: true,
-          date: true,
-          status: true,
-          price: true,
-          unitPrice: true,
-          lessonCount: true,
-          remaining: true,
-          productName: true,
-        },
-      }),
-      prisma.package.findMany({
-        where: { ...where, status: { in: ['ACTIVE', 'PENDING'] } },
-        orderBy: { date: 'asc' },
-        select: { date: true, price: true, lessonCount: true, remaining: true },
-      }),
-    ])
-
-    return {
-      packages,
-      summary: {
-        total: all.length,
-        lessons: all.reduce((n, p) => n + p.lessonCount, 0),
-        spent: all.reduce((n, p) => n + (p.lessonCount - p.remaining), 0),
-        price: all.reduce((n, p) => n + p.price, 0),
-        from: all[0]?.date ?? null,
-        to: all.at(-1)?.date ?? null,
+    return await prisma.package.findMany({
+      where: {
+        walletId: parsedInput.walletId,
+        organizationId: ctx.session.organizationId!,
+        ...TRANSFERABLE_PACKAGE_WHERE,
       },
-    }
+      orderBy: [{ date: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        date: true,
+        status: true,
+        price: true,
+        unitPrice: true,
+        lessonCount: true,
+        remaining: true,
+        productName: true,
+      },
+    })
   })
 
 /**
