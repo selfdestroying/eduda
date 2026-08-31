@@ -24,13 +24,62 @@ import { formatDateOnly } from '@/src/lib/timezone'
 import { Loader, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 
+const money = (v: number) => `${v.toLocaleString('ru-RU')} ₽`
+
+/** «1 пакет / 2 пакета / 5 пакетов». Локальный: другого места со склонением пока нет. */
+const plural = (n: number, one: string, few: string, many: string) => {
+  const tens = n % 100
+  if (tens > 10 && tens < 20) return many
+  const ones = n % 10
+  if (ones === 1) return one
+  if (ones >= 2 && ones <= 4) return few
+  return many
+}
+
+type Summary = {
+  total: number
+  lessons: number
+  spent: number
+  price: number
+  from: string | null
+  to: string | null
+}
+
+/**
+ * Что на кошельке, когда переносить нечего.
+ *
+ * Голое «пакетов нет» оставляло менеджера гадать, тот ли кошелёк он открыл. Сводка
+ * отвечает на этот вопрос: сколько пакетов было, сколько уроков по ним отходили и за
+ * какие деньги.
+ */
+function WalletSummary({ summary }: { summary?: Summary }) {
+  if (!summary || summary.total === 0) {
+    return <p className="text-muted-foreground text-sm">На кошельке нет ни одного пакета.</p>
+  }
+
+  return (
+    <div className="bg-muted/50 space-y-1.5 rounded-lg border p-3">
+      <p className="text-sm font-medium">Все уроки отходили — переносить нечего</p>
+      <p className="text-muted-foreground text-xs">
+        {summary.total} {plural(summary.total, 'пакет', 'пакета', 'пакетов')} · {summary.spent} из{' '}
+        {summary.lessons} ур. · {money(summary.price)}
+      </p>
+      {summary.from && summary.to && (
+        <p className="text-muted-foreground text-xs">
+          {summary.from === summary.to
+            ? formatDateOnly(summary.from)
+            : `с ${formatDateOnly(summary.from)} по ${formatDateOnly(summary.to)}`}
+        </p>
+      )}
+    </div>
+  )
+}
+
 interface TransferPackagesSheetProps {
   student: StudentDetail
   fromWalletId: number
   onDone: () => void
 }
-
-const money = (v: number) => `${v.toLocaleString('ru-RU')} ₽`
 
 /**
  * Перенос пакетов на другой кошелёк того же ученика.
@@ -54,7 +103,9 @@ export function TransferPackagesSheet({
   const [selected, setSelected] = useState<number[]>([])
   const [toWalletId, setToWalletId] = useState<string>('')
 
-  const { data: packages, isPending } = useTransferablePackagesQuery(fromWalletId)
+  const { data, isPending } = useTransferablePackagesQuery(fromWalletId)
+  const packages = data?.packages
+  const summary = data?.summary
   const transferMutation = useTransferPackagesMutation(student.id)
 
   const targetId = toWalletId ? Number(toWalletId) : null
@@ -65,6 +116,13 @@ export function TransferPackagesSheet({
 
   const toggle = (id: number, on: boolean) =>
     setSelected((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)))
+
+  // Выработанные пакеты в список не попадают — сводка объясняет, куда они делись.
+  const hidden = summary ? summary.total - (packages?.length ?? 0) : 0
+  // Неоплаченный меняет только владельца: баланса он не двигал и двигать не будет,
+  // пока счёт не подтвердят. В «переедет уроков» его нет, и это надо назвать словами.
+  const pending =
+    packages?.filter((p) => selected.includes(p.id) && p.status === 'PENDING').length ?? 0
 
   const submit = () => {
     if (selected.length === 0 || targetId === null) return
@@ -79,8 +137,8 @@ export function TransferPackagesSheet({
       <SheetHeader>
         <SheetTitle>Перенести пакеты</SheetTitle>
         <SheetDescription>
-          {source ? getWalletLabel(source) : 'Кошелёк'} — выберите, что перенести и куда. Переезжает
-          пакет целиком: уроки несут цену своего пакета.
+          Из «{source ? getWalletLabel(source) : 'Кошелёк'}». Пакет переезжает целиком — уроки несут
+          его цену.
         </SheetDescription>
       </SheetHeader>
 
@@ -92,35 +150,55 @@ export function TransferPackagesSheet({
           {isPending ? (
             <p className="text-muted-foreground text-sm">Загрузка…</p>
           ) : !packages || packages.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              Переносить нечего: непотраченных пакетов на кошельке нет.
-            </p>
+            <WalletSummary summary={summary} />
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-2">
               {packages.map((p) => (
                 <label
                   key={p.id}
-                  className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-xs"
+                  className="hover:bg-muted/50 has-data-checked:border-primary/50 has-data-checked:bg-muted/50 flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors"
                 >
                   <Checkbox
+                    className="mt-0.5"
                     checked={selected.includes(p.id)}
                     onCheckedChange={(val) => toggle(p.id, Boolean(val))}
                   />
-                  <span className="flex-1 truncate">
-                    {p.productName || 'Пакет'}
-                    <span className="text-muted-foreground"> · {formatDateOnly(p.date)}</span>
-                  </span>
-                  {p.status === 'PENDING' ? (
-                    <Badge variant="outline" className="shrink-0 px-1 py-0 text-[0.625rem]">
-                      Ждёт оплаты
-                    </Badge>
-                  ) : (
-                    <span className="text-muted-foreground shrink-0">
-                      {p.remaining} из {p.lessonCount} ур. · {money(p.unitPrice)}
-                    </span>
-                  )}
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium">
+                        {p.productName || 'Пакет'}
+                      </span>
+                      {p.status === 'PENDING' && (
+                        <Badge variant="outline" className="shrink-0">
+                          Ждёт оплаты
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-xs">
+                      <span>{formatDateOnly(p.date)}</span>
+                      <span aria-hidden>·</span>
+                      {p.status === 'PENDING' ? (
+                        <span>
+                          {p.lessonCount} ур. за {money(p.price)}
+                        </span>
+                      ) : (
+                        <>
+                          <span className="text-foreground font-medium">
+                            осталось {p.remaining} из {p.lessonCount} ур.
+                          </span>
+                          <span aria-hidden>·</span>
+                          <span>{money(p.unitPrice)} за урок</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </label>
               ))}
+              {hidden > 0 && (
+                <p className="text-muted-foreground pt-1 text-xs">
+                  Выработанные пакеты скрыты: {hidden}.
+                </p>
+              )}
             </div>
           )}
         </Field>
@@ -149,21 +227,54 @@ export function TransferPackagesSheet({
         </Field>
 
         {preview && (
-          <div className="bg-muted/50 space-y-1 rounded-lg border p-3 text-xs">
-            <div className="font-medium">
-              Переедет пакетов: {preview.packages}, уроков: {preview.moved}
+          <div className="bg-muted/50 space-y-3 rounded-lg border p-3">
+            <p className="text-sm font-medium">
+              Переедет {preview.packages} {plural(preview.packages, 'пакет', 'пакета', 'пакетов')}
+              {preview.moved > 0 && (
+                <>
+                  {' — '}
+                  {preview.moved} {plural(preview.moved, 'урок', 'урока', 'уроков')}
+                </>
+              )}
+            </p>
+
+            {/* Баланс до и после — обеими сторонами сразу: перенос всегда про пару
+                кошельков, и одна цифра без второй ничего не говорит. */}
+            <div className="space-y-1 text-xs">
+              {(
+                [
+                  [preview.source.name || 'Источник', preview.source],
+                  [preview.target.name || 'Получатель', preview.target],
+                ] as const
+              ).map(([name, side]) => (
+                <div key={name} className="flex items-baseline justify-between gap-3">
+                  <span className="text-muted-foreground truncate">{name}</span>
+                  <span className="shrink-0 tabular-nums">
+                    <span className="text-muted-foreground">{side.before}</span>
+                    <span className="text-muted-foreground mx-1" aria-label="становится">
+                      →
+                    </span>
+                    <span className="font-medium">{side.after}</span> ур.
+                  </span>
+                </div>
+              ))}
             </div>
-            <div className="text-muted-foreground">
-              {preview.source.name || 'Источник'}: {preview.source.before} → {preview.source.after}{' '}
-              ур.
-            </div>
-            <div className="text-muted-foreground">
-              {preview.target.name || 'Получатель'}: {preview.target.before} →{' '}
-              {preview.target.after} ур.
-            </div>
-            {preview.willSettle > 0 && (
-              <div className="text-muted-foreground">
-                Закроется занятий, ждущих оплаты: {preview.willSettle} из {preview.unpaidOnTarget}
+
+            {(pending > 0 || preview.willSettle > 0) && (
+              <div className="text-muted-foreground space-y-1 border-t pt-2 text-xs">
+                {pending > 0 && (
+                  <p>
+                    {pending} {plural(pending, 'пакет ждёт', 'пакета ждут', 'пакетов ждут')} оплаты:
+                    их уроки зачислятся получателю после подтверждения счёта.
+                  </p>
+                )}
+                {preview.willSettle > 0 && (
+                  <p>
+                    Закроет {preview.willSettle}{' '}
+                    {plural(preview.willSettle, 'занятие', 'занятия', 'занятий')} из{' '}
+                    {preview.unpaidOnTarget}, ждущих оплаты.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -174,10 +285,10 @@ export function TransferPackagesSheet({
             <TriangleAlert />
             <AlertTitle>Цена ближайших занятий изменится</AlertTitle>
             <AlertDescription>
-              Переносимый пакет старше, поэтому встанет в очереди первым: ближайшие{' '}
-              {preview.reprices.lessons} занятий спишутся по {money(preview.reprices.price)} вместо{' '}
-              {money(preview.reprices.was)}. Так и должно быть — за эти уроки заплатили по старой
-              цене.
+              Пакет старше — встанет в очередь первым. Ближайшие {preview.reprices.lessons}{' '}
+              {plural(preview.reprices.lessons, 'занятие', 'занятия', 'занятий')} спишутся по{' '}
+              {money(preview.reprices.price)} вместо {money(preview.reprices.was)}: за них заплатили
+              по старой цене.
             </AlertDescription>
           </Alert>
         )}
@@ -185,10 +296,10 @@ export function TransferPackagesSheet({
         {preview && preview.orphanedGroups.length > 0 && (
           <Alert variant="destructive">
             <TriangleAlert />
-            <AlertTitle>У кошелька не останется оплаченных уроков</AlertTitle>
+            <AlertTitle>Кошелёк останется без уроков</AlertTitle>
             <AlertDescription>
-              Занятия этих групп будут ждать оплаты: {preview.orphanedGroups.join(', ')}.
-              Перепривяжите их к другому кошельку — кнопка со стрелками в строке группы.
+              Занятия будут ждать оплаты: {preview.orphanedGroups.join(', ')}. Перепривяжите группы
+              кнопкой в их строке.
             </AlertDescription>
           </Alert>
         )}
