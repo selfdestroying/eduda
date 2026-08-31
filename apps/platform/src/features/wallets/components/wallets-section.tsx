@@ -15,15 +15,16 @@ import { Badge } from '@repo/ui/components/badge'
 import { Button } from '@repo/ui/components/button'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@repo/ui/components/field'
 import { Input } from '@repo/ui/components/input'
+import { ScrollArea } from '@repo/ui/components/scroll-area'
 import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@repo/ui/components/sheet'
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@repo/ui/components/drawer'
 import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { studentKeys } from '@/src/features/students/queries'
 import type { StudentDetail } from '@/src/features/students/types'
@@ -35,7 +36,7 @@ import {
 } from '@/src/features/wallets/actions'
 import { walletKeys } from '@/src/features/wallets/queries'
 import { WalletCard } from '@/src/features/wallets/components/wallet-card'
-import { TransferPackagesSheet } from '@/src/features/wallets/components/transfer-packages-sheet'
+import { TransferPackagesDrawer } from '@/src/features/wallets/components/transfer-packages-drawer'
 import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
 import { getWalletLabel } from '@/src/features/wallets/utils'
 import { cn, getGroupName } from '@/src/lib/utils'
@@ -57,7 +58,7 @@ import { toast } from 'sonner'
 // Права проверяются по ссылке на объект, поэтому он живёт в module scope.
 const CAN_MOVE_MONEY = { wallet: ['update'] } as const
 
-type SheetType = 'create' | 'transfer' | 'link' | 'edit' | 'reassign' | null
+type DrawerType = 'create' | 'transfer' | 'link' | 'edit' | 'reassign' | null
 
 interface WalletsSectionProps {
   student: StudentDetail
@@ -66,7 +67,7 @@ interface WalletsSectionProps {
 export default function WalletsSection({ student }: WalletsSectionProps) {
   const [isPending, startTransition] = useTransition()
   const isMobile = useIsMobile()
-  const [activeSheet, setActiveSheet] = useState<SheetType>(null)
+  const [activeDrawer, setActiveDrawer] = useState<DrawerType>(null)
   const queryClient = useQueryClient()
   const canMoveMoney = useHasPermission(CAN_MOVE_MONEY)
 
@@ -110,21 +111,21 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
   const walletLabelById = (id: string) =>
     getWalletLabel(student.wallets.find((w) => w.id.toString() === id)!)
 
-  const openEditSheet = (w: StudentDetail['wallets'][number]) => {
+  const openEditDrawer = (w: StudentDetail['wallets'][number]) => {
     setEditWalletId(w.id)
     setEditWalletName(w.name ?? '')
-    setActiveSheet('edit')
+    setActiveDrawer('edit')
   }
 
-  const openTransferSheet = (walletId: number) => {
+  const openTransferDrawer = (walletId: number) => {
     setTransferFromWalletId(walletId)
-    setActiveSheet('transfer')
+    setActiveDrawer('transfer')
   }
 
-  const openLinkSheetForWallet = (walletId: number) => {
+  const openLinkDrawerForWallet = (walletId: number) => {
     setLinkWalletId(walletId.toString())
     setLinkGroupId('')
-    setActiveSheet('link')
+    setActiveDrawer('link')
   }
 
   const handleCreate = () => {
@@ -136,7 +137,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
         })
         invalidateStudent()
         toast.success('Кошелёк создан')
-        setActiveSheet(null)
+        setActiveDrawer(null)
         setNewWalletName('')
       } catch {
         toast.error('Не удалось создать кошелёк')
@@ -155,7 +156,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
         })
         invalidateStudent()
         toast.success('Группа привязана к кошельку')
-        setActiveSheet(null)
+        setActiveDrawer(null)
         setLinkWalletId('')
         setLinkGroupId('')
       } catch (e) {
@@ -170,7 +171,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
     if (!original) return
 
     if ((editWalletName || '') === (original.name || '')) {
-      setActiveSheet(null)
+      setActiveDrawer(null)
       return
     }
 
@@ -179,7 +180,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
         await renameWallet({ walletId: editWalletId, name: editWalletName || undefined })
         invalidateStudent()
         toast.success('Кошелёк переименован')
-        setActiveSheet(null)
+        setActiveDrawer(null)
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Не удалось переименовать кошелёк')
       }
@@ -191,11 +192,11 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
     setArchiveDialogOpen(true)
   }
 
-  const openReassignSheet = (groupId: number, currentWalletId: number) => {
+  const openReassignDrawer = (groupId: number, currentWalletId: number) => {
     setReassignGroupId(groupId)
     setReassignFromWalletId(currentWalletId)
     setReassignToWalletId('')
-    setActiveSheet('reassign')
+    setActiveDrawer('reassign')
   }
 
   const handleReassign = () => {
@@ -209,7 +210,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
         })
         invalidateStudent()
         toast.success('Группа перепривязана к другому кошельку')
-        setActiveSheet(null)
+        setActiveDrawer(null)
         setReassignGroupId(null)
         setReassignFromWalletId(null)
         setReassignToWalletId('')
@@ -244,7 +245,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
           <Hint text="Кошельки хранят баланс уроков и привязаны к группам. Один кошелёк может обслуживать несколько групп. Оплаты зачисляются на конкретный кошелёк." />
         </h3>
         <div className="flex gap-1">
-          <Button size={'icon'} variant="outline" onClick={() => setActiveSheet('create')}>
+          <Button size={'icon'} variant="outline" onClick={() => setActiveDrawer('create')}>
             <Plus />
           </Button>
         </div>
@@ -288,7 +289,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                         size="icon"
                         variant="ghost"
                         className="size-6"
-                        onClick={() => openTransferSheet(w.id)}
+                        onClick={() => openTransferDrawer(w.id)}
                         disabled={isPending}
                         title="Перенести пакеты на активный кошелёк"
                       >
@@ -310,7 +311,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                       size="icon"
                       variant="ghost"
                       className="size-6"
-                      onClick={() => openEditSheet(w)}
+                      onClick={() => openEditDrawer(w)}
                       disabled={isPending}
                     >
                       <Pen className="size-3" />
@@ -320,7 +321,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                         size="icon"
                         variant="ghost"
                         className="size-6"
-                        onClick={() => openLinkSheetForWallet(w.id)}
+                        onClick={() => openLinkDrawerForWallet(w.id)}
                         disabled={isPending}
                         title="Привязать группу"
                       >
@@ -332,7 +333,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                         size="icon"
                         variant="ghost"
                         className="size-6"
-                        onClick={() => openTransferSheet(w.id)}
+                        onClick={() => openTransferDrawer(w.id)}
                         disabled={isPending}
                         title="Перенести пакеты на другой кошелёк"
                       >
@@ -398,7 +399,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                               size="icon"
                               variant="ghost"
                               className="size-5 shrink-0"
-                              onClick={() => openReassignSheet(sg.groupId, w.id)}
+                              onClick={() => openReassignDrawer(sg.groupId, w.id)}
                               disabled={isPending}
                               title="Перепривязать к другому кошельку"
                             >
@@ -454,211 +455,219 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Single dynamic Sheet */}
-      <Sheet open={activeSheet !== null} onOpenChange={(o) => !o && setActiveSheet(null)}>
-        {/* На узком экране лист выезжает снизу — как в остальных формах приложения.
-            Справа он там занимал 3/4 ширины и открывался «сбоку от ничего». */}
-        <SheetContent
-          side={isMobile ? 'bottom' : 'right'}
-          className="data-[side=bottom]:max-h-[85vh]"
-        >
-          {activeSheet === 'create' && (
+      {/* Одна панель на все пять форм: открытую выбирает activeDrawer. */}
+      <Drawer
+        open={activeDrawer !== null}
+        onOpenChange={(o) => !o && setActiveDrawer(null)}
+        swipeDirection={isMobile ? 'down' : 'right'}
+        showSwipeHandle={isMobile}
+      >
+        <DrawerContent>
+          {activeDrawer === 'create' && (
             <>
-              <SheetHeader>
-                <SheetTitle>Создать кошелёк</SheetTitle>
-                <SheetDescription>Создайте новый кошелёк для ученика.</SheetDescription>
-              </SheetHeader>
-              <div className="px-4">
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel htmlFor="wallet-name">Название (опционально)</FieldLabel>
-                    <Input
-                      id="wallet-name"
-                      value={newWalletName}
-                      onChange={(e) => setNewWalletName(e.target.value)}
-                      placeholder="Например: Основной"
-                    />
-                  </Field>
-                </FieldGroup>
-              </div>
-              <SheetFooter>
-                <SheetClose render={<Button variant="outline" />}>Отмена</SheetClose>
+              <DrawerHeader className="pb-4">
+                <DrawerTitle>Создать кошелёк</DrawerTitle>
+                <DrawerDescription>Создайте новый кошелёк для ученика.</DrawerDescription>
+              </DrawerHeader>
+              <ScrollArea className="min-h-0 flex-1">
+                <div className="px-4">
+                  <FieldGroup>
+                    <Field>
+                      <FieldLabel htmlFor="wallet-name">Название (опционально)</FieldLabel>
+                      <Input
+                        id="wallet-name"
+                        value={newWalletName}
+                        onChange={(e) => setNewWalletName(e.target.value)}
+                        placeholder="Например: Основной"
+                      />
+                    </Field>
+                  </FieldGroup>
+                </div>
+              </ScrollArea>
+              <DrawerFooter className="pt-4">
+                <DrawerClose render={<Button variant="outline" />}>Отмена</DrawerClose>
                 <Button onClick={handleCreate} disabled={isPending}>
                   {isPending && <Loader className="animate-spin" />}
                   Создать
                 </Button>
-              </SheetFooter>
+              </DrawerFooter>
             </>
           )}
 
-          {activeSheet === 'transfer' && transferFromWalletId !== null && (
-            <TransferPackagesSheet
+          {activeDrawer === 'transfer' && transferFromWalletId !== null && (
+            <TransferPackagesDrawer
               student={student}
               fromWalletId={transferFromWalletId}
               onDone={() => {
-                setActiveSheet(null)
+                setActiveDrawer(null)
                 setTransferFromWalletId(null)
               }}
             />
           )}
 
-          {activeSheet === 'link' && (
+          {activeDrawer === 'link' && (
             <>
-              <SheetHeader>
-                <SheetTitle>Привязать группу к кошельку</SheetTitle>
-                <SheetDescription>
+              <DrawerHeader className="pb-4">
+                <DrawerTitle>Привязать группу к кошельку</DrawerTitle>
+                <DrawerDescription>
                   Выберите группу без кошелька и привяжите её к существующему кошельку.
-                </SheetDescription>
-              </SheetHeader>
-              <div className="space-y-4 px-4">
-                <Field>
-                  <FieldLabel>Кошелёк</FieldLabel>
-                  {linkWalletId ? (
-                    <Input disabled value={walletLabelById(linkWalletId)} />
-                  ) : (
+                </DrawerDescription>
+              </DrawerHeader>
+              <ScrollArea className="min-h-0 flex-1">
+                <div className="space-y-4 px-4">
+                  <Field>
+                    <FieldLabel>Кошелёк</FieldLabel>
+                    {linkWalletId ? (
+                      <Input disabled value={walletLabelById(linkWalletId)} />
+                    ) : (
+                      <CustomCombobox
+                        items={activeWallets.map((w) => ({
+                          label: getWalletLabel(w),
+                          value: w.id.toString(),
+                        }))}
+                        value={
+                          linkWalletId
+                            ? { label: walletLabelById(linkWalletId), value: linkWalletId }
+                            : null
+                        }
+                        onValueChange={(item) => setLinkWalletId(item?.value ?? '')}
+                        placeholder="Выберите кошелёк"
+                      />
+                    )}
+                  </Field>
+                  <Field>
+                    <FieldLabel>Группа</FieldLabel>
                     <CustomCombobox
-                      items={activeWallets.map((w) => ({
-                        label: getWalletLabel(w),
-                        value: w.id.toString(),
+                      items={unlinkedGroups.map((sg) => ({
+                        label: getGroupName(sg.group),
+                        value: sg.groupId.toString(),
                       }))}
                       value={
-                        linkWalletId
-                          ? { label: walletLabelById(linkWalletId), value: linkWalletId }
+                        linkGroupId
+                          ? {
+                              label: (() => {
+                                const sg = unlinkedGroups.find(
+                                  (sg) => sg.groupId.toString() === linkGroupId,
+                                )
+                                return sg ? getGroupName(sg.group) : ''
+                              })(),
+                              value: linkGroupId,
+                            }
                           : null
                       }
-                      onValueChange={(item) => setLinkWalletId(item?.value ?? '')}
-                      placeholder="Выберите кошелёк"
+                      onValueChange={(item) => setLinkGroupId(item?.value ?? '')}
+                      placeholder="Выберите группу"
                     />
-                  )}
-                </Field>
-                <Field>
-                  <FieldLabel>Группа</FieldLabel>
-                  <CustomCombobox
-                    items={unlinkedGroups.map((sg) => ({
-                      label: getGroupName(sg.group),
-                      value: sg.groupId.toString(),
-                    }))}
-                    value={
-                      linkGroupId
-                        ? {
-                            label: (() => {
-                              const sg = unlinkedGroups.find(
-                                (sg) => sg.groupId.toString() === linkGroupId,
-                              )
-                              return sg ? getGroupName(sg.group) : ''
-                            })(),
-                            value: linkGroupId,
-                          }
-                        : null
-                    }
-                    onValueChange={(item) => setLinkGroupId(item?.value ?? '')}
-                    placeholder="Выберите группу"
-                  />
-                </Field>
-              </div>
-              <SheetFooter>
-                <SheetClose render={<Button variant="outline" />}>Отмена</SheetClose>
+                  </Field>
+                </div>
+              </ScrollArea>
+              <DrawerFooter className="pt-4">
+                <DrawerClose render={<Button variant="outline" />}>Отмена</DrawerClose>
                 <Button onClick={handleLink} disabled={isPending || !linkWalletId || !linkGroupId}>
                   {isPending && <Loader className="animate-spin" />}
                   Привязать
                 </Button>
-              </SheetFooter>
+              </DrawerFooter>
             </>
           )}
 
-          {activeSheet === 'edit' && editWalletId !== null && (
+          {activeDrawer === 'edit' && editWalletId !== null && (
             <>
-              <SheetHeader>
-                <SheetTitle>Редактировать кошелёк</SheetTitle>
-                <SheetDescription>{walletLabelById(editWalletId.toString())}</SheetDescription>
-              </SheetHeader>
-              <div className="space-y-4 px-4">
-                <Field>
-                  <FieldLabel htmlFor="edit-name">Название</FieldLabel>
-                  <Input
-                    id="edit-name"
-                    value={editWalletName}
-                    onChange={(e) => setEditWalletName(e.target.value)}
-                    placeholder="Например: Основной"
-                  />
-                </Field>
-                <FieldDescription>
-                  Баланс и суммы здесь не правятся: они складываются из оплат и посещений. Нужно
-                  добавить уроки — заведите оплату; попала не в тот кошелёк — перенесите пакет
-                  кнопкой со стрелкой в шапке карточки.
-                </FieldDescription>
-              </div>
-              <SheetFooter>
-                <SheetClose render={<Button variant="outline" />}>Отмена</SheetClose>
+              <DrawerHeader className="pb-4">
+                <DrawerTitle>Редактировать кошелёк</DrawerTitle>
+                <DrawerDescription>{walletLabelById(editWalletId.toString())}</DrawerDescription>
+              </DrawerHeader>
+              <ScrollArea className="min-h-0 flex-1">
+                <div className="space-y-4 px-4">
+                  <Field>
+                    <FieldLabel htmlFor="edit-name">Название</FieldLabel>
+                    <Input
+                      id="edit-name"
+                      value={editWalletName}
+                      onChange={(e) => setEditWalletName(e.target.value)}
+                      placeholder="Например: Основной"
+                    />
+                  </Field>
+                  <FieldDescription>
+                    Баланс и суммы здесь не правятся: они складываются из оплат и посещений. Нужно
+                    добавить уроки — заведите оплату; попала не в тот кошелёк — перенесите пакет
+                    кнопкой со стрелкой в шапке карточки.
+                  </FieldDescription>
+                </div>
+              </ScrollArea>
+              <DrawerFooter className="pt-4">
+                <DrawerClose render={<Button variant="outline" />}>Отмена</DrawerClose>
                 <Button onClick={handleEditBalance} disabled={isPending}>
                   {isPending && <Loader className="animate-spin" />}
                   Сохранить
                 </Button>
-              </SheetFooter>
+              </DrawerFooter>
             </>
           )}
 
-          {activeSheet === 'reassign' &&
+          {activeDrawer === 'reassign' &&
             reassignGroupId !== null &&
             reassignFromWalletId !== null && (
               <>
-                <SheetHeader>
-                  <SheetTitle>Перепривязать группу</SheetTitle>
-                  <SheetDescription>
+                <DrawerHeader className="pb-4">
+                  <DrawerTitle>Перепривязать группу</DrawerTitle>
+                  <DrawerDescription>
                     Выберите кошелёк, к которому будет привязана группа.
-                  </SheetDescription>
-                </SheetHeader>
-                <div className="space-y-4 px-4">
-                  <Field>
-                    <FieldLabel>Группа</FieldLabel>
-                    <Input
-                      disabled
-                      value={(() => {
-                        const w = student.wallets.find((w) => w.id === reassignFromWalletId)
-                        const sg = w?.studentGroups.find((sg) => sg.groupId === reassignGroupId)
-                        return sg ? getGroupName(sg.group) : ''
-                      })()}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel>Текущий кошелёк</FieldLabel>
-                    <Input disabled value={walletLabelById(reassignFromWalletId.toString())} />
-                  </Field>
-                  <Field>
-                    <FieldLabel>Новый кошелёк</FieldLabel>
-                    <CustomCombobox
-                      items={activeWallets
-                        .filter((w) => w.id !== reassignFromWalletId)
-                        .map((w) => ({ label: getWalletLabel(w), value: w.id.toString() }))}
-                      value={
-                        reassignToWalletId
-                          ? {
-                              label: (() => {
-                                const w = student.wallets.find(
-                                  (w) => w.id.toString() === reassignToWalletId,
-                                )
-                                return w ? getWalletLabel(w) : ''
-                              })(),
-                              value: reassignToWalletId,
-                            }
-                          : null
-                      }
-                      onValueChange={(item) => setReassignToWalletId(item?.value ?? '')}
-                      placeholder="Выберите кошелёк"
-                    />
-                  </Field>
-                </div>
-                <SheetFooter>
-                  <SheetClose render={<Button variant="outline" />}>Отмена</SheetClose>
+                  </DrawerDescription>
+                </DrawerHeader>
+                <ScrollArea className="min-h-0 flex-1">
+                  <div className="space-y-4 px-4">
+                    <Field>
+                      <FieldLabel>Группа</FieldLabel>
+                      <Input
+                        disabled
+                        value={(() => {
+                          const w = student.wallets.find((w) => w.id === reassignFromWalletId)
+                          const sg = w?.studentGroups.find((sg) => sg.groupId === reassignGroupId)
+                          return sg ? getGroupName(sg.group) : ''
+                        })()}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel>Текущий кошелёк</FieldLabel>
+                      <Input disabled value={walletLabelById(reassignFromWalletId.toString())} />
+                    </Field>
+                    <Field>
+                      <FieldLabel>Новый кошелёк</FieldLabel>
+                      <CustomCombobox
+                        items={activeWallets
+                          .filter((w) => w.id !== reassignFromWalletId)
+                          .map((w) => ({ label: getWalletLabel(w), value: w.id.toString() }))}
+                        value={
+                          reassignToWalletId
+                            ? {
+                                label: (() => {
+                                  const w = student.wallets.find(
+                                    (w) => w.id.toString() === reassignToWalletId,
+                                  )
+                                  return w ? getWalletLabel(w) : ''
+                                })(),
+                                value: reassignToWalletId,
+                              }
+                            : null
+                        }
+                        onValueChange={(item) => setReassignToWalletId(item?.value ?? '')}
+                        placeholder="Выберите кошелёк"
+                      />
+                    </Field>
+                  </div>
+                </ScrollArea>
+                <DrawerFooter className="pt-4">
+                  <DrawerClose render={<Button variant="outline" />}>Отмена</DrawerClose>
                   <Button onClick={handleReassign} disabled={isPending || !reassignToWalletId}>
                     {isPending && <Loader className="animate-spin" />}
                     Перепривязать
                   </Button>
-                </SheetFooter>
+                </DrawerFooter>
               </>
             )}
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     </div>
   )
 }
