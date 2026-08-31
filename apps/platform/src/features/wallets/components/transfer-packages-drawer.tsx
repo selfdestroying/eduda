@@ -184,16 +184,6 @@ export function TransferPackagesDrawer({
 
           {preview && (
             <div className="bg-muted/50 space-y-3 rounded-lg border p-3">
-              <p className="text-sm font-medium">
-                Переедет {preview.packages} {plural(preview.packages, 'пакет', 'пакета', 'пакетов')}
-                {preview.moved > 0 && (
-                  <>
-                    {' — '}
-                    {preview.moved} {plural(preview.moved, 'урок', 'урока', 'уроков')}
-                  </>
-                )}
-              </p>
-
               {/* Баланс до и после — обеими сторонами сразу: перенос всегда про пару
                 кошельков, и одна цифра без второй ничего не говорит. */}
               <div className="space-y-1 text-xs">
