@@ -229,8 +229,7 @@ export function TransferPackagesDrawer({
               <AlertDescription>
                 Пакет старше — встанет в очередь первым. Ближайшие {preview.reprices.lessons}{' '}
                 {plural(preview.reprices.lessons, 'занятие', 'занятия', 'занятий')} спишутся по{' '}
-                {money(preview.reprices.price)} вместо {money(preview.reprices.was)}: за них
-                заплатили по старой цене.
+                {money(preview.reprices.price)} вместо {money(preview.reprices.was)}.
               </AlertDescription>
             </Alert>
           )}
