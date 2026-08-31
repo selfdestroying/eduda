@@ -42,7 +42,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   Archive,
   ArrowLeftRight,
-  ArrowRightFromLine,
   Link2,
   Loader,
   Pen,
@@ -291,7 +290,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                         disabled={isPending}
                         title="Перенести пакеты на активный кошелёк"
                       >
-                        <ArrowRightFromLine className="size-3" />
+                        <ArrowLeftRight className="size-3" />
                       </Button>
                     ) : undefined
                   }
@@ -335,7 +334,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                         disabled={isPending}
                         title="Перенести пакеты на другой кошелёк"
                       >
-                        <ArrowRightFromLine className="size-3" />
+                        <ArrowLeftRight className="size-3" />
                       </Button>
                     )}
                     <Button
