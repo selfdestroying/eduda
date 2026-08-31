@@ -23,6 +23,7 @@ import {
 import { WalletSelect } from '@/src/features/wallets/components/wallet-select'
 import { getWalletLabel } from '@/src/features/wallets/utils'
 import { formatDateOnly } from '@/src/lib/timezone'
+import { cn } from '@/src/lib/utils'
 import { Loader, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 
@@ -71,7 +72,7 @@ export function TransferPackagesDrawer({
   const transferMutation = useTransferPackagesMutation(student.id)
 
   const targetId = toWalletId ? Number(toWalletId) : null
-  const { data: preview } = useTransferPreviewQuery(selected, targetId)
+  const { data: preview, isFetching } = useTransferPreviewQuery(selected, targetId)
 
   const source = student.wallets.find((w) => w.id === fromWalletId)
   const targets = student.wallets.filter((w) => w.status === 'ACTIVE' && w.id !== fromWalletId)
@@ -182,71 +183,75 @@ export function TransferPackagesDrawer({
             )}
           </Field>
 
-          {preview && (
-            <div className="bg-muted/50 space-y-3 rounded-lg border p-3">
-              {/* Баланс до и после — обеими сторонами сразу: перенос всегда про пару
+          {/* Пока предпросмотр пересчитывается, показываем прежние цифры —
+              приглушёнными, чтобы не выдать их за актуальные. */}
+          <div className={cn('space-y-4 transition-opacity', isFetching && 'opacity-60')}>
+            {preview && (
+              <div className="bg-muted/50 space-y-3 rounded-lg border p-3">
+                {/* Баланс до и после — обеими сторонами сразу: перенос всегда про пару
                 кошельков, и одна цифра без второй ничего не говорит. */}
-              <div className="space-y-1 text-xs">
-                {(
-                  [
-                    [preview.source.name || 'Источник', preview.source],
-                    [preview.target.name || 'Получатель', preview.target],
-                  ] as const
-                ).map(([name, side]) => (
-                  <div key={name} className="flex items-baseline justify-between gap-3">
-                    <span className="text-muted-foreground truncate">{name}</span>
-                    <span className="shrink-0 tabular-nums">
-                      <span className="text-muted-foreground">{side.before}</span>
-                      <span className="text-muted-foreground mx-1" aria-label="становится">
-                        →
+                <div className="space-y-1 text-xs">
+                  {(
+                    [
+                      [preview.source.name || 'Источник', preview.source],
+                      [preview.target.name || 'Получатель', preview.target],
+                    ] as const
+                  ).map(([name, side]) => (
+                    <div key={name} className="flex items-baseline justify-between gap-3">
+                      <span className="text-muted-foreground truncate">{name}</span>
+                      <span className="shrink-0 tabular-nums">
+                        <span className="text-muted-foreground">{side.before}</span>
+                        <span className="text-muted-foreground mx-1" aria-label="становится">
+                          →
+                        </span>
+                        <span className="font-medium">{side.after}</span> ур.
                       </span>
-                      <span className="font-medium">{side.after}</span> ур.
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {(pending > 0 || preview.willSettle > 0) && (
-                <div className="text-muted-foreground space-y-1 border-t pt-2 text-xs">
-                  {pending > 0 && (
-                    <p>
-                      {pending} {plural(pending, 'пакет ждёт', 'пакета ждут', 'пакетов ждут')}{' '}
-                      оплаты: их уроки зачислятся получателю после подтверждения счёта.
-                    </p>
-                  )}
-                  {preview.willSettle > 0 && (
-                    <p>
-                      Закроет {preview.willSettle}{' '}
-                      {plural(preview.willSettle, 'занятие', 'занятия', 'занятий')} из{' '}
-                      {preview.unpaidOnTarget}, ждущих оплаты.
-                    </p>
-                  )}
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
-          )}
 
-          {preview?.reprices && (
-            <Alert>
-              <TriangleAlert />
-              <AlertTitle>Цена ближайших занятий изменится</AlertTitle>
-              <AlertDescription>
-                Пакет старше — встанет в очередь первым. Ближайшие {preview.reprices.lessons}{' '}
-                {plural(preview.reprices.lessons, 'занятие', 'занятия', 'занятий')} спишутся по{' '}
-                {money(preview.reprices.price)} вместо {money(preview.reprices.was)}.
-              </AlertDescription>
-            </Alert>
-          )}
+                {(pending > 0 || preview.willSettle > 0) && (
+                  <div className="text-muted-foreground space-y-1 border-t pt-2 text-xs">
+                    {pending > 0 && (
+                      <p>
+                        {pending} {plural(pending, 'пакет ждёт', 'пакета ждут', 'пакетов ждут')}{' '}
+                        оплаты: их уроки зачислятся получателю после подтверждения счёта.
+                      </p>
+                    )}
+                    {preview.willSettle > 0 && (
+                      <p>
+                        Закроет {preview.willSettle}{' '}
+                        {plural(preview.willSettle, 'занятие', 'занятия', 'занятий')} из{' '}
+                        {preview.unpaidOnTarget}, ждущих оплаты.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
-          {preview && preview.orphanedGroups.length > 0 && (
-            <Alert variant="destructive">
-              <TriangleAlert />
-              <AlertTitle>Кошелёк останется без уроков</AlertTitle>
-              <AlertDescription>
-                Занятия будут ждать оплаты: {preview.orphanedGroups.join(', ')}.
-              </AlertDescription>
-            </Alert>
-          )}
+            {preview?.reprices && (
+              <Alert>
+                <TriangleAlert />
+                <AlertTitle>Цена ближайших занятий изменится</AlertTitle>
+                <AlertDescription>
+                  Пакет старше — встанет в очередь первым. Ближайшие {preview.reprices.lessons}{' '}
+                  {plural(preview.reprices.lessons, 'занятие', 'занятия', 'занятий')} спишутся по{' '}
+                  {money(preview.reprices.price)} вместо {money(preview.reprices.was)}.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {preview && preview.orphanedGroups.length > 0 && (
+              <Alert variant="destructive">
+                <TriangleAlert />
+                <AlertTitle>Кошелёк останется без уроков</AlertTitle>
+                <AlertDescription>
+                  Занятия будут ждать оплаты: {preview.orphanedGroups.join(', ')}.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
         </div>
       </ScrollArea>
 

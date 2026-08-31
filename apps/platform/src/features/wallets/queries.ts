@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { packageKeys } from '@/src/features/finances/payments/queries'
 import { studentKeys } from '@/src/features/students/queries'
@@ -23,8 +23,10 @@ export const walletKeys = {
   all: ['wallets'] as const,
   byStudent: (studentId: number) => ['wallets', 'student', studentId] as const,
   packages: (walletId: number) => ['wallets', 'packages', walletId] as const,
+  // Порядок галочек кеш не различает: id сортируются, иначе «выбрал A, потом B» и
+  // «выбрал B, потом A» — две записи с одинаковым ответом и лишний запрос на второй.
   transferPreview: (packageIds: number[], toWalletId: number) =>
-    ['wallets', 'transfer-preview', packageIds, toWalletId] as const,
+    ['wallets', 'transfer-preview', [...packageIds].sort((a, b) => a - b), toWalletId] as const,
 }
 
 export const useStudentWalletsQuery = (studentId: number, options?: { enabled?: boolean }) => {
@@ -139,6 +141,11 @@ export const useTransferPreviewQuery = (packageIds: number[], toWalletId: number
       return data
     },
     enabled: toWalletId != null && packageIds.length > 0,
+    // Каждая галочка меняет ключ, а без этого `data` на время запроса становится
+    // `undefined` — сводка и оба предупреждения исчезали и появлялись заново, дёргая
+    // высоту панели. Показываем прежние цифры; что они пересчитываются, видно по
+    // приглушению (`isFetching` в компоненте).
+    placeholderData: keepPreviousData,
   })
 }
 
