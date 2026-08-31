@@ -38,10 +38,13 @@ const money = (v: number) => `${v.toLocaleString('ru-RU')} ₽`
  * Переносится пакет целиком, а не уроки: урок несёт цену своего пакета. Поэтому
  * здесь выбирают пакеты галочками, а не вводят количество.
  *
+ * В списке только пакеты с непотраченным остатком и ждущие оплаты: выработанный
+ * переносить незачем — уроки по нему отходили, а цена списаний заморожена в проводках.
+ *
  * Два предупреждения показываются до подтверждения, потому что задним числом их не
  * увидеть ни в одном отчёте: переоценка (перенесённый пакет старше головы очереди и
- * начнёт задавать цену) и осиротевшие группы (у источника не осталось пакетов, а
- * группы на нём висят — их занятия будут ждать оплаты).
+ * начнёт задавать цену) и осиротевшие группы (источнику нечем платить, а группы на
+ * нём висят — их занятия будут ждать оплаты).
  */
 export function TransferPackagesSheet({
   student,
@@ -81,13 +84,17 @@ export function TransferPackagesSheet({
         </SheetDescription>
       </SheetHeader>
 
-      <div className="space-y-4 overflow-y-auto px-4">
+      {/* `min-h-0` обязателен: без него flex-элемент не даёт себя сжать, тело меряется
+          по содержимому и заводит собственный скроллбар посреди пустого листа. */}
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4">
         <Field>
           <FieldLabel>Пакеты</FieldLabel>
           {isPending ? (
             <p className="text-muted-foreground text-sm">Загрузка…</p>
           ) : !packages || packages.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Переносить нечего: пакетов нет.</p>
+            <p className="text-muted-foreground text-sm">
+              Переносить нечего: непотраченных пакетов на кошельке нет.
+            </p>
           ) : (
             <div className="space-y-1">
               {packages.map((p) => (
@@ -178,7 +185,7 @@ export function TransferPackagesSheet({
         {preview && preview.orphanedGroups.length > 0 && (
           <Alert variant="destructive">
             <TriangleAlert />
-            <AlertTitle>У кошелька не останется пакетов</AlertTitle>
+            <AlertTitle>У кошелька не останется оплаченных уроков</AlertTitle>
             <AlertDescription>
               Занятия этих групп будут ждать оплаты: {preview.orphanedGroups.join(', ')}.
               Перепривяжите их к другому кошельку — кнопка со стрелками в строке группы.
