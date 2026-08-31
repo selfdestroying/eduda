@@ -24,6 +24,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@repo/ui/components/sheet'
+import { useIsMobile } from '@repo/ui/hooks/use-mobile'
 import { studentKeys } from '@/src/features/students/queries'
 import type { StudentDetail } from '@/src/features/students/types'
 import {
@@ -64,6 +65,7 @@ interface WalletsSectionProps {
 
 export default function WalletsSection({ student }: WalletsSectionProps) {
   const [isPending, startTransition] = useTransition()
+  const isMobile = useIsMobile()
   const [activeSheet, setActiveSheet] = useState<SheetType>(null)
   const queryClient = useQueryClient()
   const canMoveMoney = useHasPermission(CAN_MOVE_MONEY)
@@ -454,7 +456,12 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
 
       {/* Single dynamic Sheet */}
       <Sheet open={activeSheet !== null} onOpenChange={(o) => !o && setActiveSheet(null)}>
-        <SheetContent side="right">
+        {/* На узком экране лист выезжает снизу — как в остальных формах приложения.
+            Справа он там занимал 3/4 ширины и открывался «сбоку от ничего». */}
+        <SheetContent
+          side={isMobile ? 'bottom' : 'right'}
+          className="data-[side=bottom]:max-h-[85vh]"
+        >
           {activeSheet === 'create' && (
             <>
               <SheetHeader>
