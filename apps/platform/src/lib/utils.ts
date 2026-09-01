@@ -1,5 +1,5 @@
 import { DEMO_SLUG } from '../features/demo/constants'
-import { nowInTz, ymdToLocalDate } from './timezone'
+import { nowInTz, todayYmdInTz, ymdToLocalDate } from './timezone'
 
 /** Живёт в дизайн-системе; ре-экспорт, чтобы `@/src/lib/utils` остался одной точкой входа. */
 export { cn } from '@repo/ui/lib/utils'
@@ -179,3 +179,19 @@ export const getAgeFromBirthDate = (birthDate: string, tz: string) => {
 
   return age
 }
+
+/**
+ * Осеннее оформление: весь сентябрь шапка школы в сайдбаре подсвечена тёплым
+ * градиентом. Месяц, а не один день — иначе украшение увидит только тот, кто
+ * зашёл первого числа.
+ *
+ * Считается по часам школы, поэтому Владивосток гасит оформление раньше
+ * Калининграда.
+ */
+export const isSeptember = (tz: string) => todayYmdInTz(tz).slice(5, 7) === '09'
+
+/**
+ * Само поздравление живёт ровно один день: 1 сентября оно занимает подпись под
+ * названием школы, а со второго на её место возвращается часовой пояс.
+ */
+export const isKnowledgeDay = (tz: string) => todayYmdInTz(tz).slice(5) === '09-01'

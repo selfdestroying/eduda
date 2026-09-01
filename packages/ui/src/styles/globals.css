@@ -244,3 +244,64 @@
     animation: none;
   }
 }
+
+/*
+ * Медленное «дыхание» градиента: полотно вдвое шире элемента, и анимация возит
+ * его от края к краю. `alternate` вместо петли не случайно — градиент из двух
+ * стопов на стыке 0%/100% не сходится сам с собой, и обычный цикл дёргался бы
+ * раз в проход. Работает только в паре с `bg-size-[200%_100%]` на элементе.
+ */
+@keyframes gradient-drift {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 100% 50%;
+  }
+}
+
+@utility animate-gradient-drift {
+  animation: gradient-drift 8s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-gradient-drift {
+    animation: none;
+  }
+}
+
+
+/*
+ * Листопад: лист проходит строку сверху вниз и начинает круг заново. Стыка не
+ * видно, потому что на обоих концах он вынесен за пределы полосы (±70px против
+ * 48px высоты) — сброс происходит вне зоны видимости.
+ *
+ * Анимируются `translate` и `rotate` как отдельные свойства, а не `transform`:
+ * базовый разворот каждого листа задан инлайновым `transform`, и анимация по
+ * нему затёрла бы его, а так они складываются. Темп и фазу задаёт каждый лист
+ * сам (`animation-delay`/`duration` в `LEAVES`), иначе падают строем.
+ */
+@keyframes leaf-fall {
+  0% {
+    translate: 0 -70px;
+    rotate: -15deg;
+  }
+  50% {
+    translate: 8px 0;
+    rotate: 15deg;
+  }
+  100% {
+    translate: 0 70px;
+    rotate: -15deg;
+  }
+}
+
+@utility animate-leaf-fall {
+  animation: leaf-fall 39s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-leaf-fall {
+    animation: none;
+  }
+}

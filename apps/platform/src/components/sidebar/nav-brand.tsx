@@ -7,6 +7,7 @@ import { useSessionQuery } from '@/src/features/users/me/queries'
 import type { OrganizationRole } from '@/src/lib/auth/server'
 import { isFeatureDisabled } from '@/src/lib/features/registry'
 import { DEFAULT_TZ, formatTimeZoneLabel } from '@/src/lib/timezone'
+import { cn, isKnowledgeDay, isSeptember } from '@/src/lib/utils'
 import {
   BookOpen,
   Briefcase,
@@ -22,6 +23,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import Link from 'next/link'
+import { AutumnLeaves } from './autumn-leaves'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -132,7 +134,12 @@ export default function NavBrand() {
   if (isLoading) return <NavBrandSkeleton />
 
   const orgName = session?.organization?.name ?? ''
-  const tzLabel = formatTimeZoneLabel(session?.organization?.timezone ?? DEFAULT_TZ)
+  const tz = session?.organization?.timezone ?? DEFAULT_TZ
+  const tzLabel = formatTimeZoneLabel(tz)
+  // Весь сентябрь строка школы подсвечена осенним градиентом, а 1 сентября
+  // часовой пояс под названием ещё и уступает место поздравлению.
+  const september = isSeptember(tz)
+  const knowledgeDay = isKnowledgeDay(tz)
   const role = (session?.memberRole ?? undefined) as OrganizationRole | undefined
   const disabledFeatures = (session?.disabledFeatures as string[] | undefined) ?? []
   const orgItems = role
@@ -150,17 +157,36 @@ export default function NavBrand() {
           <SidebarMenuButton
             size="lg"
             tooltip={orgName}
-            className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+            className={cn(
+              'data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground',
+              september &&
+                'animate-gradient-drift relative isolate bg-linear-to-r from-amber-400/25 to-orange-500/15 bg-size-[200%_100%]',
+            )}
           >
             <Avatar>
               <AvatarImage alt={orgName} />
-              <AvatarFallback>{orgName?.[0]}</AvatarFallback>
+              <AvatarFallback
+                className={cn(
+                  september &&
+                    'animate-gradient-drift bg-linear-to-r from-amber-500 to-orange-600 bg-size-[200%_100%] text-white',
+                )}
+              >
+                {orgName?.[0]}
+              </AvatarFallback>
             </Avatar>
 
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{orgName}</span>
-              <span className="text-muted-foreground truncate text-xs">{tzLabel}</span>
+              <span
+                className={cn(
+                  'truncate text-xs',
+                  knowledgeDay ? 'text-amber-700 dark:text-amber-300' : 'text-muted-foreground',
+                )}
+              >
+                {knowledgeDay ? 'С Днём знаний!' : tzLabel}
+              </span>
             </div>
+            {september && <AutumnLeaves />}
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -176,19 +202,38 @@ export default function NavBrand() {
               <SidebarMenuButton
                 size="lg"
                 tooltip={orgName}
-                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                className={cn(
+                  'data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground',
+                  september &&
+                    'animate-gradient-drift relative isolate bg-linear-to-r from-amber-400/25 to-orange-500/15 bg-size-[200%_100%]',
+                )}
               />
             }
           >
             <Avatar>
               <AvatarImage alt={orgName} />
-              <AvatarFallback>{orgName?.[0]}</AvatarFallback>
+              <AvatarFallback
+                className={cn(
+                  september &&
+                    'animate-gradient-drift bg-linear-to-r from-amber-500 to-orange-600 bg-size-[200%_100%] text-white',
+                )}
+              >
+                {orgName?.[0]}
+              </AvatarFallback>
             </Avatar>
 
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{orgName}</span>
-              <span className="text-muted-foreground truncate text-xs">{tzLabel}</span>
+              <span
+                className={cn(
+                  'truncate text-xs',
+                  knowledgeDay ? 'text-amber-700 dark:text-amber-300' : 'text-muted-foreground',
+                )}
+              >
+                {knowledgeDay ? 'С Днём знаний!' : tzLabel}
+              </span>
             </div>
+            {september && <AutumnLeaves />}
             <ChevronsUpDown />
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="min-w-56">

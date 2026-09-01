@@ -1,5 +1,6 @@
 import { StudentNav, StudentTabBar } from '@/src/components/student-nav'
 import { getStudentSession, loginRedirect } from '@/src/lib/auth/student-session'
+import { isSeptember } from '@/src/lib/utils'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 
@@ -17,6 +18,7 @@ export default async function CabinetLayout({ children }: { children: React.Reac
         shopDisabled={session.disabledShop}
         name={session.profile.name}
         coins={session.profile.coins}
+        september={isSeptember(session.org.timezone)}
       />
       {/* pb-20 — под фиксированный таб-бар, его на десктопе нет. */}
       <main className="mx-auto max-w-5xl px-4 pt-6 pb-20 md:pb-6">{children}</main>

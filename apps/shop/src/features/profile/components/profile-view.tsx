@@ -1,4 +1,5 @@
 import { formatDateOnly } from '@/src/lib/date'
+import { cn } from '@/src/lib/utils'
 import { StudentStatus } from '@repo/db/enums'
 import { Badge } from '@repo/ui/components/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
@@ -35,16 +36,24 @@ interface ProfileViewProps {
     email: string | null
   }[]
   coins: number
+  knowledgeDay: boolean
 }
 
-export function ProfileView({ student, groups, parents, coins }: ProfileViewProps) {
+export function ProfileView({ student, groups, parents, coins, knowledgeDay }: ProfileViewProps) {
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
           {student.firstName} {student.lastName}
         </h1>
-        <p className="text-muted-foreground text-sm">Личный кабинет</p>
+        <p
+          className={cn(
+            'text-sm',
+            knowledgeDay ? 'text-amber-700 dark:text-amber-200' : 'text-muted-foreground',
+          )}
+        >
+          {knowledgeDay ? 'С Днём знаний!' : 'Личный кабинет'}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

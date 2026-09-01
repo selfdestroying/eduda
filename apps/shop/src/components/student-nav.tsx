@@ -126,10 +126,12 @@ export function StudentNav({
   shopDisabled,
   name,
   coins,
+  september,
 }: {
   shopDisabled: boolean
   name: string
   coins: number
+  september: boolean
 }) {
   const pathname = usePathname()
   const items = visibleItems(shopDisabled)
@@ -172,9 +174,16 @@ export function StudentNav({
           <Link
             href="/coins"
             aria-label="История астрокоинов"
-            className="hover:bg-muted rounded-md px-2 py-1 transition-colors"
+            className={cn(
+              'hover:bg-muted rounded-md px-2 py-1 transition-colors',
+              september &&
+                'animate-gradient-drift bg-linear-to-r from-amber-400/30 to-orange-500/20 bg-size-[200%_100%]',
+            )}
           >
-            <CoinPrice value={coins} />
+            <CoinPrice
+              value={coins}
+              className={cn(september && 'text-amber-700 dark:text-amber-200')}
+            />
           </Link>
           <SwitchThemeButton />
           <StudentMenu name={name} extra={items.slice(TABS)} />
