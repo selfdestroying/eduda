@@ -292,7 +292,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                         className="size-6"
                         onClick={() => openTransferDrawer(w.id)}
                         disabled={isPending}
-                        title="Перенести пакеты на активный кошелёк"
+                        title="Перенести на активный кошелёк"
                       >
                         <ArrowLeftRight className="size-3" />
                       </Button>
@@ -336,7 +336,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                         className="size-6"
                         onClick={() => openTransferDrawer(w.id)}
                         disabled={isPending}
-                        title="Перенести пакеты на другой кошелёк"
+                        title="Перенести на другой кошелёк"
                       >
                         <ArrowLeftRight className="size-3" />
                       </Button>
@@ -575,7 +575,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                   <FieldDescription>
                     Баланс и суммы здесь не правятся: они складываются из оплат и посещений. Нужно
                     добавить уроки — заведите оплату; попала не в тот кошелёк — перенесите пакет
-                    кнопкой со стрелкой в шапке карточки.
+                    кнопкой со стрелками в шапке карточки.
                   </FieldDescription>
                 </div>
               </ScrollArea>
