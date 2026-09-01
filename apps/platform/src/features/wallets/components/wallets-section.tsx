@@ -59,7 +59,7 @@ import { toast } from 'sonner'
 // Права проверяются по ссылке на объект, поэтому он живёт в module scope.
 const CAN_MOVE_MONEY = { wallet: ['update'] } as const
 
-type DrawerType = 'create' | 'transfer' | 'link' | 'edit' | 'reassign' | null
+type DrawerType = 'create' | 'transfer' | 'link' | 'edit' | null
 
 interface WalletsSectionProps {
   student: StudentDetail
@@ -94,11 +94,6 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
   // Archive confirmation state
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
   const [archiveWalletId, setArchiveWalletId] = useState<number | null>(null)
-
-  // Reassign state
-  const [reassignGroupId, setReassignGroupId] = useState<number | null>(null)
-  const [reassignFromWalletId, setReassignFromWalletId] = useState<number | null>(null)
-  const [reassignToWalletId, setReassignToWalletId] = useState<string>('')
 
   const unlinkedGroups = student.groups.filter(
     (sg) =>
@@ -191,34 +186,6 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
   const confirmArchive = (walletId: number) => {
     setArchiveWalletId(walletId)
     setArchiveDialogOpen(true)
-  }
-
-  const openReassignDrawer = (groupId: number, currentWalletId: number) => {
-    setReassignGroupId(groupId)
-    setReassignFromWalletId(currentWalletId)
-    setReassignToWalletId('')
-    setActiveDrawer('reassign')
-  }
-
-  const handleReassign = () => {
-    if (reassignGroupId === null || !reassignToWalletId) return
-    startTransition(async () => {
-      try {
-        await linkGroupToWallet({
-          studentId: student.id,
-          groupId: reassignGroupId,
-          walletId: Number(reassignToWalletId),
-        })
-        invalidateStudent()
-        toast.success('Группа перепривязана к другому кошельку')
-        setActiveDrawer(null)
-        setReassignGroupId(null)
-        setReassignFromWalletId(null)
-        setReassignToWalletId('')
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Не удалось перепривязать группу')
-      }
-    })
   }
 
   const handleArchive = () => {
@@ -395,9 +362,8 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                               </Badge>
                             )}
                           </div>
-                          {/* Кнопки перепривязки здесь больше нет: перевешивать группу
-                              будут из окна переноса пакетов, вместе с деньгами. Форма
-                              `reassign` ниже пока остаётся — её туда и переносить. */}
+                          {/* Кнопки перепривязки здесь нет: перевешивать группу будут
+                              из окна переноса, вместе с деньгами. */}
                         </div>
                       )
                     })}
@@ -588,53 +554,6 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
               </DrawerFooter>
             </>
           )}
-
-          {activeDrawer === 'reassign' &&
-            reassignGroupId !== null &&
-            reassignFromWalletId !== null && (
-              <>
-                <DrawerHeader className="pb-4">
-                  <DrawerTitle>Перепривязать группу</DrawerTitle>
-                  <DrawerDescription>
-                    Выберите кошелёк, к которому будет привязана группа.
-                  </DrawerDescription>
-                </DrawerHeader>
-                <ScrollArea className="min-h-0 flex-1">
-                  <div className="space-y-4 px-4">
-                    <Field>
-                      <FieldLabel>Группа</FieldLabel>
-                      <Input
-                        disabled
-                        value={(() => {
-                          const w = student.wallets.find((w) => w.id === reassignFromWalletId)
-                          const sg = w?.studentGroups.find((sg) => sg.groupId === reassignGroupId)
-                          return sg ? getGroupName(sg.group) : ''
-                        })()}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>Текущий кошелёк</FieldLabel>
-                      <Input disabled value={walletLabelById(reassignFromWalletId.toString())} />
-                    </Field>
-                    <Field>
-                      <FieldLabel>Новый кошелёк</FieldLabel>
-                      <WalletSelect
-                        wallets={activeWallets.filter((w) => w.id !== reassignFromWalletId)}
-                        value={reassignToWalletId}
-                        onValueChange={setReassignToWalletId}
-                      />
-                    </Field>
-                  </div>
-                </ScrollArea>
-                <DrawerFooter className="pt-4">
-                  <DrawerClose render={<Button variant="outline" />}>Отмена</DrawerClose>
-                  <Button onClick={handleReassign} disabled={isPending || !reassignToWalletId}>
-                    {isPending && <Loader className="animate-spin" />}
-                    Перепривязать
-                  </Button>
-                </DrawerFooter>
-              </>
-            )}
         </DrawerContent>
       </Drawer>
     </div>
