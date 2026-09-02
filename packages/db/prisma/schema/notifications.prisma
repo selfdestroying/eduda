@@ -1,0 +1,62 @@
+/// Привязка аккаунта мессенджера к родителю.
+///
+/// Бот один на всю установку, поэтому у одного человека здесь бывает несколько
+/// строк: дети в разных школах — это разные `Parent`, и телефон, названный боту
+/// один раз, привязывается ко всем совпавшим. Отсюда `parentId` в уникальном
+/// ключе, а не пара `provider + externalId`.
+model ParentMessenger {
+    id       Int               @id @default(autoincrement())
+    provider MessengerProvider
+    /// user_id в мессенджере. Строкой: идентификаторы чужие, арифметики над ними
+    /// нет, а диапазоны у VK и MAX разные.
+    externalId String
+    /// Только MAX: верифицированный номер из `request_contact`. Нужен, чтобы
+    /// потом было видно, по какому номеру привязались. VK телефона не даёт вовсе.
+    phone     String?
+    createdAt DateTime @default(now())
+    /// Отписка не удаляет строку: иначе повторная привязка выглядит как первая,
+    /// и на «почему мне перестало приходить» ответить нечем.
+    unsubscribedAt DateTime?
+
+    // Relations
+    organizationId Int
+    parentId       Int
+    organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    parent         Parent               @relation(fields: [parentId], references: [id], onDelete: Cascade)
+    outbox         NotificationOutbox[]
+
+    @@unique([provider, externalId, parentId])
+    @@index([provider, externalId])
+    @@index([parentId])
+    @@index([organizationId])
+}
+
+/// Очередь исходящих уведомлений: планировщик пишет, дренаж отправляет.
+model NotificationOutbox {
+    id Int @id @default(autoincrement())
+    /// Пока единственный вид — `LESSON_REMINDER`. Строкой, а не enum'ом: новый
+    /// вид не должен требовать миграции, а читателей у поля нет кроме логов.
+    kind String
+    /// `lesson-reminder:<parentMessengerId>:<YYYY-MM-DD>`. `@unique` заменяет
+    /// планировщику состояние «когда я запускался в прошлый раз»: крон может
+    /// приходить хоть каждые десять минут, вторая строка не заведётся.
+    dedupeKey String @unique
+    /// Готовый текст — снимок расписания на момент планирования.
+    text     String
+    status   NotificationStatus @default(PENDING)
+    attempts Int                @default(0)
+    /// Когда пробовать снова. У свежей строки — сейчас, дальше двигает backoff.
+    nextAttemptAt DateTime  @default(now())
+    lastError     String?
+    sentAt        DateTime?
+    createdAt     DateTime  @default(now())
+
+    // Relations
+    organizationId    Int
+    parentMessengerId Int
+    organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    parentMessenger   ParentMessenger @relation(fields: [parentMessengerId], references: [id], onDelete: Cascade)
+
+    @@index([status, nextAttemptAt])
+    @@index([organizationId])
+}

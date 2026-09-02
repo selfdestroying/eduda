@@ -108,3 +108,14 @@ enum PayCheckType {
     BONUS
     ADVANCE
 }
+
+enum MessengerProvider {
+    VK
+    MAX
+}
+
+enum NotificationStatus {
+    PENDING
+    SENT
+    FAILED
+}

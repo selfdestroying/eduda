@@ -91,6 +91,13 @@ model Organization {
     updatedAt                      DateTime                       @updatedAt
     metadata                       String?
     timezone                       String                         @default("Europe/Moscow")
+    /// Напоминания родителям о занятиях. По умолчанию выключены: рассылка от
+    /// имени школы — её решение, а не наше.
+    remindersEnabled               Boolean                        @default(false)
+    /// Время отправки, `HH:mm` в поясе школы — тот же формат, что у `Lesson.time`.
+    reminderTime                   String                         @default("20:00")
+    /// За сколько дней до занятия: 1 — накануне, 0 — утром в день занятия.
+    reminderLeadDays               Int                            @default(1)
     members                        Member[]
     invitations                    Invitation[]
     rates                          Rate[]
@@ -134,6 +141,8 @@ model Organization {
     studentAccounts                StudentAccount[]
     coinTransactions               CoinTransaction[]
     studentAchievements            StudentAchievement[]
+    parentMessengers               ParentMessenger[]
+    notificationOutbox             NotificationOutbox[]
 
     @@unique([slug])
     @@map("Organization")

@@ -50,8 +50,9 @@ model Parent {
 
     // Relations
     organizationId Int
-    organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     students       StudentParent[]
+    messengers     ParentMessenger[]
 
     @@index([organizationId])
 }
