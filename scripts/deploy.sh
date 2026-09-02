@@ -34,7 +34,10 @@ main() {
   PG_BIN=${PG_BIN:-/usr/lib/postgresql/17/bin}
   # Имя pm2-процесса = имя пакета в воркспейсе, порт — тот, на который смотрит
   # nginx. Порядок важен: платформа поднимается первой.
-  APPS=${APPS:-"platform:3001 shop:3002 docs:3005"}
+  APPS=${APPS:-"platform:3001 shop:3002 docs:3005 bots:3006"}
+  # Кого не собираем: `bots` — это tsx поверх исходников, скрипта `build` у него
+  # нет вовсе, и `pnpm --filter bots build` вернул бы единицу и уронил деплой.
+  NO_BUILD=${NO_BUILD:-"bots"}
 
   cd "$APP_DIR"
 
@@ -99,6 +102,12 @@ $(git status --short)"
   export SKIP_BUILD_CHECKS=1
   local name
   for name in $(names); do
+    case " $NO_BUILD " in
+      *" $name "*)
+        say "$name собирать нечего"
+        continue
+        ;;
+    esac
     say "сборка $name"
     pnpm --filter "$name" build
   done

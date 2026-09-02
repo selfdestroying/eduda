@@ -10,13 +10,15 @@ Stack: Next.js 16 (App Router, React 19, React Compiler), Prisma 7 (PostgreSQL v
 
 ## Monorepo layout (pnpm + Turborepo)
 
-The repo is a **pnpm workspace** driven by **Turborepo** (`turbo.json`). Five packages today:
+The repo is a **pnpm workspace** driven by **Turborepo** (`turbo.json`). Seven packages today:
 
 - **`apps/platform`** — the Next.js dashboard, port 3000 (everything that used to be at the repo root: `src/`, `public/`, `next.config.ts`, etc.). Its `.env` holds every var the dashboard needs. **All `src/...` paths mentioned elsewhere in this file live under `apps/platform/`.**
 - **`apps/docs`** (`docs`) — the public documentation, port 3001: fumadocs + the MDX content in `apps/docs/content/docs/` (`user/`, `dev/`). No auth, no DB, its own tiny `.env` (`NEXT_PUBLIC_ROOT_DOMAIN`, `PORT`). See «Documentation».
 - **`apps/shop`** (`shop`) — личный кабинет ученика, port 3002: каталог, корзина, заказы за астрокоины, посещаемость и профиль. Свой инстанс better-auth на таблицах `Student*` с `cookiePrefix: 'edu_student'` — сессия ученика и сессия сотрудника не пересекаются. Живёт на едином домене `shop.{rootDomain}` (DNS/реверс-прокси ведёт туда напрямую, как в `apps/docs`), организация приходит **из сессии**, а не из поддомена. Своё `.env` (`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `DATABASE_URL`, `PORT`). См. «Кабинет ученика».
 - **`packages/db`** (`@repo/db`) — Prisma: schema (`packages/db/prisma/schema/`), migrations, `prisma.config.ts`, the generated client (`packages/db/generated/`, gitignored) and the `prisma` singleton. Ships raw TS via `exports` (no build step); the app transpiles it (`transpilePackages: ['@repo/db']`).
 - **`packages/ui`** (`@repo/ui`) — the design system: shadcn primitives + app-agnostic composites (`packages/ui/src/components/`, flat), `use-mobile` (`src/hooks/`), `cn` (`src/lib/utils.ts`), design tokens and the base layer (`src/styles/globals.css`), plus the shared `postcss.config.mjs`. Same shape as `@repo/db`: raw TS via `exports`, no build step, transpiled by the app.
+- **`apps/bots`** (`bots`) — боты VK и MAX, рассылающие родителям напоминания о занятиях, порт 3006 (локально 3003). **Не Next**: `node:http` под `tsx`, шага сборки нет вовсе. Своё `.env`. См. «Напоминания родителям».
+- **`packages/core`** (`@repo/core`) — доменные модули, общие для платформы и ботов: `timezone` (пояс школы), `features` (реестр фич) и `features-db` (резолв фич из базы). Форма как у `@repo/db`: сырой TS через `exports`, без сборки. В платформе на прежних путях (`src/lib/timezone.ts`, `src/lib/features/registry.ts`) остались реэкспорты — 91 импорт не трогали.
 
 Shared config packages (`@repo/config` и т.п.) — **planned, not present**: `apps/shop` копирует конфиги `apps/docs`. Третий потребитель будет поводом вернуться к вопросу.
 
@@ -25,7 +27,7 @@ Shared config packages (`@repo/config` и т.п.) — **planned, not present**: 
 Run from the **repo root** (Turborepo fans out to packages):
 
 ```bash
-pnpm dev               # turbo dev — platform (3000) + docs (3001) + shop (3002)
+pnpm dev               # turbo dev — platform (3000) + docs (3001) + shop (3002) + bots (3003)
 pnpm build             # turbo build (runs @repo/db generate + typegen first)
 pnpm check             # turbo check (format+lint+tsc) — run before committing
 pnpm ts:check          # turbo ts:check
@@ -45,6 +47,11 @@ pnpm --filter platform exec shadcn add <component>
 `pnpm install` at the root generates the Prisma client (`@repo/db` postinstall) and the fumadocs `.source` collection (`docs` postinstall). Native build scripts are gated by pnpm — approvals live in `pnpm-workspace.yaml` (`allowBuilds`).
 
 There is **no test suite**. Verification = `pnpm check` + running the app. `prisma.config.ts` references a `prisma/seed.ts` that does not exist.
+
+Две команды, которые ведут себя не так, как ожидается:
+
+- **`prisma format` не запускать.** Схема в репо на четырёх пробелах, форматтер Prisma ставит два — один прогон переписывает все одиннадцать файлов схемы (~1000 строк шума поверх правки в двадцать). Проверять схему — `prisma validate`, он ничего не переписывает.
+- **`pnpm --filter <пакет> exec …` работает с рабочим каталогом корня репо**, а не пакета, поэтому относительные пути (`--env-file=.env`) там не находятся. `pnpm --filter <пакет> <скрипт>` — находятся. У скриптов платформы та же проблема решена иначе: `import './load-env'` считает путь от `import.meta.dirname`.
 
 ## Накатывание миграций на боевую базу
 
@@ -105,6 +112,7 @@ pnpm --filter platform exec tsx scripts/forgive-missed-makeups.ts --apply       
 | `platform` | `/var/www/eduda/apps/platform` | 3001 | `eduda.online`, `*.eduda.online` |
 | `shop`     | `…/apps/shop`                  | 3002 | `shop.eduda.online`              |
 | `docs`     | `…/apps/docs`                  | 3005 | `docs.eduda.online`              |
+| `bots`     | `…/apps/bots`                  | 3006 | `bots.eduda.online`              |
 | `parser`   | `/var/www/alg/webhook`         | 3003 | `*.eduda.online/poller/`         |
 | `exam`     | `/var/www/alg/exam`            | 3004 | `exam.eduda.online`              |
 
@@ -115,6 +123,8 @@ pnpm --filter platform exec tsx scripts/forgive-missed-makeups.ts --apply       
 pnpm ставится через `npm install -g pnpm@<версия из packageManager>`, а не корепаком: Node 25 corepack больше не поставляет, и имя резолвится в системный `/usr/bin/corepack`, а тот ставит симлинки в `/usr/bin` и без root не может. Оба скрипта делают это сами, когда `pnpm` не на PATH.
 
 nginx проксирует `/` целиком, поэтому **любой роут под `/api/` публичен**, включая те, что задуманы для планировщика. Такие закрыты ключом из `.env`, и без ключа не работают вовсе: `/api/amocrm/poll` — `AMOCRM_POLL_KEY` (заголовок `X-Poller-Key`), `/api/demo/reset` — `DEMO_RESET_KEY` (`X-Demo-Key`). Второй сносит демо-организацию и создаёт заново, так что отказ по умолчанию тут дешевле открытой двери. Новый роут для крона — сразу с ключом.
+
+Загрузку файлов ограничивает nginx, а не приложение: у server-блока платформы стоит `client_max_body_size 12m` — с запасом над 10 МБ, которые разрешают форма товара и `serverActions.bodySizeLimit`. Раньше директивы не было вовсе, дефолт nginx — 1 МБ, и добавление товара с обычным фото с телефона умирало на 413, не доходя до Next: клиент показывал общий тост «Ошибка при создании продукта». Поднимаете лимит в приложении — поднимайте и здесь, иначе отказ вернётся тем же немым 413.
 
 Сборка на этой машине не помещается в память, если `next build` гоняет проверку типов: это его пик (Next 16 линт при сборке уже не запускает — ключа `eslint` в конфиге нет). Деплой её снимает — `SKIP_BUILD_CHECKS=1`, флаг читают все три `next.config.ts`. `tsc` к тому моменту уже прошёл в `pnpm check`, так что теряется только его повтор. Локально флага нет.
 
@@ -283,6 +293,30 @@ pnpm --filter platform exec tsx scripts/check-amocrm.ts 30
 Переменные: `AMOCRM_SUBDOMAIN`, `AMOCRM_TOKEN`, `AMOCRM_POLL_KEY`, `AMOCRM_ORGANIZATION_ID`, `AMOCRM_SINCE_FLOOR`.
 
 До катовера оплаты заводит прежний парсер (`/var/www/alg/webhook`, pm2 `parser`, порт 3003) — он пишет по досплитовой схеме и на новой упадёт. Останавливает его `cutover-prod-once.sh` вместе с `dashboard` и `shop`, а вот убрать из nginx `location /poller/`, дописать `AMOCRM_*` в `.env` платформы и завести cron — руками, по инструкции в конце скрипта. Порядок именно такой: пока парсер жив, обе половины заводят одни и те же оплаты.
+
+## Напоминания родителям (`apps/bots`)
+
+Боты VK и MAX напоминают родителю о завтрашнем занятии. Отдельное приложение и **не Next**: рендерить нечего, а четвёртая сборка Next на одноядерной машине стоит дороже всего кода бота. `tsx` исполняет TypeScript как есть, скрипта `build` у пакета нет — `turbo build` и `deploy.sh` его пропускают (в деплое за это отвечает `NO_BUILD`).
+
+- **Бот один на всю установку, не на школу.** Публикация бота в MAX возможна только у верифицированного юрлица/ИП/самозанятого РФ — требовать это с каждой школы значит не запустить фичу. Токены в `.env` бота, организация приходит из привязки родителя. Появится вторая школа со своим сообществом — токен переедет в БД, а вебхук получит `organizationId` в URL.
+- **MAX-половина необязательна.** Нет `MAX_BOT_TOKEN` — `/max` отвечает 503, подписка не оформляется, провайдер не регистрируется в дренаже, VK работает как работал. Обязательные переменные уронили бы рабочую половину ради той, которую ещё нельзя завести.
+- **Привязка.** В VK — персональная ссылка `vk.me/{сообщество}?ref={Parent.accessToken}`: метка приезжает в первом `message_new`. Своего секрета нет намеренно — этот токен и так открывает `/cabinet/{token}`. В MAX — кнопка `request_contact`: телефон подтверждает сама платформа, поэтому кода сверх него не спрашиваем. Один номер привязывается ко **всем** совпавшим родителям: у человека бывают дети в разных школах.
+- **Отписка не удаляет строку** (`ParentMessenger.unsubscribedAt`): иначе повторная привязка выглядит как первая, и на «почему мне перестало приходить» ответить нечем. Сигналы отписки — `/stop` в чате, `message_deny` у VK, `bot_stopped` у MAX и кнопка в кабинете.
+- **Планировщик без состояния.** «Когда я запускался в прошлый раз» не хранится: повтор гасит уникальный `NotificationOutbox.dedupeKey`. Крон приходит каждые десять минут, из 144 заходов 143 холостые — дешевле курсора, который надо чинить после простоя. Условие — «локальное время школы уже прошло `reminderTime`», а не «равно ему»: сервер лежал в 20:00, план уедет в 20:10.
+- **Дренаж по одному** с паузой 60 мс: у VK лимит 20 rps, у MAX 30. `id` строки очереди уходит в VK как `random_id`, поэтому ретрай после таймаута не задваивает сообщение. VK `901` — не сбой доставки, а запрет сообщений: гасим привязку, иначе следующий план наберёт того же родителя снова.
+- **Три грабли MAX Bot API**, каждая тихая: токен в `Authorization` **без** `Bearer` (иначе `401` при живом токене); личка адресуется `user_id`, а не `chat_id` (иначе `404 chat.not.found`); подписка на вебхук протухает через **восемь часов** без успешных ответов — поэтому `ensureSubscription` зовётся каждым запуском крона, а не один раз руками. Список подписок читается перед созданием: документация не обещает идемпотентности `POST`, а вторая подписка на тот же URL — это каждое событие дважды.
+- **Планировщик снаружи.** `/dispatch` закрыт `NOTIFY_KEY` (заголовок `X-Notify-Key`), дёргает системный cron: `flock -n /tmp/notify.lock curl -fsS -m 300 -H "X-Notify-Key: …" http://localhost:3006/dispatch`. `?dry=1` — прогон вхолостую, планирует в откатываемой транзакции и ничего не отправляет.
+- **nginx** проксирует на `bots.eduda.online` только `/vk` и `/max`; `/dispatch` остаётся на localhost. Ключ — вторая дверь на случай упрощения конфига. Поддомен `bots` лежит в `RESERVED_SUBDOMAINS`: заняв этот slug, школа увела бы себе адрес, на который приходят вебхуки.
+
+Проверки (против настоящей БД, в откатываемой транзакции, ничего не меняют):
+
+```bash
+pnpm --filter bots check:bind            # привязка по ссылке и по телефону, отписка, нормализация номера
+pnpm --filter bots check:notifications   # планировщик и дренаж очереди
+pnpm --filter platform exec tsx scripts/check-reminders.ts   # кабинет родителя и настройки школы
+```
+
+Переменные бота: `DATABASE_URL`, `PORT`, `NOTIFY_KEY`, `VK_GROUP_TOKEN`, `VK_GROUP_SCREEN_NAME`, `VK_CONFIRMATION`, `VK_SECRET`, и необязательные `MAX_BOT_TOKEN`, `MAX_WEBHOOK_URL`, `MAX_WEBHOOK_SECRET`. Платформе нужны только адреса для ссылок: `NEXT_PUBLIC_VK_GROUP`, `NEXT_PUBLIC_MAX_BOT`.
 
 ## Feature flags
 

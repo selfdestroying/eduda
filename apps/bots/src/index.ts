@@ -19,7 +19,14 @@ const routes: Record<string, (req: RouteRequest) => Promise<Reply>> = {
   'POST /vk': handleVk,
   'POST /max': handleMax,
   'GET /dispatch': handleDispatch,
-  'GET /health': async () => ({ text: 'ok' }),
+  // И корень тоже: деплой считает приложение живым, если оно отвечает на `/`,
+  // а 404 для `curl -fsS` — это отказ, и деплой откатился бы на ровном месте.
+  'GET /health': health,
+  'GET /': health,
+}
+
+async function health(): Promise<Reply> {
+  return { text: 'ok' }
 }
 
 /** Вебхуки ботов — это килобайты; всё, что больше, читать незачем. */
