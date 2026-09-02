@@ -1,3 +1,4 @@
+import { prisma } from '@repo/db'
 import { bindByRef, isStopCommand, resubscribeAll, unsubscribeAll } from '../bind'
 import { env } from '../env'
 import { sendMessage } from '../providers/vk'
@@ -64,11 +65,11 @@ export async function handleVk(raw: string): Promise<Reply> {
     // Родитель разрешил или запретил сообщения в настройках сообщества, минуя
     // чат. Без этой пары разрешение обратно ничего не включает.
     case 'message_allow':
-      await withUser(event, (id) => resubscribeAll('VK', id))
+      await withUser(event, (id) => resubscribeAll(prisma, 'VK', id))
       return OK
 
     case 'message_deny':
-      await withUser(event, (id) => unsubscribeAll('VK', id))
+      await withUser(event, (id) => unsubscribeAll(prisma, 'VK', id))
       return OK
 
     default:
@@ -94,7 +95,7 @@ async function onMessage(event: VkEvent) {
   const ref = readRef(message?.payload)
 
   if (ref) {
-    const parent = await bindByRef(ref, externalId)
+    const parent = await bindByRef(prisma, ref, externalId)
     reply(
       externalId,
       parent
@@ -105,7 +106,7 @@ async function onMessage(event: VkEvent) {
   }
 
   if (isStopCommand(text)) {
-    const count = await unsubscribeAll('VK', externalId)
+    const count = await unsubscribeAll(prisma, 'VK', externalId)
     reply(externalId, count > 0 ? STOPPED : HINT)
     return
   }

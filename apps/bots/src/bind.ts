@@ -1,10 +1,13 @@
-import { prisma } from '@repo/db'
+import type { Prisma } from '@repo/db'
 import type { MessengerProvider } from '@repo/db/enums'
 
 /**
  * Всё, что привязка родителя делает с базой. Отдельно от роутов не ради слоёв,
  * а потому что это же зовёт проверочный скрипт: HTTP там не нужен, а поведение
  * проверить надо.
+ *
+ * Первым параметром идёт клиент — как у денежного ядра платформы. В проде это
+ * обычный `prisma`, в проверке — транзакция, которая в конце откатывается.
  */
 
 /**
@@ -25,16 +28,20 @@ export type BoundParent = { parentId: number; firstName: string }
  *
  * `null` — токен не наш или испорчен; звать школу, а не гадать.
  */
-export async function bindByRef(ref: string, externalId: string): Promise<BoundParent | null> {
+export async function bindByRef(
+  db: Prisma.TransactionClient,
+  ref: string,
+  externalId: string,
+): Promise<BoundParent | null> {
   if (!UUID.test(ref)) return null
 
-  const parent = await prisma.parent.findUnique({
+  const parent = await db.parent.findUnique({
     where: { accessToken: ref },
     select: { id: true, firstName: true, organizationId: true },
   })
   if (!parent) return null
 
-  await prisma.parentMessenger.upsert({
+  await db.parentMessenger.upsert({
     where: {
       provider_externalId_parentId: { provider: 'VK', externalId, parentId: parent.id },
     },
@@ -60,10 +67,11 @@ export async function bindByRef(ref: string, externalId: string): Promise<BoundP
  * перестало приходить».
  */
 export async function unsubscribeAll(
+  db: Prisma.TransactionClient,
   provider: MessengerProvider,
   externalId: string,
 ): Promise<number> {
-  const { count } = await prisma.parentMessenger.updateMany({
+  const { count } = await db.parentMessenger.updateMany({
     where: { provider, externalId, unsubscribedAt: null },
     data: { unsubscribedAt: new Date() },
   })
@@ -76,10 +84,11 @@ export async function unsubscribeAll(
  * надо оба, иначе разрешение обратно ничего не включает.
  */
 export async function resubscribeAll(
+  db: Prisma.TransactionClient,
   provider: MessengerProvider,
   externalId: string,
 ): Promise<number> {
-  const { count } = await prisma.parentMessenger.updateMany({
+  const { count } = await db.parentMessenger.updateMany({
     where: { provider, externalId, unsubscribedAt: { not: null } },
     data: { unsubscribedAt: null },
   })
