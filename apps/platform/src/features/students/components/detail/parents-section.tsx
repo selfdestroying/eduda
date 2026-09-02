@@ -39,13 +39,16 @@ import {
 } from '@/src/features/parents/schemas'
 import { ParentWithStudents } from '@/src/features/parents/types'
 import { studentKeys } from '@/src/features/students/queries'
-import { rootDomain, protocol } from '@/src/lib/utils'
+import { cn, maxBotUrl, protocol, rootDomain, vkBotUrl } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import {
+  Bot,
+  Check,
   ExternalLink,
   Loader,
   Mail,
+  Minus,
   Pen,
   Phone,
   Plus,
@@ -65,6 +68,8 @@ interface ParentData {
   phone: string | null
   email: string | null
   accessToken: string
+  /** Активные привязки ботов. Пустой массив — родитель ещё не подключился. */
+  messengers?: { provider: string }[]
 }
 
 interface ParentsSectionProps {
@@ -114,6 +119,28 @@ function TelegramBadge({ phone }: { phone: string }) {
   )
 }
 
+// ─── Напоминания в мессенджерах ──────────────────────────────────────────
+
+/**
+ * Подключён ли родитель к боту. Нужно администратору ровно за одним: понять,
+ * дошли ли до родителя напоминания, или ссылку он так и не открыл.
+ */
+function BotBadge({ name, connected }: { name: string; connected: boolean }) {
+  return (
+    <span
+      className={cn(
+        'bg-background inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[0.625rem] font-medium ring-1 transition-colors',
+        connected
+          ? 'text-violet-600 ring-violet-200 dark:text-violet-400 dark:ring-violet-800'
+          : 'text-muted-foreground ring-border',
+      )}
+    >
+      {connected ? <Check className="size-3" /> : <Minus className="size-3" />}
+      {name}
+    </span>
+  )
+}
+
 // ─── Parent Card (display) ───────────────────────────────────────────────
 
 function ParentCard({
@@ -130,6 +157,12 @@ function ParentCard({
   const parentEditUrl = rootDomain
     ? `${protocol}://${rootDomain}/cabinet/${parent.accessToken}`
     : `/cabinet/${parent.accessToken}`
+
+  // Ссылка на бота — тот же токен, что и у кабинета: он и есть «этот родитель».
+  const botLink = vkBotUrl(parent.accessToken)
+  const connected = (provider: string) =>
+    (parent.messengers ?? []).some((row) => row.provider === provider)
+
   return (
     <div className="bg-muted/50 flex flex-col gap-2 rounded-lg p-3">
       <div className="flex items-center justify-between">
@@ -198,6 +231,32 @@ function ParentCard({
           может просматривать данные ученика, его финансы и посещаемость."
           />
         </div>
+
+        {botLink && (
+          <div className="flex items-center gap-2">
+            <Bot className="text-muted-foreground size-3 shrink-0" />
+            <a
+              href={botLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary text-sm hover:underline"
+            >
+              Ссылка на бота ВКонтакте
+            </a>
+            <Hint
+              text="Персональная ссылка на бота: родителю достаточно перейти по ней и нажать «Начать»,
+          дальше бот будет напоминать ему о занятиях. Подключать MAX родитель начинает сам — там он
+          называет себя номером телефона."
+            />
+          </div>
+        )}
+
+        {(botLink || maxBotUrl()) && (
+          <div className="flex gap-1.5">
+            {botLink && <BotBadge name="VK" connected={connected('VK')} />}
+            {maxBotUrl() && <BotBadge name="MAX" connected={connected('MAX')} />}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -248,7 +248,20 @@ export const getStudentDetail = authAction
       where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
       include: {
         account: true,
-        parents: { include: { parent: true } },
+        parents: {
+          include: {
+            // Активные привязки мессенджеров: по ним в карточке видно, дошли
+            // ли до родителя напоминания или ссылку он так и не открыл.
+            parent: {
+              include: {
+                messengers: {
+                  where: { unsubscribedAt: null },
+                  select: { provider: true },
+                },
+              },
+            },
+          },
+        },
         groups: {
           // Свежие записи сверху: карточку открывают ради текущей группы, а не той,
           // куда ученика записали два года назад.

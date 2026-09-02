@@ -21,6 +21,28 @@ export const onboardingUrl = `${signInUrl}/onboarding`
 export const docsUrl = process.env.NEXT_PUBLIC_DOCS_URL || `${protocol}://docs.${rootDomain}`
 
 /**
+ * Ссылки на ботов, которые рассылают напоминания родителям. Сами боты живут в
+ * `apps/bots`; платформе от них нужны только адреса, отсюда `NEXT_PUBLIC_`.
+ *
+ * `null`, если бот не заведён: показывать кнопку, ведущую в никуда, хуже, чем
+ * не показывать её вовсе. У MAX это нормальное состояние — публикация бота там
+ * требует верифицированного юрлица.
+ */
+const vkGroup = process.env.NEXT_PUBLIC_VK_GROUP
+const maxBot = process.env.NEXT_PUBLIC_MAX_BOT
+
+/**
+ * Персональная ссылка на VK-бота: метка `ref` приезжает боту в первом
+ * сообщении и говорит ему, какой это родитель. `ref` — тот же токен, что открывает
+ * `/cabinet/{token}`.
+ */
+export const vkBotUrl = (ref: string) =>
+  vkGroup ? `https://vk.me/${vkGroup}?ref=${encodeURIComponent(ref)}` : null
+
+/** Бот MAX: метки в ссылке нет, родитель называет себя номером телефона. */
+export const maxBotUrl = () => (maxBot ? `https://max.ru/${maxBot}` : null)
+
+/**
  * Служебные поддомены: организациями не являются. Читаются в `proxy`
  * (маршрутизация) и в `customSession` (резолв организации по хосту), поэтому
  * живут здесь, а не в `proxy.ts`. `docs` и `bots` сюда входят, хотя прокси их не

@@ -3,11 +3,14 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "exports": {
     "./timezone": "./src/timezone.ts",
-    "./features": "./src/features.ts"
+    "./features": "./src/features.ts",
+    "./features-db": "./src/features-db.ts"
   },
   "dependencies": {
+    "@repo/db": "workspace:*",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "zod": "^4.3.6"

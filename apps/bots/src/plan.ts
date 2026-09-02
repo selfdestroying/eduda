@@ -1,4 +1,4 @@
-import { isFeatureDisabled } from '@repo/core/features'
+import { isOrgFeatureDisabled } from '@repo/core/features-db'
 import { dateToYmd, formatInTz, ymdToLocalDate } from '@repo/core/timezone'
 import type { Prisma } from '@repo/db'
 
@@ -35,17 +35,8 @@ export async function planLessonReminders(
     // Час отправки ещё не наступил по местному времени школы.
     if (formatInTz(now, org.timezone, 'HH:mm') < org.reminderTime) continue
 
-    const disabled = await db.organizationFeature.findMany({
-      where: { organizationId: org.id, enabled: false },
-      select: { featureKey: true },
-    })
-    if (
-      isFeatureDisabled(
-        disabled.map((f) => f.featureKey),
-        'notifications',
-      )
-    )
-      continue
+    // Школа выключила напоминания — не планируем ей вовсе.
+    if (await isOrgFeatureDisabled(db, org.id, 'notifications')) continue
 
     counted += 1
     planned += await planOrganization(db, org, now)

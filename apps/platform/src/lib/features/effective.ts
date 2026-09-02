@@ -1,27 +1,21 @@
 import 'server-only'
 
+import { disabledFeaturesOf } from '@repo/core/features-db'
 import { prisma } from '@repo/db'
 
 /**
- * Единственная точка резолва эффективного набора фич организации.
+ * Единственная точка резолва эффективного набора фич организации — для
+ * платформы. Сама реализация переехала в `@repo/core/features-db`: тот же
+ * резолв нужен планировщику напоминаний в `apps/bots`, а этот модуль
+ * `server-only` и импортироваться оттуда не может.
  *
- * Сейчас: возвращает только оверрайды из `OrganizationFeature` (enabled = false).
- * Позже (монетизация): здесь встанет `фичи_плана(plan) ± оверрайды` — и это будет
- * единственное место правки. Все потребители (proxy, `featureAction`, `<FeatureGate>`)
- * читают результат через снапшот сессии `session.disabledFeatures`, поэтому расширять
- * распространение не нужно — только эту функцию.
+ * Позже (монетизация) правка идёт в пакет — и остаётся одной. Все потребители
+ * здесь (proxy, `featureAction`, `<FeatureGate>`) читают результат через
+ * снапшот сессии `session.disabledFeatures`, поэтому распространение расширять
+ * не нужно.
  */
 export async function getEffectiveFeatures(
   organizationId: number | null,
 ): Promise<{ disabledFeatures: string[] }> {
-  if (!organizationId) {
-    return { disabledFeatures: [] }
-  }
-
-  const overrides = await prisma.organizationFeature.findMany({
-    where: { organizationId, enabled: false },
-    select: { featureKey: true },
-  })
-
-  return { disabledFeatures: overrides.map((f) => f.featureKey) }
+  return { disabledFeatures: await disabledFeaturesOf(prisma, organizationId) }
 }
