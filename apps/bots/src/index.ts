@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage } from 'node:http'
 import { env } from './env'
-import type { Reply } from './reply'
+import type { Reply, RouteRequest } from './route'
+import { handleDispatch } from './routes/dispatch'
 import { handleVk } from './routes/vk'
 
 /**
@@ -13,8 +14,9 @@ import { handleVk } from './routes/vk'
  * их станет больше горстки или понадобится валидация тел.
  */
 
-const routes: Record<string, (body: string) => Promise<Reply>> = {
+const routes: Record<string, (req: RouteRequest) => Promise<Reply>> = {
   'POST /vk': handleVk,
+  'GET /dispatch': handleDispatch,
   'GET /health': async () => ({ text: 'ok' }),
 }
 
@@ -51,8 +53,13 @@ const server = createServer((req, res) => {
     return
   }
 
+  const header = (name: string) => {
+    const value = req.headers[name]
+    return Array.isArray(value) ? value[0] : value
+  }
+
   void readBody(req)
-    .then(handler)
+    .then((body) => handler({ body, url, header }))
     .then(send)
     .catch((error) => {
       // Ошибку глотать нельзя: и VK, и MAX на неудачный ответ просто перестают

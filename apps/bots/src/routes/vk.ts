@@ -2,7 +2,7 @@ import { prisma } from '@repo/db'
 import { bindByRef, isStopCommand, resubscribeAll, unsubscribeAll } from '../bind'
 import { env } from '../env'
 import { sendMessage } from '../providers/vk'
-import type { Reply } from '../reply'
+import type { Reply, RouteRequest } from '../route'
 
 /**
  * Callback API сообщества. VK ждёт ответа около трёх секунд и, не дождавшись,
@@ -29,10 +29,10 @@ const HINT = 'Подключение делается по персональн�
 const STOPPED =
   'Напоминания отключены. Чтобы включить обратно, снова перейдите по ссылке из кабинета.'
 
-export async function handleVk(raw: string): Promise<Reply> {
+export async function handleVk(req: RouteRequest): Promise<Reply> {
   let event: VkEvent
   try {
-    event = JSON.parse(raw) as VkEvent
+    event = JSON.parse(req.body) as VkEvent
   } catch {
     return { status: 400, text: 'bad request' }
   }

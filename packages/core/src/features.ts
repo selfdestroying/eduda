@@ -34,6 +34,7 @@ export const FEATURE_KEYS = [
   'organization.courses',
   'organization.locations',
   'cabinet.absence',
+  'notifications',
 ] as const
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number]
@@ -115,6 +116,16 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureEntry> = {
     label: 'Отмена занятий родителем',
     description:
       'Родитель может предупредить о пропуске будущего занятия и записать ребёнка на отработку из личного кабинета.',
+  },
+
+  // - Уведомления в мессенджерах -
+  // Читается не платформой, а планировщиком в `apps/bots`: выключенная фича
+  // означает, что школе не планируются напоминания вовсе. `routes` появятся
+  // вместе со страницей настроек.
+  notifications: {
+    label: 'Напоминания родителям',
+    description:
+      'Бот в VK или MAX напоминает родителям о занятиях. Родитель подключается сам, по ссылке из своего кабинета.',
   },
 }
 

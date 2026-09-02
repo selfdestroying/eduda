@@ -18,6 +18,9 @@ function required(name: string): string {
 export const env = {
   port: Number(process.env.PORT ?? 3006),
 
+  /** Ключ крон-роута `/dispatch` — заголовок `X-Notify-Key`. */
+  notifyKey: required('NOTIFY_KEY'),
+
   vk: {
     token: required('VK_GROUP_TOKEN'),
     /** Строка, которую VK ждёт в ответ на `type: 'confirmation'`. */

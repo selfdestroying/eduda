@@ -10,7 +10,8 @@
     "format:check": "prettier --check .",
     "ts:check": "tsc --noEmit",
     "check": "(npm run format:check || npm run format) && npm run ts:check",
-    "check:bind": "tsx --env-file=.env scripts/check-bind.ts"
+    "check:bind": "tsx --env-file=.env scripts/check-bind.ts",
+    "check:notifications": "tsx --env-file=.env scripts/check-notifications.ts"
   },
   "dependencies": {
     "@repo/core": "workspace:*",
