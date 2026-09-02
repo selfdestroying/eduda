@@ -23,10 +23,12 @@ export const docsUrl = process.env.NEXT_PUBLIC_DOCS_URL || `${protocol}://docs.$
 /**
  * Служебные поддомены: организациями не являются. Читаются в `proxy`
  * (маршрутизация) и в `customSession` (резолв организации по хосту), поэтому
- * живут здесь, а не в `proxy.ts`. `docs` сюда входит, хотя прокси его больше не
- * обрабатывает: поддомен занят отдельным приложением и не должен стать slug'ом школы.
+ * живут здесь, а не в `proxy.ts`. `docs` и `bots` сюда входят, хотя прокси их не
+ * обрабатывает вовсе: поддомены заняты отдельными приложениями и не должны стать
+ * slug'ами школ. Для `bots` это ещё и вопрос доставки — заняв слаг, школа увела бы
+ * себе адрес, на который VK и MAX шлют вебхуки.
  */
-export const RESERVED_SUBDOMAINS = new Set(['auth', 'admin', 'shop', 'docs', 'www'])
+export const RESERVED_SUBDOMAINS = new Set(['auth', 'admin', 'shop', 'docs', 'bots', 'www'])
 
 /**
  * Что нельзя занять под slug школы. Шире, чем `RESERVED_SUBDOMAINS`: сюда
