@@ -1,5 +1,6 @@
 import type { Prisma } from '@repo/db'
 import type { MessengerProvider } from '@repo/db/enums'
+import { normalizePhone } from './phone'
 
 /**
  * Всё, что привязка родителя делает с базой. Отдельно от роутов не ради слоёв,
@@ -56,6 +57,51 @@ export async function bindByRef(
   })
 
   return { parentId: parent.id, firstName: parent.firstName }
+}
+
+/**
+ * Привязка по телефону — путь MAX. Номер приходит от самой платформы через
+ * `request_contact`, то есть уже подтверждён ею; спрашивать код сверх этого
+ * нечего и негде.
+ *
+ * Совпасть может несколько родителей: бот один на всю установку, и у человека
+ * бывают дети в разных школах — это разные `Parent` с одним номером.
+ * Привязываем ко всем, иначе половина детей осталась бы без напоминаний.
+ *
+ * `phone` ожидается уже нормализованным.
+ */
+export async function bindByPhone(
+  db: Prisma.TransactionClient,
+  externalId: string,
+  phone: string,
+): Promise<BoundParent[]> {
+  // ponytail: скан всех родителей с непустым телефоном. Их около тысячи, а
+  // привязка — разовое событие на родителя. Колонка `phoneDigits` с индексом —
+  // когда счёт пойдёт на десятки тысяч.
+  const candidates = await db.parent.findMany({
+    where: { phone: { not: null } },
+    select: { id: true, firstName: true, phone: true, organizationId: true },
+  })
+
+  const matched = candidates.filter((parent) => normalizePhone(parent.phone!) === phone)
+
+  for (const parent of matched) {
+    await db.parentMessenger.upsert({
+      where: {
+        provider_externalId_parentId: { provider: 'MAX', externalId, parentId: parent.id },
+      },
+      create: {
+        provider: 'MAX',
+        externalId,
+        phone,
+        parentId: parent.id,
+        organizationId: parent.organizationId,
+      },
+      update: { unsubscribedAt: null, phone },
+    })
+  }
+
+  return matched.map((parent) => ({ parentId: parent.id, firstName: parent.firstName }))
 }
 
 /**

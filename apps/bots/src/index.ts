@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage } from 'node:http'
 import { env } from './env'
 import type { Reply, RouteRequest } from './route'
 import { handleDispatch } from './routes/dispatch'
+import { handleMax } from './routes/max'
 import { handleVk } from './routes/vk'
 
 /**
@@ -10,12 +11,13 @@ import { handleVk } from './routes/vk'
  *
  * Роутов мало, поэтому и роутер такой.
  *
- * ponytail: свой роутер на node:http — три роута. Hono (+2 зависимости), когда
- * их станет больше горстки или понадобится валидация тел.
+ * ponytail: свой роутер на node:http — четыре роута. Hono (+2 зависимости),
+ * когда их станет больше горстки или понадобится валидация тел.
  */
 
 const routes: Record<string, (req: RouteRequest) => Promise<Reply>> = {
   'POST /vk': handleVk,
+  'POST /max': handleMax,
   'GET /dispatch': handleDispatch,
   'GET /health': async () => ({ text: 'ok' }),
 }

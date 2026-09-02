@@ -13,12 +13,14 @@
  */
 import assert from 'node:assert/strict'
 import { prisma } from '@repo/db'
-import { bindByRef, isStopCommand, resubscribeAll, unsubscribeAll } from '../src/bind'
+import { bindByPhone, bindByRef, isStopCommand, resubscribeAll, unsubscribeAll } from '../src/bind'
+import { normalizePhone, phoneFromVCard } from '../src/phone'
 
 class Rollback extends Error {}
 
-/** Аккаунт «в мессенджере» — лишь бы не пересекался с настоящими. */
+/** Аккаунты «в мессенджерах» — лишь бы не пересекались с настоящими. */
 const VK_USER = '999000111'
+const MAX_USER = '999000222'
 
 async function main() {
   const org = await prisma.organization.findFirst({ select: { id: true } })
@@ -83,11 +85,87 @@ async function main() {
       assert.equal(await unsubscribeAll(tx, 'VK', '111'), 0, 'чужой externalId не затронут')
       assert.equal(await unsubscribeAll(tx, 'MAX', VK_USER), 0, 'другой мессенджер не затронут')
 
+      // ─── Привязка по телефону (MAX) ────────────────────────────────────
+      // Один номер записан по-разному и в двух школах: бот один на установку,
+      // и оба ребёнка обязаны получить напоминания.
+      const otherOrg = await tx.organization.create({
+        data: { name: `check-bind-${Date.now()}`, slug: `check-bind-${Date.now()}` },
+        select: { id: true },
+      })
+      await tx.parent.create({
+        data: { firstName: 'Первый', phone: '+7 (999) 123-45-67', organizationId: org.id },
+      })
+      await tx.parent.create({
+        data: { firstName: 'Второй', phone: '89991234567', organizationId: otherOrg.id },
+      })
+      await tx.parent.create({
+        data: { firstName: 'Посторонний', phone: '79990000000', organizationId: org.id },
+      })
+
+      const byPhone = await bindByPhone(tx, MAX_USER, '79991234567')
+      assert.equal(byPhone.length, 2, 'один номер — оба родителя в разных школах')
+      assert.deepEqual(
+        byPhone.map((parent) => parent.firstName).sort(),
+        ['Второй', 'Первый'],
+        'записанный по-разному номер всё равно совпал',
+      )
+
+      const rows = await tx.parentMessenger.findMany({
+        where: { provider: 'MAX', externalId: MAX_USER },
+        select: { organizationId: true, phone: true },
+      })
+      assert.equal(rows.length, 2, 'по привязке на каждого родителя')
+      assert.deepEqual(
+        rows.map((row) => row.organizationId).sort(),
+        [org.id, otherOrg.id].sort(),
+        'школы взяты у родителей',
+      )
+      assert.ok(
+        rows.every((row) => row.phone === '79991234567'),
+        'номер сохранён нормализованным',
+      )
+
+      // Повтор не задваивает, а отписанного возвращает.
+      await unsubscribeAll(tx, 'MAX', MAX_USER)
+      const again = await bindByPhone(tx, MAX_USER, '79991234567')
+      assert.equal(again.length, 2, 'повтор нашёл тех же')
+      const revivedMax = await tx.parentMessenger.count({
+        where: { provider: 'MAX', externalId: MAX_USER, unsubscribedAt: null },
+      })
+      assert.equal(revivedMax, 2, 'повторная отправка номера включает обратно')
+
+      assert.equal(
+        (await bindByPhone(tx, MAX_USER, '79995555555')).length,
+        0,
+        'чужой номер никого не привязывает',
+      )
+
       throw new Rollback()
     })
   } catch (error) {
     if (!(error instanceof Rollback)) throw error
   }
+
+  // ─── Телефон: в базе он записан как попало ───────────────────────────
+  for (const raw of ['+7 (999) 123-45-67', '89991234567', '79991234567', '9991234567']) {
+    assert.equal(normalizePhone(raw), '79991234567', `«${raw}» приводится к одному виду`)
+  }
+  for (const raw of ['', '123', 'не телефон', '+1 202 555 0143']) {
+    assert.equal(normalizePhone(raw), null, `«${raw}» — не российский номер`)
+  }
+
+  // vCard из вложения `contact`: строка TEL бывает с параметрами.
+  assert.equal(
+    phoneFromVCard('BEGIN:VCARD\r\nFN:Мама\r\nTEL;TYPE=CELL:+7 999 123-45-67\r\nEND:VCARD'),
+    '79991234567',
+    'номер вынут из vCard с параметрами',
+  )
+  assert.equal(
+    phoneFromVCard('BEGIN:VCARD\nTEL:89991234567\nEND:VCARD'),
+    '79991234567',
+    'номер вынут из vCard без параметров',
+  )
+  assert.equal(phoneFromVCard('BEGIN:VCARD\nFN:Без телефона\nEND:VCARD'), null, 'vCard без TEL')
 
   // ─── Команды отписки, как их напишет человек ─────────────────────────
   for (const text of ['/stop', 'СТОП', ' отписаться ', 'Stop']) {

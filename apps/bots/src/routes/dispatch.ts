@@ -1,8 +1,9 @@
 import { prisma } from '@repo/db'
-import { drainOutbox } from '../drain'
+import { drainOutbox, type Sender } from '../drain'
 import { env } from '../env'
 import { planLessonReminders, type PlanResult } from '../plan'
-import { sendMessage } from '../providers/vk'
+import { ensureSubscription, sendMessage as sendMax } from '../providers/max'
+import { sendMessage as sendVk } from '../providers/vk'
 import type { Reply, RouteRequest } from '../route'
 
 /**
@@ -37,11 +38,19 @@ export async function handleDispatch(req: RouteRequest): Promise<Reply> {
     return { text: await dryRun() }
   }
 
+  // Первым делом и на каждом запуске: подписка MAX умирает через восемь часов
+  // без успешных ответов, молча. «Настроил один раз» здесь не работает.
+  const subscription = await ensureSubscription()
+
+  const senders: Partial<Record<'VK' | 'MAX', Sender>> = { VK: sendVk }
+  if (env.max) senders.MAX = sendMax
+
   const plan = await planLessonReminders(prisma)
-  const drain = await drainOutbox(prisma, { VK: sendMessage })
+  const drain = await drainOutbox(prisma, senders)
 
   return {
     text: [
+      `подписка MAX: ${subscription}`,
       `школ в плане: ${plan.organizations}`,
       `запланировано: ${plan.planned}`,
       `отправлено: ${drain.sent}`,

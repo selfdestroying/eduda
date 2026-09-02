@@ -15,6 +15,8 @@ function required(name: string): string {
   return value
 }
 
+const maxToken = process.env.MAX_BOT_TOKEN
+
 export const env = {
   port: Number(process.env.PORT ?? 3006),
 
@@ -28,4 +30,23 @@ export const env = {
     /** Приезжает в теле каждого события Callback API. */
     secret: required('VK_SECRET'),
   },
+
+  /**
+   * MAX-половина включается только вместе с токеном, и это не лень, а условие
+   * задачи: публикация бота в MAX требует верифицированного юрлица РФ, и до
+   * неё установка работает как VK-only. Обязательные переменные уронили бы
+   * рабочий VK-контур ради половины, которую ещё нельзя завести.
+   *
+   * Без токена: роут `/max` отвечает 503, подписка не оформляется, провайдер
+   * не регистрируется в дренаже.
+   */
+  max: maxToken
+    ? {
+        token: maxToken,
+        /** Куда MAX шлёт события. Он же — ключ подписки при переоформлении. */
+        webhookUrl: required('MAX_WEBHOOK_URL'),
+        /** Приезжает в заголовке `X-Max-Bot-Api-Secret`. */
+        secret: required('MAX_WEBHOOK_SECRET'),
+      }
+    : null,
 }

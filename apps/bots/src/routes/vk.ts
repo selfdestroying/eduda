@@ -130,9 +130,19 @@ function readRef(payload: string | undefined): string | null {
   }
 }
 
-/** Ответ в чат — после `ok`, поэтому упавшая отправка только пишется в лог. */
+/**
+ * Ответ в чат — после `ok`, поэтому упавшая отправка только пишется в лог.
+ *
+ * Смотрим именно на результат: провайдер ошибки не бросает, а возвращает их
+ * (так их читает дренаж очереди), и один `.catch()` ловил бы только падения
+ * рантайма — отказ VK уходил бы в тишину.
+ */
 function reply(externalId: string, text: string) {
-  void sendMessage(externalId, text).catch((error) => {
-    console.error('vk: ответ родителю не ушёл', error)
-  })
+  void sendMessage(externalId, text)
+    .then((result) => {
+      if (!result.ok) console.error('vk: ответ родителю не ушёл —', result.error)
+    })
+    .catch((error) => {
+      console.error('vk: ответ родителю не ушёл', error)
+    })
 }
