@@ -1,15 +1,16 @@
 /**
- * Самопроверка раздела «Напоминания» в кабинете родителя — настоящим кодом
- * против настоящей БД, внутри транзакции, которая в конце откатывается.
+ * Самопроверка напоминаний на стороне платформы — раздел в кабинете родителя
+ * и настройки школы. Настоящим кодом против настоящей БД, внутри транзакции,
+ * которая в конце откатывается.
  *
- * Проверяется ядро (`cabinet.server.ts`), а не экшены: экшен из скрипта не
- * импортировать, `safe-action.ts` тянет `server-only`. Сами экшены — две
- * строки поверх этого ядра.
+ * Проверяются ядра (`cabinet.server.ts`, `settings.server.ts`), а не экшены:
+ * экшен из скрипта не импортировать, `safe-action.ts` тянет `server-only`.
+ * Сами экшены — две строки поверх этих ядер.
  *
  * Экраны проверяются здесь, а не в браузере: при скрытой панели предпросмотра
  * платформа не гидратируется и висит на скелетонах.
  *
- *   pnpm --filter platform exec tsx scripts/check-notifications-cabinet.ts
+ *   pnpm --filter platform exec tsx scripts/check-reminders.ts
  */
 import './load-env'
 
@@ -19,6 +20,10 @@ import {
   disconnectCabinetMessenger,
   readCabinetMessengers,
 } from '../src/features/notifications/cabinet.server'
+import {
+  readReminderSettings,
+  writeReminderSettings,
+} from '../src/features/notifications/settings.server'
 
 class Rollback extends Error {}
 
@@ -100,6 +105,34 @@ async function main() {
         'несуществующий токен — отказ, а не пустой раздел',
       )
 
+      // ─── Настройки школы ─────────────────────────────────────────────
+      assert.deepEqual(
+        await readReminderSettings(tx, org.id),
+        { remindersEnabled: false, reminderTime: '20:00', reminderLeadDays: 1 },
+        'по умолчанию выключено: рассылка от имени школы — её решение',
+      )
+
+      const saved = await writeReminderSettings(tx, org.id, {
+        remindersEnabled: true,
+        reminderTime: '08:30',
+        reminderLeadDays: 0,
+      })
+      assert.deepEqual(
+        saved,
+        { remindersEnabled: true, reminderTime: '08:30', reminderLeadDays: 0 },
+        'настройки сохраняются и возвращаются как записаны',
+      )
+      assert.deepEqual(await readReminderSettings(tx, org.id), saved, 'и читаются обратно')
+
+      // Колонка в базе `Int`, а планировщику нужен выбор из двух. Мусор,
+      // попавший туда мимо схемы, не должен ломать чтение настроек.
+      await tx.organization.update({ where: { id: org.id }, data: { reminderLeadDays: 7 } })
+      assert.equal(
+        (await readReminderSettings(tx, org.id)).reminderLeadDays,
+        1,
+        'значение вне 0|1 читается как «накануне»',
+      )
+
       throw new Rollback()
     })
   } catch (error) {
@@ -111,7 +144,7 @@ async function main() {
   })
   assert.equal(leftovers, 0, 'транзакция откатилась, декораций не осталось')
 
-  console.log('check-notifications-cabinet: всё сошлось')
+  console.log('check-reminders: всё сошлось')
 }
 
 main()

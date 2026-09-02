@@ -18,3 +18,17 @@ export const DisconnectMessengerSchema = z.object({
 
 export type CabinetMessengersSchemaType = z.infer<typeof CabinetMessengersSchema>
 export type DisconnectMessengerSchemaType = z.infer<typeof DisconnectMessengerSchema>
+
+// ─── Настройки школы ────────────────────────────────────────────────
+
+/** `HH:mm` в поясе школы — тот же формат, что у `Lesson.time`. */
+const TimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Время в формате ЧЧ:ММ')
+
+export const ReminderSettingsSchema = z.object({
+  remindersEnabled: z.boolean(),
+  reminderTime: TimeSchema,
+  /** 1 — накануне, 0 — утром в день занятия. Третьего варианта нет. */
+  reminderLeadDays: z.union([z.literal(0), z.literal(1)]),
+})
+
+export type ReminderSettingsSchemaType = z.infer<typeof ReminderSettingsSchema>
