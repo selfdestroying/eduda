@@ -23,6 +23,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@openrouter/ai-sdk-provider": "^2.9.1",
     "@prisma/client": "^7.3.0",
+    "@repo/core": "workspace:*",
     "@repo/db": "workspace:*",
     "@repo/ui": "workspace:*",
     "@tanstack/react-query": "^5.90.20",

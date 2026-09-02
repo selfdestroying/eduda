@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   // к тому моменту уже прошёл в `pnpm check`, повторять его на машине, которая
   // его не тянет, незачем. Локально флага нет, и всё как было.
   typescript: { ignoreBuildErrors: process.env.SKIP_BUILD_CHECKS === '1' },
-  transpilePackages: ['@repo/db', '@repo/ui'],
+  transpilePackages: ['@repo/core', '@repo/db', '@repo/ui'],
   allowedDevOrigins: [
     process.env.NEXT_PUBLIC_ROOT_DOMAIN?.split(':')[0] || '',
     `*.${process.env.NEXT_PUBLIC_ROOT_DOMAIN?.split(':')[0] || ''}`,

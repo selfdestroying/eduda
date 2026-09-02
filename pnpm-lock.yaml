@@ -105,6 +105,9 @@ importers:
       '@prisma/client':
         specifier: ^7.3.0
         version: 7.9.0(prisma@7.9.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)
+      '@repo/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -311,6 +314,22 @@ importers:
       tailwindcss:
         specifier: ^4
         version: 4.3.3
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/core:
+    dependencies:
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.4.0
+      date-fns-tz:
+        specifier: ^3.2.0
+        version: 3.2.0(date-fns@4.4.0)
+      zod:
+        specifier: ^4.3.6
+        version: 4.4.3
+    devDependencies:
       typescript:
         specifier: ^5
         version: 5.9.3
@@ -3737,6 +3756,7 @@ packages:
   eslint@9.39.5:
     resolution: {integrity: sha512-DgZS62aPLXKlnxILS/AYCoRvHaZeXceIzlXPkkGGzJWSow1aEk0lbTlxUSlyjC8jcaKxAdOnTDz+o1JFSBsyjw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
