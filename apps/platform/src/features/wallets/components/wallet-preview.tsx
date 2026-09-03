@@ -6,7 +6,7 @@ import { Badge } from '@repo/ui/components/badge'
 import { formatDate } from '@/src/lib/timezone'
 import { formatCurrency, getGroupName } from '@/src/lib/utils'
 import { ChevronDown } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 
 /** «1 занятие ждёт оплаты», «3 занятия ждут оплаты». */
 function formatWaiting(count: number) {
@@ -19,14 +19,18 @@ function formatWaiting(count: number) {
 }
 
 /**
- * Строки обеих секций. Высота задана явно и равна высоте `Badge` (`h-5`): бейдж
- * статуса выше строки текста, и без этого строка с группой была бы выше строки с
- * оплатой, а обе — выше распорки. Всё остальное центрируется внутри.
+ * Строки секций. Высота задана явно: у группы — высота `Badge` (`h-5`), иначе
+ * строка с бейджем была бы выше строки без него и обе выше распорки; у пакета —
+ * две строки текста (`h-8`, 12px/16px каждая), название и подробности под ним.
+ * Всё остальное центрируется внутри.
  */
-const ROWS = '[&>li]:flex [&>li]:h-5 [&>li]:items-center'
+const ROWS = '[&>li]:flex [&>li]:items-center'
+const GROUP_ROWS = `${ROWS} [&>li]:h-5`
+const PACKAGE_ROWS = `${ROWS} [&>li]:h-8`
 
-/** Высота строки (`h-5`) и просвет между строками (`gap-0.5`), в пикселях. */
+/** Высоты строк (`h-5`/`h-8`) и просвет между ними (`gap-0.5`), в пикселях. */
 const ROW_H = 20
+const PACKAGE_ROW_H = 32
 const ROW_GAP = 2
 
 /**
@@ -34,9 +38,9 @@ const ROW_GAP = 2
  * высотой как раз для этого, а `max-height` умеет ехать только между двумя числами
  * — с `none` перехода не выйдет ни в одну сторону.
  */
-function sectionHeight(rows: number) {
+function sectionHeight(rows: number, rowH = ROW_H) {
   const n = Math.max(1, rows)
-  return n * ROW_H + (n - 1) * ROW_GAP
+  return n * rowH + (n - 1) * ROW_GAP
 }
 
 /**
@@ -66,6 +70,7 @@ const OPEN_STATUSES: StudentStatus[] = ['ACTIVE', 'TRIAL']
  * каждой правки `select`.
  */
 export interface WalletPreviewData {
+  id: number
   name: string | null
   lessonsBalance: number
   studentGroups: Array<{
@@ -89,6 +94,8 @@ export interface WalletPreviewData {
     date: string
     price: number
     lessonCount: number
+    /** Снимок названия продукта. Пустой у пакетов, заведённых до его появления. */
+    productName: string
     /** `null` у пакетов, заведённых до появления очереди остатков. */
     remaining: number | null
   }>
@@ -113,12 +120,15 @@ export function WalletPreview({
   wallet,
   addedLessons,
   unpaidLessons = 0,
+  actions,
 }: {
   wallet: WalletPreviewData | null
   /** Занятия из заполняемой оплаты — чтобы показать, каким станет остаток. */
   addedLessons?: number
   /** Проведённые занятия кошелька, которые эта оплата закроет. */
   unpaidLessons?: number
+  /** Кнопки в шапке, слева от шеврона. В форме оплаты кошелёк только показывают. */
+  actions?: ReactNode
 }) {
   // Развёрнутое состояние переживает смену кошелька: раскрыв его один раз, человек
   // обычно сравнивает кошельки как раз по этим спискам.
@@ -142,8 +152,8 @@ export function WalletPreview({
   const packageRows = packages?.length ?? 0
 
   /** Обрезка до первой строки, пока не развёрнуто. Едет между двумя числами. */
-  const sectionStyle = (rows: number) => ({
-    maxHeight: expanded ? sectionHeight(rows) : sectionHeight(1),
+  const sectionStyle = (rows: number, rowH?: number) => ({
+    maxHeight: expanded ? sectionHeight(rows, rowH) : sectionHeight(1, rowH),
   })
   const SECTION =
     'overflow-hidden transition-[max-height] duration-(--duration-tab) ease-(--ease-tab) motion-reduce:transition-none'
@@ -157,28 +167,34 @@ export function WalletPreview({
     <div className={`${BOX} divide-border flex flex-col divide-y ${wallet ? '' : 'border-dashed'}`}>
       <div className="flex flex-col gap-0.5 pb-2">
         <div className="flex items-center justify-between gap-2">
+          {/* Без имени — номер: у ученика кошельков несколько, и три подряд «Без
+              названия» друг от друга не отличить. Группы ниже, поэтому в подпись
+              они не идут. */}
           <span className={`truncate font-medium ${wallet ? '' : 'text-muted-foreground'}`}>
-            {wallet ? wallet.name || 'Без названия' : 'Кошелёк не выбран'}
+            {wallet ? wallet.name || `Кошелёк №${wallet.id}` : 'Кошелёк не выбран'}
           </span>
-          {/* Раскрытие живёт здесь, а не отдельной строкой внизу: строка шапки в
-              блоке есть всегда и всегда одной высоты, а отдельная стоила бы ещё и
-              разделительной линии — почти столько же, сколько экономит свёрнутый
-              вид. Иконка ровно в строку текста (16px), поэтому шапка от неё не
-              растёт. Разворачивать нечего — место всё равно занято: иначе
-              свёрнутый блок менял бы высоту от кошелька к кошельку. */}
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            disabled={!canExpand}
-            aria-label={expanded ? 'Свернуть' : 'Показать все группы и оплаты'}
-            className={`text-muted-foreground hover:text-foreground shrink-0 transition-colors ${
-              canExpand ? '' : 'invisible'
-            }`}
-          >
-            <ChevronDown
-              className={`size-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
-            />
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            {actions}
+            {/* Раскрытие живёт здесь, а не отдельной строкой внизу: строка шапки в
+                блоке есть всегда и всегда одной высоты, а отдельная стоила бы ещё и
+                разделительной линии — почти столько же, сколько экономит свёрнутый
+                вид. Иконка ровно в строку текста (16px), поэтому шапка от неё не
+                растёт. Разворачивать нечего — место всё равно занято: иначе
+                свёрнутый блок менял бы высоту от кошелька к кошельку. */}
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              disabled={!canExpand}
+              aria-label={expanded ? 'Свернуть' : 'Показать все группы и оплаты'}
+              className={`text-muted-foreground hover:text-foreground shrink-0 transition-colors ${
+                canExpand ? '' : 'invisible'
+              }`}
+            >
+              <ChevronDown
+                className={`size-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+              />
+            </button>
+          </div>
         </div>
         {/* Вторая строка шапки: цифры кошелька. Имя наверху бывает длинным, и вместе
             с остатком они делили одну строку впритык — на телефоне название
@@ -215,7 +231,10 @@ export function WalletPreview({
           заголовке — сколько строк под свёрткой, и стоит оно не своей строкой. */}
       <div className="flex flex-col gap-0.5 py-2">
         <SectionHeading title="Группы" count={groups.length} />
-        <ul className={`flex flex-col gap-0.5 ${ROWS} ${SECTION}`} style={sectionStyle(groupRows)}>
+        <ul
+          className={`flex flex-col gap-0.5 ${GROUP_ROWS} ${SECTION}`}
+          style={sectionStyle(groupRows)}
+        >
           {wallet && groups.length === 0 && <li className="text-muted-foreground">Нет групп</li>}
           {groups.map((sg, i) => (
             <li
@@ -237,8 +256,8 @@ export function WalletPreview({
       <div className="flex flex-col gap-0.5 pt-2">
         <SectionHeading title="Пакеты" count={packageRows} />
         <ul
-          className={`flex flex-col gap-0.5 ${ROWS} ${SECTION}`}
-          style={sectionStyle(packageRows)}
+          className={`flex flex-col gap-0.5 ${PACKAGE_ROWS} ${SECTION}`}
+          style={sectionStyle(packageRows, PACKAGE_ROW_H)}
         >
           {/* Именно `length === 0`, а не «список пустой»: пока пакеты в пути,
               `packages` это `undefined`, и «Нет пакетов» было бы враньём про
@@ -250,8 +269,17 @@ export function WalletPreview({
               className={`flex items-center justify-between gap-2 tabular-nums${revealRow(expanded, i).className}`}
               style={revealRow(expanded, i).style}
             >
-              <span className="truncate">
-                {formatDate(p.date)} · {formatCurrency(p.price)}
+              {/* Название продукта наверху, дата с суммой под ним: в одну строку
+                  всё это лезло только под обрезку — «Годовой абонемент, 36 зан…»,
+                  — а по названию пакет как раз и опознают. У заведённых до
+                  появления снимка названия нет вовсе, и там его место занимает
+                  номер: строка обязана чем-то начинаться, а по номеру пакет хотя
+                  бы находится в списке оплат. */}
+              <span className="flex min-w-0 flex-col leading-4">
+                <span className="truncate">{p.productName || `Пакет №${p.id}`}</span>
+                <span className="text-muted-foreground truncate">
+                  {formatDate(p.date)} · {formatCurrency(p.price)}
+                </span>
               </span>
               {/* Остаток к размеру пакета: «4/8» — из восьми занятий не потрачено
                   четыре. Само число занятий из левой части ушло, чтобы не стоять

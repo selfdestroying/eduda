@@ -46,7 +46,7 @@ import { useActivePaymentMethodListQuery } from '../../payment-methods/queries'
 import { useActiveProductListQuery, useProductCreateMutation } from '../../products/queries'
 import { CreatePackageSchema, type CreatePackageSchemaType } from '../schemas'
 import { QuickCreate } from './quick-create'
-import { WalletPreview } from './wallet-preview'
+import { WalletPreview } from '@/src/features/wallets/components/wallet-preview'
 
 /**
  * Пустая форма оплаты. Живёт здесь, а не у каждого потребителя: набор значений
