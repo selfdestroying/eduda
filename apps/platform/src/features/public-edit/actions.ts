@@ -689,5 +689,17 @@ export const cancelPublicMakeup = publicAction
     if (blocker) throw new ConflictError(blocker)
 
     // Сам пропуск остаётся предупреждённым — родитель отказался от даты, а не от пропуска.
-    await prisma.attendance.delete({ where: { id: makeup.id } })
+    await prisma.$transaction(async (tx) => {
+      // Предикат выше пускает сюда только неотмеченную отработку, так что снимать
+      // обычно нечего. Вызов стоит по той же причине, что и в `unmarkPublicAbsence`:
+      // строка посещаемости удаляется, а журнал её переживает без FK, и послабление
+      // предиката увело бы урок из пакета и с баланса молча.
+      await unchargeAttendanceTx(tx, {
+        attendanceId: makeup.id,
+        organizationId,
+        actorUserId: null,
+        meta: { removed: 'makeup', by: 'parent' },
+      })
+      await tx.attendance.delete({ where: { id: makeup.id } })
+    })
   })
