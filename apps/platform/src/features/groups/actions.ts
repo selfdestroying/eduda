@@ -1,6 +1,7 @@
 'use server'
 
 import { Prisma, prisma } from '@repo/db'
+import { unchargeAttendancesTx } from '@/src/features/finances/ledger.server'
 import { authAction, permissionAction } from '@/src/lib/safe-action'
 import { todayYmdInTz } from '@/src/lib/timezone'
 import * as z from 'zod'
@@ -26,6 +27,14 @@ import {
 } from './schemas'
 
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
+
+/**
+ * Удаление уроков и групп снимает списание с каждой отмеченной строки, а это
+ * несколько запросов на строку. У группы за учебный год их сотни, и в дефолтные
+ * пять секунд Prisma такой хвост не укладывается: транзакция откатится целиком, и
+ * расписание не сохранится вовсе. Тот же расчёт, что у `PAYMENT_TX_OPTIONS`.
+ */
+const DELETE_TX_OPTIONS = { timeout: 30_000 }
 
 // ─── READ ───────────────────────────────────────────────────────────
 
@@ -364,9 +373,20 @@ export const deleteGroup = authAction
   .metadata({ actionName: 'deleteGroup' })
   .inputSchema(DeleteGroupSchema)
   .action(async ({ ctx, parsedInput }) => {
-    await prisma.group.delete({
-      where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
-    })
+    const organizationId = ctx.session.organizationId!
+    await prisma.$transaction(async (tx) => {
+      // Группа уносит каскадом уроки, а те — посещаемость. Списания снимаем до
+      // удаления: иначе они останутся в журнале деньгами без занятия, а уроки —
+      // потраченными с балансов учеников, которые в этой группе уже не числятся.
+      await unchargeAttendancesTx(tx, {
+        where: { lesson: { groupId: parsedInput.id } },
+        organizationId,
+        actorUserId: Number(ctx.session.user.id),
+        meta: { removed: 'group', groupId: parsedInput.id },
+      })
+
+      await tx.group.delete({ where: { id: parsedInput.id, organizationId } })
+    }, DELETE_TX_OPTIONS)
   })
 
 // ─── ARCHIVE ────────────────────────────────────────────────────────
@@ -394,11 +414,21 @@ export const archiveGroup = authAction
       })
 
       if (deleteFutureLessons) {
+        // День закрытия задаёт менеджер и может поставить его задним числом, так
+        // что «будущие» уроки бывают уже отмеченными и списанными. Снимаем деньги
+        // до удаления — строки уйдут, а журнал переживёт их без FK.
+        await unchargeAttendancesTx(tx, {
+          where: { lesson: { groupId, date: { gte: statusChangedAtYmd } } },
+          organizationId: ctx.session.organizationId!,
+          actorUserId: Number(ctx.session.user.id),
+          meta: { removed: 'lessons', groupId, from: statusChangedAtYmd },
+        })
+
         await tx.lesson.deleteMany({
           where: { groupId, date: { gte: statusChangedAtYmd } },
         })
       }
-    })
+    }, DELETE_TX_OPTIONS)
   })
 
 // ─── COMPLETE ───────────────────────────────────────────────────────
@@ -426,11 +456,21 @@ export const completeGroup = authAction
       })
 
       if (deleteFutureLessons) {
+        // День закрытия задаёт менеджер и может поставить его задним числом, так
+        // что «будущие» уроки бывают уже отмеченными и списанными. Снимаем деньги
+        // до удаления — строки уйдут, а журнал переживёт их без FK.
+        await unchargeAttendancesTx(tx, {
+          where: { lesson: { groupId, date: { gte: statusChangedAtYmd } } },
+          organizationId: ctx.session.organizationId!,
+          actorUserId: Number(ctx.session.user.id),
+          meta: { removed: 'lessons', groupId, from: statusChangedAtYmd },
+        })
+
         await tx.lesson.deleteMany({
           where: { groupId, date: { gte: statusChangedAtYmd } },
         })
       }
-    })
+    }, DELETE_TX_OPTIONS)
   })
 
 export const countFutureLessons = authAction
@@ -488,6 +528,19 @@ export const updateScheduleAndRegenerateLessons = authAction
       const scheduleDaysMap = new Map(sortedSchedules.map((s) => [s.dayOfWeek, s]))
 
       // 4. Delete future lessons
+      //
+      // Сначала снимаем списания: строки посещаемости уйдут каскадом вместе с
+      // уроками, а журнал их переживёт — FK у `WalletEntry.attendanceId` нет.
+      // Без этого урок остаётся списанным с баланса, но исчезает из отчётов, а
+      // когда школа отметит пересозданный урок заново, ученик заплатит второй
+      // раз. Ровно это случилось с группой 262 01.09.2026: шесть человек.
+      await unchargeAttendancesTx(tx, {
+        where: { lesson: { groupId, date: { gte: startDate } } },
+        organizationId: orgId,
+        actorUserId: Number(ctx.session.user.id),
+        meta: { removed: 'lessons', groupId, from: startDate },
+      })
+
       const { count: deletedLessonsCount } = await tx.lesson.deleteMany({
         where: { groupId, date: { gte: startDate } },
       })
@@ -575,7 +628,7 @@ export const updateScheduleAndRegenerateLessons = authAction
         deletedLessonsCount,
         createdLessonsCount: createdLessons.length,
       }
-    })
+    }, DELETE_TX_OPTIONS)
   })
 
 export const updateScheduleOnly = authAction
@@ -729,13 +782,27 @@ export const removeStudentFromGroup = authAction
       await tx.group.findFirstOrThrow({
         where: { id: groupId, organizationId: ctx.session.organizationId! },
       })
+      // Убрать из группы — значит «его тут не было»: удаляется вся посещаемость,
+      // включая прошлую и списанную (в отличие от отчисления ниже, которое сносит
+      // только неотмеченные будущие строки). Деньги за эти занятия возвращаем —
+      // занятий больше нет ни в истории, ни в отчётах.
+      //
+      // До `studentGroup.delete`, а не после: кошелёк списания у обычной строки
+      // ищется через запись в группу, и без неё возврат был бы тише, чем нужно.
+      await unchargeAttendancesTx(tx, {
+        where: { studentId, lesson: { groupId } },
+        organizationId: ctx.session.organizationId!,
+        actorUserId: Number(ctx.session.user.id),
+        meta: { removed: 'studentFromGroup', groupId },
+      })
+
       await tx.studentGroup.delete({
         where: { studentId_groupId: { studentId, groupId } },
       })
       await tx.attendance.deleteMany({
         where: { studentId, lesson: { groupId } },
       })
-    })
+    }, DELETE_TX_OPTIONS)
   })
 
 export const dismissStudentFromGroup = authAction

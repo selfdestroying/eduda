@@ -285,6 +285,56 @@ export async function unchargeAttendanceTx(
 }
 
 /**
+ * Снять списания с группы строк — перед тем, как эти строки удалить.
+ *
+ * У `WalletEntry.attendanceId` нет FK намеренно: журнал обязан пережить удаление
+ * строки посещаемости. Обратная сторона в том, что забытое списание ничего не
+ * ломает громко — оно тихо остаётся деньгами без занятия. Урок при этом списан:
+ * баланс ученика на единицу меньше, `Package.remaining` тоже, а отчёты о выручке
+ * этот урок уже не видят, потому что читают строки посещаемости.
+ *
+ * Именно так 01.09.2026 шесть учеников заплатили за один урок дважды: расписание
+ * группы перегенерировали (`lesson.deleteMany` уносит посещаемость каскадом), а
+ * новые строки отметили заново.
+ *
+ * Поштучное удаление в `lessons/actions.ts` зовёт `unchargeAttendanceTx` перед
+ * каждым `delete` — эта функция ровно то же самое для `deleteMany` и каскадов,
+ * чтобы правило было одно на все шесть мест, а не переписывалось в каждом.
+ *
+ * Отбор по `price` — не оптимизация, хотя и она тоже: у группы за учебный год
+ * тысячи строк, а списанных из них десятки. На неоплаченной строке
+ * `unchargeAttendanceTx` и так выходит сразу.
+ *
+ * Возвращает, сколько списаний сняла.
+ */
+export async function unchargeAttendancesTx(
+  tx: Prisma.TransactionClient,
+  args: {
+    /** Те же строки, что уйдут в `deleteMany` — или уедут каскадом. */
+    where: Prisma.AttendanceWhereInput
+    organizationId: number
+    actorUserId: number | null
+    meta?: Record<string, unknown>
+  },
+): Promise<number> {
+  const charged = await tx.attendance.findMany({
+    where: { ...args.where, organizationId: args.organizationId, price: { not: null } },
+    select: { id: true },
+  })
+
+  for (const attendance of charged) {
+    await unchargeAttendanceTx(tx, {
+      attendanceId: attendance.id,
+      organizationId: args.organizationId,
+      actorUserId: args.actorUserId,
+      meta: args.meta,
+    })
+  }
+
+  return charged.length
+}
+
+/**
  * Кошелёк списания: у разового посещения он выбран на самой строке, у обычного
  * берётся из группы. Отработка платит кошельком той группы, где случился
  * пропуск, а не той, куда ученик пришёл отрабатывать.
@@ -446,6 +496,28 @@ export async function countUnpaidAttendancesOfWallet(args: {
   return await prisma.attendance.count({
     where: unpaidAttendancesOfWalletWhere({ ...args, ...scope }),
   })
+}
+
+/**
+ * То же по нескольким кошелькам разом — карточка ученика рисует их сеткой.
+ *
+ * Считает по одному запросу на кошелёк, а не одним `groupBy`: занятие относится
+ * к кошельку не колонкой, а предикатом (своя строка, своя группа, группа
+ * пропуска у отработки), и свести это в группировку значило бы переписать
+ * правило вторым способом. У ученика кошельков единицы, так что цена вопроса —
+ * пара запросов.
+ */
+export async function countUnpaidAttendancesByWallet(args: {
+  walletIds: number[]
+  organizationId: number
+}): Promise<Record<number, number>> {
+  const counts = await Promise.all(
+    args.walletIds.map((walletId) =>
+      countUnpaidAttendancesOfWallet({ walletId, organizationId: args.organizationId }),
+    ),
+  )
+
+  return Object.fromEntries(args.walletIds.map((walletId, i) => [walletId, counts[i]!]))
 }
 
 /**
