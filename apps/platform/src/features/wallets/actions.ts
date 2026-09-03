@@ -1,7 +1,10 @@
 'use server'
 
 import { prisma } from '@repo/db'
-import { countUnpaidAttendancesOfWallet } from '@/src/features/finances/ledger.server'
+import {
+  countUnpaidAttendancesByWallet,
+  countUnpaidAttendancesOfWallet,
+} from '@/src/features/finances/ledger.server'
 import { transferPackagesTx } from '@/src/features/finances/transfer.server'
 import { NotFoundError } from '@/src/lib/error'
 import { authAction, permissionAction } from '@/src/lib/safe-action'
@@ -86,11 +89,44 @@ export const getWalletPreview = authAction
       prisma.package.findMany({
         where: { walletId: parsedInput.walletId, organizationId, status: 'ACTIVE' },
         orderBy: [{ date: 'desc' }, { id: 'desc' }],
-        select: { id: true, date: true, price: true, lessonCount: true, remaining: true },
+        select: {
+          id: true,
+          date: true,
+          price: true,
+          lessonCount: true,
+          remaining: true,
+          productName: true,
+        },
       }),
     ])
 
     return { unpaidCount, packages }
+  })
+
+/**
+ * Сколько занятий ждёт оплаты на каждом кошельке ученика.
+ *
+ * Отдельным экшеном от `getStudentDetail` по той же причине, что и
+ * `getStudentUnpaidLessons`: предикат живёт в денежном модуле, и тащить его в
+ * общий `include` значит расползание одного правила по двум местам. От
+ * `getWalletPreview` отличается только тем, что кошелёк не один: карточка ученика
+ * показывает их сеткой, и счётчик нужен на каждом.
+ */
+export const getStudentWalletUnpaid = authAction
+  .metadata({ actionName: 'getStudentWalletUnpaid' })
+  .inputSchema(z.object({ studentId: z.number().int().positive() }))
+  .action(async ({ ctx, parsedInput }) => {
+    const organizationId = ctx.session.organizationId!
+
+    const wallets = await prisma.wallet.findMany({
+      where: { studentId: parsedInput.studentId, organizationId },
+      select: { id: true },
+    })
+
+    return await countUnpaidAttendancesByWallet({
+      walletIds: wallets.map((w) => w.id),
+      organizationId,
+    })
   })
 
 // ─── CREATE ──────────────────────────────────────────────────────────────────

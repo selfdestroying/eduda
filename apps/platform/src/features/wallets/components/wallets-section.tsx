@@ -34,13 +34,13 @@ import {
   linkGroupToWallet,
   renameWallet,
 } from '@/src/features/wallets/actions'
-import { walletKeys } from '@/src/features/wallets/queries'
-import { WalletCard } from '@/src/features/wallets/components/wallet-card'
+import { useStudentWalletUnpaidQuery, walletKeys } from '@/src/features/wallets/queries'
+import { WalletPreview } from '@/src/features/wallets/components/wallet-preview'
 import { WalletSelect } from '@/src/features/wallets/components/wallet-select'
 import { TransferPackagesDrawer } from '@/src/features/wallets/components/transfer-packages-drawer'
 import { useHasPermission } from '@/src/lib/permissions/use-has-permission'
 import { getWalletLabel } from '@/src/features/wallets/utils'
-import { cn, getGroupName } from '@/src/lib/utils'
+import { getGroupName } from '@/src/lib/utils'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   Archive,
@@ -71,6 +71,9 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
   const [activeDrawer, setActiveDrawer] = useState<DrawerType>(null)
   const queryClient = useQueryClient()
   const canMoveMoney = useHasPermission(CAN_MOVE_MONEY)
+  // Занятия, которые ждут оплаты, — по кошельку каждое. Считаются денежным
+  // предикатом, а не `include`, поэтому едут своим запросом (см. хук).
+  const { data: unpaidByWallet } = useStudentWalletUnpaidQuery(student.id)
 
   const invalidateStudent = () => {
     queryClient.invalidateQueries({ queryKey: studentKeys.detail(student.id) })
@@ -242,17 +245,19 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
         </div>
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {student.wallets.map((w) => {
-            // Archived wallets are read-only: minimal card, no actions.
-            // Исключение — перенос, и только когда на кошельке остались уроки: вернуть
-            // его из архива нельзя, так что иначе остаток заперт навсегда.
-            if (w.status === 'ARCHIVED') {
-              return (
-                <WalletCard
-                  key={w.id}
-                  wallet={w}
-                  actions={
-                    canMoveMoney && w.lessonsBalance > 0 && activeWallets.length > 0 ? (
+          {student.wallets.map((w) => (
+            <WalletPreview
+              key={w.id}
+              wallet={w}
+              unpaidLessons={unpaidByWallet?.[w.id] ?? 0}
+              actions={
+                // Архивный кошелёк read-only, и единственное исключение — перенос, и
+                // только когда на нём остались уроки: вернуть его из архива нельзя,
+                // так что иначе остаток заперт навсегда.
+                w.status === 'ARCHIVED' ? (
+                  <>
+                    <Badge variant="outline">Архив</Badge>
+                    {canMoveMoney && w.lessonsBalance > 0 && activeWallets.length > 0 && (
                       <Button
                         size="icon"
                         variant="ghost"
@@ -263,17 +268,9 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                       >
                         <ArrowLeftRight className="size-3" />
                       </Button>
-                    ) : undefined
-                  }
-                />
-              )
-            }
-
-            return (
-              <WalletCard
-                key={w.id}
-                wallet={w}
-                actions={
+                    )}
+                  </>
+                ) : (
                   <>
                     <Button
                       size="icon"
@@ -281,6 +278,7 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                       className="size-6"
                       onClick={() => openEditDrawer(w)}
                       disabled={isPending}
+                      title="Переименовать кошелёк"
                     >
                       <Pen className="size-3" />
                     </Button>
@@ -319,59 +317,10 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
                       <Archive className="size-3" />
                     </Button>
                   </>
-                }
-              >
-                {/* Linked groups */}
-                {w.studentGroups.length > 0 && (
-                  <div className="text-muted-foreground space-y-0.5 text-[0.625rem]">
-                    <span>Группы:</span>
-                    {w.studentGroups.map((sg) => {
-                      const isInactive =
-                        sg.status === 'DISMISSED' ||
-                        sg.status === 'TRANSFERRED' ||
-                        sg.status === 'COMPLETED' ||
-                        sg.status === 'ARCHIVED'
-                      return (
-                        <div
-                          key={sg.groupId}
-                          className={cn(
-                            'flex items-center justify-between gap-1',
-                            isInactive && 'opacity-50',
-                          )}
-                        >
-                          <div className="flex items-center gap-1 truncate">
-                            <span className="truncate">{getGroupName(sg.group)}</span>
-                            {sg.status === 'DISMISSED' && (
-                              <Badge variant="destructive" className="px-1 py-0 text-[0.5rem]">
-                                Отчислен
-                              </Badge>
-                            )}
-                            {sg.status === 'TRANSFERRED' && (
-                              <Badge variant="outline" className="px-1 py-0 text-[0.5rem]">
-                                Переведён
-                              </Badge>
-                            )}
-                            {sg.status === 'COMPLETED' && (
-                              <Badge variant="outline" className="px-1 py-0 text-[0.5rem]">
-                                Завершён
-                              </Badge>
-                            )}
-                            {sg.status === 'ARCHIVED' && (
-                              <Badge variant="secondary" className="px-1 py-0 text-[0.5rem]">
-                                Группа закрыта
-                              </Badge>
-                            )}
-                          </div>
-                          {/* Кнопки перепривязки здесь нет: перевешивать группу будут
-                              из окна переноса, вместе с деньгами. */}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </WalletCard>
-            )
-          })}
+                )
+              }
+            />
+          ))}
         </div>
       )}
 

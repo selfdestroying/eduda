@@ -5,6 +5,7 @@ import { studentKeys } from '@/src/features/students/queries'
 import {
   archiveWallet,
   createWallet,
+  getStudentWalletUnpaid,
   getStudentWallets,
   getTransferablePackages,
   getTransferPreview,
@@ -59,6 +60,25 @@ export const useWalletPreviewQuery = (walletId: number | null) => {
       return data
     },
     enabled: walletId != null,
+  })
+}
+
+/**
+ * Счётчик «ждут оплаты» по всем кошелькам ученика — карточка ученика.
+ *
+ * Отдельно от `studentKeys.detail`, а не полем в нём: считается он денежным
+ * предикатом, а не `include`, и живёт своей жизнью (оплата его гасит, отметка
+ * посещаемости растит). Ключ — под `walletKeys.byStudent`, чтобы `invalidate`
+ * после действий с кошельками задевал и его.
+ */
+export const useStudentWalletUnpaidQuery = (studentId: number) => {
+  return useQuery({
+    queryKey: [...walletKeys.byStudent(studentId), 'unpaid'] as const,
+    queryFn: async () => {
+      const { data, serverError } = await getStudentWalletUnpaid({ studentId })
+      if (serverError) throw serverError
+      return data ?? {}
+    },
   })
 }
 
