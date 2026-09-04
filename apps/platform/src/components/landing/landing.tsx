@@ -1570,19 +1570,6 @@ export function Landing({ signInUrl }: { signInUrl: string }) {
                 Сделано для учебных центров, языковых школ и детских клубов.
               </span>
             </div>
-
-            {/* Подтверждение владения доменом для поддержки ВКонтакте — заявка на
-                короткое имя сообщества. Временная строка: убрать, когда имя выдадут. */}
-            <div
-              style={{
-                paddingTop: 14,
-                fontSize: 11,
-                color: 'var(--muted-foreground)',
-                opacity: 0.55,
-              }}
-            >
-              ВК25610
-            </div>
           </div>
         </footer>
       </main>
