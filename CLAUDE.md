@@ -320,7 +320,7 @@ pnpm --filter bots check:notifications   # планировщик и дрена�
 pnpm --filter platform exec tsx scripts/check-reminders.ts   # кабинет родителя и настройки школы
 ```
 
-Переменные бота: `DATABASE_URL`, `PORT`, `NOTIFY_KEY`, `VK_GROUP_TOKEN`, `VK_GROUP_SCREEN_NAME`, `VK_CONFIRMATION`, `VK_SECRET`, и необязательные `MAX_BOT_TOKEN`, `MAX_WEBHOOK_URL`, `MAX_WEBHOOK_SECRET`. Платформе нужны только адреса для ссылок: `NEXT_PUBLIC_VK_GROUP`, `NEXT_PUBLIC_MAX_BOT`.
+Переменные бота: `DATABASE_URL`, `PORT`, `NOTIFY_KEY`, `VK_GROUP_TOKEN`, `VK_CONFIRMATION`, `VK_SECRET`, и необязательные `MAX_BOT_TOKEN`, `MAX_WEBHOOK_URL`, `MAX_WEBHOOK_SECRET`. Платформе нужны только адреса для ссылок: `NEXT_PUBLIC_VK_GROUP`, `NEXT_PUBLIC_MAX_BOT`.
 
 ## Feature flags
 
