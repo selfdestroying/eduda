@@ -1,4 +1,4 @@
-import { todayYmdInTz } from '@/src/lib/date'
+import { todayYmdInTz } from '@repo/core/timezone'
 import type { Prisma } from '@repo/db'
 import { AttendanceStatus, CoinTxReason, StudentStatus } from '@repo/db/enums'
 

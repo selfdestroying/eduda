@@ -1,6 +1,6 @@
 'use server'
 
-import { ymdInTz } from '@/src/lib/date'
+import { formatInTz, todayYmdInTz } from '@repo/core/timezone'
 import { studentAction } from '@/src/lib/safe-action'
 import { prisma } from '@repo/db'
 import type { CoinTxReason } from '@repo/db/enums'
@@ -64,7 +64,7 @@ export const getMonthlyCoinRanking = studentAction
   .metadata({ actionName: 'getMonthlyCoinRanking' })
   .action(async ({ ctx }) => {
     const tz = ctx.org.timezone
-    const monthPrefix = ymdInTz(new Date(), tz).slice(0, 7)
+    const monthPrefix = todayYmdInTz(tz).slice(0, 7)
 
     // Грубое окно по UTC, точная граница — ниже, по дню каждой строки в поясе
     // школы. Сутки запаса перекрывают любой сдвиг пояса относительно UTC.
@@ -82,7 +82,7 @@ export const getMonthlyCoinRanking = studentAction
 
     const earned = new Map<number, number>()
     for (const row of rows) {
-      if (!ymdInTz(row.createdAt, tz).startsWith(monthPrefix)) continue
+      if (!formatInTz(row.createdAt, tz, 'yyyy-MM-dd').startsWith(monthPrefix)) continue
       earned.set(row.studentId, (earned.get(row.studentId) ?? 0) + row.amount)
     }
 

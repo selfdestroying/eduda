@@ -1,4 +1,4 @@
-import { formatDateOnly } from '@/src/lib/date'
+import { formatDateOnly } from '@repo/core/timezone'
 import { AttendanceStatus } from '@repo/db/enums'
 import { Badge } from '@repo/ui/components/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@repo/ui/components/empty'

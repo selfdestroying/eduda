@@ -1,3 +1,13 @@
+/**
+ * Пояса и date-only хелперы. Единственная копия на монорепо.
+ *
+ * Отсюда в клиентский бандл тянутся date-fns и zod, поэтому `@repo/core`
+ * помечен `"sideEffects": false` — без этого шоп, где `@/src/lib/utils`
+ * (ре-экспорт `cn`) задевает `todayYmdInTz`, вёз клиенту лишние 315 КБ на
+ * ровном месте. Заводите в пакете модуль с настоящим сайд-эффектом (импорт
+ * ради регистрации, polyfill) — снимайте флаг и ищите другой способ, иначе
+ * бандлер его молча выбросит.
+ */
 import { format, startOfDay } from 'date-fns'
 import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz'
 import { ru } from 'date-fns/locale'

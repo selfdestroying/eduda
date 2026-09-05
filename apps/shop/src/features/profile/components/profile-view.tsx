@@ -1,5 +1,5 @@
-import { formatDateOnly } from '@/src/lib/date'
 import { cn } from '@/src/lib/utils'
+import { formatDateOnly } from '@repo/core/timezone'
 import { StudentStatus } from '@repo/db/enums'
 import { Badge } from '@repo/ui/components/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'

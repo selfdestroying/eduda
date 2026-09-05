@@ -1,6 +1,6 @@
 import { CoinPrice } from '@/src/components/coin-price'
-import { formatDateTimeInTz } from '@/src/lib/date'
 import { cn } from '@/src/lib/utils'
+import { formatDateTimeInTz } from '@repo/core/timezone'
 import { Card, CardContent } from '@repo/ui/components/card'
 import { Progress } from '@repo/ui/components/progress'
 import { Check } from 'lucide-react'

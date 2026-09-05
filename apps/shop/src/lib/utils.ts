@@ -1,4 +1,4 @@
-import { todayYmdInTz } from './date'
+import { todayYmdInTz } from '@repo/core/timezone'
 
 /** Живёт в дизайн-системе; ре-экспорт, чтобы `@/src/lib/utils` остался одной точкой входа. */
 export { cn } from '@repo/ui/lib/utils'

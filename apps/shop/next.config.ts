@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   // к тому моменту уже прошёл в `pnpm check`, повторять его на машине, которая
   // его не тянет, незачем. Локально флага нет, и всё как было.
   typescript: { ignoreBuildErrors: process.env.SKIP_BUILD_CHECKS === '1' },
-  transpilePackages: ['@repo/db', '@repo/ui'],
+  transpilePackages: ['@repo/core', '@repo/db', '@repo/ui'],
   // Кабинет живёт на `shop.{rootDomain}`, а не на localhost, поэтому в dev
   // запросы к /_next иначе считаются кросс-доменными. Так же настроены
   // `apps/platform` и `apps/docs`.

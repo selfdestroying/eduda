@@ -1,4 +1,4 @@
-import { formatDateTimeInTz } from '@/src/lib/date'
+import { formatDateTimeInTz } from '@repo/core/timezone'
 import { CoinTxReason } from '@repo/db/enums'
 import { Badge } from '@repo/ui/components/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@repo/ui/components/empty'

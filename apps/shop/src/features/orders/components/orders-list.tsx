@@ -1,5 +1,5 @@
 import { CoinPrice } from '@/src/components/coin-price'
-import { formatDateTimeInTz } from '@/src/lib/date'
+import { formatDateTimeInTz } from '@repo/core/timezone'
 import { OrderStatus } from '@repo/db/enums'
 import {
   Accordion,
