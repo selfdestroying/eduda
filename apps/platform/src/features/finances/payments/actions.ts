@@ -34,6 +34,7 @@ const PACKAGE_ORDER_BY: Record<string, (dir: Prisma.SortOrder) => PackageOrderBy
   student: (dir) => [{ student: { firstName: dir } }, { student: { lastName: dir } }],
   price: (dir) => [{ price: dir }],
   lessons: (dir) => [{ lessonCount: dir }],
+  product: (dir) => [{ productName: dir }],
   date: (dir) => [{ date: dir }],
   manager: (dir) => [{ manager: { name: dir } }],
   status: (dir) => [{ status: dir }],

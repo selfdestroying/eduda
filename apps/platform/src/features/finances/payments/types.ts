@@ -12,6 +12,9 @@ import { Prisma } from '@repo/db'
 export const PACKAGE_LIST_SELECT = {
   id: true,
   lessonCount: true,
+  // Снимок названия проданного продукта. Живёт на самом пакете, поэтому связь с
+  // `Product` тянуть не надо — и переименованный продукт подпись не меняет.
+  productName: true,
   price: true,
   date: true,
   // Не колонка: по статусу таблица приглушает отменённую строку.
