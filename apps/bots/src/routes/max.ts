@@ -2,7 +2,15 @@ import { prisma } from '@repo/db'
 import { bindByPhone, readBindings, readCommand, resubscribeAll, unsubscribeAll } from '../bind'
 import { cabinetUrl, env } from '../env'
 import { phoneFromVCard } from '../phone'
-import { askForContact, sendMessage } from '../providers/max'
+import {
+  answerCallback,
+  askForContact,
+  RESUME,
+  RESUME_BUTTON,
+  sendMessage,
+  STOP,
+  STOP_BUTTON,
+} from '../providers/max'
 import type { Reply, RouteRequest } from '../route'
 import { buildBindSummary } from '../summary'
 
@@ -23,16 +31,24 @@ import { buildBindSummary } from '../summary'
  *    сбой, а «я вас не понял» учит родителя, что писать сюда бесполезно.
  *
  * Команды из меню (`/stop`, `/resume`, `/cabinet`) — исключение: их родитель
- * нажимает намеренно, и молчание на них было бы поломкой.
+ * нажимает намеренно, и молчание на них было бы поломкой. Туда же кнопка
+ * отписки под напоминанием: она приезжает событием `message_callback`.
  */
 
 type MaxUpdate = {
   update_type?: string
   /** `bot_started` / `bot_stopped` */
   user?: { user_id?: number }
-  /** `message_created` */
+  /** `message_callback` — что нажали и чем на это ответить. */
+  callback?: {
+    callback_id?: string
+    payload?: string
+    user?: { user_id?: number }
+  }
+  /** `message_created`, а у `message_callback` — сообщение с кнопкой. */
   message?: {
     sender?: { user_id?: number }
+    recipient?: { user_id?: number }
     body?: {
       text?: string
       attachments?: { type?: string; payload?: { vcf_info?: string } }[]
@@ -96,6 +112,11 @@ export async function handleMax(req: RouteRequest): Promise<Reply> {
       await onMessage(update)
       return OK
 
+    // Кнопка под напоминанием.
+    case 'message_callback':
+      await onCallback(update)
+      return OK
+
     default:
       return OK
   }
@@ -103,6 +124,57 @@ export async function handleMax(req: RouteRequest): Promise<Reply> {
 
 function userOf(id: number | undefined): string | null {
   return typeof id === 'number' && id > 0 ? String(id) : null
+}
+
+// ─── Кнопка под напоминанием ────────────────────────────────────────
+
+const OFF_NOTE = '🔕 Напоминания отключены. Вернуть — кнопкой ниже.'
+const ON_NOTE = '🔔 Напоминания снова приходят.'
+
+/**
+ * Приписка о состоянии снимается перед тем, как поставить новую: иначе
+ * нажатия туда-обратно копят хвост из строк на одном и том же сообщении.
+ *
+ * Отрезается ровно свой хвост, а не всё после первого эмодзи: текст выше —
+ * шаблон школы, и она вправе написать там что угодно.
+ */
+const NOTE =
+  /\n\n(?:🔕 Напоминания отключены\. Вернуть — кнопкой ниже\.|🔔 Напоминания снова приходят\.)$/u
+
+export function toggledText(text: string, note: string): string {
+  return `${text.replace(NOTE, '')}\n\n${note}`
+}
+
+/**
+ * Нажали кнопку. Порядок здесь важнее обычного: сначала запись в базу, потом
+ * ответ. Не дойдёт ответ — родитель увидит прежнюю кнопку, но отписан уже
+ * будет; сделай наоборот — и упавший запрос оставил бы его подписанным при
+ * сообщении «отключены».
+ */
+async function onCallback(update: MaxUpdate) {
+  const callback = update.callback
+  const payload = callback?.payload
+  // Кнопку нажимает получатель напоминания, поэтому у сообщения он в
+  // `recipient`, а не в `sender` — там бот.
+  const userId = userOf(callback?.user?.user_id ?? update.message?.recipient?.user_id)
+
+  if (!callback?.callback_id || !userId || (payload !== STOP && payload !== RESUME)) {
+    // Форма события не та, что мы читаем. Молча пропустить значит потом
+    // полдня искать, почему кнопка «не работает».
+    console.warn('max: непонятное нажатие —', JSON.stringify(update))
+    return
+  }
+
+  const stopping = payload === STOP
+  if (stopping) await unsubscribeAll(prisma, 'MAX', userId)
+  else await resubscribeAll(prisma, 'MAX', userId)
+
+  const text = toggledText(update.message?.body?.text ?? '', stopping ? OFF_NOTE : ON_NOTE)
+  const result = await answerCallback(callback.callback_id, text, [
+    stopping ? RESUME_BUTTON : STOP_BUTTON,
+  ])
+
+  if (!result.ok) console.error('max: ответ на нажатие не ушёл —', result.error)
 }
 
 async function onMessage(update: MaxUpdate) {

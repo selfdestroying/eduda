@@ -2,7 +2,7 @@ import { prisma } from '@repo/db'
 import { drainOutbox, type Sender } from '../drain'
 import { env } from '../env'
 import { planLessonReminders, type PlanResult } from '../plan'
-import { ensureSubscription, sendMessage as sendMax } from '../providers/max'
+import { ensureSubscription, sendReminder as sendMax } from '../providers/max'
 import { sendMessage as sendVk } from '../providers/vk'
 import type { Reply, RouteRequest } from '../route'
 

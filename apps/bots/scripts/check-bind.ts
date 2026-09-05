@@ -23,6 +23,7 @@ import {
 } from '../src/bind'
 import { todayYmdInTz } from '@repo/core/timezone'
 import { normalizePhone, phoneFromVCard } from '../src/phone'
+import { toggledText } from '../src/routes/max'
 import { buildBindSummary } from '../src/summary'
 
 class Rollback extends Error {}
@@ -283,6 +284,31 @@ async function main() {
     'номер вынут из vCard без параметров',
   )
   assert.equal(phoneFromVCard('BEGIN:VCARD\nFN:Без телефона\nEND:VCARD'), null, 'vCard без TEL')
+
+  // ─── Кнопка под напоминанием ─────────────────────────────────────────
+  // Нажатие правит то же сообщение, поэтому приписка о состоянии обязана
+  // заменяться, а не накапливаться: иначе после пяти нажатий под напоминанием
+  // висит пять строк.
+  const OFF = '🔕 Напоминания отключены. Вернуть — кнопкой ниже.'
+  const ON = '🔔 Напоминания снова приходят.'
+  const reminder = ['Сегодня, 6 сентября', '', '• Артём — Python, 18:00, Онлайн'].join('\n')
+  const withNote = (note: string) => [reminder, '', note].join('\n')
+
+  const off = toggledText(reminder, OFF)
+  assert.equal(off, withNote(OFF), 'приписка встала под текстом школы')
+
+  const back = toggledText(off, ON)
+  assert.equal(back, withNote(ON), 'вторая приписка заменила первую')
+  assert.equal(toggledText(back, OFF), off, 'и обратно — текст тот же, что был')
+
+  // Пять нажатий подряд — по-прежнему одна строка хвоста.
+  let text = reminder
+  for (let i = 0; i < 5; i += 1) text = toggledText(text, i % 2 === 0 ? OFF : ON)
+  assert.equal(text, withNote(OFF), 'хвост не копится')
+
+  // Шаблон школы трогать нельзя, даже если она сама пишет про колокольчики.
+  const tricky = 'Занятие завтра 🔔 не забудьте'
+  assert.equal(toggledText(tricky, OFF), [tricky, '', OFF].join('\n'), 'текст школы не обрезан')
 
   // ─── Команды, как их напишет человек ─────────────────────────────────
   for (const [text, command] of [
