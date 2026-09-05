@@ -13,8 +13,18 @@
  */
 import assert from 'node:assert/strict'
 import { prisma } from '@repo/db'
-import { bindByPhone, bindByRef, isStopCommand, resubscribeAll, unsubscribeAll } from '../src/bind'
+import {
+  bindByPhone,
+  bindByRef,
+  readBindings,
+  readCommand,
+  resubscribeAll,
+  unsubscribeAll,
+} from '../src/bind'
+import { todayYmdInTz } from '@repo/core/timezone'
 import { normalizePhone, phoneFromVCard } from '../src/phone'
+import { shiftYmd } from '../src/plan'
+import { buildBindSummary } from '../src/summary'
 
 class Rollback extends Error {}
 
@@ -23,8 +33,14 @@ const VK_USER = '999000111'
 const MAX_USER = '999000222'
 
 async function main() {
-  const org = await prisma.organization.findFirst({ select: { id: true } })
+  const org = await prisma.organization.findFirst({
+    select: { id: true, name: true, timezone: true },
+  })
   if (!org) throw new Error('В базе нет ни одной организации — проверять не на чем')
+
+  // Дни считаются в поясе школы — тем же вызовом, что и в рассказе о детях.
+  const today = todayYmdInTz(org.timezone)
+  const tomorrow = shiftYmd(today, 1)
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -90,7 +106,7 @@ async function main() {
       // и оба ребёнка обязаны получить напоминания.
       const otherOrg = await tx.organization.create({
         data: { name: `check-bind-${Date.now()}`, slug: `check-bind-${Date.now()}` },
-        select: { id: true },
+        select: { id: true, name: true },
       })
       await tx.parent.create({
         data: { firstName: 'Первый', phone: '+7 (999) 123-45-67', organizationId: org.id },
@@ -140,6 +156,118 @@ async function main() {
         'чужой номер никого не привязывает',
       )
 
+      // ─── Что этот аккаунт вообще привязал ──────────────────────────────
+      // Ответ бота на команду зависит от трёх состояний, а не двух: привязок
+      // нет вовсе, они есть и включены, они есть и отключены.
+      const bindings = await readBindings(tx, 'MAX', MAX_USER)
+      assert.equal(bindings.length, 2, 'обе школы видны одним списком')
+      assert.ok(
+        bindings.every((binding) => binding.active),
+        'после повторной отправки номера обе включены',
+      )
+      assert.deepEqual(
+        bindings.map((binding) => binding.organization).sort(),
+        [org.name, otherOrg.name].sort(),
+        'у каждой ссылки на кабинет своя школа',
+      )
+      assert.equal(
+        (await readBindings(tx, 'MAX', '999000333')).length,
+        0,
+        'у чужого аккаунта привязок нет — ему покажут приветствие',
+      )
+
+      // ─── Рассказ о детях ───────────────────────────────────────────────
+      const first = byPhone.find((parent) => parent.firstName === 'Первый')!
+      const firstToken = bindings.find((binding) => binding.firstName === 'Первый')!.accessToken
+      const course = await tx.course.create({
+        data: { name: 'Python-разработка', organizationId: org.id },
+        select: { id: true },
+      })
+      const location = await tx.location.create({
+        data: { name: 'Ленина, 5', organizationId: org.id },
+        select: { id: true },
+      })
+      const group = await tx.group.create({
+        data: {
+          organizationId: org.id,
+          courseId: course.id,
+          locationId: location.id,
+          startDate: today,
+          maxStudents: 10,
+          schedules: {
+            create: [
+              { organizationId: org.id, dayOfWeek: 3, time: '17:00' },
+              { organizationId: org.id, dayOfWeek: 1, time: '17:00' },
+            ],
+          },
+        },
+        select: { id: true },
+      })
+      const student = await tx.student.create({
+        data: { firstName: 'Иван', lastName: 'Петров', organizationId: org.id },
+        select: { id: true },
+      })
+      await tx.studentParent.create({
+        data: { organizationId: org.id, studentId: student.id, parentId: first.parentId },
+      })
+      const wallet = await tx.wallet.create({
+        data: { organizationId: org.id, studentId: student.id, lessonsBalance: 8 },
+        select: { id: true },
+      })
+      await tx.studentGroup.create({
+        data: {
+          organizationId: org.id,
+          studentId: student.id,
+          groupId: group.id,
+          walletId: wallet.id,
+          status: 'ACTIVE',
+          statusChangedAt: today,
+        },
+      })
+      // Два занятия: ближайшим должно стать раннее, а не первое попавшееся.
+      await tx.lesson.createMany({
+        data: [
+          { organizationId: org.id, groupId: group.id, date: tomorrow, time: '17:00' },
+          { organizationId: org.id, groupId: group.id, date: today, time: '17:00' },
+        ],
+      })
+
+      const summary = await buildBindSummary(tx, [first.parentId])
+      for (const fragment of [
+        'Готово, Первый',
+        org.name,
+        'Иван Петров',
+        'Python-разработка',
+        'Ленина, 5',
+        // Понедельник впереди среды, хотя в базе среда заведена первой.
+        'пн, ср в 17:00',
+        'сегодня в 17:00',
+        'Осталось занятий: 8',
+        '/cabinet',
+      ]) {
+        assert.ok(summary.includes(fragment), `в рассказе о детях есть «${fragment}»`)
+      }
+      assert.ok(
+        summary.includes(`/cabinet/${firstToken}`),
+        'ссылка на кабинет собрана по токену родителя',
+      )
+
+      // Отчисленного в рассказе быть не должно: он в группе числится, но
+      // занятий у него нет.
+      await tx.studentGroup.update({
+        where: { studentId_groupId: { studentId: student.id, groupId: group.id } },
+        data: { status: 'DISMISSED' },
+      })
+      const afterDismiss = await buildBindSummary(tx, [first.parentId])
+      assert.ok(
+        !afterDismiss.includes('Python-разработка'),
+        'отчисленная запись в рассказ не попадает',
+      )
+      assert.ok(
+        afterDismiss.includes('Пока нет активных групп'),
+        'ребёнок без групп назван прямо, а не пропущен молча',
+      )
+
       throw new Rollback()
     })
   } catch (error) {
@@ -167,12 +295,23 @@ async function main() {
   )
   assert.equal(phoneFromVCard('BEGIN:VCARD\nFN:Без телефона\nEND:VCARD'), null, 'vCard без TEL')
 
-  // ─── Команды отписки, как их напишет человек ─────────────────────────
-  for (const text of ['/stop', 'СТОП', ' отписаться ', 'Stop']) {
-    assert.ok(isStopCommand(text), `«${text}» — команда отписки`)
+  // ─── Команды, как их напишет человек ─────────────────────────────────
+  for (const [text, command] of [
+    ['/stop', 'stop'],
+    ['СТОП', 'stop'],
+    [' отписаться ', 'stop'],
+    ['Stop', 'stop'],
+    ['/resume', 'resume'],
+    ['включить', 'resume'],
+    ['/cabinet', 'cabinet'],
+    ['Кабинет', 'cabinet'],
+  ] as const) {
+    assert.equal(readCommand(text), command, `«${text}» — это ${command}`)
   }
-  for (const text of ['стоп-урок', 'а как отписаться?', '']) {
-    assert.ok(!isStopCommand(text), `«${text}» — не команда`)
+  // Всё остальное командой не считается и остаётся без ответа: молчание бота
+  // в ответ на случайный текст держится ровно на этом null.
+  for (const text of ['стоп-урок', 'а как отписаться?', '', '/start', 'привет']) {
+    assert.equal(readCommand(text), null, `«${text}» — не команда`)
   }
 
   // Транзакция откатилась — в базе не должно остаться ничего.

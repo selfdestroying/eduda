@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage } from 'node:http'
 import { env } from './env'
+import { ensureCommands } from './providers/max'
 import type { Reply, RouteRequest } from './route'
 import { handleDispatch } from './routes/dispatch'
 import { handleMax } from './routes/max'
@@ -80,4 +81,7 @@ const server = createServer((req, res) => {
 
 server.listen(env.port, () => {
   console.log(`bots: слушаю :${env.port}`)
+  // Меню команд MAX — один раз за запуск: в отличие от подписки оно не
+  // протухает, а процесс всё равно перезапускается каждым деплоем.
+  void ensureCommands()
 })

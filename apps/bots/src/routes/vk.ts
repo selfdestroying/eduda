@@ -1,5 +1,5 @@
 import { prisma } from '@repo/db'
-import { bindByRef, isStopCommand, resubscribeAll, unsubscribeAll } from '../bind'
+import { bindByRef, readCommand, resubscribeAll, unsubscribeAll } from '../bind'
 import { env } from '../env'
 import { sendMessage } from '../providers/vk'
 import type { Reply, RouteRequest } from '../route'
@@ -105,7 +105,7 @@ async function onMessage(event: VkEvent) {
     return
   }
 
-  if (isStopCommand(text)) {
+  if (readCommand(text) === 'stop') {
     const count = await unsubscribeAll(prisma, 'VK', externalId)
     reply(externalId, count > 0 ? STOPPED : HINT)
     return

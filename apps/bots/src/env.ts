@@ -23,6 +23,13 @@ export const env = {
   /** Ключ крон-роута `/dispatch` — заголовок `X-Notify-Key`. */
   notifyKey: required('NOTIFY_KEY'),
 
+  /**
+   * Адрес платформы — нужен ровно для одной ссылки: `/cabinet/{token}`.
+   * Установка одна на все школы, поэтому дефолт боевой, а не обязательная
+   * переменная, без которой бот не поднимется.
+   */
+  platformUrl: (process.env.PLATFORM_URL ?? 'https://eduda.online').replace(/\/+$/, ''),
+
   vk: {
     token: required('VK_GROUP_TOKEN'),
     /** Строка, которую VK ждёт в ответ на `type: 'confirmation'`. */
@@ -49,4 +56,9 @@ export const env = {
         secret: required('MAX_WEBHOOK_SECRET'),
       }
     : null,
+}
+
+/** Личный кабинет родителя. Тот же адрес школа копирует из карточки родителя. */
+export function cabinetUrl(accessToken: string): string {
+  return `${env.platformUrl}/cabinet/${accessToken}`
 }

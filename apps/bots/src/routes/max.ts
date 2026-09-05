@@ -1,9 +1,10 @@
 import { prisma } from '@repo/db'
-import { bindByPhone, isStopCommand, unsubscribeAll } from '../bind'
-import { env } from '../env'
+import { bindByPhone, readBindings, readCommand, resubscribeAll, unsubscribeAll } from '../bind'
+import { cabinetUrl, env } from '../env'
 import { phoneFromVCard } from '../phone'
 import { askForContact, sendMessage } from '../providers/max'
 import type { Reply, RouteRequest } from '../route'
+import { buildBindSummary } from '../summary'
 
 /**
  * Вебхук MAX. Как и у VK: в обработчике только запись в базу, ответ родителю
@@ -12,6 +13,17 @@ import type { Reply, RouteRequest } from '../route'
  *
  * Мультибота здесь нет, но эндпоинт всё равно свой: в апдейте MAX нет никакого
  * признака бота, и различать их можно только по URL.
+ *
+ * Разговор с ботом устроен как одна дорога и три команды:
+ *
+ * 1. «Начать» — приветствие с кнопкой «отправить номер».
+ * 2. Номер пришёл — рассказ о детях, которых по нему нашли.
+ * 3. Всё остальное — молчание. Ни `/start`, ни «привет», ни случайный текст
+ *    ответа не получают: повторное приветствие в ответ на реплику выглядит как
+ *    сбой, а «я вас не понял» учит родителя, что писать сюда бесполезно.
+ *
+ * Команды из меню (`/stop`, `/resume`, `/cabinet`) — исключение: их родитель
+ * нажимает намеренно, и молчание на них было бы поломкой.
  */
 
 type MaxUpdate = {
@@ -30,12 +42,24 @@ type MaxUpdate = {
 
 const OK: Reply = { text: 'ok' }
 
-const ASK = 'Здравствуйте! Нажмите кнопку ниже — по номеру телефона я найду вашего ребёнка в школе.'
+const ASK = [
+  'Здравствуйте! 👋',
+  '',
+  'Я бот школы: напоминаю о занятиях, чтобы их не приходилось держать в голове.',
+  '',
+  'Нажмите кнопку ниже — по номеру телефона найду ваших детей. Номер нужен только для этого, платформа подтверждает его сама.',
+].join('\n')
 
-const NOT_FOUND =
-  'Такого номера в школах нет. Проверьте у администратора, что записан именно этот номер.'
+const NOT_FOUND = [
+  'По этому номеру я никого не нашёл. 🤔',
+  '',
+  'Попросите администратора школы проверить, что в карточке ребёнка записан именно этот номер, и нажмите кнопку ещё раз.',
+].join('\n')
 
-const STOPPED = 'Напоминания отключены. Чтобы включить обратно, отправьте номер ещё раз.'
+const STOPPED = 'Напоминания отключены. 🔕\n\nВключить обратно — команда /resume.'
+const ALREADY_STOPPED = 'Напоминания и так отключены. Включить — команда /resume.'
+const RESUMED = 'Напоминания снова включены. 🔔'
+const ALREADY_ACTIVE = 'Напоминания и так приходят. Отключить — команда /stop.'
 
 export async function handleMax(req: RouteRequest): Promise<Reply> {
   const max = env.max
@@ -90,22 +114,68 @@ async function onMessage(update: MaxUpdate) {
 
   if (phone) {
     const parents = await bindByPhone(prisma, userId, phone)
+    if (parents.length === 0) {
+      reply(userId, NOT_FOUND, true)
+      return
+    }
+
     reply(
       userId,
-      parents.length > 0
-        ? `Готово. Напоминания о занятиях будут приходить сюда — подключено детей: ${parents.length}.\n\nОтключить — команда /stop.`
-        : NOT_FOUND,
+      await buildBindSummary(
+        prisma,
+        parents.map((parent) => parent.parentId),
+      ),
     )
     return
   }
 
-  if (isStopCommand(body?.text ?? '')) {
-    const count = await unsubscribeAll(prisma, 'MAX', userId)
-    reply(userId, count > 0 ? STOPPED : ASK, count === 0)
+  await onCommand(userId, body?.text ?? '')
+}
+
+/**
+ * Три команды меню. Аккаунт без единой привязки на любую из них получает
+ * приветствие с кнопкой: отключать, включать и открывать ему нечего, а начать
+ * — есть с чего.
+ */
+async function onCommand(userId: string, text: string) {
+  const command = readCommand(text)
+  if (!command) return
+
+  const bindings = await readBindings(prisma, 'MAX', userId)
+  if (bindings.length === 0) {
+    reply(userId, ASK, true)
     return
   }
 
-  reply(userId, ASK, true)
+  if (command === 'cabinet') {
+    reply(userId, cabinetText(bindings))
+    return
+  }
+
+  if (command === 'stop') {
+    const count = await unsubscribeAll(prisma, 'MAX', userId)
+    reply(userId, count > 0 ? STOPPED : ALREADY_STOPPED)
+    return
+  }
+
+  const count = await resubscribeAll(prisma, 'MAX', userId)
+  reply(userId, count > 0 ? RESUMED : ALREADY_ACTIVE)
+}
+
+/**
+ * Ссылка на кабинет — своя у каждой школы: `accessToken` принадлежит родителю
+ * в одной школе, и одной ссылкой два кабинета не открыть.
+ */
+function cabinetText(bindings: Awaited<ReturnType<typeof readBindings>>): string {
+  const head = '🔗 Личный кабинет — расписание, посещаемость и оплаты:'
+
+  return bindings.length === 1
+    ? `${head}\n\n${cabinetUrl(bindings[0]!.accessToken)}`
+    : [
+        head,
+        '',
+        ...bindings.map((binding) => `${binding.organization}\n${cabinetUrl(binding.accessToken)}`),
+      ].join('\n')
 }
 
 /**

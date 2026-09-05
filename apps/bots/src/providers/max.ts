@@ -117,3 +117,36 @@ export async function ensureSubscription(): Promise<'есть' | 'оформле
     return `не удалась: ${String(error)}`
   }
 }
+
+/**
+ * Меню команд бота. Имя без слэша — MAX дорисовывает его сам, как и Telegram,
+ * с которого списан этот кусок API.
+ */
+const COMMANDS = [
+  { name: 'cabinet', description: 'Личный кабинет: расписание и оплаты' },
+  { name: 'stop', description: 'Отключить напоминания' },
+  { name: 'resume', description: 'Включить напоминания обратно' },
+]
+
+/**
+ * Меню команд живёт в профиле бота и не протухает, поэтому ставится один раз
+ * за запуск процесса, а не каждым проходом крона, как подписка.
+ *
+ * Ошибку только пишем в лог: бот без меню работает, а падать на старте из-за
+ * недоступного MAX значит уронить заодно и VK-половину.
+ */
+export async function ensureCommands(): Promise<void> {
+  if (!env.max) return
+
+  try {
+    const response = await call('/me', {
+      method: 'PATCH',
+      body: JSON.stringify({ commands: COMMANDS }),
+    })
+    if (!response.ok) {
+      console.error(`max: меню команд не обновилось — MAX ${response.status}`)
+    }
+  } catch (error) {
+    console.error('max: меню команд не обновилось', error)
+  }
+}
