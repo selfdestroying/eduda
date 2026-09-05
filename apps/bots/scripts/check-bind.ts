@@ -23,7 +23,6 @@ import {
 } from '../src/bind'
 import { todayYmdInTz } from '@repo/core/timezone'
 import { normalizePhone, phoneFromVCard } from '../src/phone'
-import { shiftYmd } from '../src/plan'
 import { buildBindSummary } from '../src/summary'
 
 class Rollback extends Error {}
@@ -38,9 +37,8 @@ async function main() {
   })
   if (!org) throw new Error('В базе нет ни одной организации — проверять не на чем')
 
-  // Дни считаются в поясе школы — тем же вызовом, что и в рассказе о детях.
+  // Календарный день школы: им датируются группа и запись ученика в неё.
   const today = todayYmdInTz(org.timezone)
-  const tomorrow = shiftYmd(today, 1)
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -224,14 +222,6 @@ async function main() {
           statusChangedAt: today,
         },
       })
-      // Два занятия: ближайшим должно стать раннее, а не первое попавшееся.
-      await tx.lesson.createMany({
-        data: [
-          { organizationId: org.id, groupId: group.id, date: tomorrow, time: '17:00' },
-          { organizationId: org.id, groupId: group.id, date: today, time: '17:00' },
-        ],
-      })
-
       const summary = await buildBindSummary(tx, [first.parentId])
       for (const fragment of [
         'Готово, Первый',
@@ -241,7 +231,6 @@ async function main() {
         'Ленина, 5',
         // Понедельник впереди среды, хотя в базе среда заведена первой.
         'пн, ср в 17:00',
-        'сегодня в 17:00',
         'Осталось занятий: 8',
         '/cabinet',
       ]) {

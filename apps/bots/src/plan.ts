@@ -307,7 +307,7 @@ function buildSameDayText(org: Org, today: string, rows: Row[]): string {
  * на переходе часов сутки бывают короче, и от полуночи `+1 день` иногда
  * возвращает тот же день.
  */
-export function shiftYmd(ymd: string, days: number): string {
+function shiftYmd(ymd: string, days: number): string {
   const date = ymdToLocalDate(ymd)
   date.setDate(date.getDate() + days)
   return dateToYmd(date)

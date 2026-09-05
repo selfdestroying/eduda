@@ -1,7 +1,5 @@
-import { todayYmdInTz, ymdToLocalDate } from '@repo/core/timezone'
 import type { Prisma } from '@repo/db'
 import { cabinetUrl } from './env'
-import { shiftYmd } from './plan'
 
 /**
  * Ответ на привязку: что за дети нашлись, где и когда они занимаются.
@@ -12,13 +10,16 @@ import { shiftYmd } from './plan'
  *
  * Шаблона школы здесь нет намеренно: напоминания школа настраивает под себя, а
  * это ответ бота о том, что он нашёл в базе, — его форма не её дело.
+ *
+ * Про занятия сказано расписанием группы, а не ближайшим уроком. Расписание —
+ * постоянный ответ на «когда мы ходим», а «ближайшее занятие» протухает к тому
+ * моменту, когда родитель откроет чат во второй раз, и ради строки, живущей
+ * один вечер, требует знать час школы, горизонт поиска и то, что сегодняшний
+ * урок мог уже кончиться. Про конкретный урок есть напоминание.
  */
 
 /** `GroupSchedule.dayOfWeek` — воскресенье нулём, как в JS. */
 const WEEKDAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб']
-
-/** Дальше двух недель «ближайшее занятие» уже не ближайшее — строку не пишем. */
-const HORIZON_DAYS = 14
 
 export async function buildBindSummary(
   db: Prisma.TransactionClient,
@@ -27,21 +28,14 @@ export async function buildBindSummary(
   const parents = await readParents(db, parentIds)
   if (parents.length === 0) return 'Готово! Напоминания о занятиях будут приходить сюда.'
 
-  const todayOf = new Map(
-    parents.map((p) => [p.accessToken, todayYmdInTz(p.organization.timezone)]),
-  )
-  const next = await readNextLessons(db, parents, todayOf)
-
-  const blocks = parents.map((parent) => {
-    const today = todayOf.get(parent.accessToken)!
-
-    return [
+  const blocks = parents.map((parent) =>
+    [
       `🏫 ${parent.organization.name}`,
       '',
-      ...parent.students.flatMap((link) => [...studentLines(link.student, next, today), '']),
+      ...parent.students.flatMap((link) => [...studentLines(link.student), '']),
       `🔗 Личный кабинет: ${cabinetUrl(parent.accessToken)}`,
-    ].join('\n')
-  })
+    ].join('\n'),
+  )
 
   return [
     `Готово, ${parents[0]!.firstName}! 👋`,
@@ -61,7 +55,7 @@ async function readParents(db: Prisma.TransactionClient, parentIds: number[]) {
     select: {
       firstName: true,
       accessToken: true,
-      organization: { select: { name: true, timezone: true } },
+      organization: { select: { name: true } },
       students: {
         select: {
           student: {
@@ -77,7 +71,6 @@ async function readParents(db: Prisma.TransactionClient, parentIds: number[]) {
                   wallet: { select: { lessonsBalance: true } },
                   group: {
                     select: {
-                      id: true,
                       course: { select: { name: true } },
                       location: { select: { name: true } },
                       schedules: { select: { dayOfWeek: true, time: true } },
@@ -96,62 +89,13 @@ async function readParents(db: Prisma.TransactionClient, parentIds: number[]) {
 type Parents = Awaited<ReturnType<typeof readParents>>
 type Student = Parents[number]['students'][number]['student']
 
-/**
- * Ближайшее занятие каждой группы — одним запросом на всё сообщение.
- *
- * Горизонт вместо `distinct`: у родителя бывают школы в разных поясах, и «уже
- * сегодня» у них разное, поэтому первую строку на группу выбираем сами, зная
- * чей это день. Две недели строк — это десятки, а не тысячи.
- */
-async function readNextLessons(
-  db: Prisma.TransactionClient,
-  parents: Parents,
-  todayOf: Map<string, string>,
-) {
-  const groupDay = new Map<number, string>()
-
-  for (const parent of parents) {
-    const today = todayOf.get(parent.accessToken)!
-    for (const link of parent.students) {
-      for (const enrolment of link.student.groups) groupDay.set(enrolment.group.id, today)
-    }
-  }
-
-  const next = new Map<number, { date: string; time: string }>()
-  if (groupDay.size === 0) return next
-
-  const floor = [...groupDay.values()].sort()[0]!
-
-  const lessons = await db.lesson.findMany({
-    where: {
-      groupId: { in: [...groupDay.keys()] },
-      status: 'ACTIVE',
-      date: { gte: floor, lte: shiftYmd(floor, HORIZON_DAYS) },
-    },
-    orderBy: [{ date: 'asc' }, { time: 'asc' }],
-    select: { groupId: true, date: true, time: true },
-  })
-
-  for (const lesson of lessons) {
-    if (next.has(lesson.groupId)) continue
-    if (lesson.date < groupDay.get(lesson.groupId)!) continue
-    next.set(lesson.groupId, { date: lesson.date, time: lesson.time })
-  }
-
-  return next
-}
-
 // ─── Текст ──────────────────────────────────────────────────────────
 
 /**
  * Блок одного ребёнка. Про ребёнка без групп сказано бесполо: пол в базе не
  * хранится, а «не записан» про Аню читается как ошибка бота.
  */
-function studentLines(
-  student: Student,
-  next: Map<number, { date: string; time: string }>,
-  today: string,
-): string[] {
+function studentLines(student: Student): string[] {
   const name = [student.firstName, student.lastName].filter(Boolean).join(' ')
 
   if (student.groups.length === 0) return [`👤 ${name}`, '   Пока нет активных групп.']
@@ -159,9 +103,8 @@ function studentLines(
   return [
     `👤 ${name}`,
     // Пустая строка между группами: у ребёнка их бывает две, и без разделителя
-    // шесть строк подряд читаются как одна группа с двумя расписаниями.
+    // строки подряд читаются как одна группа с двумя расписаниями.
     ...student.groups.flatMap((enrolment, index) => {
-      const lesson = next.get(enrolment.group.id)
       const balance = enrolment.wallet?.lessonsBalance ?? 0
 
       return [
@@ -169,7 +112,6 @@ function studentLines(
         `   🎓 ${enrolment.group.course.name}${enrolment.status === 'TRIAL' ? ' (пробное)' : ''}`,
         `   📍 ${enrolment.group.location.name}`,
         ...maybe(scheduleWords(enrolment.group.schedules), (words) => `   🗓 ${words}`),
-        ...maybe(lesson, (l) => `   ⏰ Ближайшее занятие: ${whenWords(l.date, l.time, today)}`),
         // Ноль — это и «занятия кончились», и «школа пакетами не пользуется».
         // Различить их здесь нечем, поэтому молчим.
         ...maybe(balance > 0 ? balance : null, (n) => `   🎟 Осталось занятий: ${n}`),
@@ -196,15 +138,4 @@ function scheduleWords(schedules: { dayOfWeek: number; time: string }[]): string
   return sameTime
     ? `${days.join(', ')} в ${sorted[0]!.time}`
     : sorted.map((s, i) => `${days[i]} ${s.time}`).join(', ')
-}
-
-/** «сегодня в 17:00», «завтра в 17:00», «пн, 8 сентября в 17:00». */
-function whenWords(ymd: string, time: string, today: string): string {
-  if (ymd === today) return `сегодня в ${time}`
-  if (ymd === shiftYmd(today, 1)) return `завтра в ${time}`
-
-  const date = ymdToLocalDate(ymd)
-  const day = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
-
-  return `${WEEKDAYS[date.getDay()]}, ${day} в ${time}`
 }
