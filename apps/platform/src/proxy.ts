@@ -36,9 +36,24 @@ export async function proxy(request: NextRequest) {
   const subdomain = extractSubdomain(request.headers.get('host'))
   const { pathname, search } = request.nextUrl
 
-  // Личный кабинет родителя по ключу-ссылке + старый адрес /edit (redirect)
-  // — публичные, без поддомена/сессии, обходят проверки proxy.
-  if (pathname.startsWith('/cabinet/') || pathname.startsWith('/edit/')) {
+  // Кабинет родителя — до чтения сессии: он публичный, ключ у него в ссылке, и
+  // ходить за сессией на каждый его запрос незачем.
+  if (subdomain === 'parent') {
+    return handleParentSubdomain(pathname, search, request)
+  }
+
+  // Старый адрес кабинета. Редирект постоянный и без срока: ссылку бот отправил
+  // родителю в чат, и она живёт в переписке дольше любого нашего решения.
+  if (pathname.startsWith('/cabinet/')) {
+    return NextResponse.redirect(
+      `${protocol}://parent.${rootDomain}${pathname.slice('/cabinet'.length)}${search}`,
+      308,
+    )
+  }
+
+  // Старый адрес анкеты: страница отвечает 404 сама, ей нужно только пройти
+  // мимо проверок поддомена.
+  if (pathname.startsWith('/edit/')) {
     return NextResponse.next()
   }
 
@@ -71,6 +86,23 @@ export async function proxy(request: NextRequest) {
   }
 
   return handleOrgSubdomain(subdomain, pathname, search, request, session)
+}
+
+/**
+ * Кабинет родителя: `parent.{rootDomain}/{token}` → сегмент `/cabinet/{token}`.
+ * Токен — весь путь, школы в адресе нет: она приходит из самого токена.
+ *
+ * Корень поддомена уезжает в `/cabinet` — страницы без токена не существует, и
+ * это правильный ответ: кабинет открывается только по своей ссылке.
+ */
+function handleParentSubdomain(pathname: string, search: string, request: NextRequest) {
+  // Вход из мини-приложения MAX живёт на этом же поддомене, чтобы редирект
+  // после проверки подписи остался внутри одного origin.
+  if (pathname === '/max') {
+    return NextResponse.next()
+  }
+
+  return NextResponse.rewrite(new URL(`/cabinet${pathname}${search}`, request.url))
 }
 
 function handleReservedSubdomain(

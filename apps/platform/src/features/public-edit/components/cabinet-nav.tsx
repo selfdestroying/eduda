@@ -37,7 +37,9 @@ function useSectionLinks(token: string) {
   const pathname = usePathname()
   const { children, setChild, studentId, childQuery: query } = useSelectedChild(token)
 
-  const base = `/cabinet/${token}`
+  // Адрес кабинета снаружи — `parent.{домен}/{token}`, сегмент `/cabinet`
+  // дописывает прокси. Ссылки поэтому пишутся без него, как и на страницах школы.
+  const base = `/${token}`
 
   const links = SECTIONS.map((section) => {
     const path = `${base}${section.seg}`

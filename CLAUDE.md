@@ -149,6 +149,7 @@ Tenancy is by **subdomain = organization slug**, resolved in `src/proxy.ts` (Nex
 
 - `{slug}.{rootDomain}/path` is rewritten to the `/[slug]/path` route segment; an `x-organization` header is set. All tenant pages live under `src/app/[slug]/`.
 - Reserved subdomains `auth`, `admin`, `shop` rewrite to `/auth`, `/admin`, `/shop` instead. `docs` is **not** among them any more — it's a separate app (`apps/docs`) that DNS/the reverse proxy routes to directly, so `docs.{rootDomain}` never reaches this proxy. It stays in `RESERVED_SUBDOMAINS` only so no school can claim the slug.
+- **`parent.{rootDomain}/{token}` — кабинет родителя**, и он разбирается **до** чтения сессии: поверхность публичная, ключ у неё в ссылке, и ходить за сессией на каждый её запрос незачем. Токен — весь путь (`/{token}` → сегмент `/cabinet/{token}`), поэтому ссылки внутри кабинета пишутся без `/cabinet`, как страницы школы пишутся без slug'а. Корень поддомена уезжает в `/cabinet` и честно отдаёт 404: страницы без токена не существует. Там же лежит `/max` — вход из мини-приложения MAX, на том же поддомене, чтобы переход после входа остался внутри одного origin. Старый адрес `/cabinet/{token}` отвечает постоянным редиректом (308): ссылки ушли родителям в переписку и живут там дольше любого нашего решения. Собирать адрес руками не надо — `parentCabinetUrl()` в `src/lib/utils.ts`, у ботов `cabinetUrl()` в `apps/bots/src/env.ts` (он выводит поддомен из `PLATFORM_URL`, чтобы вторая переменная не разошлась с первой молча).
 - The proxy verifies the session's `organization.slug` matches the subdomain (else redirect to root) and enforces **feature flags** (`isRouteDisabled`).
 - Local dev uses subdomains like `slug.localhost:3000` / a `.test` domain — see `.env.example` (`NEXT_PUBLIC_ROOT_DOMAIN`, `BETTER_AUTH_URL`). Cross-subdomain cookies are enabled.
 
@@ -338,6 +339,21 @@ pnpm --filter platform exec tsx scripts/check-reminders.ts   # кабинет р
 ```
 
 Переменные бота: `DATABASE_URL`, `PORT`, `NOTIFY_KEY`, `VK_GROUP_TOKEN`, `VK_CONFIRMATION`, `VK_SECRET`, необязательный `PLATFORM_URL` (только ссылка на кабинет в ответах; без него — `https://eduda.online`) и необязательные `MAX_BOT_TOKEN`, `MAX_WEBHOOK_URL`, `MAX_WEBHOOK_SECRET`. Платформе нужны только адреса для ссылок: `NEXT_PUBLIC_VK_GROUP`, `NEXT_PUBLIC_MAX_BOT`.
+
+## Мини-приложение MAX
+
+Кабинет родителя открывается внутри мессенджера: `parent.eduda.online/max` — тот адрес, что прописан боту в бизнес-панели MAX. Мини-приложение существует только внутри бота, поэтому оно, как и бот, одно на всю установку.
+
+- **Своей вёрстки у него нет.** `/max` только выясняет, чей это MAX-аккаунт, и уводит на обычный `/{token}` того же поддомена. Кабинет родителя для этого не переделывали вовсе: он живёт на токене в ссылке, без кук и без формы входа, а значит одинаково работает и во встроенном браузере, и во фрейме на `web.max.ru`. Кабинет **ученика** (`apps/shop`) так открыть нельзя: там сессия на куках, во фрейме они становятся третьей стороной, да и в MAX сидит родитель, а не ученик.
+- **Данные запуска читает клиент.** MAX кладёт их во фрагмент URL, а фрагмент до сервера не доезжает — поэтому страница клиентская: берёт `window.WebApp.initData` (глобал появляется вместе со скриптом `st.max.ru/js/max-web-app.js`, npm-пакета у MAX нет) и шлёт на `/api/max/enter`.
+- **Верить строке запуска нельзя, пока не сошлась подпись** — `src/lib/max-init-data.ts`. Секрет — подпись токена бота ключом «WebAppData», хеш — подпись отсортированных пар через `\n`. Считается локально, к MAX по сети не ходим, так что российский корневой сертификат тут ни при чём. Отсюда `MAX_BOT_TOKEN` в `.env` **платформы** — тот же токен, что у `apps/bots`; без него роут отвечает 503, всё остальное работает. Срока годности `auth_date` в документации нет, наш — час.
+- **Кабинетов бывает несколько** — у родителя дети в разных школах, и `ParentMessenger` это уже допускает. Один — сразу редирект, несколько — выбор школы. Отписка от напоминаний в отбор не входит: «не пишите мне» это про сообщения, а не про доступ к своему кабинету.
+- **Маршрутизация — в ветке поддомена `parent`** (`proxy.ts`, `handleParentSubdomain`): `/max` проходит как есть, всё остальное уезжает в `/cabinet{path}`. Отсюда же правило «страница мини-аппа лежит на поддомене кабинета»: с корневого домена переход после входа был бы межсайтовым.
+- Не сделано: кнопка `open_app` в напоминаниях вместо голой ссылки, `WebApp.BackButton` в шапке кабинета и привязка через `requestContact()` прямо из приложения (сейчас за ней отправляют в чат).
+
+```bash
+pnpm --filter platform exec tsx scripts/check-max-init-data.ts   # подпись данных запуска
+```
 
 ## Feature flags
 

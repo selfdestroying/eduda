@@ -97,7 +97,7 @@ export default function CabinetHome({ token }: { token: string }) {
             <Button
               variant="ghost"
               nativeButton={false}
-              render={<Link href={`/cabinet/${token}/finances${childQuery}`} />}
+              render={<Link href={`/${token}/finances${childQuery}`} />}
             >
               Финансы
             </Button>

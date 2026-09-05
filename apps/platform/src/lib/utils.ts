@@ -14,6 +14,16 @@ export const signInUrl = `${protocol}://auth.${rootDomain}`
 export const onboardingUrl = `${signInUrl}/onboarding`
 
 /**
+ * Личный кабинет родителя: свой поддомен, токен — весь путь.
+ *
+ * Поддомен, а не раздел платформы, потому что кабинет и есть отдельная
+ * поверхность: без сессии, без школы в адресе, с собственной аудиторией. На
+ * старом адресе `/cabinet/{token}` стоит постоянный редирект — ссылки лежат у
+ * родителей в переписке и живут там дольше любого нашего решения.
+ */
+export const parentCabinetUrl = (token: string) => `${protocol}://parent.${rootDomain}/${token}`
+
+/**
  * Публичная документация — отдельное приложение (`apps/docs`), поэтому адрес
  * задаётся снаружи. Дефолт верен в проде, где `docs.` резолвится DNS прямо в
  * docs-приложение; локально это другой порт, отсюда переменная.
@@ -53,7 +63,15 @@ export const maxBotUrl = () => (maxBot ? `https://max.ru/${maxBot}` : null)
  * slug'ами школ. Для `bots` это ещё и вопрос доставки — заняв слаг, школа увела бы
  * себе адрес, на который VK и MAX шлют вебхуки.
  */
-export const RESERVED_SUBDOMAINS = new Set(['auth', 'admin', 'shop', 'docs', 'bots', 'www'])
+export const RESERVED_SUBDOMAINS = new Set([
+  'auth',
+  'admin',
+  'shop',
+  'docs',
+  'bots',
+  'parent',
+  'www',
+])
 
 /**
  * Что нельзя занять под slug школы. Шире, чем `RESERVED_SUBDOMAINS`: сюда

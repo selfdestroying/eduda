@@ -39,7 +39,7 @@ import {
 } from '@/src/features/parents/schemas'
 import { ParentWithStudents } from '@/src/features/parents/types'
 import { studentKeys } from '@/src/features/students/queries'
-import { cn, maxBotUrl, protocol, rootDomain, vkBotUrl } from '@/src/lib/utils'
+import { cn, maxBotUrl, parentCabinetUrl, vkBotUrl } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -153,9 +153,7 @@ function ParentCard({
   onEdit: () => void
   onUnlink: () => void
 }) {
-  const parentEditUrl = rootDomain
-    ? `${protocol}://${rootDomain}/cabinet/${parent.accessToken}`
-    : `/cabinet/${parent.accessToken}`
+  const parentEditUrl = parentCabinetUrl(parent.accessToken)
 
   // Ссылка на бота — тот же токен, что и у кабинета: он и есть «этот родитель».
   const botLink = vkBotUrl(parent.accessToken)
