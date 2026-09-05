@@ -4,10 +4,13 @@ import { prisma } from '@repo/db'
 import { ForbiddenError } from '@/src/lib/error'
 import { authAction, publicAction } from '@/src/lib/safe-action'
 import { disconnectCabinetMessenger, readCabinetMessengers } from './cabinet.server'
+import { readReminderLog, readReminderParents } from './overview.server'
 import { readReminderSettings, writeReminderSettings } from './settings.server'
 import {
   CabinetMessengersSchema,
   DisconnectMessengerSchema,
+  ReminderLogListSchema,
+  ReminderParentListSchema,
   ReminderSettingsSchema,
 } from './schemas'
 
@@ -54,4 +57,31 @@ export const updateReminderSettings = authAction
   .action(async ({ ctx, parsedInput }) => {
     assertCanManage(ctx.session.memberRole)
     return writeReminderSettings(prisma, ctx.session.organizationId!, parsedInput)
+  })
+
+// ─── Экран школы ────────────────────────────────────────────────────
+
+/**
+ * Строки и `count` идут одной транзакцией: иначе «Страница 3 из 5»
+ * разъезжается с тем, что реально вернулось.
+ */
+
+export const getReminderParents = authAction
+  .metadata({ actionName: 'getReminderParents' })
+  .inputSchema(ReminderParentListSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    assertCanManage(ctx.session.memberRole)
+    return prisma.$transaction((tx) =>
+      readReminderParents(tx, ctx.session.organizationId!, parsedInput),
+    )
+  })
+
+export const getReminderLog = authAction
+  .metadata({ actionName: 'getReminderLog' })
+  .inputSchema(ReminderLogListSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    assertCanManage(ctx.session.memberRole)
+    return prisma.$transaction((tx) =>
+      readReminderLog(tx, ctx.session.organizationId!, ctx.tz, parsedInput),
+    )
   })

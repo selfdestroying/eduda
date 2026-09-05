@@ -35,9 +35,12 @@ const maxBot = process.env.NEXT_PUBLIC_MAX_BOT
  * Персональная ссылка на VK-бота: метка `ref` приезжает боту в первом
  * сообщении и говорит ему, какой это родитель. `ref` — тот же токен, что открывает
  * `/cabinet/{token}`.
+ *
+ * Без `ref` — просто чат с сообществом: так на него ссылается школа, у которой
+ * никакого «этого родителя» нет.
  */
-export const vkBotUrl = (ref: string) =>
-  vkGroup ? `https://vk.me/${vkGroup}?ref=${encodeURIComponent(ref)}` : null
+export const vkBotUrl = (ref?: string) =>
+  vkGroup ? `https://vk.me/${vkGroup}${ref ? `?ref=${encodeURIComponent(ref)}` : ''}` : null
 
 /** Бот MAX: метки в ссылке нет, родитель называет себя номером телефона. */
 export const maxBotUrl = () => (maxBot ? `https://max.ru/${maxBot}` : null)

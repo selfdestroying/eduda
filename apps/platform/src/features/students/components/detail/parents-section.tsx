@@ -43,7 +43,6 @@ import { cn, maxBotUrl, protocol, rootDomain, vkBotUrl } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import {
-  Bot,
   Check,
   ExternalLink,
   Loader,
@@ -231,25 +230,6 @@ function ParentCard({
           может просматривать данные ученика, его финансы и посещаемость."
           />
         </div>
-
-        {botLink && (
-          <div className="flex items-center gap-2">
-            <Bot className="text-muted-foreground size-3 shrink-0" />
-            <a
-              href={botLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary text-sm hover:underline"
-            >
-              Ссылка на бота ВКонтакте
-            </a>
-            <Hint
-              text="Персональная ссылка на бота: родителю достаточно перейти по ней и нажать «Начать»,
-          дальше бот будет напоминать ему о занятиях. Подключать MAX родитель начинает сам — там он
-          называет себя номером телефона."
-            />
-          </div>
-        )}
 
         {(botLink || maxBotUrl()) && (
           <div className="flex gap-1.5">

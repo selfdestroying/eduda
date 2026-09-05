@@ -18,23 +18,31 @@ class Rollback extends Error {}
 const AFTER = new Date('2026-09-10T18:00:00Z')
 /** Тот же день, 10:00 по школе — час отправки ещё не наступил. */
 const BEFORE = new Date('2026-09-10T07:00:00Z')
-/** `reminderLeadDays: 1`, значит план на завтра. */
+/** Режим «накануне» — значит план на завтра. */
 const TARGET = '2026-09-11'
+
+/** Сегодня для режима «в день занятия»: тот же день, что у `AFTER`/`BEFORE`. */
+const TODAY = '2026-09-10'
+/** 15:00 по школе. При запасе в два часа окно — [15:00, 17:00]. */
+const AT_15 = new Date('2026-09-10T12:00:00Z')
+/** 17:30 по школе: окно [17:30, 19:30] — сюда попадает только занятие в 19:00. */
+const AT_17_30 = new Date('2026-09-10T14:30:00Z')
 
 async function main() {
   try {
     await prisma.$transaction(
       async (tx) => {
         // ─── Школа с напоминаниями и школа с выключенной фичей ────────────
-        const makeOrg = async (slug: string) =>
+        const makeOrg = async (slug: string, mode: 'DAY_BEFORE' | 'SAME_DAY' = 'DAY_BEFORE') =>
           tx.organization.create({
             data: {
               name: slug,
               slug,
               timezone: 'Europe/Moscow',
               remindersEnabled: true,
+              reminderMode: mode,
               reminderTime: '20:00',
-              reminderLeadDays: 1,
+              reminderLeadMinutes: 120,
             },
             select: { id: true },
           })
@@ -157,7 +165,11 @@ async function main() {
         assert.equal(row.status, 'PENDING', 'свежая строка ждёт отправки')
         assert.equal(row.dedupeKey, `lesson-reminder:${wanted!.id}:${TARGET}`, 'ключ дедупликации')
         assert.match(row.text, /^Завтра, 11 сентября/, 'дата словами')
-        assert.match(row.text, /• Пётр — Робототехника, 17:00, Ленина 5/, 'строка занятия')
+        assert.match(
+          row.text,
+          /• Пётр Проверкин — Робототехника, 17:00, Ленина 5/,
+          'строка занятия',
+        )
         assert.ok(!row.text.includes('Отчисленный'), 'отчисленный не попал')
         assert.ok(!row.text.includes('19:00'), 'отменённое занятие не попало')
 
@@ -165,6 +177,137 @@ async function main() {
         const again = await planLessonReminders(tx, AFTER)
         assert.equal(again.planned, 0, 'повторный запуск ничего не добавляет')
         assert.equal(await planned(orgA.id), 1, 'строка по-прежнему одна')
+
+        // ─── Режим «в день занятия» ───────────────────────────────────────
+        // Один родитель, трое детей, три разных времени: именно на этом видно,
+        // что сообщение здесь про урок, а не про день.
+        const slugC = `check-notify-c-${stamp}`
+        const orgC = await makeOrg(slugC, 'SAME_DAY')
+
+        // Свои шаблоны школы: планировщик обязан собирать сообщение по ним, а не
+        // по зашитому тексту — иначе редактор в платформе ни на что не влияет.
+        // Оба уровня сразу: тело рендерится один раз, строка — на каждое занятие.
+        await tx.organization.update({
+          where: { id: orgC.id },
+          data: {
+            reminderTemplate: 'Школа {школа}, {дата}. {когда}\n\n{занятия}',
+            reminderLineTemplate: '{ученик} ({курс}) в {время}, {место}',
+          },
+        })
+
+        const courseC = await tx.course.create({
+          data: { organizationId: orgC.id, name: 'Программирование' },
+          select: { id: true },
+        })
+        const locationC = await tx.location.create({
+          data: { organizationId: orgC.id, name: 'Центр' },
+          select: { id: true },
+        })
+        const parentC = await tx.parent.create({
+          data: { firstName: 'Родитель троих', organizationId: orgC.id },
+          select: { id: true },
+        })
+        const messengerC = await tx.parentMessenger.create({
+          data: {
+            provider: 'VK',
+            externalId: `check-${stamp}-same-day`,
+            parentId: parentC.id,
+            organizationId: orgC.id,
+          },
+          select: { id: true },
+        })
+
+        const child = async (firstName: string, time: string) => {
+          const group = await tx.group.create({
+            data: {
+              organizationId: orgC.id,
+              courseId: courseC.id,
+              locationId: locationC.id,
+              name: `Группа ${time}`,
+              startDate: '2026-09-01',
+              maxStudents: 10,
+            },
+            select: { id: true },
+          })
+          await tx.lesson.create({
+            data: { organizationId: orgC.id, groupId: group.id, date: TODAY, time },
+          })
+          const student = await tx.student.create({
+            data: { firstName, lastName: 'Проверкин', organizationId: orgC.id },
+            select: { id: true },
+          })
+          await tx.studentGroup.create({
+            data: {
+              organizationId: orgC.id,
+              studentId: student.id,
+              groupId: group.id,
+              status: 'ACTIVE',
+              statusChangedAt: '2026-09-01',
+            },
+          })
+          await tx.studentParent.create({
+            data: { organizationId: orgC.id, studentId: student.id, parentId: parentC.id },
+          })
+        }
+
+        await child('Ранний', '13:00')
+        await child('Дневной', '16:00')
+        await child('Вечерний', '19:00')
+
+        const outboxC = () =>
+          tx.notificationOutbox.findMany({
+            where: { organizationId: orgC.id },
+            orderBy: { id: 'asc' },
+            select: { dedupeKey: true, text: true },
+          })
+
+        // 10:00 по школе — окно [10:00, 12:00], в него не попадает ничего.
+        await planLessonReminders(tx, BEFORE)
+        assert.equal((await outboxC()).length, 0, 'до окна ничего не планируется')
+
+        await planLessonReminders(tx, AT_15)
+        let sameDay = await outboxC()
+        assert.equal(sameDay.length, 1, 'в окно [15:00, 17:00] попало только занятие в 16:00')
+        assert.equal(
+          sameDay[0]!.dedupeKey,
+          `lesson-reminder:${messengerC.id}:${TODAY}:16:00`,
+          'ключ включает время урока: сообщение здесь про урок, а не про день',
+        )
+        // Целиком, а не по кускам: это единственное место, где видно, что
+        // сообщение собрано ровно по обоим шаблонам школы и что ничего своего
+        // планировщик не дописывает.
+        assert.equal(
+          sameDay[0]!.text,
+          [
+            `Школа ${slugC}, 10 сентября. Сегодня, 10 сентября`,
+            '',
+            'Дневной Проверкин (Программирование) в 16:00, Центр',
+          ].join('\n'),
+          'сообщение собрано по шаблонам школы — и телу, и строке занятия',
+        )
+
+        await planLessonReminders(tx, AT_15)
+        assert.equal((await outboxC()).length, 1, 'повтор в том же окне ничего не добавляет')
+
+        await planLessonReminders(tx, AT_17_30)
+        sameDay = await outboxC()
+        assert.equal(sameDay.length, 2, 'следующее время урока — отдельное сообщение')
+        assert.equal(
+          sameDay[1]!.dedupeKey,
+          `lesson-reminder:${messengerC.id}:${TODAY}:19:00`,
+          'у него свой ключ',
+        )
+        // Шапка у обоих писем теперь одинаковая — день, а не время: различает
+        // их строка занятия, где время и живёт.
+        assert.match(
+          sameDay[1]!.text,
+          /Вечерний Проверкин \(Программирование\) в 19:00/,
+          'и своё время урока — в строке занятия',
+        )
+        assert.ok(
+          sameDay.every((row) => !row.text.includes('Ранний')),
+          'занятие, которое уже началось, задним числом не напоминается',
+        )
 
         // ─── Дренаж ───────────────────────────────────────────────────────
         const outbox = async (externalId: string, attempts = 0) => {

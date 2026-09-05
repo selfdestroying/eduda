@@ -122,7 +122,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureEntry> = {
   // Гейтит и страницу настроек, и сам планировщик в `apps/bots`: выключенная
   // фича означает, что школе не планируются напоминания вовсе.
   notifications: {
-    label: 'Напоминания родителям',
+    label: 'Боты',
     description:
       'Бот в VK или MAX напоминает родителям о занятиях. Родитель подключается сам, по ссылке из своего кабинета.',
     routes: ['/organization/notifications'],

@@ -9,8 +9,8 @@ import { isFeatureDisabled } from '@/src/lib/features/registry'
 import { DEFAULT_TZ, formatTimeZoneLabel } from '@/src/lib/timezone'
 import { cn, isKnowledgeDay, isSeptember } from '@/src/lib/utils'
 import {
-  BellRing,
   BookOpen,
+  Bot,
   Briefcase,
   Building2,
   ChevronsUpDown,
@@ -104,9 +104,9 @@ const ORG_MENU_ITEMS: OrgMenuItem[] = [
     featureKey: 'finances.products',
   },
   {
-    title: 'Напоминания родителям',
+    title: 'Боты',
     url: '/organization/notifications',
-    icon: BellRing,
+    icon: Bot,
     roles: STAFF_ROLES,
     featureKey: 'notifications',
   },

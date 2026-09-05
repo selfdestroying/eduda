@@ -106,7 +106,10 @@ function Channel({
           </Button>
         ) : (
           href && (
-            <Button render={<a href={href} target="_blank" rel="noopener noreferrer" />}>
+            <Button
+              nativeButton={false}
+              render={<a href={href} target="_blank" rel="noopener noreferrer" />}
+            >
               Подключить
               <ExternalLink />
             </Button>
