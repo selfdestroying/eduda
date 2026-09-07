@@ -227,6 +227,8 @@ export const getDashboardMonthData = authAction
       },
       include: {
         attendance: {
+          // Порядка не было вовсе — тот же прыгающий ростер, что и в календаре.
+          orderBy: [{ isTrial: 'desc' }, { student: { firstName: 'asc' } }, { id: 'asc' }],
           include: {
             student: true,
             makeupForAttendance: { include: { lesson: true } },

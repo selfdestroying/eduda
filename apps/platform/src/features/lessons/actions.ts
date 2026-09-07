@@ -57,7 +57,10 @@ export const getLessonDetail = authAction
             makeupForAttendance: { include: { lesson: true } },
             makeupAttendance: { include: { lesson: true } },
           },
-          orderBy: [{ isTrial: 'desc' }, { student: { firstName: 'asc' } }],
+          // `id` в конце — тайбрейк: без него у тёзок порядок задаёт физическое
+          // расположение строк, и после отметки посещаемости обновлённая строка
+          // прыгает на другое место списка.
+          orderBy: [{ isTrial: 'desc' }, { student: { firstName: 'asc' } }, { id: 'asc' }],
         },
       },
     })
