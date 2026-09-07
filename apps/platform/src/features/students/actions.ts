@@ -382,10 +382,11 @@ export const createStudent = authAction
 
 /**
  * Расшифровывает пароль ученика для показа в карточке. За permission-гейтом,
- * каждый показ логируется: пароль виден только тому, кто и так может менять
- * ученика, и не «просто так», а под запись.
+ * каждый показ логируется: пароль виден тому, кто и так видит карточку ученика
+ * (включая учителя — он же и диктует пароль на занятии), но не «просто так»,
+ * а под запись.
  */
-export const revealStudentPassword = permissionAction({ student: ['update'] })
+export const revealStudentPassword = permissionAction({ student: ['read'] })
   .metadata({ actionName: 'revealStudentPassword' })
   .inputSchema(RevealStudentPasswordSchema)
   .action(async ({ ctx, parsedInput }) => {
