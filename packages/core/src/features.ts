@@ -35,6 +35,7 @@ export const FEATURE_KEYS = [
   'organization.locations',
   'cabinet.absence',
   'notifications',
+  'home.calendar',
 ] as const
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number]
@@ -116,6 +117,14 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureEntry> = {
     label: 'Отмена занятий родителем',
     description:
       'Родитель может предупредить о пропуске будущего занятия и записать ребёнка на отработку из личного кабинета.',
+  },
+
+  // - Главная -
+  // Роута у фичи нет: гейтит не адрес, а то, что рендерится на «/» — новый
+  // календарь либо старая панель управления. Выключено = старый вид.
+  'home.calendar': {
+    label: 'Календарь на главной',
+    description: 'Выключите — на главной останется старая панель управления.',
   },
 
   // - Уведомления в мессенджерах -

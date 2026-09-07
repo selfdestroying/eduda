@@ -12,8 +12,9 @@ import {
   visibleRange,
   ymd,
 } from '../lib/date-utils'
-import { deriveCategories, mapLessonsToEvents } from '../lib/lesson-mapping'
-import type { CalendarEvent, CalendarView, DayStatus, FilterDimension, WeekStart } from '../types'
+import { mapLessonsToEvents } from '../lib/lesson-mapping'
+import type { CalendarEvent, CalendarView, DayStatus, WeekStart } from '../types'
+import { useEventFilters } from './use-event-filters'
 
 export interface UseCalendarOptions {
   defaultView?: CalendarView
@@ -29,16 +30,6 @@ export function useCalendar({
   // Начальное значение — по браузерному TZ; при позднем приходе tz не пересчитывается,
   // но `goToday` самовосстанавливается по поясу организации.
   const [currentDate, setCurrentDate] = useState<string>(todayYmd())
-  /**
-   * Скрытые категории по измерениям (тип группы / курс / локация / преподаватель) —
-   * фильтр боковой панели. По умолчанию видимы все.
-   */
-  const [hidden, setHidden] = useState<Record<FilterDimension, Set<number>>>(() => ({
-    course: new Set(),
-    location: new Set(),
-    teacher: new Set(),
-    groupType: new Set(),
-  }))
 
   /** Событие, выбранное для просмотра подробностей (показ в drawer'е). */
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
@@ -62,24 +53,10 @@ export function useCalendar({
   const range = useMemo(() => visibleRange(view, curr, weekStart), [view, curr, weekStart])
   const { data, isLoading, isFetching } = useCalendarLessonsQuery(range.from, range.to)
   const events = useMemo(() => mapLessonsToEvents(data ?? []), [data])
-  const courseCategories = useMemo(() => deriveCategories(events, 'course'), [events])
-  const locationCategories = useMemo(() => deriveCategories(events, 'location'), [events])
-  const teacherCategories = useMemo(() => deriveCategories(events, 'teacher'), [events])
-  const groupTypeCategories = useMemo(() => deriveCategories(events, 'groupType'), [events])
-
-  const visibleEvents = useMemo(
-    () =>
-      events.filter(
-        (e) =>
-          !hidden.course.has(e.courseId) &&
-          !hidden.location.has(e.locationId) &&
-          !hidden.groupType.has(e.groupTypeId) &&
-          // Преподаватель — много значений: урок виден, если без преподавателя
-          // либо хотя бы один из его преподавателей не скрыт.
-          (e.teachers.length === 0 || e.teachers.some((t) => !hidden.teacher.has(t.id))),
-      ),
-    [events, hidden],
-  )
+  // Фильтры (тип группы / курс / локация / преподаватель) — общая машинка с панелью
+  // управления, см. `useEventFilters`.
+  const filters = useEventFilters(events)
+  const visibleEvents = useMemo(() => events.filter(filters.isVisible), [events, filters.isVisible])
   const eventsOn = useCallback(
     (ds: string) => visibleEvents.filter((e) => e.date === ds),
     [visibleEvents],
@@ -131,60 +108,6 @@ export function useCalendar({
     setCurrentDate((cd) => ymd(addMonths(parseYmd(cd), n)))
   }, [])
 
-  const toggleCategory = useCallback((dim: FilterDimension, id: number) => {
-    setHidden((prev) => {
-      const next = new Set(prev[dim])
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return { ...prev, [dim]: next }
-    })
-  }, [])
-
-  const isCategoryActive = useCallback(
-    (dim: FilterDimension, id: number) => !hidden[dim].has(id),
-    [hidden],
-  )
-
-  const categoriesByDim = useMemo<Record<FilterDimension, typeof courseCategories>>(
-    () => ({
-      course: courseCategories,
-      location: locationCategories,
-      teacher: teacherCategories,
-      groupType: groupTypeCategories,
-    }),
-    [courseCategories, locationCategories, teacherCategories, groupTypeCategories],
-  )
-
-  /** Все категории измерения активны (видимы)? */
-  const allCategoriesActive = useCallback(
-    (dim: FilterDimension) => categoriesByDim[dim].every((c) => !hidden[dim].has(c.id)),
-    [categoriesByDim, hidden],
-  )
-
-  /** Применён ли хоть один фильтр (что-то скрыто) — для индикатора на мобильных. */
-  const hasActiveFilters = useMemo(
-    () =>
-      hidden.course.size > 0 ||
-      hidden.location.size > 0 ||
-      hidden.teacher.size > 0 ||
-      hidden.groupType.size > 0,
-    [hidden],
-  )
-
-  /** Включить/выключить сразу все категории измерения (если все активны — скрыть все, иначе показать все). */
-  const toggleAllCategories = useCallback(
-    (dim: FilterDimension) => {
-      setHidden((prev) => {
-        const allActive = categoriesByDim[dim].every((c) => !prev[dim].has(c.id))
-        return {
-          ...prev,
-          [dim]: allActive ? new Set(categoriesByDim[dim].map((c) => c.id)) : new Set<number>(),
-        }
-      })
-    },
-    [categoriesByDim],
-  )
-
   /** Выбрать событие для показа подробностей. */
   const selectEvent = useCallback((event: CalendarEvent) => setSelectedEvent(event), [])
   /** Закрыть карточку подробностей. */
@@ -200,10 +123,6 @@ export function useCalendar({
     curr,
     // данные
     events,
-    courseCategories,
-    locationCategories,
-    teacherCategories,
-    groupTypeCategories,
     visibleEvents,
     eventsOn,
     dayStatus,
@@ -216,11 +135,7 @@ export function useCalendar({
     shiftMiniMonth,
     setCurrentDate,
     // фильтры (тип группы / курс / локация / преподаватель)
-    toggleCategory,
-    isCategoryActive,
-    allCategoriesActive,
-    toggleAllCategories,
-    hasActiveFilters,
+    ...filters,
     // подробности урока
     selectedEvent,
     selectEvent,

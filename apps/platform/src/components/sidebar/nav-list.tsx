@@ -71,8 +71,10 @@ export default function NavList({ entries, forceOpen, isLoading, emptyHint }: Na
       <SidebarGroup>
         <SidebarMenu>
           <SidebarMenuItem>
-            {/* Главная — календарь: панель управления с неё убрана. Ведём на «/»,
-                а не на «/calendar»: страница та же, но у главной свой префетч. */}
+            {/* Главная. Ведём на «/», а не на «/calendar»: страница та же, но у
+                главной свой префетч. Школе с выключенной `home.calendar` там
+                открывается старая панель — она тоже календарь, потому название
+                и иконка одни на оба вида. */}
             <SidebarMenuButton
               isActive={pathname === '/' || pathname === '/calendar'}
               render={<Link href={'/'} />}

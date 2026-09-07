@@ -37,7 +37,7 @@ export function CalendarHeader({ ctrl }: { ctrl: CalendarController }) {
         <ViewTabs view={ctrl.view} onChange={ctrl.setView} />
         {/* Боковая панель с триггером фильтров есть только ≥ lg — ниже даём кнопку в шапке. */}
         <div className="lg:hidden">
-          <FiltersDrawer ctrl={ctrl} />
+          <FiltersDrawer ctrl={ctrl} compact />
         </div>
       </div>
     </header>

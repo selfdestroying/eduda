@@ -32,7 +32,7 @@ export function MobileHeader({ ctrl }: { ctrl: CalendarController }) {
           <Button variant="outline" size="icon" onClick={() => ctrl.nav(1)} aria-label="Вперёд">
             <ChevronRight />
           </Button>
-          <FiltersDrawer ctrl={ctrl} />
+          <FiltersDrawer ctrl={ctrl} compact />
         </div>
       </div>
       <div className="flex items-center gap-2 pb-3">

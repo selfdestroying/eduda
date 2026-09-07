@@ -1,17 +1,8 @@
 'use client'
 
-import { Hint } from '@repo/ui/components/hint'
-import { StatCard } from '@repo/ui/components/stat-card'
 import { Badge } from '@repo/ui/components/badge'
 import { Button } from '@repo/ui/components/button'
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@repo/ui/components/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@repo/ui/components/card'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,7 +18,6 @@ import {
 } from '@repo/ui/components/empty'
 import { Input } from '@repo/ui/components/input'
 import { Skeleton } from '@repo/ui/components/skeleton'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@repo/ui/components/tooltip'
 import AttendanceActions from '@/src/features/lessons/components/attendance-actions'
 import { AttendanceStatusSwitcher } from '@/src/features/lessons/components/attendance-status-switcher'
 import { useUpdateAttendanceCommentMutation } from '@/src/features/lessons/queries'
@@ -35,21 +25,17 @@ import { useOrganizationPermissionQuery } from '@/src/features/organization/quer
 import { useOrgTimezone } from '@/src/hooks/use-org-timezone'
 import { formatDateOnly, nowInTz } from '@/src/lib/timezone'
 import { cn, getFullName } from '@/src/lib/utils'
-import { format, isSameDay } from 'date-fns'
+import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { debounce } from 'es-toolkit'
 import {
-  BookOpen,
   Calendar,
   Check,
   ChevronDown,
   CircleAlert,
-  CircleHelp,
   Clock,
-  Info,
   RefreshCw,
   SquareArrowOutUpRight,
-  XCircle,
 } from 'lucide-react'
 import Link from 'next/link'
 import { createParser, useQueryStates } from 'nuqs'
@@ -58,15 +44,31 @@ import { useDashboardMonthQuery } from '../queries'
 import { DASHBOARD_MONTH_KEY_REGEX } from '../schemas'
 import type {
   DashboardCalendarDaySummaryMap,
-  DashboardDayData,
-  DashboardDayStatus,
   DashboardLessonItem,
   DashboardMonthData,
 } from '../types'
-import { CalendarPromoBanner } from './calendar-promo-banner'
+import { FiltersDrawer } from '@/src/features/calendar/components/filters-drawer'
+import { useEventFilters } from '@/src/features/calendar/hooks/use-event-filters'
+import type { FilterableEvent, FilterDimension } from '@/src/features/calendar/types'
 import { LessonCalendar } from './lesson-calendar'
 
 const QUERY_STATE_OPTIONS = { shallow: true, history: 'push' as const }
+
+/** Типов групп в месячном снапшоте нет — секцию не показываем. */
+const DASHBOARD_FILTER_DIMENSIONS: FilterDimension[] = ['course', 'location', 'teacher']
+
+/** Урок панели → форма, понятная фильтрам календаря. */
+function toFilterableEvent(lesson: DashboardLessonItem): FilterableEvent {
+  return {
+    courseId: lesson.group.course.id,
+    title: lesson.group.course.name,
+    locationId: lesson.group.location?.id ?? 0,
+    location: lesson.group.location?.name ?? 'Без локации',
+    groupTypeId: 0,
+    groupType: 'Без типа',
+    teachers: lesson.teachers,
+  }
+}
 
 function getTodayInTz(tz: string) {
   const today = nowInTz(tz)
@@ -107,19 +109,6 @@ function toMonthLabel(date: Date) {
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
-function toWeekdayLabel(date: Date) {
-  const label = format(date, 'EEEE', { locale: ru })
-  return label.charAt(0).toUpperCase() + label.slice(1)
-}
-
-function getMarkedRatio(marked: number, total: number) {
-  if (total === 0) {
-    return '0'
-  }
-
-  return `${marked} / ${total}`
-}
-
 const localDateParser = createParser({
   parse: parseLocalDate,
   serialize: serializeLocalDate,
@@ -129,22 +118,6 @@ const monthKeyParser = createParser({
   parse: (value: string) => (DASHBOARD_MONTH_KEY_REGEX.test(value) ? value : null),
   serialize: (value: string) => value,
 })
-
-const dayStatusConfig: Record<
-  Exclude<DashboardDayStatus, null>,
-  { label: string; className: string; hint: string }
-> = {
-  marked: {
-    label: 'Все отмечены',
-    className: 'bg-success/10 text-success hover:bg-success/15 cursor-help',
-    hint: 'Во всех активных уроках на этот день посещаемость уже проставлена.',
-  },
-  unmarked: {
-    label: 'Есть неотмеченные',
-    className: 'bg-destructive/10 text-destructive hover:bg-destructive/15 cursor-help',
-    hint: 'Хотя бы в одном активном уроке остались ученики со статусом "Не отмечен".',
-  },
-}
 
 export default function Dashboard() {
   const tz = useOrgTimezone()
@@ -175,8 +148,18 @@ export default function Dashboard() {
 
   const selectedDayKey = serializeLocalDate(pageState.date)
   const selectedDayData = data?.days.find((day) => day.date === selectedDayKey) ?? null
-  const daySummaries = buildCalendarDaySummaryMap(data)
-  const isToday = data ? selectedDayKey === data.today : isSameDay(pageState.date, today)
+
+  // Фильтры — та же машинка, что у нового календаря: категории считаются по всем
+  // урокам месяца, а не только выбранного дня.
+  const monthEvents = useMemo(
+    () => data?.days.flatMap((day) => day.lessons).map(toFilterableEvent) ?? [],
+    [data],
+  )
+  const filters = useEventFilters(monthEvents, DASHBOARD_FILTER_DIMENSIONS)
+  const isLessonVisible = (lesson: DashboardLessonItem) =>
+    filters.isVisible(toFilterableEvent(lesson))
+  const visibleLessons = selectedDayData?.lessons.filter(isLessonVisible) ?? []
+  const daySummaries = buildCalendarDaySummaryMap(data, isLessonVisible)
 
   const handleSelectDay = (day: Date) => {
     void setPageState({ date: day })
@@ -189,64 +172,13 @@ export default function Dashboard() {
     })
   }
 
-  const handleSelectToday = () => {
-    const nextToday = getTodayInTz(tz)
-
-    void setPageState({
-      month: getMonthKey(nextToday),
-      date: nextToday,
-    })
-  }
-
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
-      <CalendarPromoBanner />
-
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="space-y-2">
           <Card className={cn(isFetching && data && 'opacity-80')}>
             <CardHeader>
-              <div>
-                <CardTitle>
-                  <div className="flex gap-1">
-                    <span>Календарь месяца</span>
-                    <Tooltip>
-                      <TooltipTrigger
-                        delay={300}
-                        render={
-                          <Button type="button" size="icon-sm" variant="ghost">
-                            <CircleHelp aria-hidden />
-                          </Button>
-                        }
-                      />
-                      <TooltipContent>
-                        <div className="grid sm:grid-cols-3 xl:grid-cols-1">
-                          <LegendItem
-                            colorClassName="bg-success"
-                            text="Все активные посещения отмечены"
-                          />
-                          <LegendItem
-                            colorClassName="bg-destructive"
-                            text="Есть неотмеченные ученики"
-                          />
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </CardTitle>
-              </div>
-              <CardAction>
-                <Button
-                  variant="outline"
-                  onClick={handleSelectToday}
-                  disabled={
-                    pageState.month === DEFAULT_MONTH_KEY && isSameDay(pageState.date, today)
-                  }
-                >
-                  <Calendar />
-                  Сегодня
-                </Button>
-              </CardAction>
+              <CardTitle>Календарь месяца</CardTitle>
             </CardHeader>
 
             <CardContent className="space-y-2">
@@ -272,15 +204,9 @@ export default function Dashboard() {
               />
             </CardContent>
           </Card>
-
-          {isPending && !data ? (
-            <MonthOverviewSkeleton />
-          ) : (
-            <MonthOverviewCard data={data} isFetching={isFetching} />
-          )}
         </div>
 
-        <div className="min-h-0 space-y-2">
+        <div className="min-h-0">
           {isPending && !data ? (
             <DashboardContentSkeleton />
           ) : isError ? (
@@ -288,29 +214,23 @@ export default function Dashboard() {
           ) : data && data.summary.totalLessons === 0 ? (
             <DashboardEmptyMonth month={visibleMonth} />
           ) : (
-            <>
-              <SelectedDayHeader
-                selectedDay={pageState.date}
-                dayData={selectedDayData}
-                isToday={isToday}
-              />
-
-              {selectedDayData ? (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-sm">
-                      Расписание дня
-                      <Hint text="Нажмите на строку урока, чтобы увидеть список учеников и их статусы посещаемости." />
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <LessonsTable lessons={selectedDayData.lessons} />
-                  </CardContent>
-                </Card>
-              ) : (
-                <DashboardEmptyDay selectedDay={pageState.date} />
-              )}
-            </>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl tracking-tight sm:text-2xl">
+                  {format(pageState.date, 'd MMMM', { locale: ru })}
+                </CardTitle>
+                <CardAction>
+                  <FiltersDrawer ctrl={filters} />
+                </CardAction>
+              </CardHeader>
+              <CardContent>
+                {visibleLessons.length > 0 ? (
+                  <LessonsTable lessons={visibleLessons} />
+                ) : (
+                  <DashboardEmptyDay selectedDay={pageState.date} />
+                )}
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>
@@ -318,173 +238,45 @@ export default function Dashboard() {
   )
 }
 
+/**
+ * Точки под датами месяца — по видимым урокам, а не по серверной сводке дня:
+ * иначе фильтр прятал бы уроки в списке, но не в календаре. Правило статуса то же,
+ * что на сервере (`buildDayStatus`).
+ */
 function buildCalendarDaySummaryMap(
   data: DashboardMonthData | undefined,
+  isLessonVisible: (lesson: DashboardLessonItem) => boolean,
 ): DashboardCalendarDaySummaryMap {
   if (!data) {
     return {}
   }
 
   return Object.fromEntries(
-    data.days.map((day) => [
-      day.date,
-      {
-        status: day.status,
-        totalLessons: day.summary.totalLessons,
-        unmarkedAttendanceCount: day.summary.unmarkedAttendanceCount,
-      },
-    ]),
-  )
-}
+    data.days.map((day) => {
+      const lessons = day.lessons.filter(isLessonVisible)
+      const unmarkedAttendanceCount = lessons.reduce(
+        (acc, lesson) => acc + lesson.summary.unmarkedAttendanceCount,
+        0,
+      )
+      const attendanceToMarkCount = lessons.reduce(
+        (acc, lesson) => acc + lesson.summary.attendanceToMarkCount,
+        0,
+      )
 
-function LegendItem({ colorClassName, text }: { colorClassName: string; text: string }) {
-  return (
-    <div className="flex items-center gap-2 rounded-lg">
-      <span className={cn('size-2 rounded-full', colorClassName)} />
-      <span className="text-xs/relaxed">{text}</span>
-    </div>
-  )
-}
-
-function MonthOverviewCard({
-  data,
-  isFetching,
-}: {
-  data: DashboardMonthData | undefined
-  isFetching: boolean
-}) {
-  const summary = data?.summary
-
-  return (
-    <Card className={cn(isFetching && summary && 'opacity-80')}>
-      <CardHeader>
-        <div>
-          <CardTitle>Обзор месяца</CardTitle>
-          <CardDescription>Ключевые сигналы по выбранному месяцу и текущему дню.</CardDescription>
-        </div>
-      </CardHeader>
-
-      <CardContent>
-        <div className="grid grid-cols-2 gap-2">
-          <StatCard
-            label="Всего уроков"
-            value={summary?.totalLessons ?? '-'}
-            icon={BookOpen}
-            hint="Во всех днях выбранного месяца"
-          />
-          <StatCard
-            label="Дни с риском"
-            value={summary?.unmarkedDays ?? '-'}
-            icon={CircleAlert}
-            variant={summary && summary.unmarkedDays > 0 ? 'danger' : 'default'}
-            hint="Дни, где есть хотя бы один неотмеченный ученик"
-          />
-          <StatCard label="Сегодня" value={summary?.todayLessons ?? '-'} icon={Calendar} />
-          <StatCard
-            label="Отмены"
-            value={summary?.cancelledLessons ?? '-'}
-            icon={XCircle}
-            variant={summary && summary.cancelledLessons > 0 ? 'warning' : 'default'}
-            hint="Отменённые уроки всё ещё видны в календаре"
-          />
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function SelectedDayHeader({
-  selectedDay,
-  dayData,
-  isToday,
-}: {
-  selectedDay: Date
-  dayData: DashboardDayData | null
-  isToday: boolean
-}) {
-  const statusMeta = dayData?.status ? dayStatusConfig[dayData.status] : null
-  const summary = dayData?.summary ?? {
-    totalLessons: 0,
-    activeLessons: 0,
-    cancelledLessons: 0,
-    attendanceCount: 0,
-    attendanceToMarkCount: 0,
-    markedAttendanceCount: 0,
-    unmarkedAttendanceCount: 0,
-    presentCount: 0,
-    absentCount: 0,
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">{toWeekdayLabel(selectedDay)}</Badge>
-            {statusMeta ? (
-              <>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Badge className={statusMeta.className}>
-                        {statusMeta.label}
-                        <Info />
-                      </Badge>
-                    }
-                  />
-                  <TooltipContent>{statusMeta.hint}</TooltipContent>
-                </Tooltip>
-              </>
-            ) : (
-              <Badge variant="outline">Без статуса</Badge>
-            )}
-            {isToday && <Badge variant="secondary">Сегодня</Badge>}
-          </div>
-
-          <div>
-            <CardTitle className="text-xl tracking-tight sm:text-2xl">
-              {format(selectedDay, 'd MMMM', { locale: ru })}
-            </CardTitle>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent>
-        <div className="grid gap-2 sm:grid-cols-4">
-          <SummaryTile label="Уроки" value={summary.totalLessons} />
-          <SummaryTile
-            label="Отмечено"
-            value={getMarkedRatio(summary.markedAttendanceCount, summary.attendanceToMarkCount)}
-          />
-          <SummaryTile label="Не отмечены" value={summary.unmarkedAttendanceCount} />
-          <SummaryTile label="Отмены" value={summary.cancelledLessons} />
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function SummaryTile({
-  label,
-  value,
-  description,
-}: {
-  label: string
-  value: React.ReactNode
-  description?: string
-}) {
-  return (
-    <div className="bg-muted/40 rounded-lg px-3 py-2">
-      <div className="text-muted-foreground text-[0.6875rem] tracking-[0.12em] uppercase">
-        {label}
-      </div>
-      <div className="mt-1 text-sm font-semibold tracking-tight">{value}</div>
-      {description && (
-        <div className="text-muted-foreground mt-1 text-[0.6875rem] leading-tight">
-          {description}
-        </div>
-      )}
-    </div>
+      return [
+        day.date,
+        {
+          status:
+            unmarkedAttendanceCount > 0
+              ? ('unmarked' as const)
+              : attendanceToMarkCount > 0
+                ? ('marked' as const)
+                : null,
+          totalLessons: lessons.length,
+          unmarkedAttendanceCount,
+        },
+      ]
+    }),
   )
 }
 
@@ -510,22 +302,18 @@ function DashboardEmptyMonth({ month }: { month: Date }) {
 
 function DashboardEmptyDay({ selectedDay }: { selectedDay: Date }) {
   return (
-    <Card>
-      <CardContent>
-        <Empty className="bg-muted/20 border border-dashed">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <Clock />
-            </EmptyMedia>
-            <EmptyTitle>На {format(selectedDay, 'd MMMM', { locale: ru })} уроков нет</EmptyTitle>
-            <EmptyDescription>
-              Месяц уже загружен. Выберите другой день в календаре, чтобы увидеть расписание и
-              посещаемость.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      </CardContent>
-    </Card>
+    <Empty className="bg-muted/20 border border-dashed">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Clock />
+        </EmptyMedia>
+        <EmptyTitle>На {format(selectedDay, 'd MMMM', { locale: ru })} уроков нет</EmptyTitle>
+        <EmptyDescription>
+          Месяц уже загружен. Выберите другой день в календаре, чтобы увидеть расписание и
+          посещаемость.
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   )
 }
 
@@ -548,26 +336,6 @@ function DashboardErrorState({ error, onRetry }: { error: unknown; onRetry: () =
             Попробовать снова
           </Button>
         </Empty>
-      </CardContent>
-    </Card>
-  )
-}
-
-function MonthOverviewSkeleton() {
-  return (
-    <Card>
-      <CardHeader>
-        <div>
-          <CardTitle>Обзор месяца</CardTitle>
-          <CardDescription>Подгружаем основные показатели...</CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-2">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-24 rounded-lg" />
-          ))}
-        </div>
       </CardContent>
     </Card>
   )
@@ -823,37 +591,13 @@ function AttendanceCommentInput({
 
 function DashboardContentSkeleton() {
   return (
-    <div className="space-y-2">
-      <Card>
-        <CardContent className="space-y-2 py-4">
-          <Skeleton className="h-6 w-36" />
-          <Skeleton className="h-10 w-56" />
-          <div className="grid gap-2 sm:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={index} className="h-18 rounded-lg" />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {Array.from({ length: 3 }).map((_, index) => (
-        <Card key={index}>
-          <CardContent className="space-y-2 py-4">
-            <Skeleton className="h-6 w-48" />
-            <Skeleton className="h-4 w-64" />
-            <div className="grid gap-2 sm:grid-cols-4">
-              {Array.from({ length: 4 }).map((__, tileIndex) => (
-                <Skeleton key={tileIndex} className="h-18 rounded-lg" />
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {Array.from({ length: 6 }).map((__, badgeIndex) => (
-                <Skeleton key={badgeIndex} className="h-7 w-28 rounded-xl" />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    <Card>
+      <CardContent className="space-y-2 py-4">
+        <Skeleton className="h-8 w-40" />
+        {Array.from({ length: 6 }).map((_, index) => (
+          <Skeleton key={index} className="h-8 w-full" />
+        ))}
+      </CardContent>
+    </Card>
   )
 }

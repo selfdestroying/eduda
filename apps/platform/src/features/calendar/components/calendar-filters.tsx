@@ -2,7 +2,7 @@
 
 import { Checkbox } from '@repo/ui/components/checkbox'
 import { cn } from '@/src/lib/utils'
-import type { CalendarController } from '../hooks/use-calendar'
+import { FILTER_DIMENSION_TITLES, type EventFiltersController } from '../hooks/use-event-filters'
 import type { CalendarCategory, FilterDimension } from '../types'
 import { hexA } from '../lib/date-utils'
 
@@ -21,7 +21,7 @@ function FilterSection({
   title: string
   dimension: FilterDimension
   categories: CalendarCategory[]
-  ctrl: CalendarController
+  ctrl: EventFiltersController
 }) {
   return (
     <div className="flex flex-col">
@@ -70,42 +70,28 @@ function FilterSection({
 }
 
 /**
- * Секции фильтров календаря (типы групп / курсы / локации / преподаватели).
- * Переиспользуется в десктоп-боковой панели и в мобильном drawer.
+ * Секции фильтров (типы групп / курсы / локации / преподаватели).
+ * Переиспользуется десктоп-панелью календаря, мобильным drawer'ом и панелью
+ * управления — набор секций задаёт контроллер (`ctrl.dimensions`).
  */
 export function CalendarFilters({
   ctrl,
   className,
 }: {
-  ctrl: CalendarController
+  ctrl: EventFiltersController
   className?: string
 }) {
   return (
     <div className={cn('flex flex-col gap-5', className)}>
-      <FilterSection
-        title="Тип группы"
-        dimension="groupType"
-        categories={ctrl.groupTypeCategories}
-        ctrl={ctrl}
-      />
-      <FilterSection
-        title="Курсы"
-        dimension="course"
-        categories={ctrl.courseCategories}
-        ctrl={ctrl}
-      />
-      <FilterSection
-        title="Локации"
-        dimension="location"
-        categories={ctrl.locationCategories}
-        ctrl={ctrl}
-      />
-      <FilterSection
-        title="Преподаватели"
-        dimension="teacher"
-        categories={ctrl.teacherCategories}
-        ctrl={ctrl}
-      />
+      {ctrl.dimensions.map((dimension) => (
+        <FilterSection
+          key={dimension}
+          title={FILTER_DIMENSION_TITLES[dimension]}
+          dimension={dimension}
+          categories={ctrl.categoriesByDim[dimension]}
+          ctrl={ctrl}
+        />
+      ))}
     </div>
   )
 }

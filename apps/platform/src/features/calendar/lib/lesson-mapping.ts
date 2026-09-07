@@ -1,4 +1,10 @@
-import type { CalendarCategory, CalendarEvent, CalendarLessonDTO, FilterDimension } from '../types'
+import type {
+  CalendarCategory,
+  CalendarEvent,
+  CalendarLessonDTO,
+  FilterableEvent,
+  FilterDimension,
+} from '../types'
 import { colorForGroupType, colorForId } from './constants'
 
 /** `"14:30"` → минуты от полуночи. */
@@ -33,9 +39,11 @@ export function mapLessonsToEvents(lessons: CalendarLessonDTO[]): CalendarEvent[
 }
 
 /** Извлекает категории `(id, name, color)`, к которым относится событие в данном измерении. */
-function categoryKeys(e: CalendarEvent, dim: FilterDimension): CalendarCategory[] {
+function categoryKeys(e: FilterableEvent, dim: FilterDimension): CalendarCategory[] {
   if (dim === 'groupType')
-    return [{ id: e.groupTypeId, name: e.groupType, color: e.color, count: 0 }]
+    return [
+      { id: e.groupTypeId, name: e.groupType, color: colorForGroupType(e.groupTypeId), count: 0 },
+    ]
   if (dim === 'course')
     return [{ id: e.courseId, name: e.title, color: colorForId(e.courseId), count: 0 }]
   if (dim === 'location')
@@ -48,7 +56,7 @@ function categoryKeys(e: CalendarEvent, dim: FilterDimension): CalendarCategory[
  * боковой панели. `count` — число уроков, относящихся к категории.
  */
 export function deriveCategories(
-  events: CalendarEvent[],
+  events: FilterableEvent[],
   dim: FilterDimension,
 ): CalendarCategory[] {
   const map = new Map<number, CalendarCategory>()

@@ -86,3 +86,13 @@ export interface LayoutSlot {
   lane: number
   lanes: number
 }
+
+/**
+ * Минимальная форма события для фильтров — только измерения, по которым фильтруют.
+ * Календарь передаёт сюда свои `CalendarEvent`, панель управления — свои уроки:
+ * машинка фильтров (`useEventFilters`) на обеих одна.
+ */
+export type FilterableEvent = Pick<
+  CalendarEvent,
+  'courseId' | 'title' | 'locationId' | 'location' | 'groupTypeId' | 'groupType' | 'teachers'
+>

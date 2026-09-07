@@ -1,5 +1,7 @@
 import { Calendar } from '@/src/features/calendar/components/calendar'
+import Dashboard from '@/src/features/dashboard/components/dashboard'
 import { auth } from '@/src/lib/auth/server'
+import { isFeatureDisabled } from '@/src/lib/features/registry'
 import { signInUrl } from '@/src/lib/utils'
 import { Metadata } from 'next'
 import { headers } from 'next/headers'
@@ -16,12 +18,15 @@ export default async function Page() {
     redirect(signInUrl)
   }
 
-  // Главная — календарь, у всех и без выбора. Классическая панель управления
-  // (`src/features/dashboard/`, кука `home_view`, «Старый вид») осталась в коде,
-  // но больше никуда не ведёт.
+  // Главная — календарь, но школа может остаться на старой панели управления:
+  // фича `home.calendar`, выключается строкой в `OrganizationFeature`.
   //
   // Рендерим на месте, а не через redirect('/calendar'): серверный редирект с
   // часто префетчируемого «/» ломал RSC-навигацию (ошибка "Failed to load page"
   // при входе и переходах на главную).
+  if (isFeatureDisabled(session.disabledFeatures, 'home.calendar')) {
+    return <Dashboard />
+  }
+
   return <Calendar />
 }
