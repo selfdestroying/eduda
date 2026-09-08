@@ -334,13 +334,52 @@ export const updateAttendanceStatus = authAction
 
 // ─── Update Attendance Student Status ────────────────────────────────────────
 
+/**
+ * Пробное вне денег, поэтому галочка обязана двигать их вместе с собой.
+ *
+ * Отметка статуса у пробного до денежных функций не доходит (`isTrial` — ранний
+ * выход в `updateAttendanceStatus`), так что снятая позже галочка оставляла бы
+ * проведённое занятие без цены навсегда: «ждёт оплаты» при полном кошельке.
+ * Обратное направление симметрично: занятие, ставшее пробным, не имеет права
+ * держать списание — за пробное школа денег не берёт.
+ *
+ * Коины остаются на месте намеренно: награда за посещение уже могла быть
+ * потрачена, и её пересчёт — отдельное решение школы, а не следствие галочки.
+ */
 export const updateAttendanceTrialStatus = authAction
   .metadata({ actionName: 'updateAttendanceTrialStatus' })
   .inputSchema(UpdateAttendanceTrialStatusSchema)
   .action(async ({ ctx, parsedInput }) => {
-    await prisma.attendance.update({
-      where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
-      data: { isTrial: parsedInput.isTrial },
+    await prisma.$transaction(async (tx) => {
+      const attendance = await tx.attendance.findFirst({
+        where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
+        select: {
+          id: true,
+          status: true,
+          isWarned: true,
+          isTrial: true,
+          makeupForAttendanceId: true,
+        },
+      })
+      if (!attendance) throw new NotFoundError('Запись посещаемости не найдена')
+      if (attendance.isTrial === parsedInput.isTrial) return
+
+      await tx.attendance.update({
+        where: { id: attendance.id },
+        data: { isTrial: parsedInput.isTrial },
+      })
+
+      // Статус, который ничего не стоит, деньгами и не двигается.
+      if (!isLessonCharged(attendance)) return
+
+      const money = {
+        attendanceId: attendance.id,
+        organizationId: ctx.session.organizationId!,
+        actorUserId: Number(ctx.session.user.id),
+        meta: { isTrial: parsedInput.isTrial },
+      }
+      if (parsedInput.isTrial) await unchargeAttendanceTx(tx, money)
+      else await chargeAttendanceTx(tx, money)
     })
   })
 
