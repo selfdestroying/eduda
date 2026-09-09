@@ -55,6 +55,10 @@ export const CreateGroupSchema = GroupBaseSchema.extend({
 // ─── Update (partial base + id) ────────────────────────────────────
 export const UpdateGroupSchema = GroupBaseSchema.partial().extend({
   id: z.int().positive(),
+  // Не в базовой схеме: при создании имя обязательно присутствует (пустое —
+  // «собрать из курса и расписания»), а здесь ключа может не быть вовсе,
+  // и тогда имя не трогаем.
+  name: z.string().nullish(),
 })
 
 // ─── Delete ─────────────────────────────────────────────────────────

@@ -360,10 +360,16 @@ export const updateGroup = authAction
   .metadata({ actionName: 'updateGroup' })
   .inputSchema(UpdateGroupSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { id, ...data } = parsedInput
+    const { id, name, ...rest } = parsedInput
     await prisma.group.update({
       where: { id, organizationId: ctx.session.organizationId! },
-      data,
+      data: {
+        ...rest,
+        // Ключ пришёл — пустое поле значит «имени нет», и это `null`, а не `''`:
+        // иначе у «без имени» появляется два представления. Ключа нет — имя не
+        // трогаем вовсе.
+        ...(name !== undefined && { name: name?.trim() || null }),
+      },
     })
   })
 

@@ -10,7 +10,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@repo/ui/components/dialog'
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@repo/ui/components/field'
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldOptional,
+} from '@repo/ui/components/field'
 import { Input } from '@repo/ui/components/input'
 import { Item, ItemContent, ItemDescription, ItemTitle } from '@repo/ui/components/item'
 import { Skeleton } from '@repo/ui/components/skeleton'
@@ -36,6 +44,7 @@ export default function EditGroupDialog({ group, isOpen, onClose }: EditGroupDia
     resolver: zodResolver(UpdateGroupSchema),
     defaultValues: {
       id: group.id,
+      name: group.name ?? '',
       courseId: group.courseId,
       locationId: group.locationId!,
       url: group.url ?? '',
@@ -85,6 +94,29 @@ function EditGroupForm({ form, onSubmit }: EditGroupFormProps) {
   return (
     <form id="edit-group-form" onSubmit={form.handleSubmit(onSubmit)}>
       <FieldGroup className="gap-2">
+        <Controller
+          name="name"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field>
+              <FieldContent>
+                <FieldLabel htmlFor="form-rhf-name">
+                  Название <FieldOptional />
+                </FieldLabel>
+                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+              </FieldContent>
+              <Input
+                id="form-rhf-name"
+                {...field}
+                value={field.value ?? ''}
+                placeholder="Например, Английский · A2 · вечер"
+              />
+              <FieldDescription>
+                Если оставить пустым, название соберётся из курса и расписания.
+              </FieldDescription>
+            </Field>
+          )}
+        />
         <Controller
           name="courseId"
           control={form.control}
