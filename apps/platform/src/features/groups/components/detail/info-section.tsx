@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from '@repo/ui/components/card'
 import { formatDateOnly } from '@/src/lib/timezone'
-import { DaysOfWeek } from '@/src/lib/utils'
+import { DaysOfWeek, getGroupName } from '@/src/lib/utils'
 
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@repo/ui/components/item'
 import {
@@ -69,7 +69,7 @@ export default function InfoSection({
   return (
     <Card className="shadow-none">
       <CardHeader>
-        <CardTitle>Информация о группе</CardTitle>
+        <CardTitle>{getGroupName(group)}</CardTitle>
         {isActive ? (
           <CardAction>
             <InfoSectionAction group={group} canArchive={canArchive} />
