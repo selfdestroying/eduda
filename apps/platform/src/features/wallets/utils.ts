@@ -1,5 +1,5 @@
 import type { StudentStatus } from '@repo/db/enums'
-import { getGroupName } from '@/src/lib/utils'
+import { getGroupName, type GroupLabel } from '@/src/lib/utils'
 
 export type BalanceVariant = 'success' | 'warning' | 'danger'
 
@@ -13,7 +13,7 @@ export type WalletLabelInput = {
   name: string | null
   studentGroups: Array<{
     status: StudentStatus
-    group: { course: { name: string }; schedules: Array<{ dayOfWeek: number; time: string }> }
+    group: GroupLabel
   }>
 }
 

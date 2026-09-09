@@ -32,6 +32,7 @@ export const globalSearch = authAction
           organizationId: orgId,
           status: 'ACTIVE',
           OR: [
+            { name: { contains: q, mode: 'insensitive' } },
             { course: { name: { contains: q, mode: 'insensitive' } } },
             { location: { name: { contains: q, mode: 'insensitive' } } },
             {
@@ -43,6 +44,7 @@ export const globalSearch = authAction
         },
         select: {
           id: true,
+          name: true,
           course: { select: { name: true } },
           location: { select: { name: true } },
           schedules: { select: { dayOfWeek: true, time: true } },

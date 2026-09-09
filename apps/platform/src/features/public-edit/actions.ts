@@ -344,6 +344,7 @@ export const getPublicStudentFinances = publicAction
                 status: true,
                 group: {
                   select: {
+                    name: true,
                     course: { select: { name: true } },
                     schedules: { select: { dayOfWeek: true, time: true } },
                   },

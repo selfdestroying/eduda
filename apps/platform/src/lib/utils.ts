@@ -197,18 +197,11 @@ export function getFullName(firstName: string, lastName: string | null): string 
   return lastName ? `${firstName} ${lastName}` : firstName
 }
 
-export function getGroupName(group: {
-  name?: string | null
-  course: { name: string }
-  schedules: Array<{ dayOfWeek: number; time: string }>
-}) {
-  if (group.name) return group.name
-  const sorted = [...group.schedules].sort(
-    (a, b) => ((a.dayOfWeek + 6) % 7) - ((b.dayOfWeek + 6) % 7),
-  )
-  const parts = sorted.map((s) => `${DaysOfWeek.short[s.dayOfWeek]} ${s.time}`)
-  return `${group.course.name} ${parts.join(', ')}`
-}
+/**
+ * Имя группы для показа. Живёт в `@repo/core/group` — правило общее с шопом;
+ * ре-экспорт, чтобы `@/src/lib/utils` остался одной точкой входа.
+ */
+export { GROUP_LABEL_SELECT, getGroupName, type GroupLabel } from '@repo/core/group'
 
 // `birthDate` — date-only строка `YYYY-MM-DD`; `today` берём в поясе
 // организации, чтобы «сегодня» для возраста считалось по её дню.

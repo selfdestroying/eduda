@@ -11,6 +11,7 @@ import { authAction, featureAction, permissionAction } from '@/src/lib/safe-acti
 import { createStudentUserTx, hashStudentPassword } from '@/src/lib/student-auth'
 import { isProfileEdit } from '@/src/lib/student-data'
 import { decryptStudentPassword } from '@/src/lib/student-password'
+import { getGroupName } from '@/src/lib/utils'
 import { randomInt } from 'crypto'
 import * as z from 'zod'
 import {
@@ -585,16 +586,6 @@ export type StudentGroupHistoryEntry = {
   status?: string
 }
 
-const DaysShort: Record<number, string> = {
-  1: 'Пн',
-  2: 'Вт',
-  3: 'Ср',
-  4: 'Чт',
-  5: 'Пт',
-  6: 'Сб',
-  0: 'Вс',
-}
-
 export const getStudentGroupHistory = authAction
   .metadata({ actionName: 'getStudentGroupHistory' })
   .inputSchema(
@@ -657,18 +648,10 @@ export const getStudentGroupHistory = authAction
       }
     }
 
-    function buildGroupName(g: (typeof attendances)[number]['lesson']['group']) {
-      const sorted = [...g.schedules].sort(
-        (a, b) => ((a.dayOfWeek + 6) % 7) - ((b.dayOfWeek + 6) % 7),
-      )
-      const parts = sorted.map((s) => `${DaysShort[s.dayOfWeek]} ${s.time}`)
-      return `${g.course.name} ${parts.join(', ')}`
-    }
-
     const entries: StudentGroupHistoryEntry[] = []
 
     for (const [groupId, stats] of groupStats) {
-      const name = buildGroupName(stats.group)
+      const name = getGroupName(stats.group)
 
       entries.push({
         type: 'joined',
