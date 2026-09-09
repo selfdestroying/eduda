@@ -114,7 +114,9 @@ export default function AddStudentToGroupButton({
         studentId: data.target.value,
         walletId: isCreatingNewWallet ? undefined : data.walletId,
         isApplyToLesson: data.isApplyToLesson,
-        newWalletName: isCreatingNewWallet ? newWalletName || undefined : undefined,
+        // Пустая строка — «новый кошелёк без названия», а не «кошелька не надо»:
+        // экшен различает их по `!== undefined`.
+        newWalletName: isCreatingNewWallet ? newWalletName : undefined,
       },
       {
         onSuccess: () => {

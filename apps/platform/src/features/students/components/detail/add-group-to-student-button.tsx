@@ -34,7 +34,6 @@ import { Switch } from '@repo/ui/components/switch'
 import { useAddStudentToGroupMutation } from '@/src/features/groups/queries'
 import type { GroupWithRelations } from '@/src/features/groups/types'
 import { studentKeys } from '@/src/features/students/queries'
-import { createWallet as createWalletAction } from '@/src/features/wallets/actions'
 import { walletKeys } from '@/src/features/wallets/queries'
 import type { WalletWithGroups } from '@/src/features/wallets/types'
 import { getWalletLabel } from '@/src/features/wallets/utils'
@@ -93,7 +92,12 @@ export default function AddGroupToStudentButton({
     }))
   }, [groups])
 
-  const handleSubmit = async (data: FormValues) => {
+  // Новый кошелёк заводит сам экшен, в одной транзакции с записью в группу. Здесь
+  // его создавать нельзя: до `mutate` кнопка не заблокирована (`isPending` ещё
+  // false), и каждый повторный клик успевал завести кошелёк, а запись в группу
+  // падала на составном ключе — так у одного ученика набралось четыре пустых
+  // кошелька за одиннадцать секунд.
+  const handleSubmit = (data: FormValues) => {
     if (!data.target) return
     const groupId = data.target.value
     if (!isCreatingNewWallet && wallets && wallets.length > 0 && !data.walletId) {
@@ -101,24 +105,15 @@ export default function AddGroupToStudentButton({
       return
     }
 
-    let walletId = data.walletId
-    let newWalletNameToUse = isCreatingNewWallet ? newWalletName || undefined : undefined
-
-    if (isCreatingNewWallet) {
-      const { data: newWallet, serverError } = await createWalletAction({
-        studentId: student.id,
-        name: newWalletNameToUse,
-      })
-      if (serverError || !newWallet) return
-      walletId = newWallet.id
-      newWalletNameToUse = undefined
-    }
-
     addMutation.mutate(
       {
         groupId,
         studentId: student.id,
-        walletId,
+        walletId: isCreatingNewWallet ? undefined : data.walletId,
+        // Пустая строка — это «новый кошелёк без названия», а не «кошелька не надо»:
+        // экшен различает их по `!== undefined`. `|| undefined` здесь молча записал
+        // бы ученика в группу вообще без кошелька.
+        newWalletName: isCreatingNewWallet ? newWalletName : undefined,
         isApplyToLesson: data.isApplyToLesson,
       },
       {
