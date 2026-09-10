@@ -1,3 +1,4 @@
+import { OptionalUrlSchema } from '@/src/lib/schemas'
 import { DateOnlySchema } from '@/src/lib/timezone'
 import * as z from 'zod'
 import { CreateParentSchema } from '../parents/schemas'
@@ -8,11 +9,7 @@ const StudentBaseFields = {
     .string({ error: 'Укажите фамилию' })
     .min(2, 'Фамилия должна содержать минимум 2 символа'),
   birthDate: DateOnlySchema.nullish(),
-  url: z
-    .string()
-    .optional()
-    .transform((v) => (v === '' || v === undefined ? undefined : v))
-    .pipe(z.url('Укажите корректный URL').optional()),
+  url: OptionalUrlSchema,
 }
 
 export const CreateStudentSchema = z

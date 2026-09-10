@@ -1,3 +1,4 @@
+import { OptionalUrlSchema } from '@/src/lib/schemas'
 import { DateOnlySchema } from '@/src/lib/timezone'
 import * as z from 'zod'
 
@@ -37,7 +38,7 @@ export const GroupBaseSchema = z.object({
     .number('Введите максимальное количество учеников')
     .int()
     .positive('Количество должно быть положительным'),
-  url: z.url('Неверный URL').optional(),
+  url: OptionalUrlSchema,
 })
 
 // ─── Create ─────────────────────────────────────────────────────────
