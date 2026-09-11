@@ -1,4 +1,5 @@
 import { isOrgFeatureDisabled } from '@repo/core/features-db'
+import { activeMessengerWhere } from '@repo/core/messenger'
 import { renderTemplate } from '@repo/core/reminder-template'
 import { dateToYmd, formatInTz, ymdToLocalDate } from '@repo/core/timezone'
 import type { Prisma } from '@repo/db'
@@ -17,6 +18,10 @@ import type { ReminderMode } from '@repo/db/enums'
  *   завтрашними занятиями его детей, в назначенный школой час.
  * - `SAME_DAY` — сообщение привязано ко ВРЕМЕНИ УРОКА: у двух детей с занятиями
  *   в 17:00 и 19:00 это два разных сообщения.
+ *
+ * Получатели — только привязки к боту, которым школа рассылает сейчас
+ * (`activeMessengerWhere`): у школы со своим ботом привязки к боту ЕДУДА
+ * остаются в базе, но напоминаний по ним нет.
  */
 
 const KIND = 'LESSON_REMINDER'
@@ -35,6 +40,8 @@ type Org = {
   reminderLeadMinutes: number
   reminderTemplate: string
   reminderLineTemplate: string
+  /** Свой бот школы; `null` — рассылает бот ЕДУДА. */
+  maxBot: { organizationId: number } | null
 }
 
 export async function planLessonReminders(
@@ -52,6 +59,7 @@ export async function planLessonReminders(
       reminderLeadMinutes: true,
       reminderTemplate: true,
       reminderLineTemplate: true,
+      maxBot: { select: { organizationId: true } },
     },
   })
 
@@ -59,20 +67,26 @@ export async function planLessonReminders(
   let counted = 0
 
   for (const org of organizations) {
-    // Школа выключила напоминания — не планируем ей вовсе.
-    if (await isOrgFeatureDisabled(db, org.id, 'notifications')) continue
+    // Каждая школа отдельно: сломанное у одной не должно оставлять без
+    // напоминаний остальных.
+    try {
+      // Школа выключила напоминания — не планируем ей вовсе.
+      if (await isOrgFeatureDisabled(db, org.id, 'notifications')) continue
 
-    if (org.reminderMode === 'SAME_DAY') {
+      if (org.reminderMode === 'SAME_DAY') {
+        counted += 1
+        planned += await planSameDay(db, org, now)
+        continue
+      }
+
+      // Час отправки ещё не наступил по местному времени школы.
+      if (formatInTz(now, org.timezone, 'HH:mm') < org.reminderTime) continue
+
       counted += 1
-      planned += await planSameDay(db, org, now)
-      continue
+      planned += await planDayBefore(db, org, now)
+    } catch (error) {
+      console.error(`plan: школа ${org.id} не спланирована —`, error)
     }
-
-    // Час отправки ещё не наступил по местному времени школы.
-    if (formatInTz(now, org.timezone, 'HH:mm') < org.reminderTime) continue
-
-    counted += 1
-    planned += await planDayBefore(db, org, now)
   }
 
   return { organizations: counted, planned }
@@ -87,7 +101,7 @@ export async function planLessonReminders(
  */
 async function planDayBefore(db: Prisma.TransactionClient, org: Org, now: Date) {
   const targetDate = shiftYmd(formatInTz(now, org.timezone, 'yyyy-MM-dd'), 1)
-  const lessons = await readLessons(db, org.id, targetDate)
+  const lessons = await readLessons(db, org, targetDate)
 
   // Одно сообщение на привязку на день, со всеми детьми сразу: два ребёнка —
   // это две строки в одном сообщении, а не два сообщения подряд.
@@ -121,7 +135,7 @@ async function planSameDay(db: Prisma.TransactionClient, org: Org, now: Date) {
   const nowHm = formatInTz(now, org.timezone, 'HH:mm')
   const until = addMinutesHm(nowHm, org.reminderLeadMinutes)
 
-  const lessons = await readLessons(db, org.id, today, { gte: nowHm, lte: until })
+  const lessons = await readLessons(db, org, today, { gte: nowHm, lte: until })
 
   // Группируем по привязке И времени урока: сообщение здесь про конкретное
   // занятие, а не про день. Два ребёнка в одно время всё ещё получают одно
@@ -141,12 +155,12 @@ async function planSameDay(db: Prisma.TransactionClient, org: Org, now: Date) {
 
 async function readLessons(
   db: Prisma.TransactionClient,
-  organizationId: number,
+  org: Org,
   date: string,
   time?: Prisma.StringFilter,
 ) {
   return db.lesson.findMany({
-    where: { organizationId, date, status: 'ACTIVE', ...(time && { time }) },
+    where: { organizationId: org.id, date, status: 'ACTIVE', ...(time && { time }) },
     orderBy: { time: 'asc' },
     select: {
       time: true,
@@ -167,7 +181,7 @@ async function readLessons(
                       parent: {
                         select: {
                           messengers: {
-                            where: { unsubscribedAt: null },
+                            where: activeMessengerWhere(Boolean(org.maxBot)),
                             select: { id: true },
                           },
                         },

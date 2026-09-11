@@ -1,4 +1,3 @@
-import { env } from '../env'
 import type { SendResult } from '../drain'
 
 /**
@@ -15,19 +14,19 @@ import type { SendResult } from '../drain'
  *    бота. Дописать тип в `UPDATE_TYPES` мало: у живой подписки останется
  *    прежний набор, и события нового типа просто не придут — тоже молча.
  *    Поэтому `ensureSubscription` сверяет набор и переоформляет подписку.
+ *
+ * Токен — первым параметром у каждой функции: ботов несколько (бот ЕДУДА и
+ * боты школ), и от чьего имени говорить, решает вызывающий.
  */
 
 const API = 'https://platform-api2.max.ru'
 
-async function call(path: string, init: RequestInit = {}): Promise<Response> {
-  const max = env.max
-  if (!max) throw new Error('MAX не настроен')
-
+async function call(token: string, path: string, init: RequestInit = {}): Promise<Response> {
   return fetch(`${API}${path}`, {
     ...init,
     headers: {
       // Именно так: без `Bearer`.
-      Authorization: max.token,
+      Authorization: token,
       'content-type': 'application/json',
       ...init.headers,
     },
@@ -66,15 +65,15 @@ function messageBody(text: string, buttons?: Button[]) {
 
 // ─── Отправка ───────────────────────────────────────────────────────
 
-/** `randomId` не используется: своего ключа идемпотентности у MAX нет. */
 export async function sendMessage(
+  token: string,
   externalId: string,
   text: string,
   buttons?: Button[],
 ): Promise<SendResult> {
   let response: Response
   try {
-    response = await call(`/messages?user_id=${encodeURIComponent(externalId)}`, {
+    response = await call(token, `/messages?user_id=${encodeURIComponent(externalId)}`, {
       method: 'POST',
       body: JSON.stringify(messageBody(text, buttons)),
     })
@@ -97,8 +96,12 @@ export async function sendMessage(
 }
 
 /** Кнопка «отправить номер»: единственный способ узнать телефон в MAX. */
-export function askForContact(externalId: string, text: string): Promise<SendResult> {
-  return sendMessage(externalId, text, [CONTACT])
+export function askForContact(
+  token: string,
+  externalId: string,
+  text: string,
+): Promise<SendResult> {
+  return sendMessage(token, externalId, text, [CONTACT])
 }
 
 /**
@@ -109,8 +112,8 @@ export function askForContact(externalId: string, text: string): Promise<SendRes
  * Момент, когда родителю надоели напоминания, — это момент, когда напоминание
  * пришло. Отписка обязана быть здесь, а не в меню, которое ещё надо вспомнить.
  */
-export function sendReminder(externalId: string, text: string): Promise<SendResult> {
-  return sendMessage(externalId, text, [STOP_BUTTON])
+export function sendReminder(token: string, externalId: string, text: string): Promise<SendResult> {
+  return sendMessage(token, externalId, text, [STOP_BUTTON])
 }
 
 /**
@@ -122,12 +125,13 @@ export function sendReminder(externalId: string, text: string): Promise<SendResu
  * уже будет.
  */
 export async function answerCallback(
+  token: string,
   callbackId: string,
   text: string,
   buttons?: Button[],
 ): Promise<SendResult> {
   try {
-    const response = await call(`/answers?callback_id=${encodeURIComponent(callbackId)}`, {
+    const response = await call(token, `/answers?callback_id=${encodeURIComponent(callbackId)}`, {
       method: 'POST',
       body: JSON.stringify({ message: messageBody(text, buttons) }),
     })
@@ -155,36 +159,36 @@ const UPDATE_TYPES = ['bot_started', 'bot_stopped', 'message_created', 'message_
  * дважды. Набор сверяем как множество — порядок MAX не хранит.
  *
  * Возвращает, что сделала: это единственный след в ответе крона, по которому
- * видно, что подписка была потеряна и восстановлена.
+ * видно, что подписка была потеряна и восстановлена. Ошибок не бросает — бот
+ * одной школы не должен мешать подписке остальных.
  */
-export async function ensureSubscription(): Promise<string> {
-  const max = env.max
-  if (!max) return 'не настроен'
-
+export async function ensureSubscription(
+  token: string,
+  webhookUrl: string,
+  secret: string,
+): Promise<string> {
   try {
-    const listed = await call('/subscriptions')
+    const listed = await call(token, '/subscriptions')
     if (listed.ok) {
       const listing = (await listed.json()) as {
         subscriptions?: { url?: string; update_types?: string[] }[]
       }
-      const current = listing.subscriptions?.find((item) => item.url === max.webhookUrl)
+      const current = listing.subscriptions?.find((item) => item.url === webhookUrl)
 
       if (current && sameTypes(current.update_types)) return 'есть'
 
       // Набор устарел. Обновить подписку нечем — только снять и завести заново;
       // порядок именно такой, иначе рискуем получить две на один адрес.
       if (current) {
-        await call(`/subscriptions?url=${encodeURIComponent(max.webhookUrl)}`, { method: 'DELETE' })
+        await call(token, `/subscriptions?url=${encodeURIComponent(webhookUrl)}`, {
+          method: 'DELETE',
+        })
       }
     }
 
-    const created = await call('/subscriptions', {
+    const created = await call(token, '/subscriptions', {
       method: 'POST',
-      body: JSON.stringify({
-        url: max.webhookUrl,
-        update_types: UPDATE_TYPES,
-        secret: max.secret,
-      }),
+      body: JSON.stringify({ url: webhookUrl, update_types: UPDATE_TYPES, secret }),
     })
 
     return created.ok ? 'оформлена' : `не удалась: MAX ${created.status}`
@@ -211,23 +215,21 @@ const COMMANDS = [
 
 /**
  * Меню команд живёт в профиле бота и не протухает, поэтому ставится один раз
- * за запуск процесса, а не каждым проходом крона, как подписка.
+ * за жизнь процесса на бота, а не каждым проходом крона, как подписка.
  *
- * Ошибку только пишем в лог: бот без меню работает, а падать на старте из-за
- * недоступного MAX значит уронить заодно и крон-роут.
+ * Ошибку только пишем в лог и возвращаем `false`: бот без меню работает, а
+ * крон попробует снова на следующем проходе.
  */
-export async function ensureCommands(): Promise<void> {
-  if (!env.max) return
-
+export async function ensureCommands(token: string): Promise<boolean> {
   try {
-    const response = await call('/me', {
+    const response = await call(token, '/me', {
       method: 'PATCH',
       body: JSON.stringify({ commands: COMMANDS }),
     })
-    if (!response.ok) {
-      console.error(`max: меню команд не обновилось — MAX ${response.status}`)
-    }
+    if (response.ok) return true
+    console.error(`max: меню команд не обновилось — MAX ${response.status}`)
   } catch (error) {
     console.error('max: меню команд не обновилось', error)
   }
+  return false
 }

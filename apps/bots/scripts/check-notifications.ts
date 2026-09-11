@@ -135,7 +135,7 @@ async function main() {
               organizationId,
               unsubscribedAt: messenger === 'unsubscribed' ? new Date() : null,
             },
-            select: { id: true, externalId: true },
+            select: { id: true, parentId: true },
           })
           return row
         }
@@ -309,10 +309,55 @@ async function main() {
           'занятие, которое уже началось, задним числом не напоминается',
         )
 
+        // ─── Свой бот школы ───────────────────────────────────────────────
+        // Рассылает школа одним ботом. У родителя привязки к обоим — напоминание
+        // уходит только через тот, которым школа рассылает сейчас, а когда школа
+        // своего бота отключает, рассылка возвращается на бота ЕДУДА.
+        const orgD = await makeOrg(`check-notify-d-${stamp}`)
+        await tx.organizationMaxBot.create({
+          data: { organizationId: orgD.id, tokenEnc: new Uint8Array([1]), username: 'check_bot' },
+        })
+        const groupD = await scenery(orgD.id)
+        const viaEduda = await enrol(orgD.id, groupD, 'Двуботный', 'ACTIVE', 'active')
+        const viaSchool = await tx.parentMessenger.create({
+          data: {
+            provider: 'MAX',
+            externalId: `check-${stamp}-own-bot`,
+            parentId: viaEduda!.parentId,
+            organizationId: orgD.id,
+            ownBot: true,
+          },
+          select: { id: true },
+        })
+
+        const recipientsD = async () =>
+          (
+            await tx.notificationOutbox.findMany({
+              where: { organizationId: orgD.id },
+              orderBy: { id: 'asc' },
+              select: { parentMessengerId: true },
+            })
+          ).map((row) => row.parentMessengerId)
+
+        await planLessonReminders(tx, AFTER)
+        assert.deepEqual(
+          await recipientsD(),
+          [viaSchool.id],
+          'у школы со своим ботом напоминание уходит только через него',
+        )
+
+        await tx.organizationMaxBot.delete({ where: { organizationId: orgD.id } })
+        await planLessonReminders(tx, AFTER)
+        assert.deepEqual(
+          await recipientsD(),
+          [viaSchool.id, viaEduda!.id],
+          'школа отключила своего бота — рассылка вернулась на бота ЕДУДА',
+        )
+
         // ─── Дренаж ───────────────────────────────────────────────────────
         const now = new Date('2026-09-10T18:05:00Z')
 
-        const outbox = async (externalId: string, attempts = 0) => {
+        const outbox = async (externalId: string, attempts = 0, ownBot = false) => {
           // Своя привязка на каждую строку: `blocked` гасит привязку, и общая
           // на всех подменяла бы результат соседних проверок.
           const parent = await tx.parent.create({
@@ -320,7 +365,13 @@ async function main() {
             select: { id: true },
           })
           const messenger = await tx.parentMessenger.create({
-            data: { provider: 'MAX', externalId, parentId: parent.id, organizationId: orgA.id },
+            data: {
+              provider: 'MAX',
+              externalId,
+              ownBot,
+              parentId: parent.id,
+              organizationId: orgA.id,
+            },
             select: { id: true },
           })
           return tx.notificationOutbox.create({
@@ -355,12 +406,18 @@ async function main() {
           return { ok: true }
         }
 
-        await drainOutbox(tx, { MAX: sender }, { clock: () => now, pauseMs: 0 })
+        await drainOutbox(tx, () => sender, { clock: () => now, pauseMs: 0 })
 
         const state = (id: number) =>
           tx.notificationOutbox.findFirstOrThrow({
             where: { id },
-            select: { status: true, attempts: true, nextAttemptAt: true, sentAt: true },
+            select: {
+              status: true,
+              attempts: true,
+              nextAttemptAt: true,
+              sentAt: true,
+              lastError: true,
+            },
           })
 
         const sent = await state(okRow.id)
@@ -384,10 +441,31 @@ async function main() {
         assert.equal(exhausted.status, 'FAILED', 'пятая попытка — отказ')
         assert.equal(exhausted.attempts, 5, 'попытки не теряются')
 
-        // ─── Провайдер не подключён ───────────────────────────────────────
-        await drainOutbox(tx, {}, { clock: () => now, pauseMs: 0 })
+        // ─── Бот не подключён ─────────────────────────────────────────────
+        await drainOutbox(tx, () => null, { clock: () => now, pauseMs: 0 })
         const orphan = await state(retryRow.id)
         assert.equal(orphan.status, 'PENDING', 'срок ещё не подошёл, строку не трогали')
+
+        // ─── Бот строки ───────────────────────────────────────────────────
+        // Отправитель выбирается по привязке: у бота школы свой токен. Бота нет
+        // — школа отключила его после планирования — повторять бессмысленно.
+        const schoolRow = await outbox(`drain-school-${stamp}`, 0, true)
+        const asked: Array<{ ownBot: boolean; organizationId: number }> = []
+        await drainOutbox(
+          tx,
+          (messenger) => {
+            asked.push(messenger)
+            return messenger.ownBot ? null : sender
+          },
+          { clock: () => now, pauseMs: 0 },
+        )
+        assert.ok(
+          asked.some((item) => item.ownBot && item.organizationId === orgA.id),
+          'отправитель спрошен по привязке: бот школы и её id',
+        )
+        const orphanSchool = await state(schoolRow.id)
+        assert.equal(orphanSchool.status, 'FAILED', 'бота школы нет — отказ без повторов')
+        assert.equal(orphanSchool.lastError, 'бот школы не подключён', 'причина названа')
 
         // ─── Бронь строки ─────────────────────────────────────────────────
         // Два прохода по одной очереди: пока первый отправляет строку, вторую
@@ -431,7 +509,7 @@ async function main() {
           return { ok: true }
         }
 
-        await drainOutbox(tx, { MAX: racing }, { clock, pauseMs: 0 })
+        await drainOutbox(tx, () => racing, { clock, pauseMs: 0 })
 
         assert.ok(called.includes(`drain-first-${stamp}`), 'первая строка отправлена')
         assert.ok(

@@ -1,8 +1,9 @@
 import { prisma } from '@repo/db'
-import { drainOutbox, type Sender } from '../drain'
+import { listBots, type Bot } from '../bots'
+import { drainOutbox, type SenderFor } from '../drain'
 import { env } from '../env'
 import { planLessonReminders, type PlanResult } from '../plan'
-import { ensureSubscription, sendReminder } from '../providers/max'
+import { ensureCommands, ensureSubscription, sendReminder } from '../providers/max'
 import type { Reply, RouteRequest } from '../route'
 
 /**
@@ -13,7 +14,12 @@ import type { Reply, RouteRequest } from '../route'
  *   flock -n /tmp/notify.lock curl -fsS -m 300 -H "X-Notify-Key: …" \
  *     http://localhost:3006/dispatch
  *
- * `flock` заменяет флаг «уже выполняется», поэтому его здесь нет.
+ * `flock` держит только `curl`, а не сам проход, — от двух проходов по одной
+ * очереди защищает бронь строки в `drain.ts`.
+ *
+ * Крон один на всех ботов: расписание рассылки живёт в настройках школы, а крон
+ * только тикает. Изоляция — внутри прохода: сбой бота или школы пишется в лог и
+ * не останавливает остальных.
  *
  * `?dry=1` — прогон вхолостую: показывает, что запланировалось бы, и не пишет
  * ничего. Отправку в холостом режиме не трогаем вовсе — сообщение родителю
@@ -26,6 +32,12 @@ class Rollback extends Error {
   }
 }
 
+/**
+ * Боты, которым меню команд уже поставлено в этом процессе. Ключ — токен:
+ * школа может переподключить бота с другим токеном, и новому тоже нужно меню.
+ */
+const withCommands = new Set<string>()
+
 export async function handleDispatch(req: RouteRequest): Promise<Reply> {
   // Nginx проксирует бота целиком, так что ключ обязателен: `/dispatch` не
   // должен быть доступен снаружи даже при упрощённом конфиге.
@@ -37,24 +49,46 @@ export async function handleDispatch(req: RouteRequest): Promise<Reply> {
     return { text: await dryRun() }
   }
 
-  // Первым делом и на каждом запуске: подписка MAX умирает через восемь часов
-  // без успешных ответов, молча. «Настроил один раз» здесь не работает.
-  const subscription = await ensureSubscription()
+  const bots = await listBots(prisma)
 
-  const senders: { MAX?: Sender } = env.max ? { MAX: sendReminder } : {}
+  // Подписка — первым делом и на каждом запуске: у MAX она умирает через восемь
+  // часов без успешных ответов, молча. Обе функции ошибок не бросают, поэтому
+  // сбой у бота одной школы не мешает остальным.
+  const subscriptions: string[] = []
+  let subscriptionsOk = true
+  for (const bot of bots) {
+    const status = await ensureSubscription(bot.token, bot.webhookUrl, bot.secret)
+    if (status !== 'есть') subscriptionsOk = false
+    subscriptions.push(`${bot.key} ${status}`)
+
+    if (!withCommands.has(bot.token) && (await ensureCommands(bot.token))) {
+      withCommands.add(bot.token)
+    }
+  }
 
   const plan = await planLessonReminders(prisma)
-  const drain = await drainOutbox(prisma, senders)
+  const drain = await drainOutbox(prisma, senderForBots(bots))
 
-  return {
-    text: [
-      `подписка MAX: ${subscription}`,
-      `школ в плане: ${plan.organizations}`,
-      `запланировано: ${plan.planned}`,
-      `отправлено: ${drain.sent}`,
-      `повторим позже: ${drain.retried}`,
-      `отказов: ${drain.failed}`,
-    ].join('\n'),
+  const summary =
+    `школ ${plan.organizations}, запланировано ${plan.planned}, отправлено ${drain.sent}, ` +
+    `повтор ${drain.retried}, отказов ${drain.failed}; ` +
+    `подписки: ${subscriptions.join(', ') || 'ботов нет'}`
+
+  // В лог — только непустой проход: крон приходит 144 раза в сутки, и
+  // одинаковые пустые строки утопили бы те, ради которых лог вообще читают.
+  const idle = subscriptionsOk && plan.planned + drain.sent + drain.retried + drain.failed === 0
+  if (!idle) console.log(`dispatch: ${summary}`)
+
+  return { text: summary }
+}
+
+/** Отправитель по привязке: `ownBot = false` — бот ЕДУДА, иначе бот её школы. */
+function senderForBots(bots: Bot[]): SenderFor {
+  const byOrganization = new Map(bots.map((bot) => [bot.organizationId, bot]))
+
+  return (messenger) => {
+    const bot = byOrganization.get(messenger.ownBot ? messenger.organizationId : null)
+    return bot ? (externalId, text) => sendReminder(bot.token, externalId, text) : null
   }
 }
 
@@ -76,9 +110,11 @@ async function dryRun(): Promise<string> {
   }
 
   const pending = await prisma.notificationOutbox.count({ where: { status: 'PENDING' } })
+  const bots = await listBots(prisma)
 
   return [
     'вхолостую, ничего не записано и не отправлено',
+    `боты: ${bots.map((bot) => bot.key).join(', ') || 'нет'}`,
     `школ в плане: ${plan.organizations}`,
     `запланировалось бы: ${plan.planned}`,
     `уже ждёт отправки: ${pending}`,

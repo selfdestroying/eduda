@@ -1,7 +1,7 @@
 /**
  * Самопроверка привязки родителя — настоящим кодом против настоящей БД.
  *
- * Всё внутри одной транзакции, которая в конце откатывается: временные школа,
+ * Всё внутри одной транзакции, которая в конце откатывается: временные школы,
  * родители и привязки в базе не остаются. Мока Prisma нет намеренно — половина
  * проверяемого здесь и есть поведение самой базы: уникальный индекс и
  * `updateMany` по несуществующим строкам.
@@ -14,6 +14,7 @@
 import assert from 'node:assert/strict'
 import { prisma } from '@repo/db'
 import { bindByPhone, readBindings, readCommand, resubscribeAll, unsubscribeAll } from '../src/bind'
+import type { BotScope } from '../src/bots'
 import { todayYmdInTz } from '@repo/core/timezone'
 import { normalizePhone, phoneFromVCard } from '../src/phone'
 import { toggledText } from '../src/routes/max'
@@ -23,6 +24,11 @@ class Rollback extends Error {}
 
 /** Аккаунт «в мессенджере» — лишь бы не пересекался с настоящими. */
 const MAX_USER = '999000222'
+
+/** Бот ЕДУДА. Область бота школы заводится ниже, вместе со школой. */
+const EDUDA: BotScope = { ownBot: false }
+
+const names = (parents: { firstName: string }[]) => parents.map((parent) => parent.firstName).sort()
 
 async function main() {
   const org = await prisma.organization.findFirst({
@@ -35,11 +41,13 @@ async function main() {
 
   try {
     await prisma.$transaction(async (tx) => {
+      const stamp = Date.now()
+
       // ─── Привязка по телефону ──────────────────────────────────────────
-      // Один номер записан по-разному и в двух школах: бот один на установку,
+      // Один номер записан по-разному и в двух школах: у человека дети в обеих,
       // и оба ребёнка обязаны получить напоминания.
       const otherOrg = await tx.organization.create({
-        data: { name: `check-bind-${Date.now()}`, slug: `check-bind-${Date.now()}` },
+        data: { name: `check-bind-${stamp}`, slug: `check-bind-${stamp}` },
         select: { id: true, name: true },
       })
       await tx.parent.create({
@@ -52,17 +60,16 @@ async function main() {
         data: { firstName: 'Посторонний', phone: '79990000000', organizationId: org.id },
       })
 
-      const byPhone = await bindByPhone(tx, MAX_USER, '79991234567')
-      assert.equal(byPhone.length, 2, 'один номер — оба родителя в разных школах')
+      const byPhone = await bindByPhone(tx, EDUDA, MAX_USER, '79991234567')
       assert.deepEqual(
-        byPhone.map((parent) => parent.firstName).sort(),
+        names(byPhone),
         ['Второй', 'Первый'],
-        'записанный по-разному номер всё равно совпал',
+        'один номер — оба родителя в разных школах, записанный по-разному номер совпал',
       )
 
       const rows = await tx.parentMessenger.findMany({
         where: { provider: 'MAX', externalId: MAX_USER },
-        select: { organizationId: true, phone: true },
+        select: { organizationId: true, phone: true, ownBot: true },
       })
       assert.equal(rows.length, 2, 'по привязке на каждого родителя')
       assert.deepEqual(
@@ -74,10 +81,14 @@ async function main() {
         rows.every((row) => row.phone === '79991234567'),
         'номер сохранён нормализованным',
       )
+      assert.ok(
+        rows.every((row) => !row.ownBot),
+        'привязка через бот ЕДУДА',
+      )
 
       // Повтор не задваивает, а отписанного возвращает.
-      await unsubscribeAll(tx, 'MAX', MAX_USER)
-      const again = await bindByPhone(tx, MAX_USER, '79991234567')
+      await unsubscribeAll(tx, EDUDA, MAX_USER)
+      const again = await bindByPhone(tx, EDUDA, MAX_USER, '79991234567')
       assert.equal(again.length, 2, 'повтор нашёл тех же')
       const revivedMax = await tx.parentMessenger.count({
         where: { provider: 'MAX', externalId: MAX_USER, unsubscribedAt: null },
@@ -85,45 +96,119 @@ async function main() {
       assert.equal(revivedMax, 2, 'повторная отправка номера включает обратно')
 
       assert.equal(
-        (await bindByPhone(tx, MAX_USER, '79995555555')).length,
+        (await bindByPhone(tx, EDUDA, MAX_USER, '79995555555')).length,
         0,
         'чужой номер никого не привязывает',
       )
 
+      // ─── Свой бот школы ────────────────────────────────────────────────
+      const ownOrg = await tx.organization.create({
+        data: { name: `check-bind-own-${stamp}`, slug: `check-bind-own-${stamp}` },
+        select: { id: true, name: true },
+      })
+      const third = await tx.parent.create({
+        data: { firstName: 'Третий', phone: '8 (999) 123-45-67', organizationId: ownOrg.id },
+        select: { id: true },
+      })
+
+      assert.deepEqual(
+        names(await bindByPhone(tx, EDUDA, MAX_USER, '79991234567')),
+        ['Второй', 'Первый', 'Третий'],
+        'пока своего бота у школы нет, её родителей привязывает бот ЕДУДА',
+      )
+
+      await tx.organizationMaxBot.create({
+        data: { organizationId: ownOrg.id, tokenEnc: new Uint8Array([1]), username: 'check_bot' },
+      })
+      const SCHOOL: BotScope = { ownBot: true, organizationId: ownOrg.id }
+
+      assert.deepEqual(
+        names(await bindByPhone(tx, EDUDA, MAX_USER, '79991234567')),
+        ['Второй', 'Первый'],
+        'школа со своим ботом боту ЕДУДА не видна: он пообещал бы напоминания, которые пойдут другим ботом',
+      )
+      assert.deepEqual(
+        names(await bindByPhone(tx, SCHOOL, MAX_USER, '79991234567')),
+        ['Третий'],
+        'бот школы видит только её родителей: через него уходят ссылки на кабинеты',
+      )
+      assert.equal(
+        await tx.parentMessenger.count({ where: { parentId: third.id, externalId: MAX_USER } }),
+        2,
+        'один аккаунт у одного родителя в двух ботах — две строки, без конфликта ключа',
+      )
+
       // ─── Отписка и возврат ─────────────────────────────────────────────
       // Отписка — по аккаунту: «стоп» пишет человек и имеет в виду «мне», а не
-      // «этому ребёнку».
-      assert.equal(await unsubscribeAll(tx, 'MAX', MAX_USER), 2, 'отписались обе привязки')
+      // «этому ребёнку». Но только в том боте, где её написали.
       assert.equal(
-        await unsubscribeAll(tx, 'MAX', MAX_USER),
+        await unsubscribeAll(tx, SCHOOL, MAX_USER),
+        1,
+        '/stop в боте школы гасит только привязку к нему',
+      )
+      assert.equal(
+        await tx.parentMessenger.count({
+          where: { externalId: MAX_USER, ownBot: false, unsubscribedAt: null },
+        }),
+        3,
+        'привязки бота ЕДУДА при этом не тронуты',
+      )
+      assert.equal(
+        await unsubscribeAll(tx, EDUDA, MAX_USER),
+        3,
+        'отписались все привязки аккаунта к боту ЕДУДА',
+      )
+      assert.equal(
+        await unsubscribeAll(tx, EDUDA, MAX_USER),
         0,
         'повторная отписка ничего не трогает',
       )
       assert.equal(
-        await tx.parentMessenger.count({ where: { provider: 'MAX', externalId: MAX_USER } }),
-        2,
+        await tx.parentMessenger.count({ where: { externalId: MAX_USER } }),
+        4,
         'отписка не удаляет строки',
       )
-      assert.equal(await resubscribeAll(tx, 'MAX', MAX_USER), 2, '/resume вернул обе привязки')
-      assert.equal(await resubscribeAll(tx, 'MAX', MAX_USER), 0, 'вернуть уже активные нечего')
-      assert.equal(await unsubscribeAll(tx, 'MAX', '111'), 0, 'чужой аккаунт не затронут')
+      assert.equal(
+        await resubscribeAll(tx, EDUDA, MAX_USER),
+        3,
+        '/resume вернул привязки бота ЕДУДА',
+      )
+      assert.equal(
+        await tx.parentMessenger.count({
+          where: { externalId: MAX_USER, ownBot: true, unsubscribedAt: null },
+        }),
+        0,
+        'а привязку к боту школы — нет',
+      )
+      assert.equal(
+        await resubscribeAll(tx, SCHOOL, MAX_USER),
+        1,
+        '/resume в боте школы вернул привязку к нему',
+      )
+      assert.equal(await resubscribeAll(tx, EDUDA, MAX_USER), 0, 'вернуть уже активные нечего')
+      assert.equal(await unsubscribeAll(tx, EDUDA, '111'), 0, 'чужой аккаунт не затронут')
 
       // ─── Что этот аккаунт вообще привязал ──────────────────────────────
       // Ответ бота на команду зависит от трёх состояний, а не двух: привязок
       // нет вовсе, они есть и включены, они есть и отключены.
-      const bindings = await readBindings(tx, 'MAX', MAX_USER)
-      assert.equal(bindings.length, 2, 'обе школы видны одним списком')
+      const bindings = await readBindings(tx, EDUDA, MAX_USER)
+      assert.equal(bindings.length, 3, 'бот ЕДУДА видит свои привязки одним списком')
       assert.ok(
         bindings.every((binding) => binding.active),
-        'после возврата обе включены',
+        'после возврата все включены',
       )
       assert.deepEqual(
         bindings.map((binding) => binding.organization).sort(),
-        [org.name, otherOrg.name].sort(),
+        [org.name, otherOrg.name, ownOrg.name].sort(),
         'у каждой ссылки на кабинет своя школа',
       )
+      assert.deepEqual(
+        (await readBindings(tx, SCHOOL, MAX_USER)).map((binding) => binding.organization),
+        [ownOrg.name],
+        'бот школы видит только привязки к нему',
+      )
       assert.equal(
-        (await readBindings(tx, 'MAX', '999000333')).length,
+        (await readBindings(tx, EDUDA, '999000333')).length,
         0,
         'у чужого аккаунта привязок нет — ему покажут приветствие',
       )

@@ -1,6 +1,5 @@
 import { createServer, type IncomingMessage } from 'node:http'
 import { env } from './env'
-import { ensureCommands } from './providers/max'
 import type { Reply, RouteRequest } from './route'
 import { handleDispatch } from './routes/dispatch'
 import { handleMax } from './routes/max'
@@ -11,8 +10,8 @@ import { handleMax } from './routes/max'
  *
  * Роутов мало, поэтому и роутер такой.
  *
- * ponytail: свой роутер на node:http — четыре роута. Hono (+2 зависимости),
- * когда их станет больше горстки или понадобится валидация тел.
+ * ponytail: свой роутер на node:http — четыре роута и один с параметром. Hono
+ * (+2 зависимости), когда их станет больше горстки или понадобится валидация тел.
  */
 
 const routes: Record<string, (req: RouteRequest) => Promise<Reply>> = {
@@ -23,6 +22,9 @@ const routes: Record<string, (req: RouteRequest) => Promise<Reply>> = {
   'GET /health': health,
   'GET /': health,
 }
+
+/** Вебхук бота школы: `/max/<organizationId>`. Какой это бот, решает `handleMax`. */
+const SCHOOL_BOT_WEBHOOK = /^\/max\/\d+$/
 
 async function health(): Promise<Reply> {
   return { text: 'ok' }
@@ -49,7 +51,9 @@ const server = createServer((req, res) => {
   // адрес не идёт.
   const url = new URL(req.url ?? '/', 'http://localhost')
   const route = `${req.method} ${url.pathname}`
-  const handler = routes[route]
+  const handler =
+    routes[route] ??
+    (req.method === 'POST' && SCHOOL_BOT_WEBHOOK.test(url.pathname) ? handleMax : undefined)
 
   const send = (reply: Reply) => {
     res.writeHead(reply.status ?? 200, { 'content-type': 'text/plain; charset=utf-8' })
@@ -77,9 +81,8 @@ const server = createServer((req, res) => {
     })
 })
 
+// Меню команд ставит крон — на каждого бота раз за жизнь процесса: ботов школ
+// процесс при старте не знает, они появляются в базе без перезапуска.
 server.listen(env.port, () => {
   console.log(`bots: слушаю :${env.port}`)
-  // Меню команд MAX — один раз за запуск: в отличие от подписки оно не
-  // протухает, а процесс всё равно перезапускается каждым деплоем.
-  void ensureCommands()
 })

@@ -1,5 +1,5 @@
 import type { Prisma } from '@repo/db'
-import type { MessengerProvider } from '@repo/db/enums'
+import type { BotScope } from './bots'
 import { normalizePhone } from './phone'
 
 /**
@@ -9,23 +9,41 @@ import { normalizePhone } from './phone'
  *
  * Первым параметром идёт клиент — как у денежного ядра платформы. В проде это
  * обычный `prisma`, в проверке — транзакция, которая в конце откатывается.
+ *
+ * Вторым — область бота (`BotScope`): бот ЕДУДА и бот школы видят только свои
+ * привязки, и `/stop` в одном не отписывает от другого.
  */
 
 export type BoundParent = { parentId: number; firstName: string }
+
+/** Отбор привязок бота: у бота школы — только к нему, у бота ЕДУДА — только к нему. */
+function scopeWhere(scope: BotScope): Prisma.ParentMessengerWhereInput {
+  return scope.ownBot
+    ? { provider: 'MAX', ownBot: true, organizationId: scope.organizationId }
+    : { provider: 'MAX', ownBot: false }
+}
 
 /**
  * Привязка по телефону. Номер приходит от самой платформы через
  * `request_contact`, то есть уже подтверждён ею; спрашивать код сверх этого
  * нечего и негде.
  *
- * Совпасть может несколько родителей: бот один на всю установку, и у человека
- * бывают дети в разных школах — это разные `Parent` с одним номером.
- * Привязываем ко всем, иначе половина детей осталась бы без напоминаний.
+ * Совпасть может несколько родителей: у человека бывают дети в разных школах —
+ * это разные `Parent` с одним номером. Привязываем ко всем, кого бот видит,
+ * иначе половина детей осталась бы без напоминаний.
+ *
+ * Кого бот видит:
+ * - бот школы — только её родителей. Через него уходит рассказ о детях со
+ *   ссылками на кабинеты, а токен бота у самой школы: ссылка на кабинет чужой
+ *   школы, отправленная через него, — это доступ к чужим детям;
+ * - бот ЕДУДА — родителей школ без своего бота. Родителю школы со своим ботом
+ *   он пообещал бы напоминания, которые пойдут другим ботом.
  *
  * `phone` ожидается уже нормализованным.
  */
 export async function bindByPhone(
   db: Prisma.TransactionClient,
+  scope: BotScope,
   externalId: string,
   phone: string,
 ): Promise<BoundParent[]> {
@@ -33,7 +51,12 @@ export async function bindByPhone(
   // привязка — разовое событие на родителя. Колонка `phoneDigits` с индексом —
   // когда счёт пойдёт на десятки тысяч.
   const candidates = await db.parent.findMany({
-    where: { phone: { not: null } },
+    where: {
+      phone: { not: null },
+      ...(scope.ownBot
+        ? { organizationId: scope.organizationId }
+        : { organization: { maxBot: { is: null } } }),
+    },
     select: { id: true, firstName: true, phone: true, organizationId: true },
   })
 
@@ -46,13 +69,14 @@ export async function bindByPhone(
           provider: 'MAX',
           externalId,
           parentId: parent.id,
-          ownBot: false,
+          ownBot: scope.ownBot,
         },
       },
       create: {
         provider: 'MAX',
         externalId,
         phone,
+        ownBot: scope.ownBot,
         parentId: parent.id,
         organizationId: parent.organizationId,
       },
@@ -73,11 +97,11 @@ export async function bindByPhone(
  */
 export async function unsubscribeAll(
   db: Prisma.TransactionClient,
-  provider: MessengerProvider,
+  scope: BotScope,
   externalId: string,
 ): Promise<number> {
   const { count } = await db.parentMessenger.updateMany({
-    where: { provider, externalId, unsubscribedAt: null },
+    where: { ...scopeWhere(scope), externalId, unsubscribedAt: null },
     data: { unsubscribedAt: new Date() },
   })
   return count
@@ -90,11 +114,11 @@ export async function unsubscribeAll(
  */
 export async function resubscribeAll(
   db: Prisma.TransactionClient,
-  provider: MessengerProvider,
+  scope: BotScope,
   externalId: string,
 ): Promise<number> {
   const { count } = await db.parentMessenger.updateMany({
-    where: { provider, externalId, unsubscribedAt: { not: null } },
+    where: { ...scopeWhere(scope), externalId, unsubscribedAt: { not: null } },
     data: { unsubscribedAt: null },
   })
   return count
@@ -140,17 +164,17 @@ export type Binding = {
 }
 
 /**
- * Все привязки аккаунта, включая отписанные: по ним бот отличает «отключил
- * напоминания» от «здесь вообще никого нет» — ответы у этих двух состояний
- * разные, и второму нужна кнопка, а не текст.
+ * Все привязки аккаунта к этому боту, включая отписанные: по ним бот отличает
+ * «отключил напоминания» от «здесь вообще никого нет» — ответы у этих двух
+ * состояний разные, и второму нужна кнопка, а не текст.
  */
 export async function readBindings(
   db: Prisma.TransactionClient,
-  provider: MessengerProvider,
+  scope: BotScope,
   externalId: string,
 ): Promise<Binding[]> {
   const rows = await db.parentMessenger.findMany({
-    where: { provider, externalId },
+    where: { ...scopeWhere(scope), externalId },
     select: {
       unsubscribedAt: true,
       parent: {

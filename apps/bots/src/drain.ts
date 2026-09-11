@@ -1,5 +1,4 @@
 import type { Prisma } from '@repo/db'
-import type { MessengerProvider } from '@repo/db/enums'
 
 /**
  * Дренаж очереди: берёт то, чему подошёл срок, и отправляет по одному.
@@ -17,6 +16,13 @@ export type SendResult =
   | { ok: false; retryable: boolean; blocked?: boolean; error: string }
 
 export type Sender = (externalId: string, text: string) => Promise<SendResult>
+
+/**
+ * Кем отправлять строку. У привязки к боту школы свой токен, поэтому отправитель
+ * выбирается по привязке. `null` — бота нет: не заведён бот ЕДУДА, или школа
+ * отключила своего после того, как строка была запланирована.
+ */
+export type SenderFor = (messenger: { ownBot: boolean; organizationId: number }) => Sender | null
 
 /**
  * Пауза между отправками: ≈16 в секунду, с запасом под лимитом MAX.
@@ -57,7 +63,7 @@ export type DrainResult = { sent: number; failed: number; retried: number }
 
 export async function drainOutbox(
   db: Prisma.TransactionClient,
-  senders: Partial<Record<MessengerProvider, Sender>>,
+  senderFor: SenderFor,
   options: { clock?: () => Date; limit?: number; pauseMs?: number } = {},
 ): Promise<DrainResult> {
   // Время берётся в момент каждого действия, а не один раз на проход: проход по
@@ -74,7 +80,9 @@ export async function drainOutbox(
       id: true,
       text: true,
       attempts: true,
-      parentMessenger: { select: { id: true, provider: true, externalId: true } },
+      parentMessenger: {
+        select: { id: true, ownBot: true, organizationId: true, externalId: true },
+      },
     },
   })
 
@@ -91,14 +99,17 @@ export async function drainOutbox(
     // Строку уже взял соседний проход — или успел отправить, пока этот стоял.
     if (claimed.count === 0) continue
 
-    const { provider, externalId } = row.parentMessenger
-    const send = senders[provider]
+    const messenger = row.parentMessenger
+    const send = senderFor(messenger)
 
-    // Привязка есть, а отправлять нечем: провайдер не подключён в этой сборке.
-    // Ретраить бессмысленно — само не появится.
+    // Привязка есть, а отправлять нечем. Ретраить бессмысленно — само не появится.
     const outcome: SendResult = send
-      ? await send(externalId, row.text)
-      : { ok: false, retryable: false, error: `провайдер ${provider} не подключён` }
+      ? await send(messenger.externalId, row.text)
+      : {
+          ok: false,
+          retryable: false,
+          error: messenger.ownBot ? 'бот школы не подключён' : 'бот ЕДУДА не подключён',
+        }
 
     const doneAt = clock()
 
@@ -115,9 +126,10 @@ export async function drainOutbox(
       // Не ошибка доставки, а отписка: родитель запретил сообщения. Гасим
       // привязку, иначе следующий план снова наберёт ему напоминаний.
       await db.parentMessenger.update({
-        where: { id: row.parentMessenger.id },
+        where: { id: messenger.id },
         data: { unsubscribedAt: doneAt },
       })
+      console.log(`drain: привязка ${messenger.id} погашена — ${outcome.error}`)
     }
 
     const attempt = row.attempts + 1
