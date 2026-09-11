@@ -10,7 +10,8 @@
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",
     "ts:check": "turbo ts:check",
-    "check": "turbo check",
+    "check": "node scripts/check-tokens.mjs && turbo check",
+    "check:tokens": "node scripts/check-tokens.mjs",
     "check:fix": "turbo check:fix",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

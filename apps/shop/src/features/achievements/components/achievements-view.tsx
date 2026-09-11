@@ -89,7 +89,7 @@ function AchievementCard({ item, tz }: { item: AchievementView; tz: string }) {
         <div className="mt-auto space-y-1.5">
           {/* Уровни показываем только там, где их правда несколько. */}
           {item.levels > 1 && (
-            <div className="text-muted-foreground text-[11px] tracking-wide uppercase">
+            <div className="text-muted-foreground text-xs tracking-wide uppercase">
               Уровень {done ? item.levels : item.level + 1} из {item.levels}
             </div>
           )}

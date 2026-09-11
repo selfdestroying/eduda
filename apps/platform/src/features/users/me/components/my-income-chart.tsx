@@ -27,8 +27,8 @@ type Granularity = 'year' | 'month' | 'week' | 'day'
 
 const chartConfig = {
   lessons: { label: 'За уроки', color: 'var(--chart-1)' },
-  paychecks: { label: 'Доп. доход', color: 'var(--chart-2)' },
-  total: { label: 'Итого', color: 'var(--chart-3)' },
+  paychecks: { label: 'Доп. доход', color: 'var(--chart-3)' },
+  total: { label: 'Итого', color: 'var(--chart-5)' },
 } satisfies ChartConfig
 
 const granularityLabel: Record<Granularity, string> = {
@@ -151,7 +151,7 @@ function Row({ color, label, value }: { color: string; label: string; value: num
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="flex items-center gap-1.5">
-        <span className="size-2 shrink-0 rounded-[2px]" style={{ backgroundColor: color }} />
+        <span className="size-2 shrink-0 rounded-xs" style={{ backgroundColor: color }} />
         <span className="text-muted-foreground">{label}</span>
       </span>
       <span className="font-mono tabular-nums">{value.toLocaleString('ru-RU')} ₽</span>
@@ -380,12 +380,12 @@ function SummaryCell({
 }) {
   return (
     <div className="rounded-md border px-3 py-2">
-      <div className="text-muted-foreground truncate text-[11px]" title={label}>
+      <div className="text-muted-foreground truncate text-xs" title={label}>
         {label}
       </div>
       <div className="text-sm font-semibold">{value}</div>
       {hint && (
-        <div className={`mt-0.5 truncate text-[11px] ${hintColor ?? 'text-muted-foreground'}`}>
+        <div className={`mt-0.5 truncate text-xs ${hintColor ?? 'text-muted-foreground'}`}>
           {hint}
         </div>
       )}

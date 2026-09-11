@@ -211,7 +211,7 @@ const defaultComponents = memoizeMarkdownComponents({
   pre: ({ className, ...props }) => (
     <pre
       className={cn(
-        'aui-md-pre border-border/50 bg-muted/30 overflow-x-auto rounded-t-none rounded-b-xl border border-t-0 p-3.5 text-[13px] leading-relaxed',
+        'aui-md-pre border-border/50 bg-muted/30 overflow-x-auto rounded-t-none rounded-b-xl border border-t-0 p-3.5 text-sm leading-relaxed',
         className,
       )}
       {...props}
@@ -222,6 +222,8 @@ const defaultComponents = memoizeMarkdownComponents({
     return (
       <code
         className={cn(
+          // ds-ok: em, а не ступень шкалы — инлайновый код должен быть чуть
+          // мельче окружающего текста, каким бы тот ни был (h2, абзац, список).
           !isCodeBlock &&
             'aui-md-inline-code bg-muted rounded-md px-1.5 py-0.5 font-mono text-[0.85em]',
           className,

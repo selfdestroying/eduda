@@ -60,7 +60,7 @@ function MessageHeader({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="message-header"
       className={cn(
-        'text-muted-foreground flex max-w-full min-w-0 items-center px-2.5 text-[0.625rem] font-medium group-has-data-[variant=ghost]/message:px-0',
+        'text-muted-foreground flex max-w-full min-w-0 items-center px-2.5 text-xs font-medium group-has-data-[variant=ghost]/message:px-0',
         className,
       )}
       {...props}
@@ -73,7 +73,7 @@ function MessageFooter({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="message-footer"
       className={cn(
-        'text-muted-foreground flex max-w-full min-w-0 items-center px-2.5 text-[0.625rem] font-medium group-has-data-[variant=ghost]/message:px-0 group-data-[align=end]/message:justify-end',
+        'text-muted-foreground flex max-w-full min-w-0 items-center px-2.5 text-xs font-medium group-has-data-[variant=ghost]/message:px-0 group-data-[align=end]/message:justify-end',
         className,
       )}
       {...props}

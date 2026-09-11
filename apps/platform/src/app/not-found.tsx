@@ -27,7 +27,7 @@ export default function NotFound() {
 
         <div className="ring-border/60 bg-card/80 w-full rounded-2xl p-6 shadow-xl ring-1 shadow-black/5 backdrop-blur-xl dark:shadow-black/20">
           <div className="flex flex-col items-center gap-4">
-            <p className="text-muted-foreground max-w-[18rem] text-center text-xs leading-relaxed">
+            <p className="text-muted-foreground max-w-72 text-center text-xs leading-relaxed">
               Мы не нашли страницу, на которую вы пытались перейти. Возможно, она была перемещена
               или ссылка больше не актуальна.
             </p>

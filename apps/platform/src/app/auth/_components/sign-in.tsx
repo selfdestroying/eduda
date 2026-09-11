@@ -37,7 +37,7 @@ function useMeasuredHeight() {
  * иначе цвет подписи перекрашивался бы за дефолтные 150ms, вдвое быстрее пилюли.
  */
 const tabTriggerClass =
-  'text-muted-foreground rounded-[0.5625rem] text-[0.78125rem] font-semibold duration-(--duration-tab) ease-(--ease-tab) data-active:bg-transparent dark:data-active:border-transparent dark:data-active:bg-transparent'
+  'text-muted-foreground rounded-lg text-xs font-semibold duration-(--duration-tab) ease-(--ease-tab) data-active:bg-transparent dark:data-active:border-transparent dark:data-active:bg-transparent'
 
 export default function SignIn() {
   const panel = useMeasuredHeight()
@@ -81,7 +81,7 @@ export default function SignIn() {
       <div className="animate-landing-enter relative z-10 flex w-full max-w-sm flex-col items-center">
         {/* Brand */}
         <div className="mb-5.5 flex flex-col items-center gap-3">
-          <div className="ring-border/60 bg-card/80 flex size-16 items-center justify-center overflow-hidden rounded-[1.125rem] ring-1">
+          <div className="ring-border/60 bg-card/80 flex size-16 items-center justify-center overflow-hidden rounded-2xl ring-1">
             <Logo className="text-primary size-10" />
           </div>
           <div className="flex flex-col items-center gap-0.5">
@@ -91,7 +91,7 @@ export default function SignIn() {
         </div>
 
         {/* Card */}
-        <div className="ring-border/60 bg-card/80 w-full rounded-[1.125rem] p-5.5 shadow-xl ring-1 shadow-black/5 backdrop-blur-xl dark:shadow-black/20">
+        <div className="ring-border/60 bg-card/80 w-full rounded-2xl p-5.5 shadow-xl ring-1 shadow-black/5 backdrop-blur-xl dark:shadow-black/20">
           <Tabs value={tab} onValueChange={(value) => setTab(String(value))} className="gap-4">
             {/* h-9 задаём вариантом: базовый `group-data-horizontal/tabs:h-8` специфичнее голого h-9 */}
             <TabsList className="bg-muted/70 w-full group-data-horizontal/tabs:h-9">
@@ -122,7 +122,7 @@ export default function SignIn() {
         </div>
 
         {/* Footer */}
-        {/*<p className="text-muted-foreground/60 mt-5.5 text-center text-[0.6875rem]">
+        {/*<p className="text-muted-foreground/60 mt-5.5 text-center text-xs">
           &copy; {new Date().getFullYear() + ' '} &middot; ЕДУДА &middot; Единый учёт данных
         </p>*/}
       </div>

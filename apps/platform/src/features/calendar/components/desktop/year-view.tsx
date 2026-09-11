@@ -19,13 +19,13 @@ function MiniMonthBlock({
   const today = todayYmd(ctrl.tz)
 
   return (
-    <div className="bg-card rounded-[10px] border p-[14px_14px_10px]">
+    <div className="bg-card rounded-lg border px-3.5 pt-3.5 pb-2.5">
       <button
         onClick={() => {
           ctrl.setCurrentDate(ymd(new Date(year, month, 1)))
           ctrl.setView('month')
         }}
-        className="hover:text-primary mb-2.5 text-[13.5px] font-semibold tracking-tight transition-colors"
+        className="hover:text-primary mb-2.5 text-sm font-semibold tracking-tight transition-colors"
       >
         {MONTHS[month]}
       </button>
@@ -33,7 +33,7 @@ function MiniMonthBlock({
         {order.map((di, i) => (
           <div
             key={`h${i}`}
-            className="text-muted-foreground/70 pb-1 text-center text-[9px] font-semibold"
+            className="text-muted-foreground/70 pb-1 text-center text-xs font-semibold"
           >
             {DOW_NARROW[di]}
           </div>
@@ -56,7 +56,7 @@ function MiniMonthBlock({
                   : undefined
               }
               className={cn(
-                'relative flex aspect-square items-center justify-center rounded-full text-[10.5px] tabular-nums',
+                'relative flex aspect-square items-center justify-center rounded-full text-xs tabular-nums',
                 inMonth ? 'cursor-pointer' : 'cursor-default',
                 isToday
                   ? 'bg-primary text-primary-foreground font-semibold'
@@ -68,7 +68,7 @@ function MiniMonthBlock({
               {day.getDate()}
               {firstEvent && !isToday && (
                 <span
-                  className="absolute bottom-px size-[3px] rounded-full"
+                  className="absolute bottom-px size-0.75 rounded-full"
                   style={{
                     background: status ? DAY_STATUS_COLORS[status] : 'var(--muted-foreground)',
                   }}
@@ -85,8 +85,8 @@ function MiniMonthBlock({
 export function YearView({ ctrl }: { ctrl: CalendarController }) {
   const year = ctrl.curr.getFullYear()
   return (
-    <div className="thin-scrollbar min-h-0 flex-1 overflow-auto p-[26px_24px]">
-      <div className="mx-auto grid max-w-[1120px] grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-4">
+    <div className="thin-scrollbar min-h-0 flex-1 overflow-auto px-6 py-6.5">
+      <div className="mx-auto grid max-w-280 grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: 12 }, (_, m) => (
           <MiniMonthBlock key={m} ctrl={ctrl} year={year} month={m} />
         ))}

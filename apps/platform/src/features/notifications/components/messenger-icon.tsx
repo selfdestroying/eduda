@@ -92,7 +92,7 @@ export function MessengerIcon({
   // Название остаётся в `title`: значок узнаётся не всеми, а колонка узкая.
   return (
     <span title={hideLabel ? undefined : name} className="inline-flex">
-      <Icon className={cn('size-5 rounded-[4px]', className)} />
+      <Icon className={cn('size-5 rounded-sm', className)} />
       {!hideLabel && <span className="sr-only">{name}</span>}
     </span>
   )

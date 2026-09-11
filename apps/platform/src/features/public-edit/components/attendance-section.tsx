@@ -74,8 +74,8 @@ function chipClass(att: Attendance | null, lesson: LessonItem) {
   if (att.status === 'PRESENT') return 'bg-success/20 text-success'
   // ABSENT: предупреждённый пропуск с назначенной отработкой — отдельный оттенок,
   // иначе «предупредил» и «предупредил и записан» выглядят одинаково.
-  if (att.isWarned && att.makeupAttendance) return 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
-  if (att.isWarned) return 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+  if (att.isWarned && att.makeupAttendance) return 'bg-info/15 text-info'
+  if (att.isWarned) return 'bg-warning/10 text-warning'
   return 'bg-destructive/20 text-destructive'
 }
 
@@ -253,7 +253,7 @@ export default function AttendanceSection({ token }: { token: string }) {
                             {att?.isWarned && (
                               <Badge
                                 variant="secondary"
-                                className="bg-amber-500/10 text-amber-600 outline-none dark:text-amber-400"
+                                className="bg-warning/10 text-warning outline-none"
                               >
                                 <AlertTriangle data-icon="inline-start" />
                                 {att.parentMarkedAt ? 'Вы предупредили' : 'Предупредил'}

@@ -68,10 +68,10 @@ const makeupStatusClasses: Record<AttendanceStatus, string> = {
 }
 
 const stickyColumnClasses: Record<string, string> = {
-  id_header: 'sticky left-0 z-[1]',
-  name_header: 'sticky left-8 z-[1]',
-  id: 'sticky left-0 bg-sidebar z-[1]',
-  name: 'sticky left-8 bg-sidebar z-[1]',
+  id_header: 'sticky left-0 z-1',
+  name_header: 'sticky left-8 z-1',
+  id: 'sticky left-0 bg-sidebar z-1',
+  name: 'sticky left-8 bg-sidebar z-1',
 }
 
 type LessonWithAttendance = Prisma.LessonGetPayload<{
@@ -208,14 +208,14 @@ function AttendanceCell({
             </div>
             <div className="flex items-center gap-2">
               {attendance.isTrial && (
-                <Badge variant="secondary" className="text-[0.5625rem]">
+                <Badge variant="secondary" className="text-xs">
                   Пробный
                 </Badge>
               )}
               {attendance.isWarned && (
                 <Badge
                   variant="outline"
-                  className="border-amber-200 bg-amber-500/10 text-[0.5625rem] text-amber-600 dark:border-amber-800 dark:text-amber-400"
+                  className="border-warning/30 bg-warning/10 text-warning text-xs"
                 >
                   <AlertTriangle data-icon="inline-start" />
                   Предупредил

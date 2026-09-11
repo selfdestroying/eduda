@@ -774,7 +774,7 @@ export function Landing({ signInUrl }: { signInUrl: string }) {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 6px 18px rgba(76,29,149,.3)',
+                    boxShadow: '0 6px 18px color-mix(in oklch, var(--primary) 30%, transparent)',
                     color: 'var(--primary-foreground)',
                   }}
                 >
@@ -787,7 +787,8 @@ export function Landing({ signInUrl }: { signInUrl: string }) {
                   borderRadius: 18,
                   background: 'var(--primary)',
                   color: 'var(--primary-foreground)',
-                  boxShadow: '0 20px 40px -12px rgba(76,29,149,.4)',
+                  boxShadow:
+                    '0 20px 40px -12px color-mix(in oklch, var(--primary) 40%, transparent)',
                 }}
               >
                 <Logo
@@ -977,7 +978,10 @@ export function Landing({ signInUrl }: { signInUrl: string }) {
                     title="Английский B1"
                     sub="каб. 3 · Смирнова А."
                     badge="Отмечено"
-                    badgeStyle={{ background: 'var(--success)', color: '#fff' }}
+                    badgeStyle={{
+                      background: 'color-mix(in oklch, var(--success) 16%, transparent)',
+                      color: 'var(--success)',
+                    }}
                     highlighted
                   />
                   <ScheduleRow
@@ -1414,7 +1418,7 @@ export function Landing({ signInUrl }: { signInUrl: string }) {
                 width: 340,
                 height: 340,
                 borderRadius: '50%',
-                background: 'rgba(255,255,255,.14)',
+                background: 'color-mix(in oklch, var(--primary-foreground) 14%, transparent)',
                 filter: 'blur(70px)',
               }}
             />
@@ -1426,7 +1430,7 @@ export function Landing({ signInUrl }: { signInUrl: string }) {
                 width: 340,
                 height: 340,
                 borderRadius: '50%',
-                background: 'rgba(255,255,255,.1)',
+                background: 'color-mix(in oklch, var(--primary-foreground) 10%, transparent)',
                 filter: 'blur(70px)',
               }}
             />
@@ -1479,7 +1483,7 @@ export function Landing({ signInUrl }: { signInUrl: string }) {
                 fontSize: 17,
                 padding: '16px 32px',
                 borderRadius: 13,
-                boxShadow: '0 10px 30px -8px rgba(0,0,0,.4)',
+                boxShadow: '0 10px 30px -8px color-mix(in oklch, var(--primary) 40%, transparent)',
               }}
             >
               Попробовать бесплатно

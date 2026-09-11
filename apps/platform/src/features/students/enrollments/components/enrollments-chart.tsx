@@ -42,7 +42,7 @@ const MODE_LABEL: Record<Mode, string> = { enrolled: 'Новые', studied: 'А�
  */
 const CHART_CONFIG: Record<Mode, ChartConfig> = {
   enrolled: { count: { label: 'Новые', color: 'var(--chart-1)' } },
-  studied: { count: { label: 'Активные', color: 'var(--chart-2)' } },
+  studied: { count: { label: 'Активные', color: 'var(--chart-3)' } },
 }
 
 /** Под самую длинную подпись оси при кегле 10 — счёт записей за месяц. */

@@ -132,7 +132,7 @@ export function CabinetTabBar({ token }: { token: string }) {
             href={link.href}
             aria-current={link.active ? 'page' : undefined}
             className={cn(
-              'flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors',
+              'flex flex-1 flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors',
               link.active ? 'text-primary' : 'text-muted-foreground',
             )}
           >

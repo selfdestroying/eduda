@@ -216,7 +216,7 @@ function columnTitle<TData extends RowData>(column: Column<TData, unknown>) {
  * бы у себя и он разъехался бы с колоночными при первой же правке.
  */
 export const SECTION_TITLE =
-  'text-muted-foreground mb-2 px-2 text-[11px] font-semibold tracking-wide uppercase'
+  'text-muted-foreground mb-2 px-2 text-xs font-semibold tracking-wide uppercase'
 
 /**
  * Мультиселект — секцией чекбоксов прямо в панели, без своей выпадашки: панель
@@ -245,7 +245,7 @@ function DataTableFacetedFilter<TData extends RowData>({
     <div className="flex w-full flex-col">
       <div className={SECTION_TITLE}>{title}</div>
       {options.length === 0 ? (
-        <p className="text-muted-foreground/70 px-2 text-[12.5px]">Нет вариантов.</p>
+        <p className="text-muted-foreground/70 px-2 text-xs">Нет вариантов.</p>
       ) : (
         options.map((option) => {
           const active = selected.has(option.value)
@@ -253,7 +253,7 @@ function DataTableFacetedFilter<TData extends RowData>({
           return (
             <label
               key={option.value}
-              className="hover:bg-muted flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors"
+              className="hover:bg-muted flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors"
             >
               <Checkbox checked={active} onCheckedChange={() => toggle(option.value)} />
               <span className="flex-1 truncate">{option.label}</span>

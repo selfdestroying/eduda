@@ -4,12 +4,12 @@ import { Checkbox } from '@repo/ui/components/checkbox'
 import { cn } from '@/src/lib/utils'
 import { FILTER_DIMENSION_TITLES, type EventFiltersController } from '../hooks/use-event-filters'
 import type { CalendarCategory, FilterDimension } from '../types'
-import { hexA } from '../lib/date-utils'
+import { withAlpha } from '../lib/date-utils'
 
 const rowBase =
-  'hover:bg-muted flex items-center gap-2.5 rounded-md px-2 text-[13px] font-medium transition-colors'
+  'hover:bg-muted flex items-center gap-2.5 rounded-md px-2 text-sm font-medium transition-colors'
 const countBadge =
-  'text-muted-foreground bg-muted rounded-[5px] px-1.5 py-px text-[11px] font-medium tabular-nums'
+  'text-muted-foreground bg-muted rounded-full px-2 py-0.5 text-xs font-medium tabular-nums'
 
 /** Одна секция фильтра (Типы групп / Курсы / Локации / Преподаватели) с чекбоксами. */
 function FilterSection({
@@ -33,17 +33,17 @@ function FilterSection({
             onCheckedChange={() => ctrl.toggleAllCategories(dimension)}
             aria-label={`Включить/выключить все: ${title}`}
           />
-          <span className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+          <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
             {title}
           </span>
         </label>
       ) : (
-        <div className="text-muted-foreground mb-2 px-2 text-[11px] font-semibold tracking-wide uppercase">
+        <div className="text-muted-foreground mb-2 px-2 text-xs font-semibold tracking-wide uppercase">
           {title}
         </div>
       )}
       {categories.length === 0 ? (
-        <div className="text-muted-foreground/70 px-2 text-[12.5px]">Нет уроков</div>
+        <div className="text-muted-foreground/70 px-2 text-xs">Нет уроков</div>
       ) : (
         categories.map((cat) => {
           const active = ctrl.isCategoryActive(dimension, cat.id)
@@ -54,7 +54,7 @@ function FilterSection({
           // отмеченный чекбокс окрашен в цвет типа (= цвет события на календаре) как легенда.
           const checkboxStyle =
             dimension === 'groupType' && active
-              ? { backgroundColor: hexA(cat.color, 1), borderColor: hexA(cat.color, 1) }
+              ? { backgroundColor: withAlpha(cat.color, 1), borderColor: withAlpha(cat.color, 1) }
               : undefined
           return (
             <label key={cat.id} className={cn(rowBase, 'cursor-pointer py-1.5')}>

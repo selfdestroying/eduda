@@ -27,7 +27,7 @@ export default function Error({
           </div>
           <div className="flex flex-col items-center gap-1">
             <h1 className="text-xl font-bold tracking-tight">Что-то пошло не так</h1>
-            <p className="text-muted-foreground max-w-[18rem] text-center text-sm">
+            <p className="text-muted-foreground max-w-72 text-center text-sm">
               Произошла непредвиденная ошибка. Попробуйте перезагрузить страницу.
             </p>
           </div>

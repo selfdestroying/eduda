@@ -80,7 +80,7 @@ function AdvancesSkeleton() {
         <CardContent>
           <div className="space-y-1">
             {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 rounded" />
+              <Skeleton key={i} className="h-10 rounded-sm" />
             ))}
           </div>
         </CardContent>
@@ -104,15 +104,15 @@ function SummaryCards({ totals }: { totals: AdvanceTotals }) {
           <CardContent>
             <div className="flex items-center gap-1">
               <TrendingUp className="text-muted-foreground size-3" />
-              <p className="text-muted-foreground text-[0.625rem] tracking-wider uppercase">
+              <p className="text-muted-foreground text-xs tracking-wider uppercase">
                 Аванс на начало
               </p>
               <Hint text="Оплачено до периода минус выручка до периода" />
             </div>
-            <p className="text-2xl font-semibold text-blue-600 tabular-nums">
+            <p className="text-info text-2xl font-semibold tabular-nums">
               {formatRub(Math.floor(totals.advanceAtStart))}
             </p>
-            <p className="text-muted-foreground text-[0.5625rem] tabular-nums">
+            <p className="text-muted-foreground text-xs tabular-nums">
               {formatRub(Math.floor(totals.paidBefore))} опл. −{' '}
               {formatRub(Math.floor(totals.revenueBefore))} выр.
             </p>
@@ -122,9 +122,7 @@ function SummaryCards({ totals }: { totals: AdvanceTotals }) {
           <CardContent>
             <div className="flex items-center gap-1">
               <DollarSign className="text-muted-foreground size-3" />
-              <p className="text-muted-foreground text-[0.625rem] tracking-wider uppercase">
-                Оплачено
-              </p>
+              <p className="text-muted-foreground text-xs tracking-wider uppercase">Оплачено</p>
               <Hint text="Сумма всех оплат внутри периода" />
             </div>
             <p className="text-2xl font-semibold tabular-nums">{formatRub(totals.paidInPeriod)}</p>
@@ -134,15 +132,13 @@ function SummaryCards({ totals }: { totals: AdvanceTotals }) {
           <CardContent>
             <div className="flex items-center gap-1">
               <Banknote className="text-muted-foreground size-3" />
-              <p className="text-muted-foreground text-[0.625rem] tracking-wider uppercase">
-                Выручка
-              </p>
+              <p className="text-muted-foreground text-xs tracking-wider uppercase">Выручка</p>
               <Hint text="Сумма стоимости всех списанных посещений за период" />
             </div>
-            <p className="text-2xl font-semibold text-green-600 tabular-nums">
+            <p className="text-success text-2xl font-semibold tabular-nums">
               {formatRub(Math.floor(totals.revenueInPeriod))}
             </p>
-            <p className="text-muted-foreground text-[0.5625rem] tabular-nums">
+            <p className="text-muted-foreground text-xs tabular-nums">
               ≈ {formatRub(Math.floor(totals.avgCostPerVisit))} / посещение
             </p>
           </CardContent>
@@ -151,17 +147,17 @@ function SummaryCards({ totals }: { totals: AdvanceTotals }) {
           <CardContent>
             <div className="flex items-center gap-1">
               <TrendingDown className="text-muted-foreground size-3" />
-              <p className="text-muted-foreground text-[0.625rem] tracking-wider uppercase">
+              <p className="text-muted-foreground text-xs tracking-wider uppercase">
                 Аванс на конец
               </p>
               <Hint text="Входящий аванс + оплачено − выручка" />
             </div>
             <p
-              className={`text-2xl font-semibold tabular-nums ${totals.advanceAtEnd < 0 ? 'text-red-600' : 'text-blue-600'}`}
+              className={`text-2xl font-semibold tabular-nums ${totals.advanceAtEnd < 0 ? 'text-destructive' : 'text-info'}`}
             >
               {formatRub(Math.floor(totals.advanceAtEnd))}
             </p>
-            <p className="text-muted-foreground text-[0.5625rem] tabular-nums">
+            <p className="text-muted-foreground text-xs tabular-nums">
               {advanceChangeSign}
               {formatRub(Math.floor(advanceChange))} за период
             </p>
@@ -175,9 +171,7 @@ function SummaryCards({ totals }: { totals: AdvanceTotals }) {
           <CardContent>
             <div className="flex items-center gap-1">
               <Users className="text-muted-foreground size-3" />
-              <p className="text-muted-foreground text-[0.625rem] tracking-wider uppercase">
-                Посещений
-              </p>
+              <p className="text-muted-foreground text-xs tracking-wider uppercase">Посещений</p>
               <Hint text="Общее количество записей посещений за период" />
             </div>
             <p className="text-2xl font-semibold tabular-nums">{totals.totalAttendances}</p>
@@ -187,13 +181,11 @@ function SummaryCards({ totals }: { totals: AdvanceTotals }) {
           <CardContent>
             <div className="flex items-center gap-1">
               <CheckCircle2 className="text-muted-foreground size-3" />
-              <p className="text-muted-foreground text-[0.625rem] tracking-wider uppercase">
-                Списано
-              </p>
+              <p className="text-muted-foreground text-xs tracking-wider uppercase">Списано</p>
               <Hint text="Количество посещений, по которым была начислена выручка" />
             </div>
             <p className="text-2xl font-semibold tabular-nums">{totals.chargedInPeriod}</p>
-            <p className="text-muted-foreground text-[0.5625rem] tabular-nums">
+            <p className="text-muted-foreground text-xs tabular-nums">
               {totals.chargeRate}% от посещений
             </p>
           </CardContent>
@@ -202,9 +194,7 @@ function SummaryCards({ totals }: { totals: AdvanceTotals }) {
           <CardContent>
             <div className="flex items-center gap-1">
               <CalendarSearch className="text-muted-foreground size-3" />
-              <p className="text-muted-foreground text-[0.625rem] tracking-wider uppercase">
-                Студентов
-              </p>
+              <p className="text-muted-foreground text-xs tracking-wider uppercase">Студентов</p>
               <Hint text="Количество активных студентов с оплатами или посещениями" />
             </div>
             <p className="text-2xl font-semibold tabular-nums">{totals.activeStudents}</p>
@@ -214,13 +204,11 @@ function SummaryCards({ totals }: { totals: AdvanceTotals }) {
           <CardContent>
             <div className="flex items-center gap-1">
               <TrendingDown className="text-muted-foreground size-3" />
-              <p className="text-muted-foreground text-[0.625rem] tracking-wider uppercase">
-                Должников
-              </p>
+              <p className="text-muted-foreground text-xs tracking-wider uppercase">Должников</p>
               <Hint text="Ученики, у которых есть проведённые занятия без оплаты. Стоимости у таких занятий пока нет — она появится вместе с оплатой, которая их и закроет." />
             </div>
             <p
-              className={`text-2xl font-semibold tabular-nums ${totals.negativeBalanceStudents > 0 ? 'text-red-600' : ''}`}
+              className={`text-2xl font-semibold tabular-nums ${totals.negativeBalanceStudents > 0 ? 'text-destructive' : ''}`}
             >
               {totals.negativeBalanceStudents}
             </p>
@@ -269,18 +257,18 @@ function StudentsTable({
               {r.avgCostPerLesson > 0 ? formatRub(Math.floor(r.avgCostPerLesson)) : '-'}
             </TableCell>
             <TableCell className="text-right tabular-nums">{formatRub(r.paidBefore)}</TableCell>
-            <TableCell className="text-right text-blue-600 tabular-nums">
+            <TableCell className="text-info text-right tabular-nums">
               {formatRub(Math.floor(r.advanceAtStart))}
             </TableCell>
             <TableCell className="text-right tabular-nums">{formatRub(r.paidInPeriod)}</TableCell>
             <TableCell className="text-right tabular-nums">{r.totalAttendancesInPeriod}</TableCell>
             <TableCell className="text-right tabular-nums">{r.chargedInPeriodCount}</TableCell>
-            <TableCell className="text-right text-green-600 tabular-nums">
+            <TableCell className="text-success text-right tabular-nums">
               {formatRub(Math.floor(r.revenueInPeriod))}
             </TableCell>
             <TableCell
               className={`text-right tabular-nums ${
-                r.unpaidCount > 0 ? 'text-red-600' : 'text-muted-foreground'
+                r.unpaidCount > 0 ? 'text-destructive' : 'text-muted-foreground'
               }`}
               title="Занятий проведено без оплаты. Цены у них пока нет — она придёт с оплатой."
             >
@@ -288,7 +276,7 @@ function StudentsTable({
             </TableCell>
             <TableCell
               className={`text-right font-medium tabular-nums ${
-                r.advanceAtEnd > 0 ? 'text-blue-600' : r.advanceAtEnd < 0 ? 'text-red-600' : ''
+                r.advanceAtEnd > 0 ? 'text-info' : r.advanceAtEnd < 0 ? 'text-destructive' : ''
               }`}
             >
               {formatRub(Math.floor(r.advanceAtEnd))}
@@ -303,7 +291,7 @@ function StudentsTable({
           <TableCell className="text-right">-</TableCell>
           <TableCell className="text-right">-</TableCell>
           <TableCell className="text-right">-</TableCell>
-          <TableCell className="text-right text-blue-600 tabular-nums">
+          <TableCell className="text-info text-right tabular-nums">
             {formatRub(Math.floor(totals.advanceAtStart))}
           </TableCell>
           <TableCell className="text-right tabular-nums">
@@ -311,7 +299,7 @@ function StudentsTable({
           </TableCell>
           <TableCell className="text-right tabular-nums">{totals.totalAttendances}</TableCell>
           <TableCell className="text-right tabular-nums">{totals.chargedInPeriod}</TableCell>
-          <TableCell className="text-right text-green-600 tabular-nums">
+          <TableCell className="text-success text-right tabular-nums">
             {formatRub(Math.floor(totals.revenueInPeriod))}
           </TableCell>
           <TableCell className="text-right tabular-nums">
@@ -320,9 +308,9 @@ function StudentsTable({
           <TableCell
             className={`text-right tabular-nums ${
               totals.advanceAtEnd > 0
-                ? 'text-blue-600'
+                ? 'text-info'
                 : totals.advanceAtEnd < 0
-                  ? 'text-red-600'
+                  ? 'text-destructive'
                   : ''
             }`}
           >

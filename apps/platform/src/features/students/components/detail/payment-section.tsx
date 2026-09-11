@@ -51,7 +51,6 @@ export default function PaymentSection({ student }: PaymentSectionProps) {
           label="Баланс уроков"
           value={`${totalLessonsBalance} ур.`}
           description={getBalanceLabel(balanceVariant)}
-          variant={balanceVariant}
           icon={Wallet}
           hint="Оставшееся количество оплаченных уроков по всем кошелькам. При посещении урока списывается 1 урок. Если оплаченных уроков не осталось, занятие не списывается — оно попадает в «Ждут оплаты» и закроется следующей оплатой."
         />

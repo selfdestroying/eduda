@@ -5,7 +5,7 @@ import { Skeleton } from '@repo/ui/components/skeleton'
 import { StatCard } from '@repo/ui/components/stat-card'
 import { formatDateOnly } from '@/src/lib/timezone'
 import { BookOpen, Receipt, Wallet } from 'lucide-react'
-import { financeTotals, LOW_BALANCE } from '../lib'
+import { financeTotals } from '../lib'
 import { usePublicStudentFinancesQuery, useSelectedChild } from '../queries'
 import { CabinetEmpty, NoChildren } from './cabinet-empty'
 
@@ -48,12 +48,7 @@ export default function FinancesSection({ token }: { token: string }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <StatCard
-          label="Остаток занятий"
-          value={balance}
-          icon={Wallet}
-          variant={balance <= LOW_BALANCE ? 'danger' : 'default'}
-        />
+        <StatCard label="Остаток занятий" value={balance} icon={Wallet} />
         <StatCard label="Всего оплачено занятий" value={lessons} icon={BookOpen} />
         <StatCard
           label="Сумма оплат"

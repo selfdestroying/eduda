@@ -12,7 +12,7 @@ import {
   eventMarkStatus,
   fmtHour,
   fmtTime,
-  hexA,
+  withAlpha,
   nowMinutes,
   todayYmd,
   ymd,
@@ -53,19 +53,19 @@ function DayColumn({ ctrl, day }: { ctrl: CalendarController; day: Date }) {
               height,
               left: `calc(${slot.lane * w}% + 2px)`,
               width: `calc(${w}% - 4px)`,
-              background: hexA(ev.color, 0.2),
+              background: withAlpha(ev.color, 0.2),
             }}
           >
             <div className="flex items-center gap-1">
               {unmarked && (
                 <span
-                  className="size-[5px] flex-none rounded-full"
+                  className="size-1.25 flex-none rounded-full"
                   style={{ background: DAY_STATUS_COLORS.unmarked }}
                 />
               )}
               <span
                 className={cn(
-                  'truncate text-[11.5px] leading-[1.25] font-semibold',
+                  'truncate text-xs leading-[1.25] font-semibold',
                   ev.cancelled && 'line-through',
                 )}
               >
@@ -73,7 +73,7 @@ function DayColumn({ ctrl, day }: { ctrl: CalendarController; day: Date }) {
               </span>
             </div>
             {height > 34 && (
-              <div className="text-muted-foreground mt-px text-[10.5px] tabular-nums">
+              <div className="text-muted-foreground mt-px text-xs tabular-nums">
                 {fmtTime(ev.start)} – {fmtTime(ev.end)}
               </div>
             )}
@@ -104,14 +104,14 @@ export function Timeline({ ctrl, days }: { ctrl: CalendarController; days: Date[
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Шапка с днями */}
       <div className="bg-muted/40 flex flex-none border-b">
-        <div className="w-[60px] flex-none" />
+        <div className="w-15 flex-none" />
         {days.map((day) => {
           const isToday = ymd(day) === today
           return (
             <div key={ymd(day)} className="min-w-0 flex-1 border-l px-1 pt-2.5 pb-3 text-center">
               <div
                 className={cn(
-                  'text-[11px] font-semibold tracking-wide uppercase',
+                  'text-xs font-semibold tracking-wide uppercase',
                   isToday ? 'text-foreground' : 'text-muted-foreground',
                 )}
               >
@@ -120,9 +120,7 @@ export function Timeline({ ctrl, days }: { ctrl: CalendarController; days: Date[
               <div
                 className={cn(
                   'mx-auto mt-1 rounded-full font-semibold tabular-nums',
-                  isWeek
-                    ? 'size-8 text-[17px] leading-8'
-                    : 'size-[38px] text-[21px] leading-[38px]',
+                  isWeek ? 'size-8 text-lg leading-8' : 'size-9.5 text-xl leading-[38px]',
                   isToday ? 'bg-primary text-primary-foreground' : 'text-foreground',
                 )}
               >
@@ -141,11 +139,11 @@ export function Timeline({ ctrl, days }: { ctrl: CalendarController; days: Date[
         className="no-scrollbar min-h-0 flex-1 overflow-auto"
       >
         <div className="relative flex" style={{ height: 24 * HOUR_H }}>
-          <div className="relative w-[60px] flex-none">
+          <div className="relative w-15 flex-none">
             {HOURS.map((hr) => (
               <div
                 key={hr}
-                className="text-muted-foreground/70 absolute right-2.5 text-[10.5px] tabular-nums"
+                className="text-muted-foreground/70 absolute right-2.5 text-xs tabular-nums"
                 style={{ top: hr * HOUR_H - 6 }}
               >
                 {hr === 0 ? '' : fmtHour(hr)}

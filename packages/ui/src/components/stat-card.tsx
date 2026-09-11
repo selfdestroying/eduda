@@ -2,39 +2,18 @@ import * as React from 'react'
 
 import { Hint } from '@repo/ui/components/hint'
 import { cn } from '@repo/ui/lib/utils'
-import { cva, type VariantProps } from 'class-variance-authority'
 import { LucideIcon } from 'lucide-react'
 
-const statCardVariants = cva('relative overflow-hidden rounded-lg p-3 transition-colors', {
-  variants: {
-    variant: {
-      default: 'bg-muted/50',
-      success: 'bg-emerald-50/50 dark:bg-emerald-950/20',
-      warning: 'bg-amber-50/50 dark:bg-amber-950/20',
-      danger: 'bg-red-50/50 dark:bg-red-950/20',
-    },
-  },
-  defaultVariants: {
-    variant: 'default',
-  },
-})
-
-const statIconVariants = cva('size-4 shrink-0', {
-  variants: {
-    variant: {
-      default: 'text-muted-foreground',
-      success: 'text-emerald-600 dark:text-emerald-400',
-      warning: 'text-amber-600 dark:text-amber-400',
-      danger: 'text-red-600 dark:text-red-400',
-      info: 'text-blue-600 dark:text-blue-400',
-    },
-  },
-  defaultVariants: {
-    variant: 'default',
-  },
-})
-
-interface StatCardProps extends React.ComponentProps<'div'>, VariantProps<typeof statCardVariants> {
+/*
+ * Карточка нейтральная. Раньше у неё был проп `variant` с четырьмя значениями,
+ * который красил подложку и иконку в интенты, — цвет убран целиком, а вместе с
+ * ним и сам проп: вариант, который ничего не меняет, хуже отсутствующего.
+ *
+ * Значение выделяется размером и насыщенностью шрифта, а не цветом фона.
+ * Понадобится сигнал обратно — это `className` на конкретном месте вызова,
+ * а не оживление варианта на все 59 карточек.
+ */
+interface StatCardProps extends React.ComponentProps<'div'> {
   label: string
   value: React.ReactNode
   description?: string
@@ -48,25 +27,30 @@ function StatCard({
   description,
   icon: Icon,
   hint,
-  variant,
   className,
   ...props
 }: StatCardProps) {
   return (
-    <div className={cn(statCardVariants({ variant }), className)} {...props}>
+    <div
+      className={cn(
+        'bg-muted/50 relative overflow-hidden rounded-lg p-3 transition-colors',
+        className,
+      )}
+      {...props}
+    >
       <div className="flex items-center justify-between gap-2">
         <span className="text-muted-foreground flex items-center gap-0.5 text-xs font-medium">
           {label}
           {hint && <Hint text={hint} />}
         </span>
-        {Icon && <Icon className={cn(statIconVariants({ variant }))} />}
+        {Icon && <Icon className="text-muted-foreground size-4 shrink-0" />}
       </div>
       <div className="mt-1 text-lg font-semibold tracking-tight">{value}</div>
       {description && (
-        <p className="text-muted-foreground mt-0.5 text-[0.6875rem] leading-tight">{description}</p>
+        <p className="text-muted-foreground mt-0.5 text-xs leading-tight">{description}</p>
       )}
     </div>
   )
 }
 
-export { StatCard, statCardVariants }
+export { StatCard }

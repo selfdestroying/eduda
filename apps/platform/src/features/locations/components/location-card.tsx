@@ -175,10 +175,7 @@ function ActiveRentRow({ rent }: { rent: RentWithLocation }) {
     <Item variant={'outline'}>
       <ItemContent>
         <ItemTitle>
-          <Badge
-            variant="secondary"
-            className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200"
-          >
+          <Badge variant="secondary" className="bg-success/10 text-success dark:bg-success/20">
             {rent.isMonthly ? (
               <>
                 <Repeat className="size-2.5" /> Ежемесячно
@@ -187,7 +184,7 @@ function ActiveRentRow({ rent }: { rent: RentWithLocation }) {
               'Период'
             )}
           </Badge>
-          <span className="text-base font-semibold text-emerald-900 dark:text-emerald-100">
+          <span className="text-success text-base font-semibold">
             {amount}
             {rent.isMonthly && (
               <span className="text-muted-foreground text-xs font-normal"> / мес.</span>
@@ -206,12 +203,12 @@ function ActiveRentRow({ rent }: { rent: RentWithLocation }) {
 
 function HistoryRentRow({ rent }: { rent: RentWithLocation }) {
   return (
-    <div className="hover:bg-muted/50 flex items-center justify-between gap-2 rounded px-2 py-1.5">
+    <div className="hover:bg-muted/50 flex items-center justify-between gap-2 rounded-sm px-2 py-1.5">
       <div className="flex min-w-0 flex-col">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium">{currency.format(rent.amount)}</span>
           {rent.isMonthly && (
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-xs">
               <Repeat className="size-2.5" /> Ежемес.
             </Badge>
           )}

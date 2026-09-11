@@ -44,9 +44,9 @@ function passwordScore(pw: string) {
 const strengthLevels = [
   { label: 'Слабый', bar: 'bg-destructive', text: 'text-destructive' },
   { label: 'Слабый', bar: 'bg-destructive', text: 'text-destructive' },
-  { label: 'Средний', bar: 'bg-amber-500', text: 'text-amber-500' },
-  { label: 'Хороший', bar: 'bg-blue-500', text: 'text-blue-500' },
-  { label: 'Надёжный', bar: 'bg-emerald-500', text: 'text-emerald-500' },
+  { label: 'Средний', bar: 'bg-warning', text: 'text-warning' },
+  { label: 'Хороший', bar: 'bg-info', text: 'text-info' },
+  { label: 'Надёжный', bar: 'bg-success', text: 'text-success' },
 ]
 
 export function SignUpForm() {
@@ -92,7 +92,7 @@ export function SignUpForm() {
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-3">
       <FieldGroup>
-        <p className="text-muted-foreground text-center text-[0.78125rem] leading-relaxed">
+        <p className="text-muted-foreground text-center text-xs leading-relaxed">
           Создайте аккаунт — школу настроим на следующем шаге
         </p>
 

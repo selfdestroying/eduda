@@ -516,7 +516,7 @@ function LessonAttendanceRows({ lesson }: { lesson: DashboardLessonItem }) {
           <tr key={attendance.id} className="bg-muted/20 border-b last:border-b-0">
             <td colSpan={11} className="px-2 py-1.5 pl-6">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[0.6875rem]">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
                   <Link
                     href={`/students/${attendance.student.id}`}
                     className="text-foreground hover:text-primary truncate hover:underline"
@@ -524,14 +524,14 @@ function LessonAttendanceRows({ lesson }: { lesson: DashboardLessonItem }) {
                     {fullName}
                   </Link>
                   {attendance.isTrial && (
-                    <Badge className="bg-info/10 text-info h-4 shrink-0 px-1.5 text-[0.5625rem]">
+                    <Badge className="bg-info/10 text-info h-4 shrink-0 px-1.5 text-xs">
                       Пробный
                     </Badge>
                   )}
                   {makeup && (
                     <Link
                       href={makeup.href}
-                      className="text-primary shrink-0 truncate text-[0.625rem] hover:underline"
+                      className="text-primary shrink-0 truncate text-xs hover:underline"
                     >
                       {makeup.label}
                     </Link>
@@ -541,7 +541,7 @@ function LessonAttendanceRows({ lesson }: { lesson: DashboardLessonItem }) {
                 <div className="ml-auto flex items-center gap-2">
                   <AttendanceStatusSwitcher attendance={attendance} disabled={isCancelled} />
                   {isCancelled ? (
-                    <span className="text-muted-foreground w-56 truncate text-[0.625rem]">
+                    <span className="text-muted-foreground w-56 truncate text-xs">
                       {attendance.comment || '-'}
                     </span>
                   ) : (

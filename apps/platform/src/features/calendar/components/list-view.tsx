@@ -4,7 +4,7 @@ import { cn } from '@/src/lib/utils'
 import { useEffect, useMemo, useRef } from 'react'
 import type { CalendarController } from '../hooks/use-calendar'
 import { DAY_STATUS_COLORS, DOW_FULL, MON_SHORT, NOW_COLOR } from '../lib/constants'
-import { parseYmd, sortEvents, todayYmd } from '../lib/date-utils'
+import { parseYmd, sortEvents, todayYmd, withAlpha } from '../lib/date-utils'
 import { AgendaRow } from './mobile/agenda-row'
 
 export function ListView({ ctrl }: { ctrl: CalendarController }) {
@@ -47,7 +47,7 @@ export function ListView({ ctrl }: { ctrl: CalendarController }) {
 
   if (sections.length === 0) {
     return (
-      <div className="text-muted-foreground/70 flex min-h-0 flex-1 items-center justify-center p-6 text-[13.5px]">
+      <div className="text-muted-foreground/70 flex min-h-0 flex-1 items-center justify-center p-6 text-sm">
         Нет уроков в этом месяце
       </div>
     )
@@ -65,13 +65,13 @@ export function ListView({ ctrl }: { ctrl: CalendarController }) {
               <div className="bg-card/95 sticky top-0 z-1 flex items-center gap-2 px-4.5 pt-4 pb-1.5 backdrop-blur">
                 {status && (
                   <span
-                    className="size-[5px] flex-none rounded-full"
+                    className="size-1.25 flex-none rounded-full"
                     style={{ background: DAY_STATUS_COLORS[status] }}
                   />
                 )}
                 <span
                   className={cn(
-                    'text-[11px] font-semibold tracking-wide uppercase',
+                    'text-xs font-semibold tracking-wide uppercase',
                     !isToday && 'text-muted-foreground',
                   )}
                   style={isToday ? { color: NOW_COLOR } : undefined}
@@ -79,18 +79,15 @@ export function ListView({ ctrl }: { ctrl: CalendarController }) {
                   {DOW_FULL[d.getDay()]}
                 </span>
                 <span
-                  className={cn(
-                    'text-[11px] font-semibold',
-                    !isToday && 'text-muted-foreground/70',
-                  )}
+                  className={cn('text-xs font-semibold', !isToday && 'text-muted-foreground/70')}
                   style={isToday ? { color: NOW_COLOR } : undefined}
                 >
                   {d.getDate()} {MON_SHORT[d.getMonth()]}
                 </span>
                 {isToday && (
                   <span
-                    className="rounded-[5px] px-1.5 py-px text-[10px] font-semibold"
-                    style={{ color: NOW_COLOR, background: 'oklch(0.541 0.281 293.009 / 10%)' }}
+                    className="rounded-full px-2 py-0.5 text-xs font-semibold"
+                    style={{ color: NOW_COLOR, background: withAlpha(NOW_COLOR, 0.1) }}
                   >
                     Сегодня
                   </span>

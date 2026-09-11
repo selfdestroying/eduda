@@ -104,7 +104,7 @@ export interface WalletPreviewData {
 const BOX = 'rounded-md border p-2.5 text-xs'
 
 /** Та же подпись раздела, что у секций в панели фильтров таблицы. */
-const HEADING = 'text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'
+const HEADING = 'text-muted-foreground text-xs font-semibold tracking-wide uppercase'
 
 /**
  * Кошелёк одним блоком под полем выбора: во что превратится оплата и что в этом

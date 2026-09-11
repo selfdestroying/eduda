@@ -422,7 +422,7 @@ function StatItem({
     <div className="flex items-center gap-2">
       <div className="text-muted-foreground shrink-0">{icon}</div>
       <div className="flex flex-col leading-tight">
-        <span className="text-muted-foreground text-[11px]">{label}</span>
+        <span className="text-muted-foreground text-xs">{label}</span>
         <span className="text-sm font-semibold">{value}</span>
       </div>
     </div>
@@ -477,7 +477,7 @@ function LessonItem({ lesson }: { lesson: LessonWithPrice }) {
           {isCancelled && (
             <Badge
               className={cn(
-                'h-5 shrink-0 px-1.5 text-[10px]',
+                'h-5 shrink-0 px-1.5 text-xs',
                 lessonStatusVariants({ status: lesson.status }),
               )}
             >

@@ -106,12 +106,7 @@ export default function CabinetHome({ token }: { token: string }) {
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <StatCard
-          label="Остаток занятий"
-          value={balance}
-          icon={Wallet}
-          variant={balance <= LOW_BALANCE ? 'danger' : 'default'}
-        />
+        <StatCard label="Остаток занятий" value={balance} icon={Wallet} />
         <StatCard
           label="Посещаемость"
           value={rate == null ? '—' : `${rate}%`}

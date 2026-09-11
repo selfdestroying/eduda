@@ -24,14 +24,14 @@ function MiniMonthCard({
         ctrl.setCurrentDate(ymd(new Date(year, month, 1)))
         ctrl.setView('month')
       }}
-      className="rounded-xl border p-[12px_12px_10px] text-left"
+      className="rounded-xl border px-3 pt-3 pb-2.5 text-left"
     >
-      <div className="mb-2 text-[14px] font-semibold tracking-tight">{MONTHS[month]}</div>
+      <div className="mb-2 text-sm font-semibold tracking-tight">{MONTHS[month]}</div>
       <div className="grid grid-cols-7 gap-px">
         {order.map((di, i) => (
           <div
             key={`h${i}`}
-            className="text-muted-foreground/70 pb-[3px] text-center text-[8.5px] font-semibold"
+            className="text-muted-foreground/70 pb-0.75 text-center text-xs font-semibold"
           >
             {DOW_NARROW[di]}
           </div>
@@ -47,7 +47,7 @@ function MiniMonthCard({
             <div
               key={i}
               className={cn(
-                'relative flex aspect-square items-center justify-center rounded-full text-[9.5px] tabular-nums',
+                'relative flex aspect-square items-center justify-center rounded-full text-xs tabular-nums',
                 isToday
                   ? 'bg-primary text-primary-foreground font-bold'
                   : inMonth
@@ -58,7 +58,7 @@ function MiniMonthCard({
               {day.getDate()}
               {firstEvent && !isToday && (
                 <span
-                  className="absolute bottom-0 size-[3px] rounded-full"
+                  className="absolute bottom-0 size-0.75 rounded-full"
                   style={{
                     background: status ? DAY_STATUS_COLORS[status] : 'var(--muted-foreground)',
                   }}

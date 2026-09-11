@@ -18,7 +18,7 @@ export function MiniMonth({ ctrl }: { ctrl: CalendarController }) {
   return (
     <div>
       <div className="mb-2.5 flex items-center justify-between px-0.5">
-        <span className="text-[13px] font-semibold tracking-tight">
+        <span className="text-sm font-semibold tracking-tight">
           {MONTHS[m]} {y}
         </span>
         <div className="flex gap-0.5">
@@ -45,7 +45,7 @@ export function MiniMonth({ ctrl }: { ctrl: CalendarController }) {
         {order.map((di, i) => (
           <div
             key={`h${i}`}
-            className="text-muted-foreground/70 pb-1.5 text-center text-[9.5px] font-semibold"
+            className="text-muted-foreground/70 pb-1.5 text-center text-xs font-semibold"
           >
             {DOW_NARROW[di]}
           </div>
@@ -62,7 +62,7 @@ export function MiniMonth({ ctrl }: { ctrl: CalendarController }) {
               key={i}
               onClick={() => ctrl.setCurrentDate(ds)}
               className={cn(
-                'relative flex aspect-square items-center justify-center rounded-full text-[11px] tabular-nums transition-colors',
+                'relative flex aspect-square items-center justify-center rounded-full text-xs tabular-nums transition-colors',
                 isToday
                   ? 'bg-primary text-primary-foreground font-semibold'
                   : selected
@@ -75,7 +75,7 @@ export function MiniMonth({ ctrl }: { ctrl: CalendarController }) {
               {hasEvents && !isToday && (
                 <span
                   className={cn(
-                    'absolute bottom-1 left-1/2 size-[3px] -translate-x-1/2 rounded-full',
+                    'absolute bottom-1 left-1/2 size-0.75 -translate-x-1/2 rounded-full',
                     !status && (selected ? 'bg-foreground' : 'bg-muted-foreground'),
                   )}
                   style={status ? { background: DAY_STATUS_COLORS[status] } : undefined}

@@ -11,7 +11,7 @@ import {
   dowOrder,
   eventMarkStatus,
   fmtTime,
-  hexA,
+  withAlpha,
   monthGrid,
   sortEvents,
   todayYmd,
@@ -26,19 +26,19 @@ function Chip({ ev, onClick, tz }: { ev: CalendarEvent; onClick: () => void; tz:
     <div
       onClick={onClick}
       className={cn(
-        'mb-0.5 flex cursor-pointer items-center gap-1.5 overflow-hidden rounded-[5px] px-1.5 py-0.5 text-[11.5px] leading-[1.35] font-medium whitespace-nowrap',
+        'mb-0.5 flex cursor-pointer items-center gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-xs leading-[1.35] font-medium whitespace-nowrap',
         ev.cancelled && 'opacity-50',
       )}
-      style={{ background: hexA(ev.color, 0.1) }}
+      style={{ background: withAlpha(ev.color, 0.1) }}
       title={ev.title}
     >
       {unmarked && (
         <span
-          className="size-[5px] flex-none rounded-full"
+          className="size-1.25 flex-none rounded-full"
           style={{ background: DAY_STATUS_COLORS.unmarked }}
         />
       )}
-      <span className="text-muted-foreground flex-none text-[10.5px] tabular-nums">
+      <span className="text-muted-foreground flex-none text-xs tabular-nums">
         {fmtTime(ev.start)}
       </span>
       <span className={cn('overflow-hidden text-ellipsis', ev.cancelled && 'line-through')}>
@@ -65,12 +65,12 @@ function DayOverflow({
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="text-muted-foreground hover:bg-muted hover:text-foreground mt-px flex cursor-pointer items-center gap-0.5 rounded-[5px] px-1.5 py-0.5 text-left text-[10.5px] font-medium">
+      <PopoverTrigger className="text-muted-foreground hover:bg-muted hover:text-foreground mt-px flex cursor-pointer items-center gap-0.5 rounded-sm px-1.5 py-0.5 text-left text-xs font-medium">
         +{extra}
         <ChevronDown className="size-3.5" />
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 gap-0 p-2">
-        <div className="text-muted-foreground mb-1.5 px-1.5 text-[11px] font-semibold tracking-wide uppercase">
+        <div className="text-muted-foreground mb-1.5 px-1.5 text-xs font-semibold tracking-wide uppercase">
           {DOW_FULL[day.getDay()]}, {day.getDate()} {MONTHS_GENITIVE[day.getMonth()]}
         </div>
         <div className="max-h-64 overflow-y-auto">
@@ -104,7 +104,7 @@ export function MonthView({ ctrl }: { ctrl: CalendarController }) {
         {order.map((di, i) => (
           <div
             key={i}
-            className="text-muted-foreground p-2.5 text-right text-[11px] font-semibold tracking-wide uppercase"
+            className="text-muted-foreground p-2.5 text-right text-xs font-semibold tracking-wide uppercase"
           >
             {DOW_SHORT[di]}
           </div>
@@ -123,14 +123,14 @@ export function MonthView({ ctrl }: { ctrl: CalendarController }) {
             <div
               key={ds}
               className={cn(
-                'flex min-h-0 flex-col overflow-hidden border-r border-b p-[6px_7px]',
+                'flex min-h-0 flex-col overflow-hidden border-r border-b px-1.75 py-1.5',
                 inMonth ? 'bg-card' : 'bg-muted/40',
               )}
             >
               <div className="mb-0.5 flex justify-end">
                 <span
                   className={cn(
-                    'flex h-5.5 min-w-5.5 items-center justify-center rounded-full px-1.25 text-[12.5px] tabular-nums',
+                    'flex h-5.5 min-w-5.5 items-center justify-center rounded-full px-1.25 text-xs tabular-nums',
                     isToday
                       ? 'bg-primary text-primary-foreground font-semibold'
                       : inMonth

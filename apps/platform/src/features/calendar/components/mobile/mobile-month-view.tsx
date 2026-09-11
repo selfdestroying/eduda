@@ -26,11 +26,11 @@ function MonthCell({ ctrl, day, month }: { ctrl: CalendarController; day: Date; 
   return (
     <button
       onClick={() => ctrl.setCurrentDate(ds)}
-      className="flex flex-col items-center gap-[3px] pt-1.5 pb-[5px]"
+      className="flex flex-col items-center gap-0.75 pt-1.5 pb-1.25"
     >
       <span
         className={cn(
-          'flex size-[30px] items-center justify-center rounded-full text-[14px] tabular-nums',
+          'flex size-7.5 items-center justify-center rounded-full text-sm tabular-nums',
           isToday || selected ? 'font-semibold' : 'font-normal',
           selected && isToday && 'bg-primary text-primary-foreground',
           selected && !isToday && 'bg-muted text-foreground',
@@ -40,10 +40,10 @@ function MonthCell({ ctrl, day, month }: { ctrl: CalendarController; day: Date; 
       >
         {day.getDate()}
       </span>
-      <div className="flex h-[5px] items-center">
+      <div className="flex h-1.25 items-center">
         {hasEvents && (
           <span
-            className="size-[5px] rounded-full"
+            className="size-1.25 rounded-full"
             style={{
               background: status ? DAY_STATUS_COLORS[status] : 'var(--muted-foreground)',
             }}
@@ -63,21 +63,21 @@ function DayAgenda({ ctrl }: { ctrl: CalendarController }) {
 
   return (
     <div className="thin-scrollbar min-h-0 flex-1 overflow-auto pb-28">
-      <div className="bg-card sticky top-0 z-1 flex items-baseline gap-2 px-[18px] pt-3.5 pb-2">
+      <div className="bg-card sticky top-0 z-1 flex items-baseline gap-2 px-4.5 pt-3.5 pb-2">
         {status && (
           <span
-            className="size-[5px] flex-none self-center rounded-full"
+            className="size-1.25 flex-none self-center rounded-full"
             style={{ background: DAY_STATUS_COLORS[status] }}
           />
         )}
         <span
-          className={cn('text-[15px] font-bold tracking-tight', !isToday && 'text-foreground')}
+          className={cn('text-base font-bold tracking-tight', !isToday && 'text-foreground')}
           style={isToday ? { color: NOW_COLOR } : undefined}
         >
           {DOW_FULL[d.getDay()]}, {d.getDate()} {MON_SHORT[d.getMonth()]}
         </span>
         {evs.length > 0 && (
-          <span className="text-muted-foreground/70 text-[12.5px]">
+          <span className="text-muted-foreground/70 text-xs">
             {evs.length} {lessonsWord(evs.length)}
           </span>
         )}
@@ -87,9 +87,7 @@ function DayAgenda({ ctrl }: { ctrl: CalendarController }) {
           <AgendaRow key={ev.id} ev={ev} tz={ctrl.tz} onClick={() => ctrl.selectEvent(ev)} />
         ))
       ) : (
-        <div className="text-muted-foreground/70 px-[18px] py-6 text-center text-[13.5px]">
-          Нет уроков
-        </div>
+        <div className="text-muted-foreground/70 px-4.5 py-6 text-center text-sm">Нет уроков</div>
       )}
     </div>
   )
@@ -105,7 +103,7 @@ export function MobileMonthView({ ctrl }: { ctrl: CalendarController }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="grid grid-cols-7 px-1.5 pt-2 pb-1">
         {order.map((di, i) => (
-          <div key={i} className="text-muted-foreground/70 text-center text-[11px] font-semibold">
+          <div key={i} className="text-muted-foreground/70 text-center text-xs font-semibold">
             {DOW_NARROW[di]}
           </div>
         ))}

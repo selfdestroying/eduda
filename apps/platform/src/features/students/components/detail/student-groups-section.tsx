@@ -105,9 +105,9 @@ function getAttendanceRate(stats: GroupStats) {
 }
 
 function getRateColor(rate: number) {
-  if (rate >= 80) return 'text-emerald-600 dark:text-emerald-400'
-  if (rate >= 60) return 'text-amber-600 dark:text-amber-400'
-  return 'text-rose-600 dark:text-rose-400'
+  if (rate >= 80) return 'text-success'
+  if (rate >= 60) return 'text-warning'
+  return 'text-destructive'
 }
 
 function getLessonsLabel(value: number) {
@@ -210,9 +210,9 @@ function GroupCard({
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Посещено" value={sg.stats.present} icon={CheckCircle2} variant="success" />
-        <StatCard label="Отработано" value={sg.stats.madeUp} icon={RefreshCw} variant="warning" />
-        <StatCard label="Пропущено" value={sg.stats.absent} icon={XCircle} variant="danger" />
+        <StatCard label="Посещено" value={sg.stats.present} icon={CheckCircle2} />
+        <StatCard label="Отработано" value={sg.stats.madeUp} icon={RefreshCw} />
+        <StatCard label="Пропущено" value={sg.stats.absent} icon={XCircle} />
         <StatCard label="Без отметки" value={sg.stats.unspecified} />
       </div>
 
@@ -272,7 +272,7 @@ function getStatusBadge(sg: StudentGroupWithStats) {
       )
     }
     case 'COMPLETED':
-      return <Badge variant="success">{StudentStatusMap.COMPLETED}</Badge>
+      return <Badge>{StudentStatusMap.COMPLETED}</Badge>
     case 'ARCHIVED':
       return <Badge variant="secondary">{StudentStatusMap.ARCHIVED}</Badge>
     case 'TRIAL':

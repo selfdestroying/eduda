@@ -61,7 +61,7 @@ function ParentMarkedAbsenceCard({
             {alert.groupName}
           </Link>
           <span className="ml-1">не придёт {formattedDate}</span>
-          <span className={alert.makeupDate ? 'ml-1' : 'ml-1 text-orange-600'}>
+          <span className={alert.makeupDate ? 'ml-1' : 'text-warning ml-1'}>
             ·{' '}
             {alert.makeupDate
               ? `отработка ${format(ymdToLocalDate(alert.makeupDate), 'd MMM', { locale: ru })}`

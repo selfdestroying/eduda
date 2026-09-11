@@ -7,8 +7,8 @@ const progressVariants = cva('h-1.5 rounded-full transition-all duration-500 eas
   variants: {
     variant: {
       default: 'bg-primary',
-      success: 'bg-emerald-500 dark:bg-emerald-400',
-      warning: 'bg-amber-500 dark:bg-amber-400',
+      success: 'bg-success',
+      warning: 'bg-warning',
       danger: 'bg-destructive',
     },
   },

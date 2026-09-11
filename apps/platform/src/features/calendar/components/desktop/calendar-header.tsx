@@ -18,8 +18,8 @@ export function CalendarHeader({ ctrl }: { ctrl: CalendarController }) {
   return (
     <header className="flex h-16 flex-none items-center justify-between gap-4 border-b px-4">
       <div className="flex min-w-0 items-baseline gap-3">
-        <h1 className="truncate text-[22px] leading-none font-semibold tracking-tight">{title}</h1>
-        <span className="text-muted-foreground shrink-0 text-[13.5px]">{sub}</span>
+        <h1 className="truncate text-2xl leading-none font-semibold tracking-tight">{title}</h1>
+        <span className="text-muted-foreground shrink-0 text-sm">{sub}</span>
       </div>
 
       <div className="flex flex-none items-center gap-2.5">

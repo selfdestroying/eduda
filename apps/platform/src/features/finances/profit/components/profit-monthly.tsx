@@ -68,14 +68,22 @@ function formatPercent(part: number, total: number) {
   return `${((part / total) * 100).toFixed(1)}%`
 }
 
+/*
+ * Раскладка повторяет устройство графика: выручка и прибыль — отдельные
+ * столбцы и берут сильную ступень, а пять статей расхода идут стопкой и
+ * занимают рампу целиком, от `chart-1` к `chart-5`. Внутри стопки это читается
+ * как градиент сверху вниз, а не как пять несвязанных цветов.
+ *
+ * Раньше здесь стояли семь hex-литералов, которые не менялись с темой вовсе.
+ */
 const chartConfig = {
-  profit: { label: 'Прибыль', color: '#10b981' }, // green-500
-  revenue: { label: 'Выручка', color: '#3b82f6' }, // blue-500
-  salaries: { label: 'Зарплаты', color: '#f97316' }, // orange-500
-  rent: { label: 'Аренда', color: '#8b5cf6' }, // violet-500
-  taxes: { label: 'Налоги', color: '#ef4444' }, // red-500
-  acquiring: { label: 'Эквайринг', color: '#ec4899' }, // fuchsia-500
-  expenses: { label: 'Прочее', color: '#64748b' }, // slate-500
+  revenue: { label: 'Выручка', color: 'var(--chart-1)' },
+  taxes: { label: 'Налоги', color: 'var(--chart-1)' },
+  acquiring: { label: 'Эквайринг', color: 'var(--chart-2)' },
+  salaries: { label: 'Зарплаты', color: 'var(--chart-3)' },
+  rent: { label: 'Аренда', color: 'var(--chart-4)' },
+  expenses: { label: 'Прочее', color: 'var(--chart-5)' },
+  profit: { label: 'Прибыль', color: 'var(--chart-1)' },
 } satisfies ChartConfig
 
 const EXPENSE_ROWS: { key: keyof ProfitMonthEntry; label: string; color: string }[] = [
@@ -114,7 +122,7 @@ function MonthlyTooltip({
       <div className="my-2 flex items-center justify-between gap-3 border-b pb-2">
         <span className="flex items-center gap-1.5 font-semibold">
           <span
-            className="size-2 shrink-0 rounded-[2px]"
+            className="size-2 shrink-0 rounded-xs"
             style={{ backgroundColor: chartConfig.revenue.color }}
           />
           Выручка
@@ -130,14 +138,11 @@ function MonthlyTooltip({
           return (
             <div key={key} className="flex items-center justify-between gap-3">
               <span className="flex items-center gap-1.5">
-                <span
-                  className="size-2 shrink-0 rounded-[2px]"
-                  style={{ backgroundColor: color }}
-                />
+                <span className="size-2 shrink-0 rounded-xs" style={{ backgroundColor: color }} />
                 <span className="text-muted-foreground">{label}</span>
               </span>
               <span className="flex items-baseline gap-2">
-                <span className="text-muted-foreground text-[0.625rem] tabular-nums">
+                <span className="text-muted-foreground text-xs tabular-nums">
                   {formatPercent(value, month.revenue)}
                 </span>
                 <span className="font-mono tabular-nums">{formatCurrency(value)}</span>
@@ -150,7 +155,7 @@ function MonthlyTooltip({
       <div className="mt-2 flex items-center justify-between gap-3 border-t pt-2">
         <span className="text-muted-foreground">Итого расходы</span>
         <span className="flex items-baseline gap-2">
-          <span className="text-muted-foreground text-[0.625rem] tabular-nums">
+          <span className="text-muted-foreground text-xs tabular-nums">
             {formatPercent(totalExpenses, month.revenue)}
           </span>
           <span className="font-mono tabular-nums">{formatCurrency(totalExpenses)}</span>
@@ -160,13 +165,13 @@ function MonthlyTooltip({
       <div className="mt-1 flex items-center justify-between gap-3">
         <span className="flex items-center gap-1.5 font-semibold">
           <span
-            className="size-2 shrink-0 rounded-[2px]"
+            className="size-2 shrink-0 rounded-xs"
             style={{ backgroundColor: chartConfig.profit.color }}
           />
           Прибыль
         </span>
         <span
-          className={`font-mono font-semibold tabular-nums ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
+          className={`font-mono font-semibold tabular-nums ${isPositive ? 'text-success' : 'text-destructive'}`}
         >
           {formatCurrency(month.profit)}
         </span>
@@ -364,45 +369,26 @@ function YearSummary({
               label="Выручка за год"
               value={formatCurrency(totals.revenue)}
               icon={Banknote}
-              variant="default"
             />
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-            <StatCard
-              label="Налоги"
-              value={formatCurrency(totals.taxes)}
-              icon={Landmark}
-              variant="default"
-            />
+            <StatCard label="Налоги" value={formatCurrency(totals.taxes)} icon={Landmark} />
             <StatCard
               label="Эквайринг"
               value={formatCurrency(totals.acquiring)}
               icon={CreditCard}
-              variant="default"
             />
-            <StatCard
-              label="Зарплаты"
-              value={formatCurrency(totals.salaries)}
-              icon={Users}
-              variant="default"
-            />
-            <StatCard
-              label="Аренда"
-              value={formatCurrency(totals.rent)}
-              icon={Building2}
-              variant="default"
-            />
+            <StatCard label="Зарплаты" value={formatCurrency(totals.salaries)} icon={Users} />
+            <StatCard label="Аренда" value={formatCurrency(totals.rent)} icon={Building2} />
             <StatCard
               label="Прочие расходы"
               value={formatCurrency(totals.expenses)}
               icon={Receipt}
-              variant="default"
             />
             <StatCard
               label="Чистая прибыль"
               value={formatCurrency(totals.profit)}
               icon={isPositive ? TrendingUp : TrendingDown}
-              variant={isPositive ? 'success' : 'danger'}
             />
           </div>
         </div>
@@ -471,7 +457,7 @@ function MonthlyTable({ months }: { months: ProfitMonthEntry[] }) {
                     {formatCurrency(m.expenses)}
                   </td>
                   <td
-                    className={`px-2 py-2 text-right font-mono font-semibold ${m.profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
+                    className={`px-2 py-2 text-right font-mono font-semibold ${m.profit >= 0 ? 'text-success' : 'text-destructive'}`}
                   >
                     {formatCurrency(m.profit)}
                   </td>
@@ -662,11 +648,7 @@ function PivotTable({
             const subRows = isOpen ? collectSubRows(months, row.key) : []
 
             const toneClass =
-              row.tone === 'profit'
-                ? total >= 0
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-red-600 dark:text-red-400'
-                : ''
+              row.tone === 'profit' ? (total >= 0 ? 'text-success' : 'text-destructive') : ''
 
             return (
               <Fragment key={row.key}>
@@ -685,7 +667,7 @@ function PivotTable({
                     <span className="inline-flex items-center gap-1.5">
                       {row.color && (
                         <span
-                          className="size-2 shrink-0 rounded-[2px]"
+                          className="size-2 shrink-0 rounded-xs"
                           style={{ backgroundColor: row.color }}
                         />
                       )}
@@ -710,18 +692,18 @@ function PivotTable({
                   subRows.map((sub) => (
                     <tr key={`${row.key}-${sub.label}`} className="bg-card border-b">
                       <td className="bg-card sticky left-0 z-10 px-2 py-1.5" />
-                      <td className="bg-card text-muted-foreground sticky left-6 z-10 px-2 py-1.5 pl-6 text-[0.6875rem]">
+                      <td className="bg-card text-muted-foreground sticky left-6 z-10 px-2 py-1.5 pl-6 text-xs">
                         {sub.label}
                       </td>
                       {sub.values.map((v, i) => (
                         <td
                           key={i}
-                          className="text-muted-foreground px-2 py-1.5 text-right font-mono text-[0.6875rem] tabular-nums"
+                          className="text-muted-foreground px-2 py-1.5 text-right font-mono text-xs tabular-nums"
                         >
                           {v === 0 ? '-' : formatCurrency(Math.round(v))}
                         </td>
                       ))}
-                      <td className="bg-card text-muted-foreground px-2 py-1.5 text-right font-mono text-[0.6875rem] tabular-nums">
+                      <td className="bg-card text-muted-foreground px-2 py-1.5 text-right font-mono text-xs tabular-nums">
                         {formatCurrency(Math.round(sub.total))}
                       </td>
                     </tr>
@@ -730,7 +712,7 @@ function PivotTable({
                   <tr className="bg-card border-b">
                     <td
                       colSpan={months.length + 3}
-                      className="text-muted-foreground px-2 py-2 pl-6 text-center text-[0.6875rem]"
+                      className="text-muted-foreground px-2 py-2 pl-6 text-center text-xs"
                     >
                       Нет детализации за выбранный период
                     </td>
@@ -773,7 +755,7 @@ function MonthDetailRows({ month }: { month: ProfitMonthEntry }) {
   if (detail.length === 0) {
     return (
       <tr className="bg-card border-b last:border-b-0">
-        <td colSpan={9} className="text-muted-foreground px-2 py-2 pl-10 text-[0.6875rem]">
+        <td colSpan={9} className="text-muted-foreground px-2 py-2 pl-10 text-xs">
           Нет детализации за выбранный месяц
         </td>
       </tr>
@@ -788,11 +770,11 @@ function MonthDetailRows({ month }: { month: ProfitMonthEntry }) {
         return (
           <tr key={`detail-${month.monthIndex}-${i}`} className="bg-card border-b last:border-b-0">
             <td className="bg-card px-2 py-1.5" />
-            <td className="text-muted-foreground bg-card px-2 py-1.5 pl-8 text-[0.6875rem]">
+            <td className="text-muted-foreground bg-card px-2 py-1.5 pl-8 text-xs">
               <span className="inline-flex items-center gap-1.5">
                 {meta?.color && (
                   <span
-                    className="size-2 shrink-0 rounded-[2px]"
+                    className="size-2 shrink-0 rounded-xs"
                     style={{ backgroundColor: meta.color }}
                   />
                 )}
@@ -802,7 +784,7 @@ function MonthDetailRows({ month }: { month: ProfitMonthEntry }) {
             {[2, 3, 4, 5, 6, 7, 8].map((col) => (
               <td
                 key={col}
-                className="text-muted-foreground bg-card px-2 py-1.5 text-right font-mono text-[0.6875rem] tabular-nums"
+                className="text-muted-foreground bg-card px-2 py-1.5 text-right font-mono text-xs tabular-nums"
               >
                 {col === colIndex ? formatCurrency(Math.round(row.value)) : ''}
               </td>

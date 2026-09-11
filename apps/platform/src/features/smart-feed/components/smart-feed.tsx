@@ -440,9 +440,7 @@ export function ParentMarkedChip() {
                     {alert.makeupTime ? `, ${alert.makeupTime}` : ''}
                   </Link>
                 ) : (
-                  <span className="block truncate text-xs text-orange-600">
-                    Отработка не выбрана
-                  </span>
+                  <span className="text-warning block truncate text-xs">Отработка не выбрана</span>
                 )}
               </div>
             </div>
@@ -482,18 +480,23 @@ function SidebarToggle({ onClick }: { onClick: () => void }) {
 
 // ─── Chip popover (desktop - one per alert type) ───────────────────────
 
+/*
+ * Шкала срочности по количеству. Ступеней было четыре — зелёный, жёлтый,
+ * оранжевый, красный, — но интентов на неё есть только три, а жёлтый с
+ * оранжевым и так соседние тона и различались еле-еле. Свели к трём: «пусто»,
+ * «есть», «много». Понадобится средняя ступень обратно — она делается
+ * подложкой (`bg-warning/20` против `/10`), а не отдельным цветом.
+ */
 const chipVariants = {
-  red: 'bg-destructive/10 text-destructive hover:bg-destructive/15',
-  orange: 'bg-orange-500/10 text-orange-600 hover:bg-orange-500/15',
-  yellow: 'bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/15',
-  green: 'bg-green-500/10 text-green-600 hover:bg-green-500/15',
+  none: 'bg-success/10 text-success hover:bg-success/15',
+  some: 'bg-warning/10 text-warning hover:bg-warning/15',
+  many: 'bg-destructive/10 text-destructive hover:bg-destructive/15',
 } as const
 
 function getChipVariant(count: number): keyof typeof chipVariants {
-  if (count === 0) return 'green'
-  if (count <= 5) return 'yellow'
-  if (count <= 10) return 'orange'
-  return 'red'
+  if (count === 0) return 'none'
+  if (count <= 10) return 'some'
+  return 'many'
 }
 
 function ChipPopover({

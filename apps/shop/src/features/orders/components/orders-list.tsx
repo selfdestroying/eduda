@@ -77,7 +77,7 @@ export function OrdersList({ orders, tz }: { orders: StudentOrder[]; tz: string 
                 <ul className="divide-y">
                   {order.items.map((item, i) => (
                     <li key={i} className="flex items-center gap-3 py-2">
-                      <div className="bg-muted relative size-10 shrink-0 overflow-hidden rounded">
+                      <div className="bg-muted relative size-10 shrink-0 overflow-hidden rounded-sm">
                         {item.imageUrl ? (
                           <Image
                             src={item.imageUrl}

@@ -47,7 +47,7 @@ export default async function LoginPage({
       <div className="animate-landing-enter relative z-10 flex w-full max-w-sm flex-col items-center">
         {/* Brand */}
         <div className="mb-5.5 flex flex-col items-center gap-3">
-          <div className="ring-border/60 bg-card/80 flex size-16 items-center justify-center overflow-hidden rounded-[1.125rem] ring-1">
+          <div className="ring-border/60 bg-card/80 flex size-16 items-center justify-center overflow-hidden rounded-2xl ring-1">
             <Logo className="text-primary size-10" />
           </div>
           <div className="flex flex-col items-center gap-0.5">
@@ -57,7 +57,7 @@ export default async function LoginPage({
         </div>
 
         {/* Card */}
-        <div className="ring-border/60 bg-card/80 w-full rounded-[1.125rem] p-5.5 shadow-xl ring-1 shadow-black/5 backdrop-blur-xl dark:shadow-black/20">
+        <div className="ring-border/60 bg-card/80 w-full rounded-2xl p-5.5 shadow-xl ring-1 shadow-black/5 backdrop-blur-xl dark:shadow-black/20">
           <LoginForm orgUnavailable={orgUnavailable} />
         </div>
       </div>

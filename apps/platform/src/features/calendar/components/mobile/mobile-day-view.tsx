@@ -7,7 +7,7 @@ import {
   addDays,
   fmtHour,
   fmtTime,
-  hexA,
+  withAlpha,
   nowMinutes,
   startOfWeek,
   todayYmd,
@@ -39,7 +39,7 @@ function WeekStrip({ ctrl }: { ctrl: CalendarController }) {
           >
             <span
               className={cn(
-                'text-[11px] font-semibold',
+                'text-xs font-semibold',
                 isToday ? 'text-foreground' : 'text-muted-foreground',
               )}
               style={isToday ? { color: NOW_COLOR } : undefined}
@@ -48,7 +48,7 @@ function WeekStrip({ ctrl }: { ctrl: CalendarController }) {
             </span>
             <span
               className={cn(
-                'flex size-[34px] items-center justify-center rounded-full text-[15px] font-semibold tabular-nums',
+                'flex size-8.5 items-center justify-center rounded-full text-base font-semibold tabular-nums',
                 selected && 'bg-primary text-primary-foreground',
               )}
               style={!selected && isToday ? { color: NOW_COLOR } : undefined}
@@ -56,7 +56,7 @@ function WeekStrip({ ctrl }: { ctrl: CalendarController }) {
               {d.getDate()}
             </span>
             <span
-              className="size-[5px] rounded-full"
+              className="size-1.25 rounded-full"
               style={{
                 background: hasEvents
                   ? status
@@ -90,7 +90,7 @@ function MobileTimeline({ ctrl }: { ctrl: CalendarController }) {
           {HOURS.map((hr) => (
             <div
               key={hr}
-              className="text-muted-foreground/70 absolute left-0 w-12 text-right text-[11px] tabular-nums"
+              className="text-muted-foreground/70 absolute left-0 w-12 text-right text-xs tabular-nums"
               style={{ top: hr * HM - 7 }}
             >
               {hr === 0 ? '' : fmtHour(hr)}
@@ -113,7 +113,7 @@ function MobileTimeline({ ctrl }: { ctrl: CalendarController }) {
                   key={ev.id}
                   onClick={() => ctrl.selectEvent(ev)}
                   className={cn(
-                    'absolute overflow-hidden rounded-[7px] px-2.5 py-[5px]',
+                    'absolute overflow-hidden rounded-md px-2.5 py-1.25',
                     ev.cancelled && 'opacity-50',
                   )}
                   style={{
@@ -121,19 +121,19 @@ function MobileTimeline({ ctrl }: { ctrl: CalendarController }) {
                     height,
                     left: `calc(${slot.lane * w}% + 2px)`,
                     width: `calc(${w}% - 4px)`,
-                    background: hexA(ev.color, 0.12),
+                    background: withAlpha(ev.color, 0.12),
                   }}
                 >
                   <div
                     className={cn(
-                      'overflow-hidden text-[12.5px] font-semibold text-ellipsis whitespace-nowrap',
+                      'overflow-hidden text-xs font-semibold text-ellipsis whitespace-nowrap',
                       ev.cancelled && 'line-through',
                     )}
                   >
                     {ev.title}
                   </div>
                   {height > 40 && (
-                    <div className="text-muted-foreground mt-px text-[11px] tabular-nums">
+                    <div className="text-muted-foreground mt-px text-xs tabular-nums">
                       {fmtTime(ev.start)} – {fmtTime(ev.end)}
                     </div>
                   )}
@@ -150,7 +150,7 @@ function MobileTimeline({ ctrl }: { ctrl: CalendarController }) {
                 }}
               >
                 <div
-                  className="absolute -top-1 -left-[5px] size-[9px] rounded-full"
+                  className="absolute -top-1 -left-[5px] size-2.25 rounded-full"
                   style={{ background: NOW_COLOR }}
                 />
               </div>

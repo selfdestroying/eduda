@@ -48,13 +48,13 @@ const Y_AXIS_WIDTH = 44
  * пропусков.
  */
 const chartConfig = {
-  warned: { label: 'С предупреждением', color: 'var(--chart-2)' },
-  unwarned: { label: 'Без предупреждения', color: 'var(--chart-1)' },
+  warned: { label: 'С предупреждением', color: 'var(--chart-1)' },
+  unwarned: { label: 'Без предупреждения', color: 'var(--chart-3)' },
   // Цвета те же, что у количества: потери идут в цвет непредупреждённых, спасённое
   // — в цвет предупреждённых, это ровно они и есть, только в рублях. Единицы в
   // подписи — тултип и легенда показывают голое число.
   lost: { label: 'Потеряно родителями, ₽', color: 'var(--chart-1)' },
-  saved: { label: 'Спасено отработкой, ₽', color: 'var(--chart-2)' },
+  saved: { label: 'Спасено отработкой, ₽', color: 'var(--chart-3)' },
 } satisfies ChartConfig
 
 export default function AbsentChart() {

@@ -1,5 +1,6 @@
 'use client'
 
+import { Badge } from '@repo/ui/components/badge'
 import { Button } from '@repo/ui/components/button'
 import {
   Drawer,
@@ -27,7 +28,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import type { CalendarController } from '../hooks/use-calendar'
 import { DOW_FULL, MONTHS_GENITIVE } from '../lib/constants'
-import { fmtTime, hexA, parseYmd } from '../lib/date-utils'
+import { fmtTime, withAlpha, parseYmd } from '../lib/date-utils'
 import type { CalendarEvent } from '../types'
 import { AttendanceStatusSwitcher } from '../../lessons/components/attendance-status-switcher'
 import { AttendanceCommentPopover } from '../../lessons/components/attendance-comment-popover'
@@ -68,7 +69,7 @@ function MetaItem({
         strokeWidth={1.8}
         aria-label={label}
       />
-      <div className="text-foreground min-w-0 text-[13.5px] leading-snug font-medium">{value}</div>
+      <div className="text-foreground min-w-0 text-sm leading-snug font-medium">{value}</div>
     </div>
   )
 }
@@ -103,16 +104,16 @@ function StudentRow({ a }: { a: AttendanceWithStudents }) {
             {a.student.firstName} {a.student.lastName}
           </Link>
           {a.isTrial && (
-            <span className="bg-info/10 text-info flex-none rounded px-1.5 py-px text-[10.5px] font-medium">
+            <Badge variant="info" className="flex-none">
               Пробный
-            </span>
+            </Badge>
           )}
         </div>
         {a.comment && (
-          <div className="text-muted-foreground mt-0.5 truncate text-[12px]">{a.comment}</div>
+          <div className="text-muted-foreground mt-0.5 truncate text-xs">{a.comment}</div>
         )}
         {makeup && (
-          <div className="text-muted-foreground mt-0.5 truncate text-[12px]">{makeup.label}</div>
+          <div className="text-muted-foreground mt-0.5 truncate text-xs">{makeup.label}</div>
         )}
       </div>
       <AttendanceStatusSwitcher attendance={a} />
@@ -145,19 +146,19 @@ function LessonDetailBody({ ev }: { ev: CalendarEvent }) {
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-stretch gap-3">
             <span
-              className="w-[5px] flex-none rounded-[3px]"
-              style={{ background: hexA(ev.color, 1) }}
+              className="w-1.25 flex-none rounded-sm"
+              style={{ background: withAlpha(ev.color, 1) }}
               aria-hidden
             />
             <div className="min-w-0">
               <div className="mb-1 flex items-center gap-2">
-                <span className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+                <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
                   Урок
                 </span>
                 {groupType && (
                   <span
-                    className="rounded-[5px] px-2 py-0.5 text-[11px] font-semibold"
-                    style={{ color: ev.color, background: hexA(ev.color, 0.1) }}
+                    className="rounded-full px-2 py-0.5 text-xs font-semibold"
+                    style={{ color: ev.color, background: withAlpha(ev.color, 0.1) }}
                   >
                     {groupType}
                   </span>
@@ -165,14 +166,14 @@ function LessonDetailBody({ ev }: { ev: CalendarEvent }) {
               </div>
               <DrawerTitle
                 className={cn(
-                  'text-[20px] leading-tight font-bold tracking-[-0.02em]',
+                  'text-xl leading-tight font-bold tracking-[-0.02em]',
                   ev.cancelled && 'text-muted-foreground line-through',
                 )}
               >
                 {ev.title}
               </DrawerTitle>
               {ev.cancelled && (
-                <span className="text-destructive mt-0.5 block text-[12px] font-medium">
+                <span className="text-destructive mt-0.5 block text-xs font-medium">
                   Урок отменён
                 </span>
               )}
@@ -230,9 +231,9 @@ function LessonDetailBody({ ev }: { ev: CalendarEvent }) {
       {/* ── Посещаемость + ростер ── */}
       <div className="flex min-h-0 flex-1 flex-col">
         {isLoading ? (
-          <div className="text-muted-foreground py-6 text-center text-[13px]">Загрузка…</div>
+          <div className="text-muted-foreground py-6 text-center text-sm">Загрузка…</div>
         ) : total === 0 ? (
-          <div className="text-muted-foreground py-6 text-center text-[13px]">
+          <div className="text-muted-foreground py-6 text-center text-sm">
             Нет учеников на уроке
           </div>
         ) : (

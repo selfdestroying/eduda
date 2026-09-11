@@ -47,9 +47,7 @@ export default function AddCoinsForm({ studentId, currentCoins }: AddCoinsFormPr
             <span
               className={cn(
                 'flex items-center gap-1 text-xs font-semibold tabular-nums',
-                isSubtract
-                  ? 'text-red-600 dark:text-red-400'
-                  : 'text-emerald-600 dark:text-emerald-400',
+                isSubtract ? 'text-destructive' : 'text-success',
               )}
             >
               {isSubtract ? '−' : '+'}

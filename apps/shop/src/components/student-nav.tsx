@@ -69,7 +69,7 @@ function CartBadge({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        'bg-primary text-primary-foreground inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums',
+        'bg-primary text-primary-foreground inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-xs font-semibold tabular-nums',
         className,
       )}
     >
@@ -213,7 +213,7 @@ export function StudentTabBar({ shopDisabled }: { shopDisabled: boolean }) {
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors',
+                  'flex flex-1 flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors',
                   active ? 'text-primary' : 'text-muted-foreground',
                 )}
               >

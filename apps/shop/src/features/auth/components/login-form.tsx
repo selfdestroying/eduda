@@ -66,7 +66,7 @@ export function LoginForm({ orgUnavailable = false }: { orgUnavailable?: boolean
         </Alert>
       )}
       <FieldGroup>
-        <p className="text-muted-foreground text-center text-[0.78125rem] leading-relaxed">
+        <p className="text-muted-foreground text-center text-xs leading-relaxed">
           Логин и пароль выдаёт школа
         </p>
         <Controller

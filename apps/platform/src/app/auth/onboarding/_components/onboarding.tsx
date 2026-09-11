@@ -264,7 +264,7 @@ export default function Onboarding() {
               </div>
               <div className="flex flex-col leading-tight">
                 <span className="text-sm font-bold tracking-tight">ЕДУДА</span>
-                <span className="text-muted-foreground text-[0.6875rem]">Настройка школы</span>
+                <span className="text-muted-foreground text-xs">Настройка школы</span>
               </div>
             </div>
 
@@ -278,7 +278,7 @@ export default function Onboarding() {
                     <div className="flex flex-col items-center self-stretch">
                       <div
                         className={cn(
-                          'flex size-8.5 shrink-0 items-center justify-center rounded-full text-[0.8125rem] font-semibold transition-colors',
+                          'flex size-8.5 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors',
                           done && 'bg-primary text-primary-foreground',
                           current && 'bg-primary/12 text-primary ring-primary ring-2 ring-inset',
                           !done &&
@@ -300,14 +300,14 @@ export default function Onboarding() {
                     <div className={cn('mt-1.5 flex-1', n < LAST_STEP && 'pb-5.5')}>
                       <div
                         className={cn(
-                          'text-[0.8125rem]',
+                          'text-sm',
                           current ? 'font-semibold' : 'font-medium',
                           done || current ? 'text-foreground' : 'text-muted-foreground',
                         )}
                       >
                         {s.nav}
                       </div>
-                      <div className="text-muted-foreground text-[0.6875rem]">{s.hint}</div>
+                      <div className="text-muted-foreground text-xs">{s.hint}</div>
                     </div>
                   </li>
                 )
@@ -315,7 +315,7 @@ export default function Onboarding() {
             </ol>
 
             <div className="mt-auto pt-5">
-              <div className="text-muted-foreground mb-1.5 flex justify-between text-[0.6875rem]">
+              <div className="text-muted-foreground mb-1.5 flex justify-between text-xs">
                 <span>
                   Шаг {step} из {LAST_STEP}
                 </span>
@@ -344,7 +344,7 @@ export default function Onboarding() {
                 шага и так стоит в заголовке сразу под этим блоком. */}
             <div className="mb-5 flex flex-col gap-2 md:hidden">
               <div className="flex items-center gap-3">
-                <span className="text-muted-foreground flex-1 text-[0.6875rem]">
+                <span className="text-muted-foreground flex-1 text-xs">
                   Шаг {step} из {LAST_STEP} · {Math.round((step / LAST_STEP) * 100)}%
                 </span>
                 <Button
@@ -362,7 +362,7 @@ export default function Onboarding() {
 
             <header className="mb-5">
               <h1 className="text-xl font-semibold tracking-tight">{STEPS[step - 1]!.nav}</h1>
-              <p className="text-muted-foreground mt-1.5 text-[0.8125rem] leading-relaxed">
+              <p className="text-muted-foreground mt-1.5 text-sm leading-relaxed">
                 {STEPS[step - 1]!.desc}
               </p>
             </header>
@@ -436,17 +436,15 @@ export default function Onboarding() {
                           )}
                         >
                           <span className="flex flex-col">
-                            <span className="text-[0.8125rem] font-medium">{t.label}</span>
-                            <span className="text-muted-foreground text-[0.6875rem]">
-                              {utcOffset(t.tz)}
-                            </span>
+                            <span className="text-sm font-medium">{t.label}</span>
+                            <span className="text-muted-foreground text-xs">{utcOffset(t.tz)}</span>
                           </span>
                           {t.tz === timezone && <Check className="text-primary size-4" />}
                         </button>
                       ))}
                     </div>
                   </Field>
-                  <div className="text-muted-foreground flex items-center gap-2 text-[0.8125rem]">
+                  <div className="text-muted-foreground flex items-center gap-2 text-sm">
                     <Clock className="size-3.5" />
                     Сейчас в вашей школе:{' '}
                     <strong className="text-foreground">
@@ -484,8 +482,8 @@ export default function Onboarding() {
                               {selected && <span className="bg-primary size-2 rounded-full" />}
                             </span>
                             <span className="flex-1">
-                              <span className="block text-[0.8125rem] font-medium">{t.label}</span>
-                              <span className="text-muted-foreground block text-[0.6875rem]">
+                              <span className="block text-sm font-medium">{t.label}</span>
+                              <span className="text-muted-foreground block text-xs">
                                 {t.description}
                               </span>
                             </span>
@@ -559,7 +557,7 @@ export default function Onboarding() {
 function WelcomeScreen({ onStart }: { onStart: () => void }) {
   return (
     <div className="animate-landing-enter relative z-10 flex w-full max-w-113 flex-col items-center text-center">
-      <div className="bg-card/80 ring-border/60 mb-5 flex size-18 items-center justify-center rounded-[1.125rem] ring-1">
+      <div className="bg-card/80 ring-border/60 mb-5 flex size-18 items-center justify-center rounded-2xl ring-1">
         <Logo className="text-primary size-11" />
       </div>
       <h1 className="text-2xl font-bold tracking-tight text-balance">Добро пожаловать в ЕДУДА</h1>
@@ -570,18 +568,18 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
       <div className="bg-card ring-border/60 mb-6 w-full divide-y rounded-2xl p-1.5 text-left ring-1">
         {STEPS.map((s) => (
           <div key={s.nav} className="flex items-center gap-3 px-3 py-2.5">
-            <div className="bg-primary/10 text-primary flex size-8.5 shrink-0 items-center justify-center rounded-[0.5625rem]">
+            <div className="bg-primary/10 text-primary flex size-8.5 shrink-0 items-center justify-center rounded-lg">
               <s.icon className="size-4" />
             </div>
             <div>
-              <div className="text-[0.8125rem] font-semibold">{s.nav}</div>
-              <div className="text-muted-foreground text-[0.6875rem]">{s.hint}</div>
+              <div className="text-sm font-semibold">{s.nav}</div>
+              <div className="text-muted-foreground text-xs">{s.hint}</div>
             </div>
           </div>
         ))}
       </div>
 
-      <Button size="lg" className="h-11 w-full rounded-xl text-[0.9375rem]" onClick={onStart}>
+      <Button size="lg" className="h-11 w-full rounded-xl text-base" onClick={onStart}>
         Начать настройку
         <ArrowRight />
       </Button>

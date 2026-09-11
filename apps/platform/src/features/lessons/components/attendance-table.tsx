@@ -95,10 +95,7 @@ function buildColumns({
           {/* Отметка родителя из кабинета: выглядит так же, как отметка
               преподавателя, но её никто из школы не подтверждал. */}
           {row.original.parentMarkedAt && (
-            <Badge
-              variant="secondary"
-              className="bg-amber-500/10 text-amber-600 select-none dark:text-amber-400"
-            >
+            <Badge variant="secondary" className="bg-warning/10 text-warning select-none">
               Из кабинета
             </Badge>
           )}

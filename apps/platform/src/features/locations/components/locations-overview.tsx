@@ -103,7 +103,6 @@ export default function LocationsOverview() {
                     : `${stats.locationsWithActiveRent} / ${stats.totalLocations}`
                 }
                 icon={Building2}
-                variant="success"
                 description={
                   stats.totalLocations > 0
                     ? `${Math.round((stats.locationsWithActiveRent / stats.totalLocations) * 100)}% покрытие`
@@ -114,7 +113,6 @@ export default function LocationsOverview() {
                 label="Ежемесячные платежи"
                 value={rentsLoading ? '-' : currency.format(stats.monthlySpend)}
                 icon={Wallet}
-                variant="warning"
                 hint="Сумма ежемесячных арендных платежей по всем активным контрактам. Разовые платежи за период сюда не входят."
               />
             </div>

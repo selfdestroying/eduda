@@ -367,7 +367,7 @@ function ToolFallbackApproval({
           <ul className="aui-tool-fallback-approval-confirm-grants flex flex-col gap-1">
             {confirming.grants.map((grant) => (
               <li key={grant}>
-                <code className="aui-tool-fallback-approval-confirm-grant bg-muted rounded px-1.5 py-0.5 text-xs">
+                <code className="aui-tool-fallback-approval-confirm-grant bg-muted rounded-sm px-1.5 py-0.5 text-xs">
                   {grant}
                 </code>
               </li>

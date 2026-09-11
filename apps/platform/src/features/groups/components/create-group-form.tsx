@@ -487,7 +487,7 @@ export default function CreateGroupForm() {
                 <FieldLabel>Преподаватели</FieldLabel>
 
                 {teacherFields.length > 0 && (
-                  <div className="text-muted-foreground grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px] gap-2 px-0.5 text-[0.625rem] tracking-wide uppercase">
+                  <div className="text-muted-foreground grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px] gap-2 px-0.5 text-xs tracking-wide uppercase">
                     <span>Преподаватель</span>
                     <span>Ставка</span>
                     <span />
@@ -668,7 +668,7 @@ export default function CreateGroupForm() {
                   </div>
 
                   {fields.length > 0 && (
-                    <div className="text-muted-foreground hidden grid-cols-[minmax(0,1fr)_120px_120px_32px] gap-2 px-0.5 text-[0.625rem] tracking-wide uppercase sm:grid">
+                    <div className="text-muted-foreground hidden grid-cols-[minmax(0,1fr)_120px_120px_32px] gap-2 px-0.5 text-xs tracking-wide uppercase sm:grid">
                       <span>День недели</span>
                       <span>Начало</span>
                       <span>Длительность, мин</span>
@@ -683,7 +683,7 @@ export default function CreateGroupForm() {
                         className="border-border grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_120px_120px_32px] sm:items-start sm:rounded-none sm:border-0 sm:p-0"
                       >
                         <div className="col-span-2 flex flex-col gap-1 sm:col-span-1">
-                          <span className="text-muted-foreground text-[0.625rem] sm:hidden">
+                          <span className="text-muted-foreground text-xs sm:hidden">
                             День недели
                           </span>
                           <Select
@@ -719,7 +719,7 @@ export default function CreateGroupForm() {
                           disabled={isPending}
                           render={({ field: timeField, fieldState }) => (
                             <div className="flex flex-col gap-1">
-                              <span className="text-muted-foreground text-[0.625rem] sm:hidden">
+                              <span className="text-muted-foreground text-xs sm:hidden">
                                 Начало
                               </span>
                               <Input
@@ -739,7 +739,7 @@ export default function CreateGroupForm() {
                           disabled={isPending}
                           render={({ field: durationField, fieldState }) => (
                             <div className="flex flex-col gap-1">
-                              <span className="text-muted-foreground text-[0.625rem] sm:hidden">
+                              <span className="text-muted-foreground text-xs sm:hidden">
                                 Длительность, мин
                               </span>
                               <NumberInput
@@ -823,7 +823,7 @@ export default function CreateGroupForm() {
                 )}
 
                 {enrolled.length > 0 && (
-                  <div className="text-muted-foreground grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px] gap-2 px-0.5 text-[0.625rem] tracking-wide uppercase">
+                  <div className="text-muted-foreground grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px] gap-2 px-0.5 text-xs tracking-wide uppercase">
                     <span>Ученик</span>
                     <span>Кошелёк</span>
                     <span />

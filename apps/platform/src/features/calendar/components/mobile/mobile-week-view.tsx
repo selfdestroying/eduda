@@ -3,7 +3,7 @@
 import { cn } from '@/src/lib/utils'
 import type { CalendarController } from '../../hooks/use-calendar'
 import { DAY_STATUS_COLORS, DOW_FULL, MON_SHORT, NOW_COLOR } from '../../lib/constants'
-import { addDays, sortEvents, startOfWeek, todayYmd, ymd } from '../../lib/date-utils'
+import { addDays, sortEvents, startOfWeek, todayYmd, withAlpha, ymd } from '../../lib/date-utils'
 import { AgendaRow } from './agenda-row'
 
 export function MobileWeekView({ ctrl }: { ctrl: CalendarController }) {
@@ -20,16 +20,16 @@ export function MobileWeekView({ ctrl }: { ctrl: CalendarController }) {
         const status = ctrl.dayStatus(ds)
         return (
           <div key={ds}>
-            <div className="flex items-center gap-2 px-[18px] pt-4 pb-1.5">
+            <div className="flex items-center gap-2 px-4.5 pt-4 pb-1.5">
               {status && (
                 <span
-                  className="size-[5px] flex-none rounded-full"
+                  className="size-1.25 flex-none rounded-full"
                   style={{ background: DAY_STATUS_COLORS[status] }}
                 />
               )}
               <span
                 className={cn(
-                  'text-[11px] font-semibold tracking-wide uppercase',
+                  'text-xs font-semibold tracking-wide uppercase',
                   !isToday && 'text-muted-foreground',
                 )}
                 style={isToday ? { color: NOW_COLOR } : undefined}
@@ -37,15 +37,15 @@ export function MobileWeekView({ ctrl }: { ctrl: CalendarController }) {
                 {DOW_FULL[d.getDay()]}
               </span>
               <span
-                className={cn('text-[11px] font-semibold', !isToday && 'text-muted-foreground/70')}
+                className={cn('text-xs font-semibold', !isToday && 'text-muted-foreground/70')}
                 style={isToday ? { color: NOW_COLOR } : undefined}
               >
                 {MON_SHORT[d.getMonth()]} {d.getDate()}
               </span>
               {isToday && (
                 <span
-                  className="rounded-[5px] px-1.5 py-px text-[10px] font-semibold"
-                  style={{ color: NOW_COLOR, background: 'oklch(0.541 0.281 293.009 / 10%)' }}
+                  className="rounded-full px-2 py-0.5 text-xs font-semibold"
+                  style={{ color: NOW_COLOR, background: withAlpha(NOW_COLOR, 0.1) }}
                 >
                   Сегодня
                 </span>
@@ -56,11 +56,11 @@ export function MobileWeekView({ ctrl }: { ctrl: CalendarController }) {
                 <AgendaRow key={ev.id} ev={ev} tz={ctrl.tz} onClick={() => ctrl.selectEvent(ev)} />
               ))
             ) : (
-              <div className="text-muted-foreground/70 px-[18px] pt-0.5 pb-1.5 text-[13px]">
+              <div className="text-muted-foreground/70 px-4.5 pt-0.5 pb-1.5 text-sm">
                 Нет событий
               </div>
             )}
-            <div className="bg-border mx-[18px] mt-2.5 h-px" />
+            <div className="bg-border mx-4.5 mt-2.5 h-px" />
           </div>
         )
       })}

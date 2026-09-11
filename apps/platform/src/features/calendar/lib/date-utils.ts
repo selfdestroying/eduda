@@ -54,11 +54,14 @@ export const fmtTime = (m: number) => {
 /** Метка часа для гуттера таймлайна → «09:00». */
 export const fmtHour = (h: number) => `${pad(h)}:00`
 
-/** HEX + альфа → строка `rgba(...)`. */
-export const hexA = (hex: string, a: number) => {
-  const n = parseInt(hex.slice(1), 16)
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`
-}
+/**
+ * Цвет + альфа. Через `color-mix`, а не разбор hex: цвета календаря приходят
+ * ссылками на палитру (`var(--color-blue-600)`), и распарсить их нельзя. Раньше
+ * функция звалась `hexA` и делала `parseInt(hex.slice(1), 16)` — именно она и
+ * держала палитру на литералах, а не наоборот.
+ */
+export const withAlpha = (color: string, a: number) =>
+  `color-mix(in oklch, ${color} ${a * 100}%, transparent)`
 
 /** Сортировка событий по времени начала. */
 export const sortEvents = (a: CalendarEvent, b: CalendarEvent) => a.start - b.start

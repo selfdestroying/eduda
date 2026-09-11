@@ -27,11 +27,9 @@ interface ShopSectionProps {
 }
 
 const statusBadgeVariants: Record<OrderStatus, string> = {
-  PENDING:
-    'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border-transparent',
-  COMPLETED:
-    'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-transparent',
-  CANCELLED: 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300 border-transparent',
+  PENDING: 'bg-warning/10 text-warning dark:bg-warning/20 border-transparent',
+  COMPLETED: 'bg-success/10 text-success dark:bg-success/20 border-transparent',
+  CANCELLED: 'bg-destructive/10 text-destructive dark:bg-destructive/20 border-transparent',
 }
 
 const statusIcons: Record<OrderStatus, React.ComponentType<{ className?: string }>> = {
@@ -64,11 +62,10 @@ export default function ShopSection({ coins, studentId }: ShopSectionProps) {
           value={
             <span className="flex items-center gap-1.5">
               {currentCoins}
-              <Coins className="size-4 text-violet-500" />
+              <Coins className="text-primary size-4" />
             </span>
           }
           icon={Coins}
-          variant={currentCoins > 0 ? 'success' : 'default'}
           hint="Внутренняя валюта, которую ученик зарабатывает за активность на уроках и тратит в магазине наград."
         />
         <StatCard
@@ -87,7 +84,6 @@ export default function ShopSection({ coins, studentId }: ShopSectionProps) {
           label="В ожидании"
           value={pendingOrders}
           icon={Clock}
-          variant={pendingOrders > 0 ? 'warning' : 'default'}
           description={pendingOrders > 0 ? 'требуют обработки' : 'всё обработано'}
         />
       </div>
@@ -155,7 +151,7 @@ export default function ShopSection({ coins, studentId }: ShopSectionProps) {
                       )}
                     >
                       {total}
-                      <Coins className="size-3.5 text-violet-500" />
+                      <Coins className="text-primary size-3.5" />
                     </span>
                   </div>
                 </li>

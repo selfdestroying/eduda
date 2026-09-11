@@ -25,7 +25,7 @@ export function ViewTabs({
     <Tabs value={view} onValueChange={(v) => onChange(v as CalendarView)}>
       <TabsList className={cn('h-9', fullWidth && 'w-full')}>
         {VIEWS.map((v) => (
-          <TabsTrigger key={v.value} value={v.value} className="px-3 text-[12.5px]">
+          <TabsTrigger key={v.value} value={v.value} className="px-3 text-xs">
             {v.label}
           </TabsTrigger>
         ))}

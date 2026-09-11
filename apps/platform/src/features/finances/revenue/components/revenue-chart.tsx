@@ -44,10 +44,10 @@ const MODE_LABEL: Record<Mode, string> = { revenue: 'Выручка', lessons: '
  * заменяет строку тултипа целиком, вместе с квадратиком цвета.
  */
 const CHART_CONFIG: Record<Mode, ChartConfig> = {
-  revenue: { revenue: { label: 'Выручка, ₽', color: 'var(--chart-2)' } },
+  revenue: { revenue: { label: 'Выручка, ₽', color: 'var(--chart-1)' } },
   lessons: {
-    paid: { label: 'Оплачено', color: 'var(--chart-2)' },
-    unpaid: { label: 'Ждут оплаты', color: 'var(--chart-1)' },
+    paid: { label: 'Оплачено', color: 'var(--chart-1)' },
+    unpaid: { label: 'Ждут оплаты', color: 'var(--chart-3)' },
   },
 }
 
@@ -166,7 +166,7 @@ export default function RevenueChart() {
         {isPending ? (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-[4.5rem] rounded-lg" />
+              <Skeleton key={i} className="h-18 rounded-lg" />
             ))}
           </div>
         ) : (

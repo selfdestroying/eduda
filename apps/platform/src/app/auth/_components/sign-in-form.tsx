@@ -55,7 +55,7 @@ export function SignInForm({ onSuccess }: SignInFormProps) {
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-3">
       <FieldGroup>
-        <p className="text-muted-foreground text-center text-[0.78125rem] leading-relaxed">
+        <p className="text-muted-foreground text-center text-xs leading-relaxed">
           Войдите, чтобы продолжить работу
         </p>
         <Controller

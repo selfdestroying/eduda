@@ -22,7 +22,7 @@ export default function NotFound() {
         </div>
 
         <div className="ring-border/60 bg-card/80 w-full rounded-2xl p-6 shadow-xl ring-1 shadow-black/5 backdrop-blur-xl dark:shadow-black/20">
-          <p className="text-muted-foreground mx-auto max-w-[18rem] text-center text-xs leading-relaxed">
+          <p className="text-muted-foreground mx-auto max-w-72 text-center text-xs leading-relaxed">
             Проверьте ссылку или запросите новую у администратора школы. Возможно, она была изменена
             или больше не актуальна.
           </p>

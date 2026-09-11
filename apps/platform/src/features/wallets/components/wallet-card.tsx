@@ -107,7 +107,7 @@ export function WalletCard({ wallet, actions, children, className }: WalletCardP
 
       {/* Из чего сложился баланс: пакеты в порядке списания */}
       {wallet.packages && wallet.packages.length > 0 && (
-        <div className="text-muted-foreground space-y-0.5 text-[0.625rem]">
+        <div className="text-muted-foreground space-y-0.5 text-xs">
           <span>Пакеты:</span>
           {wallet.packages.map((p) => (
             <div key={p.id} className="flex items-center justify-between gap-1">

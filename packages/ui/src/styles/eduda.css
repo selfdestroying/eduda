@@ -1,0 +1,231 @@
+/*
+ * Всё кастомное, что не принадлежит shadcn.
+ *
+ * Разделение не косметическое: CLI shadcn перезаписывает тот файл, на который
+ * указывает `tailwind.css` в `components.json` — то есть `globals.css`. Пока
+ * наши утилиты, анимации и статусные интенты лежали там же, любой
+ * `shadcn migrate base-color` или обновление темы рисковало их снести. Здесь
+ * их не тронет ничто: этот файл CLI не знает.
+ *
+ * Подключается из `globals.css` строкой `@import './eduda.css'` — она стоит в
+ * общей группе `@import` наверху, потому что CSS требует все импорты до любых
+ * других правил. Порядок значения не имеет: `@theme` и `@utility` Tailwind
+ * сливает на сборке, а переменные разрешаются в момент использования.
+ */
+
+/*
+ * Пакет лежит вне рабочей директории сборки приложения (та — `apps/<app>`), а
+ * `node_modules` Tailwind игнорирует по умолчанию. Без этой строки классы из
+ * компонентов пакета не попадут в билд. Путь — относительно этого файла.
+ */
+@source '../';
+
+/* Нативные контролы (календарь у `input[type=date]`, системные меню) красит
+   браузер, и без этих строк он красит их светлыми поверх нашей тёмной темы. */
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+
+@theme inline {
+  /* Статусные интенты: shadcn поставляет только `destructive`, остальных у него
+     нет вовсе (у Material 3 та же асимметрия). */
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --color-warning: var(--warning);
+}
+
+:root {
+  /*
+   * Дальше — не shadcn. `success`, `warning` и `info` он не поставляет вовсе, и
+   * это не пробел: у Material 3 та же асимметрия (роль `error` есть, остальных
+   * нет). Библиотека даёт цвета, нужные её собственным компонентам — полю в
+   * состоянии ошибки и кнопке удаления, — а статусы это обратная связь
+   * продукта, и что считать успехом, она знать не может.
+   *
+   * Заданы ссылками на палитру Tailwind, а не числами: прежние значения были
+   * посчитаны формулой с прибитыми L=0.58 и C=0.22, и она не работает — гамма
+   * sRGB не цилиндр, у жёлтого пик светлоты около 0.85, поэтому `warning`
+   * выходил не жёлтым, а оливковым (#a07400), а он и `success` вдобавок
+   * обрезались по гамме. Палитра поворачивает тон вместе со светлотой (у amber
+   * 95°→58° с сотой ступени к шестисотой) — формула так не умеет.
+   *
+   * Ступень 600 в светлой теме и 400 в тёмной — ровно так устроен `destructive`
+   * у самого shadcn: его литералы в `globals.css` это и есть `red-600` и `red-400`.
+   */
+  --success: var(--color-green-600);
+  --info: var(--color-blue-600);
+  --warning: var(--color-amber-600);
+}
+
+.dark {
+  /* Ступень 400: на тёмном фоне интент работает как цвет текста, и ему нужно
+     быть светлее фона, а не темнее. Раньше этих строк не было вовсе —
+     `success`, `info` и `warning` оставались на светлых значениях, и за
+     приемлемым видом в тёмной теме люди уходили к сырым `amber-*`/`green-*`
+     с руками написанным `dark:`. */
+  --success: var(--color-green-400);
+  --info: var(--color-blue-400);
+  --warning: var(--color-amber-400);
+}
+
+@utility thin-scrollbar {
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 9999px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted-foreground);
+  }
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* Landing page animations */
+@keyframes landing-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landing-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(20px, -20px) scale(1.05);
+  }
+}
+
+@keyframes landing-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+}
+
+@utility animate-landing-enter {
+  animation: landing-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@utility animate-landing-float {
+  animation: landing-float 8s ease-in-out infinite;
+}
+
+@utility animate-landing-float-delayed {
+  animation: landing-float 10s ease-in-out 2s infinite;
+}
+
+@utility animate-landing-pulse {
+  animation: landing-pulse 6s ease-in-out infinite;
+}
+
+/*
+ * Переключение вкладок: пилюля, высота контейнера и появление контента должны
+ * читаться как одно движение, поэтому длительность и кривая у всех трёх общие
+ * (см. `TabsIndicator` — там те же значения).
+ */
+@theme {
+  --ease-tab: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-tab: 300ms;
+}
+
+@keyframes tab-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-tab-enter {
+  animation: tab-enter var(--duration-tab) var(--ease-tab) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-tab-enter {
+    animation: none;
+  }
+}
+
+/*
+ * Медленное «дыхание» градиента: полотно вдвое шире элемента, и анимация возит
+ * его от края к краю. `alternate` вместо петли не случайно — градиент из двух
+ * стопов на стыке 0%/100% не сходится сам с собой, и обычный цикл дёргался бы
+ * раз в проход. Работает только в паре с `bg-size-[200%_100%]` на элементе.
+ */
+@keyframes gradient-drift {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 100% 50%;
+  }
+}
+
+@utility animate-gradient-drift {
+  animation: gradient-drift 8s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-gradient-drift {
+    animation: none;
+  }
+}
+
+/*
+ * Листопад: лист проходит строку сверху вниз и начинает круг заново. Стыка не
+ * видно, потому что на обоих концах он вынесен за пределы полосы (±70px против
+ * 48px высоты) — сброс происходит вне зоны видимости.
+ *
+ * Анимируются `translate` и `rotate` как отдельные свойства, а не `transform`:
+ * базовый разворот каждого листа задан инлайновым `transform`, и анимация по
+ * нему затёрла бы его, а так они складываются. Темп и фазу задаёт каждый лист
+ * сам (`animation-delay`/`duration` в `LEAVES`), иначе падают строем.
+ */
+@keyframes leaf-fall {
+  0% {
+    translate: 0 -70px;
+    rotate: -15deg;
+  }
+  50% {
+    translate: 8px 0;
+    rotate: 15deg;
+  }
+  100% {
+    translate: 0 70px;
+    rotate: -15deg;
+  }
+}
+
+@utility animate-leaf-fall {
+  animation: leaf-fall 39s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-leaf-fall {
+    animation: none;
+  }
+}
