@@ -27,15 +27,25 @@ interface AttendanceStatusSwitcherProps {
   disabled?: boolean
 }
 
-/** Цвет нажатой кнопки. Ненажатая везде обычная, поэтому вариантов ровно три. */
+/*
+ * Цвет нажатой кнопки. Ненажатая везде обычная, поэтому вариантов ровно три.
+ *
+ * Защита от `hover:text-foreground` из базового `toggleVariants` — без неё
+ * иконка под курсором чернеет. Раньше она требовалась только колокольчику:
+ * остальные кнопки в нажатом виде были `disabled`, и `pointer-events-none`
+ * до hover не пускал. Выключение сняли — вылезло и у них.
+ *
+ * Вариант `aria-pressed:hover:`, а не просто `hover:`, — потому что простой
+ * проигрывает по порядку. В собранном CSS `hover:text-foreground` стоит между
+ * `hover:text-destructive` и `hover:text-success`, специфичность у них равная,
+ * и крестик чернел бы, а галочка нет. `[aria-pressed="true"]:hover` даёт на
+ * один селектор больше и выигрывает независимо от сортировки.
+ */
 const ACTIVE_STYLE = {
-  absent: 'border-destructive aria-pressed:bg-destructive/20 text-destructive',
-  present: 'border-success aria-pressed:bg-success/20 text-success',
-  // Колокольчик, в отличие от остальных, в нажатом виде не выключен — по нему
-  // ещё раз кликают, чтобы снять предупреждение. Значит до него доходит
-  // `hover:text-foreground hover:bg-muted` из базового `toggleVariants`, и цвет
-  // надо перебить своим, иначе под курсором кнопка белеет.
-  warned: 'border-warning aria-pressed:bg-warning/20 text-warning hover:text-warning',
+  absent:
+    'border-destructive aria-pressed:bg-destructive/20 text-destructive aria-pressed:hover:text-destructive',
+  present: 'border-success aria-pressed:bg-success/20 text-success aria-pressed:hover:text-success',
+  warned: 'border-warning aria-pressed:bg-warning/20 text-warning aria-pressed:hover:text-warning',
 } as const
 
 export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceStatusSwitcherProps) {
@@ -52,6 +62,20 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
   const isWarned = isMakeup ? null : attendance.isWarned
 
   const handleStatusChange = (newStatus: AttendanceStatus, newIsWarned: boolean | null) => {
+    // Повтор того же гасим здесь, а не пропом `disabled` у кнопки. Выключенная
+    // кнопка выпадает из обхода с клавиатуры, не показывает тултип по фокусу и
+    // — из-за `disabled:opacity-50` у `Toggle` — рисует выбранный статус в
+    // половину прозрачности: контраст иконки к подложке падает с 2.56 до 1.61.
+    // А выбранный статус это единственное, что нужно считать со строки.
+    //
+    // Сравниваются обе величины: колокольчик зовёт этот же обработчик с тем же
+    // статусом, меняя только `isWarned`, и проверка по одному статусу его бы
+    // заглушила. Поэтому кнопки статусов и передают текущий `isWarned`, когда
+    // их статус уже выбран, — иначе повторный клик по «×» на предупреждённом
+    // пропуске снял бы предупреждение, а это деньги: предупреждённый пропуск
+    // не списывается, обычный списывается.
+    if (newStatus === status && newIsWarned === isWarned) return
+
     mutate({
       studentId: attendance.studentId,
       lessonId: attendance.lessonId,
@@ -133,7 +157,7 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
                 <TooltipContent>Предупредили</TooltipContent>
               </Tooltip>
             ) : (
-              <BellRing className="text-muted size-4" />
+              <BellRing className="text-muted-foreground size-4" />
             )}
 
             <Separator orientation="vertical" />
@@ -147,8 +171,8 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
                 size={'sm'}
                 className={status === 'ABSENT' ? ACTIVE_STYLE.absent : undefined}
                 pressed={status === 'ABSENT'}
-                onClick={() => handleStatusChange('ABSENT', false)}
-                disabled={isPending || locked || status === 'ABSENT'}
+                onClick={() => handleStatusChange('ABSENT', status === 'ABSENT' ? isWarned : false)}
+                disabled={isPending || locked}
               >
                 {isPending ? <Loader className="animate-spin" /> : <X />}
               </Toggle>
@@ -168,8 +192,10 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
               <Toggle
                 size={'sm'}
                 pressed={status === 'UNSPECIFIED'}
-                onClick={() => handleStatusChange('UNSPECIFIED', null)}
-                disabled={isPending || locked || status === 'UNSPECIFIED'}
+                onClick={() =>
+                  handleStatusChange('UNSPECIFIED', status === 'UNSPECIFIED' ? isWarned : null)
+                }
+                disabled={isPending || locked}
               >
                 {isPending ? <Loader className="animate-spin" /> : <Minus />}
               </Toggle>
@@ -188,8 +214,10 @@ export function AttendanceStatusSwitcher({ attendance, disabled }: AttendanceSta
                 size={'sm'}
                 className={status === 'PRESENT' ? ACTIVE_STYLE.present : undefined}
                 pressed={status === 'PRESENT'}
-                onClick={() => handleStatusChange('PRESENT', null)}
-                disabled={isPending || locked || status === 'PRESENT'}
+                onClick={() =>
+                  handleStatusChange('PRESENT', status === 'PRESENT' ? isWarned : null)
+                }
+                disabled={isPending || locked}
               >
                 {isPending ? <Loader className="animate-spin" /> : <Check />}
               </Toggle>
