@@ -56,8 +56,12 @@ export type ImportOutcome =
  *
  * Отсюда полезный жест: удалить строку разбора значит «попробовать ещё раз» —
  * ближайший опрос подберёт счёт снова, уже с исправленным справочником.
+ *
+ * Зовётся дважды: опросом до запроса деталей счёта в CRM — чтобы не качать
+ * заведённое, — и внутри транзакции импорта, где проверка уже защитная: между
+ * отбором и записью счёт мог завести человек.
  */
-async function alreadyHandledTx(
+export async function alreadyHandledTx(
   tx: Prisma.TransactionClient,
   args: { organizationId: number; invoiceId: number },
 ): Promise<boolean> {

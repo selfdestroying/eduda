@@ -28,6 +28,13 @@ export const INVOICE_FIELD = {
 /** Пауза между запросами: amo ограничивает частоту обращений. */
 const REQUEST_DELAY_MS = 500
 
+/**
+ * Сколько ждать ответа на один запрос. Без своего потолка fetch ждёт заголовки
+ * пять минут — столько же, сколько крон даёт всему проходу (`curl -m 300`), и
+ * один зависший запрос съедал проход целиком.
+ */
+const REQUEST_TIMEOUT_MS = 30_000
+
 /** Потолок листания: 100 событий на страницу, то есть 5000 событий за опрос. */
 const MAX_PAGES = 50
 
@@ -55,7 +62,7 @@ const apiUrl = (path: string) => `https://${credentials().subdomain}.amocrm.ru/a
 async function request<T>(url: string): Promise<T | null> {
   const { token } = credentials()
 
-  const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+  const response = await send(url, token)
   await delay(REQUEST_DELAY_MS)
 
   if (response.status === 204) return null
@@ -66,6 +73,31 @@ async function request<T>(url: string): Promise<T | null> {
   }
 
   return (await response.json()) as T
+}
+
+/**
+ * Один повтор на сетевой сбой. fetch держит соединение с amo открытым между
+ * запросами, а amo закрывает простаивающие со своей стороны: запрос, попавший на
+ * уже закрытое, падает сразу («other side closed»), хотя на свежем соединении
+ * проходит. Без повтора такой запрос выбрасывал весь проход — из 60 сорвавшихся
+ * за 12 дней так упали 54.
+ *
+ * Повторяется только сбой сети, а не ответ: HTTP-ошибку amo повтор не лечит. Все
+ * запросы здесь — чтение, поэтому повтор ничего не задвоит.
+ */
+async function send(url: string, token: string): Promise<Response> {
+  const attempt = () =>
+    fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+
+  try {
+    return await attempt()
+  } catch {
+    await delay(REQUEST_DELAY_MS)
+    return await attempt()
+  }
 }
 
 /**

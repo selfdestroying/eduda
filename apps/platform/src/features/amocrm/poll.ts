@@ -78,19 +78,31 @@ function items(invoice: AmoInvoice): PaidInvoiceItem[] {
  * Оплаченные счета, начиная с `since` (unix-секунды).
  *
  * На каждый счёт уходит три запроса к CRM, и между ними стоит пауза, так что
- * десяток оплат — это полминуты. Для опроса раз в десять минут этого достаточно,
- * а параллелить запросы к amo нельзя: она ограничивает частоту.
+ * десяток оплат — это полминуты. Параллелить запросы к amo нельзя: она
+ * ограничивает частоту.
+ *
+ * Поэтому `skip` — отбор до запросов: счёт, которым уже занимались, в CRM не
+ * запрашивается вовсе. Окно опроса — неделя, и почти все счета в нём давно
+ * заведены: без отбора каждый проход заново скачивал их все — 38 счетов, ~115
+ * запросов и полторы минуты на замере 11.09.2026, — и один оборванный запрос из
+ * них выбрасывал проход целиком.
  *
  * Сделка, которую в CRM удалили, счёт не отменяет: он вернётся без имени и уйдёт
  * в разбор руками — там видно плательщика и телефон.
  */
-export async function fetchPaidInvoices(since: number): Promise<PaidInvoice[]> {
+export async function fetchPaidInvoices(
+  since: number,
+  options: { skip?: (invoiceId: number) => Promise<boolean> } = {},
+): Promise<PaidInvoice[]> {
   const events = await fetchPaidInvoiceEvents(since)
 
   const paid: PaidInvoice[] = []
 
   for (const event of events) {
-    const invoice = await fetchInvoice(event._embedded.entity.id)
+    const invoiceId = event._embedded.entity.id
+    if (options.skip && (await options.skip(invoiceId))) continue
+
+    const invoice = await fetchInvoice(invoiceId)
     if (!invoice) continue
 
     const leadId = await fetchInvoiceLeadId(invoice.id)

@@ -1,4 +1,8 @@
-import { importPaidInvoice, type ImportOutcome } from '@/src/features/amocrm/import.server'
+import {
+  alreadyHandledTx,
+  importPaidInvoice,
+  type ImportOutcome,
+} from '@/src/features/amocrm/import.server'
 import { fetchPaidInvoices } from '@/src/features/amocrm/poll'
 import { prisma } from '@repo/db'
 import { NextRequest, NextResponse } from 'next/server'
@@ -87,7 +91,21 @@ export async function GET(request: NextRequest) {
 
   try {
     const organization = await pollingOrganization()
-    const invoices = await fetchPaidInvoices(since)
+
+    // Счета, которыми уже занимались, отсеиваются до запроса деталей в CRM: в
+    // недельном окне это почти все. Проверка внутри импорта остаётся — уже в
+    // транзакции записи.
+    let known = 0
+    const invoices = await fetchPaidInvoices(since, {
+      skip: async (invoiceId) => {
+        const handled = await alreadyHandledTx(prisma, {
+          organizationId: organization.id,
+          invoiceId,
+        })
+        if (handled) known += 1
+        return handled
+      },
+    })
 
     // По одному, а не пачкой: каждая оплата — своя транзакция, и счёт, который не
     // сопоставился, не должен утаскивать за собой те, что сопоставились.
@@ -109,10 +127,11 @@ export async function GET(request: NextRequest) {
       ok: true,
       since,
       dryRun,
-      fetched: invoices.length,
+      // Счетов в окне — и скачанных целиком, и отсеянных по списку событий.
+      fetched: invoices.length + known,
       imported: count('imported'),
       planned: count('planned'),
-      skipped: count('skipped'),
+      skipped: count('skipped') + known,
       unprocessed: count('unprocessed'),
       // Пропущенные не показываем: в недельном окне их сотни, и за ними не видно
       // того, ради чего в ответ вообще смотрят.
