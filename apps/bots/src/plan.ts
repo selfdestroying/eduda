@@ -11,6 +11,10 @@ import type { ReminderMode } from '@repo/db/enums'
  * каждые десять минут — из ста сорока четырёх заходов в сутки сто сорок три
  * холостые, и это дешевле, чем курсор, который надо чинить после простоя.
  *
+ * Ключ строится по родителю и аккаунту мессенджера, а не по привязке: у одного
+ * аккаунта бывают привязки и к боту ЕДУДА, и к боту школы, и после смены бота
+ * ключ по привязке запланировал бы то же напоминание второй раз.
+ *
  * Режима два, и устроены они по-разному, поэтому это две функции, а не одна с
  * параметром:
  *
@@ -44,12 +48,17 @@ type Org = {
   maxBot: { enabled: boolean } | null
 }
 
+/**
+ * `organizationId` — спланировать одну школу. Нужен холостому прогону: там
+ * каждая школа идёт в своей откатываемой транзакции.
+ */
 export async function planLessonReminders(
   db: Prisma.TransactionClient,
   now: Date = new Date(),
+  organizationId?: number,
 ): Promise<PlanResult> {
   const organizations = await db.organization.findMany({
-    where: { remindersEnabled: true },
+    where: { remindersEnabled: true, ...(organizationId !== undefined && { id: organizationId }) },
     select: {
       id: true,
       name: true,
@@ -85,6 +94,9 @@ export async function planLessonReminders(
       counted += 1
       planned += await planDayBefore(db, org, now)
     } catch (error) {
+      // Изоляция работает, пока у школ нет общей транзакции: в ней первый же
+      // упавший запрос обрывает её целиком, и следующие школы упали бы следом.
+      // Поэтому холостой прогон зовёт планировщик по школе на транзакцию.
       console.error(`plan: школа ${org.id} не спланирована —`, error)
     }
   }
@@ -110,7 +122,7 @@ async function planDayBefore(db: Prisma.TransactionClient, org: Org, now: Date) 
     org.id,
     collect(lessons, false).map((bucket) => ({
       parentMessengerId: bucket.messengerId,
-      dedupeKey: `lesson-reminder:${bucket.messengerId}:${targetDate}`,
+      dedupeKey: `lesson-reminder:${bucket.recipient}:${targetDate}`,
       text: buildDayBeforeText(org, targetDate, bucket.rows),
     })),
   )
@@ -145,7 +157,7 @@ async function planSameDay(db: Prisma.TransactionClient, org: Org, now: Date) {
     org.id,
     collect(lessons, true).map((bucket) => ({
       parentMessengerId: bucket.messengerId,
-      dedupeKey: `lesson-reminder:${bucket.messengerId}:${today}:${bucket.time}`,
+      dedupeKey: `lesson-reminder:${bucket.recipient}:${today}:${bucket.time}`,
       text: buildSameDayText(org, today, bucket.rows),
     })),
   )
@@ -182,7 +194,7 @@ async function readLessons(
                         select: {
                           messengers: {
                             where: activeMessengerWhere(org.maxBot?.enabled === true),
-                            select: { id: true },
+                            select: { id: true, parentId: true, externalId: true },
                           },
                         },
                       },
@@ -200,7 +212,11 @@ async function readLessons(
 
 type Lessons = Awaited<ReturnType<typeof readLessons>>
 
-type Bucket = { messengerId: number; time: string; rows: Row[] }
+/**
+ * Одно будущее сообщение. `recipient` — родитель и аккаунт мессенджера: по нему
+ * строится ключ, а привязка — только то, через что сообщение уйдёт.
+ */
+type Bucket = { messengerId: number; recipient: string; time: string; rows: Row[] }
 
 /**
  * Разложить занятия по получателям — по одному сообщению на корзину.
@@ -231,7 +247,13 @@ function collect(lessons: Lessons, perLesson: boolean): Bucket[] {
           const key = perLesson ? `${messenger.id}@${row.time}` : String(messenger.id)
           const bucket = buckets.get(key)
           if (bucket) bucket.rows.push(row)
-          else buckets.set(key, { messengerId: messenger.id, time: row.time, rows: [row] })
+          else
+            buckets.set(key, {
+              messengerId: messenger.id,
+              recipient: `${messenger.parentId}:${messenger.externalId}`,
+              time: row.time,
+              rows: [row],
+            })
         }
       }
     }

@@ -11,8 +11,9 @@ import { ConflictError, NotFoundError } from '@/src/lib/error'
 import { authAction, featureAction, permissionAction } from '@/src/lib/safe-action'
 import { createStudentUserTx, hashStudentPassword } from '@/src/lib/student-auth'
 import { isProfileEdit } from '@/src/lib/student-data'
+import { isFeatureDisabled } from '@/src/lib/features/registry'
 import { decryptStudentPassword } from '@/src/lib/student-password'
-import { getGroupName } from '@/src/lib/utils'
+import { getGroupName, maxBotUrl } from '@/src/lib/utils'
 import { randomInt } from 'crypto'
 import * as z from 'zod'
 import {
@@ -247,6 +248,12 @@ export const getStudentDetail = authAction
   .inputSchema(z.object({ id: z.number().int().positive() }))
   .action(async ({ ctx, parsedInput }) => {
     const hasOwnBot = await hasOwnMaxBot(prisma, ctx.session.organizationId!)
+    // Подключаться есть к чему, только когда напоминания включены и бот есть —
+    // ЕДУДА или свой. Иначе привязки не читаются вовсе, и карточка родителя
+    // бейдж бота не рисует.
+    const botAvailable =
+      !isFeatureDisabled(ctx.session.disabledFeatures, 'notifications') &&
+      (hasOwnBot || maxBotUrl() !== null)
 
     return await prisma.student.findFirst({
       where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
@@ -259,7 +266,7 @@ export const getStudentDetail = authAction
             // так и не открыл.
             parent: {
               include: {
-                messengers: {
+                messengers: botAvailable && {
                   where: activeMessengerWhere(hasOwnBot),
                   select: { provider: true },
                 },

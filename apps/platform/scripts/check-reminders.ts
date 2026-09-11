@@ -129,6 +129,20 @@ async function main() {
       )
       assert.equal(await readMaxBot(tx, org.id), null, '«Тест» ничего не сохраняет')
 
+      // Бот ЕДУДА узнаётся по токену: имя в `NEXT_PUBLIC_MAX_BOT` необязательно.
+      const edudaToken = process.env.MAX_BOT_TOKEN
+      process.env.MAX_BOT_TOKEN = '123456:токен-бота-ЕДУДА'
+      try {
+        await assert.rejects(
+          () => testMaxBotToken(tx, org.id, '123456:токен-бота-ЕДУДА', schoolMe),
+          /Это бот ЕДУДА/,
+          'бот ЕДУДА в роли своего не подключается, даже когда его имя в платформе не задано',
+        )
+      } finally {
+        if (edudaToken === undefined) delete process.env.MAX_BOT_TOKEN
+        else process.env.MAX_BOT_TOKEN = edudaToken
+      }
+
       await assert.rejects(
         () => connectMaxBot(tx, org.id, '123456:чужой-токен', rejectedMe),
         /не принял токен/,
@@ -165,6 +179,25 @@ async function main() {
         () => connectMaxBot(tx, rival.id, '654321:другой-токен', schoolMe),
         /уже подключён к другой школе/,
         'один бот на две школы не подключается: каждое событие пришло бы дважды',
+      )
+
+      // Сохранённого бота другим не заменить: подписка прежнего осталась бы на том
+      // же адресе и с тем же секретом. Тот же бот с новым токеном — можно.
+      await assert.rejects(
+        () =>
+          connectMaxBot(tx, org.id, '777777:токен-другого-бота', async () => ({
+            ok: true as const,
+            ...profile,
+            username: 'check_other_bot',
+          })),
+        /Заменить его другим пока нельзя/,
+        'сохранённого бота другим ботом не заменить',
+      )
+      await connectMaxBot(tx, org.id, '123456:новый-токен-того-же-бота', schoolMe)
+      assert.deepEqual(
+        (await readSchoolBotTokens(tx, { organizationId: org.id })).map((bot) => bot.token),
+        ['123456:новый-токен-того-же-бота'],
+        'тот же бот с новым токеном сохраняется',
       )
 
       assert.deepEqual(

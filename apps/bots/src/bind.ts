@@ -89,6 +89,35 @@ export async function bindByPhone(
 }
 
 /**
+ * Школы со своим ботом, у которых этот номер записан в карточке родителя.
+ *
+ * Бот ЕДУДА таких родителей не привязывает (см. `bindByPhone`), но ответить им
+ * «никого не нашёл» нельзя: номер верный, и школа впустую проверяла бы карточку,
+ * а родитель так и не узнал бы, что писать надо боту школы. Ему нужна ссылка.
+ */
+export async function schoolBotsForPhone(
+  db: Prisma.TransactionClient,
+  phone: string,
+): Promise<Array<{ organization: string; username: string }>> {
+  const candidates = await db.parent.findMany({
+    where: { phone: { not: null }, organization: { maxBot: { is: { enabled: true } } } },
+    select: {
+      phone: true,
+      organization: { select: { name: true, maxBot: { select: { username: true } } } },
+    },
+  })
+
+  const bots = new Map<string, { organization: string; username: string }>()
+  for (const candidate of candidates) {
+    const username = candidate.organization.maxBot?.username
+    if (username && normalizePhone(candidate.phone!) === phone) {
+      bots.set(username, { organization: candidate.organization.name, username })
+    }
+  }
+  return [...bots.values()]
+}
+
+/**
  * Отписка по аккаунту, а не по родителю: команду «стоп» пишет человек, и он
  * имеет в виду «мне», а не «этому ребёнку». У одного аккаунта бывает несколько
  * привязок — дети в разных школах.

@@ -135,7 +135,7 @@ async function main() {
               organizationId,
               unsubscribedAt: messenger === 'unsubscribed' ? new Date() : null,
             },
-            select: { id: true, parentId: true },
+            select: { id: true, parentId: true, externalId: true },
           })
           return row
         }
@@ -163,7 +163,11 @@ async function main() {
         })
         assert.equal(row.parentMessengerId, wanted!.id, 'напоминание ушло нужной привязке')
         assert.equal(row.status, 'PENDING', 'свежая строка ждёт отправки')
-        assert.equal(row.dedupeKey, `lesson-reminder:${wanted!.id}:${TARGET}`, 'ключ дедупликации')
+        assert.equal(
+          row.dedupeKey,
+          `lesson-reminder:${wanted!.parentId}:${wanted!.externalId}:${TARGET}`,
+          'ключ дедупликации — родитель и аккаунт, а не привязка',
+        )
         assert.match(row.text, /^Завтра, 11 сентября/, 'дата словами')
         assert.match(
           row.text,
@@ -214,7 +218,7 @@ async function main() {
             parentId: parentC.id,
             organizationId: orgC.id,
           },
-          select: { id: true },
+          select: { id: true, externalId: true },
         })
 
         const child = async (firstName: string, time: string) => {
@@ -270,7 +274,7 @@ async function main() {
         assert.equal(sameDay.length, 1, 'в окно [15:00, 17:00] попало только занятие в 16:00')
         assert.equal(
           sameDay[0]!.dedupeKey,
-          `lesson-reminder:${messengerC.id}:${TODAY}:16:00`,
+          `lesson-reminder:${parentC.id}:${messengerC.externalId}:${TODAY}:16:00`,
           'ключ включает время урока: сообщение здесь про урок, а не про день',
         )
         // Целиком, а не по кускам: это единственное место, где видно, что
@@ -294,7 +298,7 @@ async function main() {
         assert.equal(sameDay.length, 2, 'следующее время урока — отдельное сообщение')
         assert.equal(
           sameDay[1]!.dedupeKey,
-          `lesson-reminder:${messengerC.id}:${TODAY}:19:00`,
+          `lesson-reminder:${parentC.id}:${messengerC.externalId}:${TODAY}:19:00`,
           'у него свой ключ',
         )
         // Шапка у обоих писем теперь одинаковая — день, а не время: различает
@@ -319,16 +323,19 @@ async function main() {
         })
         const groupD = await scenery(orgD.id)
         const viaEduda = await enrol(orgD.id, groupD, 'Двуботный', 'ACTIVE', 'active')
+        // Тот же аккаунт MAX и в боте школы: `user_id` у человека один на все боты.
         const viaSchool = await tx.parentMessenger.create({
           data: {
             provider: 'MAX',
-            externalId: `check-${stamp}-own-bot`,
+            externalId: viaEduda!.externalId,
             parentId: viaEduda!.parentId,
             organizationId: orgD.id,
             ownBot: true,
           },
           select: { id: true },
         })
+        // А этот родитель подключён только к боту ЕДУДА.
+        const onlyEduda = await enrol(orgD.id, groupD, 'Одноботный', 'ACTIVE', 'active')
 
         const recipientsD = async () =>
           (
@@ -354,36 +361,48 @@ async function main() {
         await planLessonReminders(tx, AFTER)
         assert.deepEqual(
           await recipientsD(),
-          [viaSchool.id, viaEduda!.id],
+          [viaSchool.id, onlyEduda!.id],
           'школа выключила своего бота — рассылка вернулась на бота ЕДУДА',
+        )
+        assert.equal(
+          await tx.notificationOutbox.count({ where: { parentMessengerId: viaEduda!.id } }),
+          0,
+          'кто уже получил напоминание через бота школы, второго через бота ЕДУДА не получает',
         )
 
         // ─── Дренаж ───────────────────────────────────────────────────────
         const now = new Date('2026-09-10T18:05:00Z')
 
-        const outbox = async (externalId: string, attempts = 0, ownBot = false) => {
+        const outbox = async (
+          externalId: string,
+          {
+            attempts = 0,
+            ownBot = false,
+            organizationId = orgA.id,
+            provider = 'MAX',
+          }: {
+            attempts?: number
+            ownBot?: boolean
+            organizationId?: number
+            provider?: 'MAX' | 'VK'
+          } = {},
+        ) => {
           // Своя привязка на каждую строку: `blocked` гасит привязку, и общая
           // на всех подменяла бы результат соседних проверок.
           const parent = await tx.parent.create({
-            data: { firstName: externalId, organizationId: orgA.id },
+            data: { firstName: externalId, organizationId },
             select: { id: true },
           })
           const messenger = await tx.parentMessenger.create({
-            data: {
-              provider: 'MAX',
-              externalId,
-              ownBot,
-              parentId: parent.id,
-              organizationId: orgA.id,
-            },
+            data: { provider, externalId, ownBot, parentId: parent.id, organizationId },
             select: { id: true },
           })
-          return tx.notificationOutbox.create({
+          const row = await tx.notificationOutbox.create({
             data: {
               kind: 'LESSON_REMINDER',
               dedupeKey: `drain:${externalId}`,
               text: 'проверка',
-              organizationId: orgA.id,
+              organizationId,
               parentMessengerId: messenger.id,
               attempts,
               // Срок явно, до прохода. По умолчанию у строки `now()` настоящего
@@ -393,12 +412,13 @@ async function main() {
             },
             select: { id: true, parentMessengerId: true },
           })
+          return { ...row, parentId: parent.id }
         }
 
         const okRow = await outbox(`drain-ok-${stamp}`)
         const blockedRow = await outbox(`drain-blocked-${stamp}`)
         const retryRow = await outbox(`drain-retry-${stamp}`)
-        const lastRow = await outbox(`drain-last-${stamp}`, 4)
+        const lastRow = await outbox(`drain-last-${stamp}`, { attempts: 4 })
 
         const sender: Sender = async (externalId) => {
           if (externalId.startsWith('drain-blocked')) {
@@ -421,6 +441,7 @@ async function main() {
               nextAttemptAt: true,
               sentAt: true,
               lastError: true,
+              parentMessengerId: true,
             },
           })
 
@@ -451,25 +472,81 @@ async function main() {
         assert.equal(orphan.status, 'PENDING', 'срок ещё не подошёл, строку не трогали')
 
         // ─── Бот строки ───────────────────────────────────────────────────
-        // Отправитель выбирается по привязке: у бота школы свой токен. Бота нет
-        // — школа отключила его после планирования — повторять бессмысленно.
-        const schoolRow = await outbox(`drain-school-${stamp}`, 0, true)
+        // Отправитель выбирается по привязке, а годится только бот, которым
+        // школа рассылает сейчас. `orgD` снова рассылает своим ботом.
+        await tx.organizationMaxBot.update({
+          where: { organizationId: orgD.id },
+          data: { enabled: true },
+        })
+
+        // Бот школы включён, а отправлять нечем — токен не читается. Это
+        // настройка, а не отказ родителя: строка ждёт повтора.
+        const unreadableRow = await outbox(`drain-unreadable-${stamp}`, {
+          ownBot: true,
+          organizationId: orgD.id,
+        })
+        await drainOutbox(tx, (item) => (item.ownBot ? null : sender), {
+          clock: () => now,
+          pauseMs: 0,
+        })
+        const unreadable = await state(unreadableRow.id)
+        assert.equal(unreadable.status, 'PENDING', 'нечитаемый токен — повтор, а не отказ')
+        assert.equal(unreadable.lastError, 'токен бота школы не читается', 'причина названа')
+
+        const ownRow = await outbox(`drain-own-${stamp}`, { ownBot: true, organizationId: orgD.id })
+        // Запланирована для бота ЕДУДА, а школа тем временем включила своего.
+        const movedRow = await outbox(`drain-moved-${stamp}`, { organizationId: orgD.id })
+        const movedTo = await tx.parentMessenger.create({
+          data: {
+            provider: 'MAX',
+            externalId: `drain-moved-${stamp}`,
+            parentId: movedRow.parentId,
+            organizationId: orgD.id,
+            ownBot: true,
+          },
+          select: { id: true },
+        })
+        // То же, но к боту школы этот аккаунт не подключён.
+        const strandedRow = await outbox(`drain-stranded-${stamp}`, { organizationId: orgD.id })
+        // Привязка от удалённого бота VK.
+        const vkRow = await outbox(`drain-vk-${stamp}`, { provider: 'VK' })
+
         const asked: Array<{ ownBot: boolean; organizationId: number }> = []
+        const delivered: string[] = []
         await drainOutbox(
           tx,
-          (messenger) => {
-            asked.push(messenger)
-            return messenger.ownBot ? null : sender
+          (item) => {
+            asked.push({ ownBot: item.ownBot, organizationId: item.organizationId })
+            return async (externalId) => {
+              delivered.push(externalId)
+              return { ok: true }
+            }
           },
           { clock: () => now, pauseMs: 0 },
         )
+
         assert.ok(
-          asked.some((item) => item.ownBot && item.organizationId === orgA.id),
+          asked.some((item) => item.ownBot && item.organizationId === orgD.id),
           'отправитель спрошен по привязке: бот школы и её id',
         )
-        const orphanSchool = await state(schoolRow.id)
-        assert.equal(orphanSchool.status, 'FAILED', 'бота школы нет — отказ без повторов')
-        assert.equal(orphanSchool.lastError, 'бот школы не подключён', 'причина названа')
+        assert.equal((await state(ownRow.id)).status, 'SENT', 'строка к боту школы ушла через него')
+
+        const moved = await state(movedRow.id)
+        assert.equal(moved.status, 'SENT', 'строка для прежнего бота ушла через нынешний')
+        assert.equal(moved.parentMessengerId, movedTo.id, 'и переехала на привязку к нему')
+
+        const stranded = await state(strandedRow.id)
+        assert.equal(stranded.status, 'FAILED', 'к нынешнему боту аккаунт не подключён — отказ')
+        assert.equal(
+          stranded.lastError,
+          'аккаунт не подключён к боту, которым рассылает школа',
+          'причина названа',
+        )
+
+        const vk = await state(vkRow.id)
+        assert.equal(vk.status, 'FAILED', 'привязка VK не отправляется')
+        assert.equal(vk.lastError, 'бот VK удалён', 'причина названа')
+        assert.ok(!delivered.includes(`drain-vk-${stamp}`), 'id из ВКонтакте в MAX не ушёл')
 
         // ─── Бронь строки ─────────────────────────────────────────────────
         // Два прохода по одной очереди: пока первый отправляет строку, вторую

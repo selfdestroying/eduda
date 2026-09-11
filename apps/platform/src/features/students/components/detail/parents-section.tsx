@@ -67,7 +67,10 @@ interface ParentData {
   phone: string | null
   email: string | null
   accessToken: string
-  /** Активные привязки ботов. Пустой массив — родитель ещё не подключился. */
+  /**
+   * Активные привязки ботов. Пустой массив — родитель ещё не подключился;
+   * `undefined` — подключаться не к чему: бота нет или напоминания выключены.
+   */
   messengers?: { provider: string }[]
 }
 
@@ -225,9 +228,13 @@ function ParentCard({
           />
         </div>
 
-        <div className="flex gap-1.5">
-          <BotBadge name="MAX" connected={connected('MAX')} />
-        </div>
+        {/* Привязок нет в данных — подключаться не к чему: бота нет или
+            напоминания у школы выключены. */}
+        {parent.messengers && (
+          <div className="flex gap-1.5">
+            <BotBadge name="MAX" connected={connected('MAX')} />
+          </div>
+        )}
       </div>
     </div>
   )

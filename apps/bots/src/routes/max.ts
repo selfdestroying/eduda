@@ -1,5 +1,12 @@
 import { prisma } from '@repo/db'
-import { bindByPhone, readBindings, readCommand, resubscribeAll, unsubscribeAll } from '../bind'
+import {
+  bindByPhone,
+  readBindings,
+  readCommand,
+  resubscribeAll,
+  schoolBotsForPhone,
+  unsubscribeAll,
+} from '../bind'
 import { botByPath, scopeOf, type Bot } from '../bots'
 import { cabinetUrl } from '../env'
 import { phoneFromVCard } from '../phone'
@@ -208,6 +215,27 @@ async function onMessage(bot: Bot, update: MaxUpdate) {
     )
 
     if (parents.length === 0) {
+      // Бот ЕДУДА не видит родителей школ со своим ботом. Номер у них верный, и
+      // «никого не нашёл» отправило бы школу проверять карточку впустую: им нужна
+      // ссылка на бота школы.
+      const schoolBots = bot.organizationId === null ? await schoolBotsForPhone(prisma, phone) : []
+      if (schoolBots.length > 0) {
+        reply(
+          bot,
+          userId,
+          [
+            'Ваша школа присылает напоминания через своего бота — подключитесь к нему:',
+            '',
+            ...schoolBots.map(
+              (school) => `${school.organization}\nhttps://max.ru/${school.username}`,
+            ),
+            '',
+            'Откройте бота и нажмите «Отправить номер».',
+          ].join('\n'),
+        )
+        return
+      }
+
       reply(bot, userId, NOT_FOUND, true)
       return
     }

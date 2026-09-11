@@ -127,7 +127,11 @@ export const useConnectMaxBotMutation = () => {
       if (serverError) throw new Error(serverError)
       return data
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Бот — в кеш сразу, не дожидаясь перезапроса: форма в этот же момент
+      // сбрасывает «выбран свой бот», и без этого карточка на мгновение
+      // показала бы «Бот по умолчанию» и «Не подключён».
+      if (data) queryClient.setQueryData(notificationKeys.maxBot(), data)
       queryClient.invalidateQueries({ queryKey: notificationKeys.all })
       toast.success('Бот школы подключён: напоминания идут через него.')
     },
@@ -144,7 +148,8 @@ export const useSetMaxBotEnabledMutation = () => {
       if (serverError) throw new Error(serverError)
       return data
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
+      if (data) queryClient.setQueryData(notificationKeys.maxBot(), data)
       queryClient.invalidateQueries({ queryKey: notificationKeys.all })
       toast.success(
         variables.enabled

@@ -13,7 +13,14 @@
  */
 import assert from 'node:assert/strict'
 import { prisma } from '@repo/db'
-import { bindByPhone, readBindings, readCommand, resubscribeAll, unsubscribeAll } from '../src/bind'
+import {
+  bindByPhone,
+  readBindings,
+  readCommand,
+  resubscribeAll,
+  schoolBotsForPhone,
+  unsubscribeAll,
+} from '../src/bind'
 import type { BotScope } from '../src/bots'
 import { todayYmdInTz } from '@repo/core/timezone'
 import { normalizePhone, phoneFromVCard } from '../src/phone'
@@ -142,6 +149,16 @@ async function main() {
         names(await bindByPhone(tx, EDUDA, MAX_USER, '79991234567')),
         ['Второй', 'Первый'],
         'школа с включённым своим ботом боту ЕДУДА не видна: он пообещал бы напоминания, которые пойдут другим ботом',
+      )
+      assert.deepEqual(
+        await schoolBotsForPhone(tx, '79991234567'),
+        [{ organization: ownOrg.name, username: 'check_bot' }],
+        'но вместо «никого не нашёл» бот ЕДУДА даст ссылку на бота школы, где записан номер',
+      )
+      assert.deepEqual(
+        await schoolBotsForPhone(tx, '79995555555'),
+        [],
+        'чужой номер ни к какому боту школы не ведёт',
       )
       assert.deepEqual(
         names(await bindByPhone(tx, SCHOOL, MAX_USER, '79991234567')),

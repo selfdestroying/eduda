@@ -1,5 +1,5 @@
 import { encryptBotToken } from '@repo/core/max-bots'
-import type { Prisma } from '@repo/db'
+import { Prisma } from '@repo/db'
 import { ConflictError, NotFoundError } from '@/src/lib/error'
 
 /**
@@ -94,10 +94,15 @@ export async function testMaxBotToken(
   }
 
   // Один бот на две школы — это каждое событие дважды: у каждой своя подписка
-  // на вебхук, и на «Начать» родитель получил бы два приветствия.
-  if (answer.username === process.env.NEXT_PUBLIC_MAX_BOT) {
+  // на вебхук, и на «Начать» родитель получил бы два приветствия. Бот ЕДУДА в
+  // роли «своего» — то же самое. Его узнаём прежде всего по токену: имя в
+  // `NEXT_PUBLIC_MAX_BOT` необязательно и пишется как угодно, а токен платформе
+  // нужен всё равно — им проверяется подпись мини-приложения.
+  if (token === process.env.MAX_BOT_TOKEN || answer.username === process.env.NEXT_PUBLIC_MAX_BOT) {
     throw new ConflictError('Это бот ЕДУДА. Подключите отдельного бота своей школы.')
   }
+  // Подсказка до записи. От двух школ, сохраняющих одного бота одновременно,
+  // защищает уникальный индекс по `username` — см. `connectMaxBot`.
   const taken = await db.organizationMaxBot.findFirst({
     where: { username: answer.username, organizationId: { not: organizationId } },
     select: { organizationId: true },
@@ -114,9 +119,9 @@ export async function testMaxBotToken(
  * через него. Токен проверяется заново, а не берётся на веру от «Теста»: между
  * кнопками поле могли поменять, а экшен зовут и мимо формы.
  *
- * ponytail: смена бота на другого не гасит привязки к прежнему — первое же
- * напоминание им вернёт отказ MAX, и дренаж погасит их сам. Гасить сразу —
- * когда школы начнут менять ботов.
+ * Сохранённого бота заменить другим нельзя: подписка прежнего осталась бы на том
+ * же адресе `/max/<organizationId>` с тем же секретом, и его события разбирались
+ * бы от имени нового. Тот же бот с новым токеном — можно: подписка у бота одна.
  */
 export async function connectMaxBot(
   db: Prisma.TransactionClient,
@@ -125,17 +130,32 @@ export async function connectMaxBot(
   me: MaxMe = fetchMaxMe,
 ): Promise<NonNullable<MaxBotInfo>> {
   const profile = await testMaxBotToken(db, organizationId, token, me)
+
+  const saved = await readMaxBot(db, organizationId)
+  if (saved && saved.username !== profile.username) {
+    throw new ConflictError(
+      `У школы уже сохранён бот @${saved.username}. Заменить его другим пока нельзя.`,
+    )
+  }
+
   const tokenEnc = encryptBotToken(token)
 
-  const bot = await db.organizationMaxBot.upsert({
-    where: { organizationId },
-    create: { organizationId, tokenEnc, ...profile, enabled: true },
-    update: { tokenEnc, ...profile, enabled: true },
-    select: { username: true, name: true, avatarUrl: true, enabled: true },
-  })
+  try {
+    const bot = await db.organizationMaxBot.upsert({
+      where: { organizationId },
+      create: { organizationId, tokenEnc, ...profile, enabled: true },
+      update: { tokenEnc, ...profile, enabled: true },
+      select: { username: true, name: true, avatarUrl: true, enabled: true },
+    })
 
-  console.log(`notifications: школа ${organizationId} подключила бота @${bot.username}`)
-  return bot
+    console.log(`notifications: школа ${organizationId} подключила бота @${bot.username}`)
+    return bot
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new ConflictError('Этот бот уже подключён к другой школе.')
+    }
+    throw error
+  }
 }
 
 /**

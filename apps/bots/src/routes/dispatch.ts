@@ -54,17 +54,20 @@ export async function handleDispatch(req: RouteRequest): Promise<Reply> {
   // Подписка — первым делом и на каждом запуске: у MAX она умирает через восемь
   // часов без успешных ответов, молча. Обе функции ошибок не бросают, поэтому
   // сбой у бота одной школы не мешает остальным.
-  const subscriptions: string[] = []
-  let subscriptionsOk = true
-  for (const bot of bots) {
-    const status = await ensureSubscription(bot.token, bot.webhookUrl, bot.secret)
-    if (status !== 'есть') subscriptionsOk = false
-    subscriptions.push(`${bot.key} ${status}`)
-
-    if (!withCommands.has(bot.token) && (await ensureCommands(bot.token))) {
-      withCommands.add(bot.token)
-    }
-  }
+  //
+  // Боты — параллельно: у каждого до четырёх запросов с таймаутом в десять
+  // секунд, и на медленном MAX очередь из десятка ботов отодвигала бы план на
+  // минуты — окно «за 30 минут» успевало бы уехать.
+  const subscriptions = await Promise.all(
+    bots.map(async (bot) => {
+      const status = await ensureSubscription(bot.token, bot.webhookUrl, bot.secret)
+      if (!withCommands.has(bot.token) && (await ensureCommands(bot.token))) {
+        withCommands.add(bot.token)
+      }
+      return { key: bot.key, status }
+    }),
+  )
+  const subscriptionsOk = subscriptions.every((item) => item.status === 'есть')
 
   const plan = await planLessonReminders(prisma)
   const drain = await drainOutbox(prisma, senderForBots(bots))
@@ -72,7 +75,7 @@ export async function handleDispatch(req: RouteRequest): Promise<Reply> {
   const summary =
     `школ ${plan.organizations}, запланировано ${plan.planned}, отправлено ${drain.sent}, ` +
     `повтор ${drain.retried}, отказов ${drain.failed}; ` +
-    `подписки: ${subscriptions.join(', ') || 'ботов нет'}`
+    `подписки: ${subscriptions.map((item) => `${item.key} ${item.status}`).join(', ') || 'ботов нет'}`
 
   // В лог — только непустой проход: крон приходит 144 раза в сутки, и
   // одинаковые пустые строки утопили бы те, ради которых лог вообще читают.
@@ -82,7 +85,10 @@ export async function handleDispatch(req: RouteRequest): Promise<Reply> {
   return { text: summary }
 }
 
-/** Отправитель по привязке: `ownBot = false` — бот ЕДУДА, иначе бот её школы. */
+/**
+ * Отправитель по привязке: `ownBot = false` — бот ЕДУДА, иначе бот её школы.
+ * `null` — токена нет; повторять ли, решает дренаж.
+ */
 function senderForBots(bots: Bot[]): SenderFor {
   const byOrganization = new Map(bots.map((bot) => [bot.organizationId, bot]))
 
@@ -96,17 +102,30 @@ function senderForBots(bots: Bot[]): SenderFor {
  * Планирование в транзакции, которая откатывается: тот же код, что и на боевом
  * проходе, поэтому показанное число — настоящее, а не пересчитанное отдельной
  * веткой, которая разъедется с основной.
+ *
+ * Транзакция — своя у каждой школы. В общей первый же упавший запрос оборвал бы
+ * её, и все следующие школы «не спланировались» бы следом: прогон показал бы
+ * меньше, чем запланирует боевой проход, где сбой одной школы остальным не мешает.
  */
 async function dryRun(): Promise<string> {
-  let plan: PlanResult = { organizations: 0, planned: 0 }
+  const plan: PlanResult = { organizations: 0, planned: 0 }
+  const now = new Date()
 
-  try {
-    await prisma.$transaction(async (tx) => {
-      throw new Rollback(await planLessonReminders(tx))
-    })
-  } catch (error) {
-    if (!(error instanceof Rollback)) throw error
-    plan = error.result
+  const schools = await prisma.organization.findMany({
+    where: { remindersEnabled: true },
+    select: { id: true },
+  })
+
+  for (const school of schools) {
+    try {
+      await prisma.$transaction(async (tx) => {
+        throw new Rollback(await planLessonReminders(tx, now, school.id))
+      })
+    } catch (error) {
+      if (!(error instanceof Rollback)) throw error
+      plan.organizations += error.result.organizations
+      plan.planned += error.result.planned
+    }
   }
 
   const pending = await prisma.notificationOutbox.count({ where: { status: 'PENDING' } })

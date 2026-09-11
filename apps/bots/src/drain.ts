@@ -1,3 +1,4 @@
+import { activeMessengerWhere } from '@repo/core/messenger'
 import type { Prisma } from '@repo/db'
 
 /**
@@ -19,8 +20,8 @@ export type Sender = (externalId: string, text: string) => Promise<SendResult>
 
 /**
  * Кем отправлять строку. У привязки к боту школы свой токен, поэтому отправитель
- * выбирается по привязке. `null` — бота нет: не заведён бот ЕДУДА, или школа
- * отключила своего после того, как строка была запланирована.
+ * выбирается по привязке. `null` — отправлять нечем: не заведён бот ЕДУДА или не
+ * читается токен бота школы.
  */
 export type SenderFor = (messenger: { ownBot: boolean; organizationId: number }) => Sender | null
 
@@ -61,6 +62,17 @@ const MAX_ATTEMPTS = 5
 
 export type DrainResult = { sent: number; failed: number; retried: number }
 
+const MESSENGER_SELECT = {
+  id: true,
+  provider: true,
+  ownBot: true,
+  organizationId: true,
+  parentId: true,
+  externalId: true,
+} satisfies Prisma.ParentMessengerSelect
+
+type DrainMessenger = Prisma.ParentMessengerGetPayload<{ select: typeof MESSENGER_SELECT }>
+
 export async function drainOutbox(
   db: Prisma.TransactionClient,
   senderFor: SenderFor,
@@ -81,7 +93,10 @@ export async function drainOutbox(
       text: true,
       attempts: true,
       parentMessenger: {
-        select: { id: true, ownBot: true, organizationId: true, externalId: true },
+        select: {
+          ...MESSENGER_SELECT,
+          organization: { select: { maxBot: { select: { enabled: true } } } },
+        },
       },
     },
   })
@@ -99,17 +114,15 @@ export async function drainOutbox(
     // Строку уже взял соседний проход — или успел отправить, пока этот стоял.
     if (claimed.count === 0) continue
 
-    const messenger = row.parentMessenger
-    const send = senderFor(messenger)
-
-    // Привязка есть, а отправлять нечем. Ретраить бессмысленно — само не появится.
-    const outcome: SendResult = send
-      ? await send(messenger.externalId, row.text)
-      : {
-          ok: false,
-          retryable: false,
-          error: messenger.ownBot ? 'бот школы не подключён' : 'бот ЕДУДА не подключён',
-        }
+    const planned = row.parentMessenger
+    const { messenger, outcome } = await deliver(db, {
+      rowId: row.id,
+      text: row.text,
+      planned,
+      // Бот, которым школа рассылает сейчас: свой, если он сохранён и включён.
+      ownBotNow: planned.organization.maxBot?.enabled === true,
+      senderFor,
+    })
 
     const doneAt = clock()
 
@@ -151,6 +164,77 @@ export async function drainOutbox(
   }
 
   return result
+}
+
+/**
+ * Отправить строку через бот, которым школа рассылает сейчас. Возвращает и
+ * привязку, через которую строка в итоге пошла: отписку по `blocked` гасят у
+ * неё, а не у той, для которой строку планировали.
+ */
+async function deliver(
+  db: Prisma.TransactionClient,
+  args: {
+    rowId: number
+    text: string
+    planned: DrainMessenger
+    ownBotNow: boolean
+    senderFor: SenderFor
+  },
+): Promise<{ messenger: DrainMessenger; outcome: SendResult }> {
+  const { planned, ownBotNow } = args
+
+  // Привязка VK осталась от удалённого бота. `externalId` у неё — id во
+  // ВКонтакте, и в MAX по нему написали бы постороннему человеку.
+  if (planned.provider !== 'MAX') {
+    return { messenger: planned, outcome: { ok: false, retryable: false, error: 'бот VK удалён' } }
+  }
+
+  let messenger: DrainMessenger = planned
+  if (planned.ownBot !== ownBotNow) {
+    // Школа сменила бота после планирования. Ключ напоминания — родитель и
+    // аккаунт, а не привязка, поэтому по новому боту план его второй раз не
+    // заведёт: строка переезжает на привязку того же аккаунта к нынешнему боту.
+    const current = await db.parentMessenger.findFirst({
+      where: {
+        ...activeMessengerWhere(ownBotNow),
+        parentId: planned.parentId,
+        externalId: planned.externalId,
+      },
+      select: MESSENGER_SELECT,
+    })
+    if (!current) {
+      return {
+        messenger: planned,
+        outcome: {
+          ok: false,
+          retryable: false,
+          error: 'аккаунт не подключён к боту, которым рассылает школа',
+        },
+      }
+    }
+    await db.notificationOutbox.update({
+      where: { id: args.rowId },
+      data: { parentMessengerId: current.id },
+    })
+    messenger = current
+  }
+
+  // Бот школе положен, а отправлять нечем: не заведён бот ЕДУДА или не читается
+  // токен бота школы. Это настройка, а не отказ родителя, — повторяем, чтобы
+  // после исправления напоминание всё-таки ушло.
+  const send = args.senderFor(messenger)
+  if (!send) {
+    return {
+      messenger,
+      outcome: {
+        ok: false,
+        retryable: true,
+        error: messenger.ownBot ? 'токен бота школы не читается' : 'бот ЕДУДА не подключён',
+      },
+    }
+  }
+
+  return { messenger, outcome: await send(messenger.externalId, args.text) }
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
