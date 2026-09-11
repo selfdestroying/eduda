@@ -42,7 +42,12 @@ export async function bindByPhone(
   for (const parent of matched) {
     await db.parentMessenger.upsert({
       where: {
-        provider_externalId_parentId: { provider: 'MAX', externalId, parentId: parent.id },
+        provider_externalId_parentId_ownBot: {
+          provider: 'MAX',
+          externalId,
+          parentId: parent.id,
+          ownBot: false,
+        },
       },
       create: {
         provider: 'MAX',

@@ -41,6 +41,8 @@ import type {
   ReminderParentListSchemaType,
 } from '../src/features/notifications/schemas'
 import { todayYmdInTz } from '../src/lib/timezone'
+import { decryptSecret, encryptSecret } from '@repo/core/secret-box'
+import { decryptStudentPassword, encryptStudentPassword } from '../src/lib/student-password'
 
 const TZ = 'Europe/Moscow'
 
@@ -420,6 +422,26 @@ async function main() {
     where: { externalId: { startsWith: 'check-cabinet-' } },
   })
   assert.equal(leftovers, 0, 'транзакция откатилась, декораций не осталось')
+
+  // ─── Шифрование секретов ─────────────────────────────────────────────
+  // Один код на пароли учеников и токены ботов школ: сломается здесь — школа
+  // перестанет видеть пароли учеников, а бот школы замолчит.
+  const key = Buffer.alloc(32, 7)
+  const sealed = encryptSecret('123456:токен-бота', key)
+  assert.equal(decryptSecret(sealed, key), '123456:токен-бота', 'шифротекст читается тем же ключом')
+  assert.throws(() => decryptSecret(sealed, Buffer.alloc(32, 8)), 'чужой ключ шифротекст не читает')
+  assert.notDeepEqual(
+    encryptSecret('123456:токен-бота', key),
+    sealed,
+    'одинаковый текст шифруется по-разному: nonce у каждой записи свой',
+  )
+  if (process.env.STUDENT_PW_KEY) {
+    assert.equal(
+      decryptStudentPassword(encryptStudentPassword('пароль-ученика')),
+      'пароль-ученика',
+      'пароли учеников по-прежнему читаются',
+    )
+  }
 
   console.log('check-reminders: всё сошлось')
 }

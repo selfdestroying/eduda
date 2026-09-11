@@ -160,6 +160,7 @@ model Organization {
     studentAchievements            StudentAchievement[]
     parentMessengers               ParentMessenger[]
     notificationOutbox             NotificationOutbox[]
+    maxBot                         OrganizationMaxBot?
 
     @@unique([slug])
     @@map("Organization")

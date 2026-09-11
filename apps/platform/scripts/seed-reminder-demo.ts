@@ -177,10 +177,11 @@ async function main() {
     const parentId = parents[LINK_OWNER[link.key]!]!.id
     const row = await prisma.parentMessenger.upsert({
       where: {
-        provider_externalId_parentId: {
+        provider_externalId_parentId_ownBot: {
           provider: 'MAX',
           externalId: `${MARK}-${link.key}`,
           parentId,
+          ownBot: false,
         },
       },
       create: {

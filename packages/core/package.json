@@ -9,7 +9,9 @@
     "./features": "./src/features.ts",
     "./features-db": "./src/features-db.ts",
     "./reminder-template": "./src/reminder-template.ts",
-    "./group": "./src/group.ts"
+    "./group": "./src/group.ts",
+    "./messenger": "./src/messenger.ts",
+    "./secret-box": "./src/secret-box.ts"
   },
   "dependencies": {
     "@repo/db": "workspace:*",

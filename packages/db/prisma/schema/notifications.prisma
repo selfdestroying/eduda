@@ -1,9 +1,10 @@
 /// Привязка аккаунта мессенджера к родителю.
 ///
-/// Бот один на всю установку, поэтому у одного человека здесь бывает несколько
-/// строк: дети в разных школах — это разные `Parent`, и телефон, названный боту
-/// один раз, привязывается ко всем совпавшим. Отсюда `parentId` в уникальном
-/// ключе, а не пара `provider + externalId`.
+/// У одного человека здесь бывает несколько строк: дети в разных школах — это
+/// разные `Parent`, и телефон, названный боту один раз, привязывается ко всем
+/// совпавшим. Отсюда `parentId` в уникальном ключе, а не пара
+/// `provider + externalId`. `ownBot` там же: один и тот же аккаунт бывает
+/// подключён и к боту ЕДУДА, и к собственному боту школы.
 model ParentMessenger {
     id       Int               @id @default(autoincrement())
     provider MessengerProvider
@@ -17,6 +18,11 @@ model ParentMessenger {
     /// Отписка не удаляет строку: иначе повторная привязка выглядит как первая,
     /// и на «почему мне перестало приходить» ответить нечем.
     unsubscribedAt DateTime?
+    /// Через какой бот привязан: `false` — бот ЕДУДА, `true` — собственный бот
+    /// школы `organizationId`. Напоминания идут только через бот, которым школа
+    /// рассылает сейчас (`@repo/core/messenger`); привязки другого бота остаются
+    /// и снова работают, когда школа к нему вернётся.
+    ownBot         Boolean   @default(false)
 
     // Relations
     organizationId Int
@@ -25,7 +31,7 @@ model ParentMessenger {
     parent         Parent               @relation(fields: [parentId], references: [id], onDelete: Cascade)
     outbox         NotificationOutbox[]
 
-    @@unique([provider, externalId, parentId])
+    @@unique([provider, externalId, parentId, ownBot])
     @@index([provider, externalId])
     @@index([parentId])
     @@index([organizationId])
@@ -46,6 +52,7 @@ model NotificationOutbox {
     status   NotificationStatus @default(PENDING)
     attempts Int                @default(0)
     /// Когда пробовать снова. У свежей строки — сейчас, дальше двигает backoff.
+    /// Перед отправкой дренаж сдвигает его вперёд — это бронь от соседнего прохода.
     nextAttemptAt DateTime  @default(now())
     lastError     String?
     sentAt        DateTime?
@@ -59,4 +66,20 @@ model NotificationOutbox {
 
     @@index([status, nextAttemptAt])
     @@index([organizationId])
+}
+
+/// Собственный бот MAX школы. Строки нет — напоминания идут ботом ЕДУДА.
+///
+/// Отдельной таблицей, а не колонками `Organization`: сессия сотрудника несёт
+/// строку организации целиком (`customSession`), и токен уехал бы в браузер.
+model OrganizationMaxBot {
+    organizationId Int      @id
+    /// Токен бота: AES-256-GCM ключом `MAX_BOT_TOKEN_KEY` (`@repo/core/secret-box`).
+    tokenEnc       Bytes
+    /// Публичное имя бота из `GET /me` — для ссылки `max.ru/<username>`.
+    username       String
+    createdAt      DateTime @default(now())
+
+    // Relations
+    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
