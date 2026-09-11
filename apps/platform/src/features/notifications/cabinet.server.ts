@@ -45,18 +45,20 @@ export async function readCabinetMessengers(
 
   const bot = await db.organizationMaxBot.findUnique({
     where: { organizationId: parent.organizationId },
-    select: { username: true },
+    select: { username: true, enabled: true },
   })
-  // Подключение к боту ЕДУДА у школы со своим ботом «подключено» не считается:
-  // напоминаний по нему нет, и кнопка должна вести к боту школы.
+  // Подключение к боту ЕДУДА у школы, которая рассылает своим ботом,
+  // «подключено» не считается: напоминаний по нему нет, и кнопка должна вести к
+  // боту школы. Выключенный бот школы не в счёт — она вернулась на ЕДУДА.
+  const ownBot = bot?.enabled ? bot : null
   const connected = await db.parentMessenger.count({
-    where: { parentId: parent.id, ...activeMessengerWhere(bot !== null) },
+    where: { parentId: parent.id, ...activeMessengerWhere(ownBot !== null) },
   })
 
   return {
     max: connected > 0,
     hasPhone: Boolean(parent.phone),
-    botUsername: bot?.username ?? null,
+    botUsername: ownBot?.username ?? null,
   }
 }
 

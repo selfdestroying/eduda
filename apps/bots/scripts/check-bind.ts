@@ -117,15 +117,31 @@ async function main() {
         'пока своего бота у школы нет, её родителей привязывает бот ЕДУДА',
       )
 
+      // Сохранённый, но выключенный бот — это школа, вернувшаяся на бота ЕДУДА.
       await tx.organizationMaxBot.create({
-        data: { organizationId: ownOrg.id, tokenEnc: new Uint8Array([1]), username: 'check_bot' },
+        data: {
+          organizationId: ownOrg.id,
+          tokenEnc: new Uint8Array([1]),
+          username: 'check_bot',
+          enabled: false,
+        },
+      })
+      assert.deepEqual(
+        names(await bindByPhone(tx, EDUDA, MAX_USER, '79991234567')),
+        ['Второй', 'Первый', 'Третий'],
+        'выключенный бот школы не мешает боту ЕДУДА привязывать её родителей',
+      )
+
+      await tx.organizationMaxBot.update({
+        where: { organizationId: ownOrg.id },
+        data: { enabled: true },
       })
       const SCHOOL: BotScope = { ownBot: true, organizationId: ownOrg.id }
 
       assert.deepEqual(
         names(await bindByPhone(tx, EDUDA, MAX_USER, '79991234567')),
         ['Второй', 'Первый'],
-        'школа со своим ботом боту ЕДУДА не видна: он пообещал бы напоминания, которые пойдут другим ботом',
+        'школа с включённым своим ботом боту ЕДУДА не видна: он пообещал бы напоминания, которые пойдут другим ботом',
       )
       assert.deepEqual(
         names(await bindByPhone(tx, SCHOOL, MAX_USER, '79991234567')),

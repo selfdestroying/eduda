@@ -36,8 +36,9 @@ function scopeWhere(scope: BotScope): Prisma.ParentMessengerWhereInput {
  * - бот школы — только её родителей. Через него уходит рассказ о детях со
  *   ссылками на кабинеты, а токен бота у самой школы: ссылка на кабинет чужой
  *   школы, отправленная через него, — это доступ к чужим детям;
- * - бот ЕДУДА — родителей школ без своего бота. Родителю школы со своим ботом
- *   он пообещал бы напоминания, которые пойдут другим ботом.
+ * - бот ЕДУДА — родителей школ без включённого своего бота. Родителю школы,
+ *   которая рассылает своим ботом, он пообещал бы напоминания, которые пойдут
+ *   другим ботом. Выключенный бот школы не в счёт: она вернулась на ЕДУДА.
  *
  * `phone` ожидается уже нормализованным.
  */
@@ -55,7 +56,7 @@ export async function bindByPhone(
       phone: { not: null },
       ...(scope.ownBot
         ? { organizationId: scope.organizationId }
-        : { organization: { maxBot: { is: null } } }),
+        : { organization: { NOT: { maxBot: { is: { enabled: true } } } } }),
     },
     select: { id: true, firstName: true, phone: true, organizationId: true },
   })

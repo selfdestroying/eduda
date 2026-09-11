@@ -22,15 +22,19 @@ export function encryptBotToken(token: string): Uint8Array<ArrayBuffer> {
 export type SchoolBotToken = { organizationId: number; token: string }
 
 /**
- * Расшифрованные токены ботов школ — всех или одной. Токен, который не читается,
- * пропускается с записью в лог: из-за одной школы не должны замолчать остальные.
+ * Расшифрованные токены включённых ботов школ — всех или одной. Выключенный бот
+ * отсюда не приходит вовсе: школа вернулась на бота ЕДУДА, и её бот молчит — не
+ * рассылает, не отвечает на события и не пускает в мини-приложение.
+ *
+ * Токен, который не читается, пропускается с записью в лог: из-за одной школы
+ * не должны замолчать остальные.
  */
 export async function readSchoolBotTokens(
   db: Prisma.TransactionClient,
   where: { organizationId?: number } = {},
 ): Promise<SchoolBotToken[]> {
   const rows = await db.organizationMaxBot.findMany({
-    where,
+    where: { ...where, enabled: true },
     select: { organizationId: true, tokenEnc: true },
     orderBy: { organizationId: 'asc' },
   })

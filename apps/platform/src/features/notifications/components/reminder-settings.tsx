@@ -27,7 +27,7 @@ import {
   FieldLabel,
   FieldTitle,
 } from '@repo/ui/components/field'
-import { Avatar, AvatarFallback } from '@repo/ui/components/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@repo/ui/components/avatar'
 import { Bubble, BubbleContent } from '@repo/ui/components/bubble'
 import { Input } from '@repo/ui/components/input'
 import { Logo } from '@repo/ui/components/logo'
@@ -238,17 +238,21 @@ function TemplateField({
       <div className="flex flex-col gap-2">
         <p className="text-muted-foreground text-xs font-medium">Что получит родитель</p>
         <Message>
-          {/* Отправитель — бот, которым школа рассылает: ЕДУДА или её собственный.
-              Аватарки своего бота у нас нет, поэтому у него первая буква имени. */}
+          {/* Отправитель — бот, которым школа рассылает: ЕДУДА или её
+              собственный, если он включён. Аватар своего бота приходит из MAX;
+              не загрузился — первая буква имени. */}
           <MessageAvatar>
             <Avatar>
               {/* Фон именно белый, а не `bg-background`: аватарка бота в
                   мессенджере одна и та же, а тема дашборда к ней отношения не
                   имеет. */}
-              {bot ? (
-                <AvatarFallback className="text-primary bg-white">
-                  {bot.username.slice(0, 1).toUpperCase()}
-                </AvatarFallback>
+              {bot?.enabled ? (
+                <>
+                  {bot.avatarUrl && <AvatarImage src={bot.avatarUrl} alt="" />}
+                  <AvatarFallback className="text-primary bg-white">
+                    {(bot.name ?? bot.username).slice(0, 1).toUpperCase()}
+                  </AvatarFallback>
+                </>
               ) : (
                 <AvatarFallback className="text-primary bg-white" aria-label="ЕДУДА">
                   <Logo className="size-8" />
@@ -257,7 +261,9 @@ function TemplateField({
             </Avatar>
           </MessageAvatar>
           <MessageContent>
-            <MessageHeader>{bot ? `@${bot.username}` : 'ЕДУДА'}</MessageHeader>
+            <MessageHeader>
+              {bot?.enabled ? (bot.name ?? `@${bot.username}`) : 'ЕДУДА'}
+            </MessageHeader>
             <Bubble variant="muted">
               <BubbleContent className="text-sm whitespace-pre-line">{preview}</BubbleContent>
             </Bubble>

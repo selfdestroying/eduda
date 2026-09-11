@@ -11,12 +11,15 @@ import type { Prisma } from '@repo/db'
  * подключёнными они не считаются.
  */
 
-/** Есть ли у школы собственный бот MAX. */
+/**
+ * Рассылает ли школа собственным ботом MAX. Сохранённый, но выключенный бот не
+ * в счёт: школа вернулась на бота ЕДУДА и держит своего про запас.
+ */
 export async function hasOwnMaxBot(
   db: Prisma.TransactionClient,
   organizationId: number,
 ): Promise<boolean> {
-  return (await db.organizationMaxBot.count({ where: { organizationId } })) > 0
+  return (await db.organizationMaxBot.count({ where: { organizationId, enabled: true } })) > 0
 }
 
 /** Привязки к боту, которым школа рассылает сейчас, — и живые, и отписанные. */

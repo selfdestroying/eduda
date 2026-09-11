@@ -3,16 +3,18 @@ import { toast } from 'sonner'
 import {
   connectSchoolMaxBot,
   disconnectMessenger,
-  disconnectSchoolMaxBot,
   getCabinetMessengers,
   getMaxBot,
   getReminderLog,
   getReminderParents,
   getReminderSettings,
+  setSchoolMaxBotEnabled,
+  testSchoolMaxBot,
   updateReminderSettings,
 } from './actions'
 import type {
   DisconnectMessengerSchemaType,
+  MaxBotEnabledSchemaType,
   MaxBotTokenSchemaType,
   ReminderLogListSchemaType,
   ReminderParentListSchemaType,
@@ -97,6 +99,21 @@ export const useMaxBotQuery = () => {
 }
 
 /**
+ * «Тест» ничего не пишет и тостов не показывает: отказ относится к токену в
+ * поле, поэтому форма рисует его под полем.
+ */
+export const useTestMaxBotMutation = () => {
+  return useMutation({
+    mutationFn: async (values: MaxBotTokenSchemaType) => {
+      const { data, serverError } = await testSchoolMaxBot(values)
+      if (serverError) throw new Error(serverError)
+      if (!data) throw new Error('Не удалось проверить токен. Попробуйте ещё раз.')
+      return data
+    },
+  })
+}
+
+/**
  * После смены бота сбрасывается всё про уведомления: от бота зависят и ссылки,
  * и превью, и то, кто на экране школы считается подключённым.
  */
@@ -112,27 +129,31 @@ export const useConnectMaxBotMutation = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.all })
-      toast.success('Бот школы подключён.')
+      toast.success('Бот школы подключён: напоминания идут через него.')
     },
     onError: (error) =>
       toast.error(error.message || 'Не удалось подключить бота. Попробуйте ещё раз.'),
   })
 }
 
-export const useDisconnectMaxBotMutation = () => {
+export const useSetMaxBotEnabledMutation = () => {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async () => {
-      const { data, serverError } = await disconnectSchoolMaxBot()
+    mutationFn: async (values: MaxBotEnabledSchemaType) => {
+      const { data, serverError } = await setSchoolMaxBotEnabled(values)
       if (serverError) throw new Error(serverError)
       return data
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.all })
-      toast.success('Напоминания снова идут через бота ЕДУДА.')
+      toast.success(
+        variables.enabled
+          ? 'Напоминания идут через бота школы.'
+          : 'Напоминания снова идут через бота ЕДУДА.',
+      )
     },
     onError: (error) =>
-      toast.error(error.message || 'Не удалось отключить бота. Попробуйте ещё раз.'),
+      toast.error(error.message || 'Не удалось переключить бота. Попробуйте ещё раз.'),
   })
 }
 

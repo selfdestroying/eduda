@@ -346,12 +346,16 @@ async function main() {
           'у школы со своим ботом напоминание уходит только через него',
         )
 
-        await tx.organizationMaxBot.delete({ where: { organizationId: orgD.id } })
+        // Возврат на бота ЕДУДА — выключение, а не удаление: бот школы сохраняется.
+        await tx.organizationMaxBot.update({
+          where: { organizationId: orgD.id },
+          data: { enabled: false },
+        })
         await planLessonReminders(tx, AFTER)
         assert.deepEqual(
           await recipientsD(),
           [viaSchool.id, viaEduda!.id],
-          'школа отключила своего бота — рассылка вернулась на бота ЕДУДА',
+          'школа выключила своего бота — рассылка вернулась на бота ЕДУДА',
         )
 
         // ─── Дренаж ───────────────────────────────────────────────────────

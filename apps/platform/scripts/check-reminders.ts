@@ -30,8 +30,9 @@ import { subDays } from 'date-fns'
 import { readSchoolBotTokens } from '@repo/core/max-bots'
 import {
   connectMaxBot,
-  disconnectMaxBot,
   readMaxBot,
+  setMaxBotEnabled,
+  testMaxBotToken,
 } from '../src/features/notifications/bot.server'
 import {
   disconnectCabinetMessenger,
@@ -108,14 +109,28 @@ async function main() {
       // Токен шифруется ключом из окружения — для проверки хватит своего. Ответ
       // MAX подставлен: проверка в сеть не ходит.
       process.env.MAX_BOT_TOKEN_KEY ??= Buffer.alloc(32, 3).toString('base64')
-      const schoolMe = async () => ({ ok: true as const, username: 'check_school_bot' })
+      const profile = {
+        username: 'check_school_bot',
+        name: 'Проверочная школа',
+        avatarUrl: 'https://i.example/avatar.png',
+      }
+      const schoolMe = async () => ({ ok: true as const, ...profile })
+      const rejectedMe = async () => ({ ok: false as const, status: 401 })
 
       await assert.rejects(
-        () =>
-          connectMaxBot(tx, org.id, '123456:чужой-токен', async () => ({
-            ok: false as const,
-            status: 401,
-          })),
+        () => testMaxBotToken(tx, org.id, '123456:чужой-токен', rejectedMe),
+        /не принял токен/,
+        '«Тест» с токеном, который MAX не принял, — отказ с понятной причиной',
+      )
+      assert.deepEqual(
+        await testMaxBotToken(tx, org.id, '123456:токен-бота-школы', schoolMe),
+        profile,
+        '«Тест» показывает, чей это бот',
+      )
+      assert.equal(await readMaxBot(tx, org.id), null, '«Тест» ничего не сохраняет')
+
+      await assert.rejects(
+        () => connectMaxBot(tx, org.id, '123456:чужой-токен', rejectedMe),
         /не принял токен/,
         'токен, который MAX не принял, не сохраняется',
       )
@@ -124,8 +139,8 @@ async function main() {
       await connectMaxBot(tx, org.id, '123456:токен-бота-школы', schoolMe)
       assert.deepEqual(
         await readMaxBot(tx, org.id),
-        { username: 'check_school_bot' },
-        'бот подключён под своим именем',
+        { ...profile, enabled: true },
+        'сохранённый бот сразу включён, с именем и аватаром из MAX',
       )
 
       const stored = await tx.organizationMaxBot.findUniqueOrThrow({
@@ -168,16 +183,41 @@ async function main() {
       })
       assert.equal((await read())?.max, true, 'подключение к боту школы видно в кабинете')
 
-      assert.equal(await disconnectMaxBot(tx, org.id), true, 'бот отключён')
+      await assert.rejects(
+        () => setMaxBotEnabled(tx, rival.id, true),
+        /нет сохранённого бота/,
+        'включить можно только сохранённого бота',
+      )
+
+      // Возврат на бота ЕДУДА — выключение, а не удаление.
+      await setMaxBotEnabled(tx, org.id, false)
+      assert.deepEqual(
+        await readMaxBot(tx, org.id),
+        { ...profile, enabled: false },
+        'бот выключен, но сохранён вместе с профилем',
+      )
+      assert.deepEqual(
+        await readSchoolBotTokens(tx, { organizationId: org.id }),
+        [],
+        'выключенного бота не видят ни рассылка, ни вебхуки, ни мини-приложение',
+      )
       assert.deepEqual(
         await read(),
         { max: false, hasPhone: true, botUsername: null },
-        'без своего бота кабинет снова ведёт к боту ЕДУДА, а привязка к боту школы не в счёт',
+        'с выключенным своим ботом кабинет ведёт к боту ЕДУДА, а привязка к боту школы не в счёт',
       )
+
+      await setMaxBotEnabled(tx, org.id, true)
+      assert.equal(
+        (await read())?.max,
+        true,
+        'включили обратно — прежняя привязка снова работает, токен вводить не пришлось',
+      )
+      await setMaxBotEnabled(tx, org.id, false)
       assert.equal(
         await tx.parentMessenger.count({ where: { parentId: parent.id } }),
         2,
-        'привязки к отключённому боту остаются',
+        'привязки к обоим ботам остаются',
       )
 
       // ─── Родитель без телефона ───────────────────────────────────────
@@ -404,7 +444,7 @@ async function main() {
         [],
         'в строке родителя видны только привязки к текущему боту',
       )
-      await disconnectMaxBot(tx, org.id)
+      await setMaxBotEnabled(tx, org.id, false)
 
       // ─── Экран школы: журнал ─────────────────────────────────────────
       const log = (input: Partial<ReminderLogListSchemaType> = {}) =>

@@ -40,8 +40,8 @@ type Org = {
   reminderLeadMinutes: number
   reminderTemplate: string
   reminderLineTemplate: string
-  /** Свой бот школы; `null` — рассылает бот ЕДУДА. */
-  maxBot: { organizationId: number } | null
+  /** Свой бот школы; `null` или выключен — рассылает бот ЕДУДА. */
+  maxBot: { enabled: boolean } | null
 }
 
 export async function planLessonReminders(
@@ -59,7 +59,7 @@ export async function planLessonReminders(
       reminderLeadMinutes: true,
       reminderTemplate: true,
       reminderLineTemplate: true,
-      maxBot: { select: { organizationId: true } },
+      maxBot: { select: { enabled: true } },
     },
   })
 
@@ -181,7 +181,7 @@ async function readLessons(
                       parent: {
                         select: {
                           messengers: {
-                            where: activeMessengerWhere(Boolean(org.maxBot)),
+                            where: activeMessengerWhere(org.maxBot?.enabled === true),
                             select: { id: true },
                           },
                         },

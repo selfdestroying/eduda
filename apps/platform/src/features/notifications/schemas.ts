@@ -32,6 +32,13 @@ export const MaxBotTokenSchema = z.object({
 
 export type MaxBotTokenSchemaType = z.infer<typeof MaxBotTokenSchema>
 
+/** Выбор между ботом ЕДУДА и сохранённым своим: `true` — рассылает бот школы. */
+export const MaxBotEnabledSchema = z.object({
+  enabled: z.boolean(),
+})
+
+export type MaxBotEnabledSchemaType = z.infer<typeof MaxBotEnabledSchema>
+
 // ─── Настройки школы ────────────────────────────────────────────────
 
 /** `HH:mm` в поясе школы — тот же формат, что у `Lesson.time`. */

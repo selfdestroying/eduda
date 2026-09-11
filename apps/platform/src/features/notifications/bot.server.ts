@@ -1,16 +1,23 @@
 import { encryptBotToken } from '@repo/core/max-bots'
 import type { Prisma } from '@repo/db'
-import { ConflictError } from '@/src/lib/error'
+import { ConflictError, NotFoundError } from '@/src/lib/error'
 
 /**
- * Собственный бот MAX школы: прочитать, подключить, отключить.
+ * Собственный бот MAX школы: прочитать, проверить токен, сохранить, включить и
+ * выключить.
  *
  * Клиент первым параметром и без `server-only` — как остальные ядра фичи: так
  * это зовёт и экшен, и `scripts/check-reminders.ts`. Токен наружу не отдаётся
  * никогда: после сохранения его не видит ни владелец, ни управляющий.
  */
 
-export type MaxBotInfo = { username: string } | null
+export type MaxBotInfo = {
+  username: string
+  name: string | null
+  avatarUrl: string | null
+  /** Рассылает ли школа этим ботом. Выключенный хранится вместе с токеном. */
+  enabled: boolean
+} | null
 
 export async function readMaxBot(
   db: Prisma.TransactionClient,
@@ -18,14 +25,20 @@ export async function readMaxBot(
 ): Promise<MaxBotInfo> {
   return db.organizationMaxBot.findUnique({
     where: { organizationId },
-    select: { username: true },
+    select: { username: true, name: true, avatarUrl: true, enabled: true },
   })
 }
+
+/** Бот глазами MAX — то, что покажет карточка. */
+export type MaxBotProfile = { username: string; name: string | null; avatarUrl: string | null }
 
 /** Что MAX говорит о боте по токену. Параметром — чтобы проверка не ходила в сеть. */
 export type MaxMe = (
   token: string,
-) => Promise<{ ok: true; username: string | null } | { ok: false; status: number | null }>
+) => Promise<
+  | { ok: true; username: string | null; name: string | null; avatarUrl: string | null }
+  | { ok: false; status: number | null }
+>
 
 export const fetchMaxMe: MaxMe = async (token) => {
   try {
@@ -36,8 +49,17 @@ export const fetchMaxMe: MaxMe = async (token) => {
     })
     if (!response.ok) return { ok: false, status: response.status }
 
-    const me = (await response.json()) as { username?: string | null }
-    return { ok: true, username: me.username ?? null }
+    const me = (await response.json()) as {
+      username?: string | null
+      first_name?: string | null
+      avatar_url?: string | null
+    }
+    return {
+      ok: true,
+      username: me.username ?? null,
+      name: me.first_name ?? null,
+      avatarUrl: me.avatar_url ?? null,
+    }
   } catch (error) {
     // `fetch failed` без статуса у MAX — почти всегда TLS: корню Минцифры
     // процесс не доверяет, нужен `NODE_EXTRA_CA_CERTS` в записи pm2 платформы.
@@ -47,20 +69,16 @@ export const fetchMaxMe: MaxMe = async (token) => {
 }
 
 /**
- * Подключает бота: проверяет токен у самого MAX и сохраняет его зашифрованным.
- * Проверка здесь, а не на первом проходе крона: неверный токен школа должна
- * увидеть сразу, а не через десять минут по молчанию бота.
- *
- * ponytail: смена бота на другого не гасит привязки к прежнему — первое же
- * напоминание им вернёт отказ MAX, и дренаж погасит их сам. Гасить сразу —
- * когда школы начнут менять ботов.
+ * Кнопка «Тест»: токен принят MAX, и бот годится школе — у него есть публичное
+ * имя, это не бот ЕДУДА и не бот другой школы. Отдаёт профиль, чтобы школа
+ * увидела, чей это бот, до того как рассылка на него переедет. Ничего не пишет.
  */
-export async function connectMaxBot(
+export async function testMaxBotToken(
   db: Prisma.TransactionClient,
   organizationId: number,
   token: string,
   me: MaxMe = fetchMaxMe,
-): Promise<{ username: string }> {
+): Promise<MaxBotProfile> {
   const answer = await me(token)
   if (!answer.ok) {
     throw new ConflictError(
@@ -88,12 +106,32 @@ export async function connectMaxBot(
     throw new ConflictError('Этот бот уже подключён к другой школе.')
   }
 
+  return { username: answer.username, name: answer.name, avatarUrl: answer.avatarUrl }
+}
+
+/**
+ * Сохраняет бота и сразу включает: с ближайшего прохода крона рассылка идёт
+ * через него. Токен проверяется заново, а не берётся на веру от «Теста»: между
+ * кнопками поле могли поменять, а экшен зовут и мимо формы.
+ *
+ * ponytail: смена бота на другого не гасит привязки к прежнему — первое же
+ * напоминание им вернёт отказ MAX, и дренаж погасит их сам. Гасить сразу —
+ * когда школы начнут менять ботов.
+ */
+export async function connectMaxBot(
+  db: Prisma.TransactionClient,
+  organizationId: number,
+  token: string,
+  me: MaxMe = fetchMaxMe,
+): Promise<NonNullable<MaxBotInfo>> {
+  const profile = await testMaxBotToken(db, organizationId, token, me)
   const tokenEnc = encryptBotToken(token)
+
   const bot = await db.organizationMaxBot.upsert({
     where: { organizationId },
-    create: { organizationId, tokenEnc, username: answer.username },
-    update: { tokenEnc, username: answer.username },
-    select: { username: true },
+    create: { organizationId, tokenEnc, ...profile, enabled: true },
+    update: { tokenEnc, ...profile, enabled: true },
+    select: { username: true, name: true, avatarUrl: true, enabled: true },
   })
 
   console.log(`notifications: школа ${organizationId} подключила бота @${bot.username}`)
@@ -101,15 +139,24 @@ export async function connectMaxBot(
 }
 
 /**
- * Отключает бота. Привязки родителей к нему остаются: подключит школа этого же
- * бота снова — они заработают. С этого момента рассылка идёт через привязки к
- * боту ЕДУДА.
+ * Выбор между ботом ЕДУДА и своим: включает или выключает сохранённого бота.
+ * Выключенный остаётся с токеном — вернуться к нему можно без повторного ввода.
+ * Привязки родителей к обоим ботам не трогаются: рассылка просто идёт через
+ * привязки к тому, что включён.
  */
-export async function disconnectMaxBot(
+export async function setMaxBotEnabled(
   db: Prisma.TransactionClient,
   organizationId: number,
-): Promise<boolean> {
-  const { count } = await db.organizationMaxBot.deleteMany({ where: { organizationId } })
-  if (count > 0) console.log(`notifications: школа ${organizationId} отключила своего бота`)
-  return count > 0
+  enabled: boolean,
+): Promise<NonNullable<MaxBotInfo>> {
+  const { count } = await db.organizationMaxBot.updateMany({
+    where: { organizationId },
+    data: { enabled },
+  })
+  if (count === 0) throw new NotFoundError('У школы нет сохранённого бота.')
+
+  console.log(
+    `notifications: школа ${organizationId} ${enabled ? 'включила своего бота' : 'вернулась на бота ЕДУДА'}`,
+  )
+  return (await readMaxBot(db, organizationId))!
 }

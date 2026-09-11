@@ -3,13 +3,14 @@
 import { prisma } from '@repo/db'
 import { ForbiddenError } from '@/src/lib/error'
 import { authAction, publicAction } from '@/src/lib/safe-action'
-import { connectMaxBot, disconnectMaxBot, readMaxBot } from './bot.server'
+import { connectMaxBot, readMaxBot, setMaxBotEnabled, testMaxBotToken } from './bot.server'
 import { disconnectCabinetMessenger, readCabinetMessengers } from './cabinet.server'
 import { readReminderLog, readReminderParents } from './overview.server'
 import { readReminderSettings, writeReminderSettings } from './settings.server'
 import {
   CabinetMessengersSchema,
   DisconnectMessengerSchema,
+  MaxBotEnabledSchema,
   MaxBotTokenSchema,
   ReminderLogListSchema,
   ReminderParentListSchema,
@@ -50,11 +51,11 @@ function assertCanManage(memberRole: string | null | undefined) {
 /**
  * Свой бот школы — только владельцу: токен даёт полное управление ботом, и от
  * его имени школа говорит с родителями. Управляющий видит, какой бот работает,
- * но подключить или отключить его не может.
+ * но выбрать или подключить его не может.
  */
 function assertOwner(memberRole: string | null | undefined) {
   if (memberRole !== 'owner') {
-    throw new ForbiddenError('Подключать и отключать бота школы может только владелец.')
+    throw new ForbiddenError('Выбирать и подключать бота школы может только владелец.')
   }
 }
 
@@ -80,6 +81,14 @@ export const getMaxBot = authAction
     return readMaxBot(prisma, ctx.session.organizationId!)
   })
 
+export const testSchoolMaxBot = authAction
+  .metadata({ actionName: 'testSchoolMaxBot' })
+  .inputSchema(MaxBotTokenSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    assertOwner(ctx.session.memberRole)
+    return testMaxBotToken(prisma, ctx.session.organizationId!, parsedInput.token)
+  })
+
 export const connectSchoolMaxBot = authAction
   .metadata({ actionName: 'connectSchoolMaxBot' })
   .inputSchema(MaxBotTokenSchema)
@@ -88,11 +97,12 @@ export const connectSchoolMaxBot = authAction
     return connectMaxBot(prisma, ctx.session.organizationId!, parsedInput.token)
   })
 
-export const disconnectSchoolMaxBot = authAction
-  .metadata({ actionName: 'disconnectSchoolMaxBot' })
-  .action(async ({ ctx }) => {
+export const setSchoolMaxBotEnabled = authAction
+  .metadata({ actionName: 'setSchoolMaxBotEnabled' })
+  .inputSchema(MaxBotEnabledSchema)
+  .action(async ({ ctx, parsedInput }) => {
     assertOwner(ctx.session.memberRole)
-    return { disconnected: await disconnectMaxBot(prisma, ctx.session.organizationId!) }
+    return setMaxBotEnabled(prisma, ctx.session.organizationId!, parsedInput.enabled)
   })
 
 // ─── Экран школы ────────────────────────────────────────────────────
