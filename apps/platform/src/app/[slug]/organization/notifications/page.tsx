@@ -7,8 +7,8 @@ export const metadata = { title: 'Боты' }
 export default function Page() {
   return (
     <div className="flex flex-col gap-4">
-      <ReminderSettings />
       <MaxBotSettings />
+      <ReminderSettings />
       <RemindersOverview />
     </div>
   )

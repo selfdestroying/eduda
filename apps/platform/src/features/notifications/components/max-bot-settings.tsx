@@ -55,7 +55,7 @@ export default function MaxBotSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Бот MAX</CardTitle>
+        <CardTitle>Настройка</CardTitle>
         <CardDescription>
           {bot
             ? 'Напоминания приходят родителям от бота школы.'
