@@ -1,7 +1,7 @@
 'use client'
 
 import { useSessionQuery } from '@/src/features/users/me/queries'
-import { maxBotUrl, parentCabinetUrl } from '@/src/lib/utils'
+import { docsUrl, maxBotUrl } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   AlertDialog,
@@ -260,9 +260,9 @@ function BotIdentity({
 }
 
 /**
- * Подключение своего бота. Шаги у школы перед формой, а не в документации:
- * пропущенный адрес мини-приложения ничего не ломает при подключении, а
- * обнаруживается только тогда, когда родитель не может открыть кабинет из чата.
+ * Подключение своего бота. Как создать бота в MAX и прописать ему мини-приложение,
+ * рассказывает страница документации «Свой бот MAX»: шаги там со скриншотами
+ * платформы MAX, в карточку они не помещаются. Форма только ссылается на неё.
  *
  * «Сохранить» открывается только после «Теста», и только для того токена,
  * который проверяли: поменяли поле — проверять заново.
@@ -292,19 +292,18 @@ function ConnectBot({ onSaved }: { onSaved: () => void }) {
 
   return (
     <form onSubmit={runTest} className="flex flex-col gap-4">
-      <ol className="text-muted-foreground list-decimal space-y-1 pl-5 text-xs/relaxed">
-        <li>
-          Создайте бота на платформе MAX для партнёров — от имени организации, ИП или самозанятого.
-        </li>
-        <li>
-          В настройках бота укажите адрес мини-приложения:{' '}
-          <span className="text-foreground font-mono break-all">{parentCabinetUrl('max')}</span>
-        </li>
-        <li>
-          Не подключайте этого бота к CRM и другим сервисам — он должен работать только с ЕДУДА.
-        </li>
-        <li>Вставьте токен бота ниже и нажмите «Тест».</li>
-      </ol>
+      <p className="text-muted-foreground text-xs/relaxed">
+        Как создать бота в MAX, привязать к нему кабинет родителя и где взять токен —{' '}
+        <a
+          href={`${docsUrl}/user/17-school-bot`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary inline-flex items-center gap-1 hover:underline"
+        >
+          в инструкции
+          <ExternalLink className="size-3" />
+        </a>
+      </p>
 
       <Controller
         control={form.control}
