@@ -148,13 +148,18 @@ export default function WalletsSection({ student }: WalletsSectionProps) {
     if (!linkWalletId || !linkGroupId) return
     startTransition(async () => {
       try {
-        await linkGroupToWallet({
+        const res = await linkGroupToWallet({
           studentId: student.id,
           groupId: Number(linkGroupId),
           walletId: Number(linkWalletId),
         })
         invalidateStudent()
-        toast.success('Группа привязана к кошельку')
+        const settled = res?.data?.settled ?? 0
+        toast.success(
+          settled > 0
+            ? `Группа привязана, списано занятий: ${settled}`
+            : 'Группа привязана к кошельку',
+        )
         setActiveDrawer(null)
         setLinkWalletId('')
         setLinkGroupId('')

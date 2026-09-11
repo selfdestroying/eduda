@@ -4,6 +4,7 @@ import { prisma } from '@repo/db'
 import {
   countUnpaidAttendancesByWallet,
   countUnpaidAttendancesOfWallet,
+  settleUnpaidAttendancesTx,
 } from '@/src/features/finances/ledger.server'
 import { transferPackagesTx } from '@/src/features/finances/transfer.server'
 import { NotFoundError } from '@/src/lib/error'
@@ -179,26 +180,44 @@ export const linkGroupToWallet = authAction
     const { studentId, groupId, walletId } = parsedInput
     const organizationId = ctx.session.organizationId!
 
-    // Validate wallet belongs to same student
-    const wallet = await prisma.wallet.findFirst({
-      where: { id: walletId, organizationId },
-      select: { studentId: true, status: true },
-    })
-    if (!wallet) throw new Error('Кошелёк не найден')
-    if (wallet.studentId !== studentId) {
-      throw new Error('Кошелёк не принадлежит этому ученику')
-    }
-    if (wallet.status === 'ARCHIVED') {
-      throw new Error('К архивному кошельку нельзя привязать группу')
-    }
+    return await prisma.$transaction(async (tx) => {
+      // Validate wallet belongs to same student
+      const wallet = await tx.wallet.findFirst({
+        where: { id: walletId, organizationId },
+        select: { studentId: true, status: true, lessonsBalance: true },
+      })
+      if (!wallet) throw new Error('Кошелёк не найден')
+      if (wallet.studentId !== studentId) {
+        throw new Error('Кошелёк не принадлежит этому ученику')
+      }
+      if (wallet.status === 'ARCHIVED') {
+        throw new Error('К архивному кошельку нельзя привязать группу')
+      }
 
-    // `updateMany`, а не `update`: у составного ключа нет места для школы, а без неё
-    // запись чужой школы обновилась бы по угаданной паре id.
-    const linked = await prisma.studentGroup.updateMany({
-      where: { studentId, groupId, organizationId },
-      data: { walletId },
+      // `updateMany`, а не `update`: у составного ключа нет места для школы, а без неё
+      // запись чужой школы обновилась бы по угаданной паре id.
+      const linked = await tx.studentGroup.updateMany({
+        where: { studentId, groupId, organizationId },
+        data: { walletId },
+      })
+      if (linked.count !== 1) throw new Error('Запись ученика в группе не найдена')
+
+      // Занятия этой группы платить было нечем: кошелька у них не было вовсе, и
+      // пришедшая оплата их не увидела — `settleUnpaidAttendancesTx` ищет занятия
+      // через группы кошелька, а группа приезжает сюда уже после оплаты. Третье
+      // место, где занятие получает кошелёк (первые два — оплата и перенос
+      // пакетов), и гасить надо здесь же, иначе занятие ждёт следующей оплаты.
+      // Запрашиваем по остатку с запасом: функция выходит на первом несписавшемся.
+      const settled = await settleUnpaidAttendancesTx(tx, {
+        walletId,
+        organizationId,
+        take: wallet.lessonsBalance,
+        actorUserId: Number(ctx.session.user.id),
+        meta: { settledByLinkOfGroup: groupId },
+      })
+
+      return { settled }
     })
-    if (linked.count !== 1) throw new Error('Запись ученика в группе не найдена')
   })
 
 // ─── ARCHIVE ─────────────────────────────────────────────────────────────────
