@@ -19,7 +19,6 @@ import { nowInTz } from '@/src/lib/timezone'
 import { cn } from '@/src/lib/utils'
 import {
   Ban,
-  Bell,
   BellOff,
   CalendarOff,
   CircleAlert,
@@ -46,40 +45,6 @@ import {
 import { type SmartFeedAlert, UNPAID_SNOOZE_KEY } from '../types'
 import { QuickTip } from './quick-tip'
 import { SnoozeDaysMenu, type SnoozeDaysOption } from './snooze-days-menu'
-
-// ─── Popover-only trigger (mobile) ─────────────────────────────────────
-
-export function SmartFeed() {
-  const { data: unmarkedAlerts } = useUnmarkedAttendnace()
-  const { data: lowBalanceAlerts } = useLowBalanceQuery()
-  const { data: unpaidAlerts } = useUnpaidStudentsQuery()
-  const { data: absentStreakAlerts } = useAbsentStreaksQuery()
-  const { data: parentMarkedAlerts } = useParentMarkedAbsencesQuery()
-  const count =
-    (unmarkedAlerts?.length ?? 0) +
-    (lowBalanceAlerts?.length ?? 0) +
-    (unpaidAlerts?.length ?? 0) +
-    (absentStreakAlerts?.length ?? 0) +
-    (parentMarkedAlerts?.length ?? 0)
-  const hasAlerts = count > 0
-
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="relative"
-      render={<Link href={'/smart-feed'} />}
-      nativeButton={false}
-    >
-      <Bell className="size-3.5" />
-      {hasAlerts && (
-        <span className="bg-destructive text-destructive-foreground absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full text-[0.5rem] font-bold">
-          {count > 99 ? '99+' : count}
-        </span>
-      )}
-    </Button>
-  )
-}
 
 // ─── Desktop info bar ──────────────────────────────────────────────────
 
@@ -119,13 +84,7 @@ export function SmartFeedBar({ canSeeFeed }: { canSeeFeed: boolean }) {
             </Button>
           </div>
         )}
-        {canSeeFeed && isMobile && (
-          <>
-            <SmartFeed />
-            <SidebarToggle onClick={toggleSidebar} />
-          </>
-        )}
-        {!canSeeFeed && isMobile && <SidebarToggle onClick={toggleSidebar} />}
+        {isMobile && <SidebarToggle onClick={toggleSidebar} />}
       </div>
     </div>
   )
