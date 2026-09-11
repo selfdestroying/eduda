@@ -3,3 +3,8 @@
 .next
 out
 .source
+
+# Генерируется `next typegen` неотформатированным — на гонке с ним
+# `format:check` падает, и `pnpm check` отдаёт ненулевой код.
+*.d.ts
+next-env.d.ts
