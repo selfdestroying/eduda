@@ -243,17 +243,17 @@ function TemplateField({
               не загрузился — первая буква имени. */}
           <MessageAvatar>
             <Avatar>
-              {/* Фон именно белый, а не `bg-background`: аватарка бота в
-                  мессенджере одна и та же, а тема дашборда к ней отношения не
-                  имеет. */}
               {bot?.enabled ? (
                 <>
                   {bot.avatarUrl && <AvatarImage src={bot.avatarUrl} alt="" />}
-                  <AvatarFallback className="text-primary bg-white">
+                  <AvatarFallback>
                     {(bot.name ?? bot.username).slice(0, 1).toUpperCase()}
                   </AvatarFallback>
                 </>
               ) : (
+                // Фон именно белый, а не `bg-background`: это аватар бота ЕДУДА в
+                // мессенджере, он один и тот же, а тема дашборда к нему отношения
+                // не имеет.
                 <AvatarFallback className="text-primary bg-white" aria-label="ЕДУДА">
                   <Logo className="size-8" />
                 </AvatarFallback>
