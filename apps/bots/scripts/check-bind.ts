@@ -2,9 +2,9 @@
  * Самопроверка привязки родителя — настоящим кодом против настоящей БД.
  *
  * Всё внутри одной транзакции, которая в конце откатывается: временные школа,
- * родитель и привязки в базе не остаются. Мока Prisma нет намеренно — половина
- * проверяемого здесь и есть поведение самой базы: уникальный индекс, тип `uuid`
- * у токена, `updateMany` по несуществующим строкам.
+ * родители и привязки в базе не остаются. Мока Prisma нет намеренно — половина
+ * проверяемого здесь и есть поведение самой базы: уникальный индекс и
+ * `updateMany` по несуществующим строкам.
  *
  *   pnpm --filter bots check:bind
  *
@@ -13,14 +13,7 @@
  */
 import assert from 'node:assert/strict'
 import { prisma } from '@repo/db'
-import {
-  bindByPhone,
-  bindByRef,
-  readBindings,
-  readCommand,
-  resubscribeAll,
-  unsubscribeAll,
-} from '../src/bind'
+import { bindByPhone, readBindings, readCommand, resubscribeAll, unsubscribeAll } from '../src/bind'
 import { todayYmdInTz } from '@repo/core/timezone'
 import { normalizePhone, phoneFromVCard } from '../src/phone'
 import { toggledText } from '../src/routes/max'
@@ -28,8 +21,7 @@ import { buildBindSummary } from '../src/summary'
 
 class Rollback extends Error {}
 
-/** Аккаунты «в мессенджерах» — лишь бы не пересекались с настоящими. */
-const VK_USER = '999000111'
+/** Аккаунт «в мессенджере» — лишь бы не пересекался с настоящими. */
 const MAX_USER = '999000222'
 
 async function main() {
@@ -43,64 +35,7 @@ async function main() {
 
   try {
     await prisma.$transaction(async (tx) => {
-      const parent = await tx.parent.create({
-        data: { firstName: 'Проверка', lastName: 'Привязки', organizationId: org.id },
-        select: { id: true, accessToken: true },
-      })
-
-      const count = () =>
-        tx.parentMessenger.count({ where: { provider: 'VK', externalId: VK_USER } })
-
-      // ─── Мусор вместо токена не должен доходить до драйвера ────────────
-      // Колонка `uuid`: Postgres падает на любой строке не той формы, а строка
-      // приходит из ссылки, то есть от кого угодно.
-      assert.equal(await bindByRef(tx, 'не-uuid-вовсе', VK_USER), null, 'мусорный ref')
-      assert.equal(await bindByRef(tx, '', VK_USER), null, 'пустой ref')
-      assert.equal(
-        await bindByRef(tx, '11111111-2222-3333-4444-555555555555', VK_USER),
-        null,
-        'чужой uuid',
-      )
-      assert.equal(await count(), 0, 'на отказах привязок не заводится')
-
-      // ─── Привязка по своей ссылке ──────────────────────────────────────
-      const bound = await bindByRef(tx, parent.accessToken, VK_USER)
-      assert.equal(bound?.parentId, parent.id, 'привязка нашла родителя')
-      assert.equal(bound?.firstName, 'Проверка', 'имя для ответа в чат')
-      assert.equal(await count(), 1, 'ровно одна привязка')
-
-      // Повторный переход по той же ссылке — не вторая строка и не ошибка.
-      await bindByRef(tx, parent.accessToken, VK_USER)
-      assert.equal(await count(), 1, 'повтор не задваивает привязку')
-
-      // ─── Отписка ───────────────────────────────────────────────────────
-      assert.equal(await unsubscribeAll(tx, 'VK', VK_USER), 1, 'отписалась одна привязка')
-      assert.equal(await count(), 1, 'отписка не удаляет строку')
-      assert.equal(
-        await unsubscribeAll(tx, 'VK', VK_USER),
-        0,
-        'повторная отписка ничего не трогает',
-      )
-
-      // ─── Возврат ───────────────────────────────────────────────────────
-      // И через `message_allow`, и через повторный переход по ссылке.
-      assert.equal(await resubscribeAll(tx, 'VK', VK_USER), 1, 'message_allow вернул подписку')
-      assert.equal(await resubscribeAll(tx, 'VK', VK_USER), 0, 'вернуть уже активную нечего')
-
-      await unsubscribeAll(tx, 'VK', VK_USER)
-      await bindByRef(tx, parent.accessToken, VK_USER)
-      const revived = await tx.parentMessenger.findFirstOrThrow({
-        where: { provider: 'VK', externalId: VK_USER },
-        select: { unsubscribedAt: true, organizationId: true },
-      })
-      assert.equal(revived.unsubscribedAt, null, 'переход по ссылке включает обратно')
-      assert.equal(revived.organizationId, org.id, 'школа взята у родителя')
-
-      // ─── Чужой аккаунт не задет ────────────────────────────────────────
-      assert.equal(await unsubscribeAll(tx, 'VK', '111'), 0, 'чужой externalId не затронут')
-      assert.equal(await unsubscribeAll(tx, 'MAX', VK_USER), 0, 'другой мессенджер не затронут')
-
-      // ─── Привязка по телефону (MAX) ────────────────────────────────────
+      // ─── Привязка по телефону ──────────────────────────────────────────
       // Один номер записан по-разному и в двух школах: бот один на установку,
       // и оба ребёнка обязаны получить напоминания.
       const otherOrg = await tx.organization.create({
@@ -155,6 +90,24 @@ async function main() {
         'чужой номер никого не привязывает',
       )
 
+      // ─── Отписка и возврат ─────────────────────────────────────────────
+      // Отписка — по аккаунту: «стоп» пишет человек и имеет в виду «мне», а не
+      // «этому ребёнку».
+      assert.equal(await unsubscribeAll(tx, 'MAX', MAX_USER), 2, 'отписались обе привязки')
+      assert.equal(
+        await unsubscribeAll(tx, 'MAX', MAX_USER),
+        0,
+        'повторная отписка ничего не трогает',
+      )
+      assert.equal(
+        await tx.parentMessenger.count({ where: { provider: 'MAX', externalId: MAX_USER } }),
+        2,
+        'отписка не удаляет строки',
+      )
+      assert.equal(await resubscribeAll(tx, 'MAX', MAX_USER), 2, '/resume вернул обе привязки')
+      assert.equal(await resubscribeAll(tx, 'MAX', MAX_USER), 0, 'вернуть уже активные нечего')
+      assert.equal(await unsubscribeAll(tx, 'MAX', '111'), 0, 'чужой аккаунт не затронут')
+
       // ─── Что этот аккаунт вообще привязал ──────────────────────────────
       // Ответ бота на команду зависит от трёх состояний, а не двух: привязок
       // нет вовсе, они есть и включены, они есть и отключены.
@@ -162,7 +115,7 @@ async function main() {
       assert.equal(bindings.length, 2, 'обе школы видны одним списком')
       assert.ok(
         bindings.every((binding) => binding.active),
-        'после повторной отправки номера обе включены',
+        'после возврата обе включены',
       )
       assert.deepEqual(
         bindings.map((binding) => binding.organization).sort(),
@@ -329,7 +282,7 @@ async function main() {
   }
 
   // Транзакция откатилась — в базе не должно остаться ничего.
-  const leftovers = await prisma.parentMessenger.count({ where: { externalId: VK_USER } })
+  const leftovers = await prisma.parentMessenger.count({ where: { externalId: MAX_USER } })
   assert.equal(leftovers, 0, 'транзакция откатилась, привязок не осталось')
 
   console.log('check-bind: всё сошлось')

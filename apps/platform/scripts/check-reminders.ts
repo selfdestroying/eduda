@@ -65,31 +65,26 @@ async function main() {
       // ─── Ничего не подключено ────────────────────────────────────────
       assert.deepEqual(
         await read(),
-        { vk: false, max: false, hasPhone: true },
+        { max: false, hasPhone: true },
         'у нового родителя не подключено ничего, но номер есть',
       )
 
       // ─── Подключение видно ───────────────────────────────────────────
       await tx.parentMessenger.create({
         data: {
-          provider: 'VK',
+          provider: 'MAX',
           externalId: `check-cabinet-${stamp}`,
           parentId: parent.id,
           organizationId: org.id,
         },
       })
-      assert.equal((await read())?.vk, true, 'привязка VK видна в кабинете')
-      assert.equal((await read())?.max, false, 'MAX при этом не подключён')
+      assert.equal((await read())?.max, true, 'привязка MAX видна в кабинете')
 
       // ─── Отключение ──────────────────────────────────────────────────
+      assert.equal(await disconnectCabinetMessenger(tx, token), 1, 'отключилась одна привязка')
+      assert.equal((await read())?.max, false, 'после отключения канал погашен')
       assert.equal(
-        await disconnectCabinetMessenger(tx, token, 'VK'),
-        1,
-        'отключилась одна привязка',
-      )
-      assert.equal((await read())?.vk, false, 'после отключения канал погашен')
-      assert.equal(
-        await disconnectCabinetMessenger(tx, token, 'VK'),
+        await disconnectCabinetMessenger(tx, token),
         0,
         'повторное отключение ничего не трогает',
       )
@@ -183,7 +178,7 @@ async function main() {
 
       // ─── Экран школы: декорации ──────────────────────────────────────
       // К этому месту в организации уже есть два родителя: `parent` с погашенной
-      // привязкой VK и `noPhone` без привязок вовсе. Третьего заводим живым —
+      // привязкой MAX и `noPhone` без привязок вовсе. Третьего заводим живым —
       // так все три состояния списка сходятся в одной выборке.
       const course = await tx.course.create({
         data: { name: 'Курс', organizationId: org.id },
@@ -274,7 +269,6 @@ async function main() {
         readReminderParents(tx, org.id, {
           page: 0,
           pageSize: 50,
-          providers: [],
           connection: [],
           ...input,
         })
@@ -296,11 +290,6 @@ async function main() {
         'не подключён — привязок нет вовсе; именно этих родителей и дожимают',
       )
       assert.equal(
-        (await parents({ providers: ['VK'] })).total,
-        0,
-        'канал спрашивают про живую привязку, а не про историю',
-      )
-      assert.equal(
         (await parents({ search: 'Проверкин' })).total,
         3,
         'поиск достаёт родителя по фамилии ученика',
@@ -316,7 +305,6 @@ async function main() {
         readReminderLog(tx, org.id, TZ, {
           page: 0,
           pageSize: 50,
-          providers: [],
           statuses: [],
           ...input,
         })

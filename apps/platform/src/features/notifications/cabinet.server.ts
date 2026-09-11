@@ -3,8 +3,8 @@ import type { Prisma } from '@repo/db'
 import { NotFoundError } from '@/src/lib/error'
 
 /**
- * Что кабинет родителя делает с привязками мессенджеров. Сами боты живут в
- * `apps/bots` и пишут в те же таблицы — платформа здесь только показывает
+ * Что кабинет родителя делает с привязками мессенджера. Сам бот живёт в
+ * `apps/bots` и пишет в те же таблицы — платформа здесь только показывает
  * состояние и гасит канал по кнопке.
  *
  * Без `server-only` и с клиентом первым параметром — как денежное ядро: так это
@@ -16,7 +16,6 @@ import { NotFoundError } from '@/src/lib/error'
  */
 
 export type CabinetMessengers = {
-  vk: boolean
   max: boolean
   /** Без номера в базе привязка по телефону невозможна — кнопку MAX не показываем. */
   hasPhone: boolean
@@ -40,31 +39,27 @@ export async function readCabinetMessengers(
 
   if (await isOrgFeatureDisabled(db, parent.organizationId, 'notifications')) return null
 
-  const messengers = await db.parentMessenger.findMany({
-    where: { parentId: parent.id, unsubscribedAt: null },
-    select: { provider: true },
+  const connected = await db.parentMessenger.count({
+    where: { parentId: parent.id, provider: 'MAX', unsubscribedAt: null },
   })
 
-  return {
-    vk: messengers.some((row) => row.provider === 'VK'),
-    max: messengers.some((row) => row.provider === 'MAX'),
-    hasPhone: Boolean(parent.phone),
-  }
+  return { max: connected > 0, hasPhone: Boolean(parent.phone) }
 }
 
 /**
  * Гасит канал, а не удаляет строку: она — единственный ответ на вопрос «почему
  * мне перестало приходить». Тем же способом отписывают сами боты.
+ *
+ * Все привязки родителя разом: «отключить» в кабинете значит «не пишите мне».
  */
 export async function disconnectCabinetMessenger(
   db: Prisma.TransactionClient,
   token: string,
-  provider: 'VK' | 'MAX',
 ): Promise<number> {
   const parent = await parentByToken(db, token)
 
   const { count } = await db.parentMessenger.updateMany({
-    where: { parentId: parent.id, provider, unsubscribedAt: null },
+    where: { parentId: parent.id, unsubscribedAt: null },
     data: { unsubscribedAt: new Date() },
   })
 

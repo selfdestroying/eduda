@@ -1,22 +1,28 @@
 import type { Prisma } from '@repo/db'
 import type { MessengerProvider } from '@repo/db/enums'
-import type { SendResult } from './providers/vk'
 
 /**
  * Дренаж очереди: берёт то, чему подошёл срок, и отправляет по одному.
  *
- * По одному, а не пачкой, потому что провайдеры считают запросы в секунду
- * (VK — 20, MAX — 30), и потому что упавшая отправка не должна утаскивать за
- * собой те, что прошли.
+ * По одному, а не пачкой, потому что MAX считает запросы в секунду (до 30), и
+ * потому что упавшая отправка не должна утаскивать за собой те, что прошли.
  */
 
-export type Sender = (externalId: string, text: string, randomId: number) => Promise<SendResult>
+/**
+ * Ответ провайдера в форме, которая нужна дренажу: не «получилось или нет», а
+ * «стоит ли пробовать снова и не отписался ли родитель».
+ */
+export type SendResult =
+  | { ok: true }
+  | { ok: false; retryable: boolean; blocked?: boolean; error: string }
+
+export type Sender = (externalId: string, text: string) => Promise<SendResult>
 
 /**
- * Пауза между отправками: ≈16 в секунду, под лимитом обоих мессенджеров.
+ * Пауза между отправками: ≈16 в секунду, с запасом под лимитом MAX.
  *
- * ponytail: одна общая пауза на всех провайдеров вместо счётчика на каждого.
- * Считать по провайдерам — когда в очереди появятся тысячи строк за прогон.
+ * ponytail: одна пауза на всю очередь вместо счётчика запросов. Считать
+ * по-настоящему — когда в очереди появятся тысячи строк за прогон.
  */
 const PAUSE_MS = 60
 
@@ -64,9 +70,7 @@ export async function drainOutbox(
     // Привязка есть, а отправлять нечем: провайдер не подключён в этой сборке.
     // Ретраить бессмысленно — само не появится.
     const outcome: SendResult = send
-      ? // `randomId` — id строки: у VK это ключ идемпотентности, поэтому
-        // повтор после таймаута не задваивает сообщение.
-        await send(externalId, row.text, row.id)
+      ? await send(externalId, row.text)
       : { ok: false, retryable: false, error: `провайдер ${provider} не подключён` }
 
     if (outcome.ok) {

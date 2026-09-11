@@ -15,7 +15,6 @@ export const CabinetMessengersSchema = z.object({
 
 export const DisconnectMessengerSchema = z.object({
   token: TokenSchema,
-  provider: z.enum(['VK', 'MAX']),
 })
 
 export type CabinetMessengersSchemaType = z.infer<typeof CabinetMessengersSchema>
@@ -75,7 +74,6 @@ const ListSchema = z.object({
   // переименованных, и `z.enum` уронил бы страницу вместо порядка по умолчанию.
   sort: z.object({ id: z.string(), desc: z.boolean() }).nullish(),
   search: z.string().trim().max(100).optional(),
-  providers: z.array(z.enum(['VK', 'MAX'])).default([]),
 })
 
 export const ReminderParentListSchema = ListSchema.extend({

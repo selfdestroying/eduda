@@ -15,7 +15,7 @@ export const REMINDER_PARENT_SELECT = {
   lastName: true,
   phone: true,
   students: { select: { student: { select: { id: true, firstName: true, lastName: true } } } },
-  messengers: { select: { id: true, provider: true, createdAt: true, unsubscribedAt: true } },
+  messengers: { select: { createdAt: true, unsubscribedAt: true } },
 } satisfies Prisma.ParentSelect
 
 export type ReminderParentItem = Prisma.ParentGetPayload<{ select: typeof REMINDER_PARENT_SELECT }>
@@ -32,7 +32,6 @@ export const REMINDER_LOG_SELECT = {
   nextAttemptAt: true,
   parentMessenger: {
     select: {
-      provider: true,
       parent: { select: { id: true, firstName: true, lastName: true } },
     },
   },

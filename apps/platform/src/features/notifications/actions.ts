@@ -29,7 +29,7 @@ export const disconnectMessenger = publicAction
   .metadata({ actionName: 'disconnectMessenger' })
   .inputSchema(DisconnectMessengerSchema)
   .action(async ({ parsedInput }) => ({
-    disconnected: await disconnectCabinetMessenger(prisma, parsedInput.token, parsedInput.provider),
+    disconnected: await disconnectCabinetMessenger(prisma, parsedInput.token),
   }))
 
 // ─── Настройки школы ────────────────────────────────────────────────

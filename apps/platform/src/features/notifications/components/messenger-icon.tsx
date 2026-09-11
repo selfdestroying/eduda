@@ -1,38 +1,15 @@
-import type { MessengerProvider } from '@repo/db/browser'
 import { cn } from '@/src/lib/utils'
 
 /**
- * Значки мессенджеров. Инлайном, а не файлами в `public/`: два `<img>` на
- * строку таблицы — это два запроса на каждую строку, а разметки здесь на
- * десяток строк.
+ * Значок MAX. Инлайном, а не файлом в `public/`: разметки здесь на десяток
+ * строк, а `<img>` — это лишний запрос.
  *
- * Идентификаторы градиентов MAX неймспейснуты (`max-*`): в документе значок
- * встречается много раз, и голые `a`/`b`/`c` столкнулись бы с чем угодно ещё.
+ * Идентификаторы градиентов неймспейснуты (`max-*`): значок может встретиться в
+ * документе не один раз, и голые `a`/`b`/`c` столкнулись бы с чем угодно ещё.
  */
-
-export const MESSENGER_NAME: Record<MessengerProvider, string> = {
-  VK: 'ВКонтакте',
-  MAX: 'MAX',
-}
-
-function VkIcon({ className }: { className?: string }) {
+export function MaxIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 100 100" className={className} aria-hidden>
-      <path
-        d="M0 48C0 25.3726 0 14.0589 7.02944 7.02944C14.0589 0 25.3726 0 48 0H52C74.6274 0 85.9411 0 92.9706 7.02944C100 14.0589 100 25.3726 100 48V52C100 74.6274 100 85.9411 92.9706 92.9706C85.9411 100 74.6274 100 52 100H48C25.3726 100 14.0589 100 7.02944 92.9706C0 85.9411 0 74.6274 0 52V48Z"
-        fill="#0077FF"
-      />
-      <path
-        d="M53.2083 72.042C30.4167 72.042 17.4168 56.417 16.8751 30.417H28.2917C28.6667 49.5003 37.0833 57.5836 43.7499 59.2503V30.417H54.5002V46.8752C61.0836 46.1669 67.9994 38.667 70.3328 30.417H81.0831C79.2914 40.5837 71.7914 48.0836 66.458 51.1669C71.7914 53.6669 80.3335 60.2086 83.5835 72.042H71.7498C69.2081 64.1253 62.8752 58.0003 54.5002 57.1669V72.042H53.2083Z"
-        fill="white"
-      />
-    </svg>
-  )
-}
-
-function MaxIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 1000 1000" className={className} aria-hidden>
+    <svg viewBox="0 0 1000 1000" className={cn('size-5 rounded-sm', className)} aria-hidden>
       <defs>
         <linearGradient id="max-b">
           <stop offset="0" stopColor="#00f" />
@@ -73,27 +50,5 @@ function MaxIcon({ className }: { className?: string }) {
         clipRule="evenodd"
       />
     </svg>
-  )
-}
-
-export function MessengerIcon({
-  provider,
-  className,
-  hideLabel,
-}: {
-  provider: MessengerProvider
-  className?: string
-  /** Название рядом уже написано словами — второй раз его читать не надо. */
-  hideLabel?: boolean
-}) {
-  const Icon = provider === 'VK' ? VkIcon : MaxIcon
-  const name = MESSENGER_NAME[provider]
-
-  // Название остаётся в `title`: значок узнаётся не всеми, а колонка узкая.
-  return (
-    <span title={hideLabel ? undefined : name} className="inline-flex">
-      <Icon className={cn('size-5 rounded-sm', className)} />
-      {!hideLabel && <span className="sr-only">{name}</span>}
-    </span>
   )
 }

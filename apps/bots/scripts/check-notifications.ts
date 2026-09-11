@@ -129,7 +129,7 @@ async function main() {
 
           const row = await tx.parentMessenger.create({
             data: {
-              provider: 'VK',
+              provider: 'MAX',
               externalId: `check-${stamp}-${(messengerSeq += 1)}`,
               parentId: parent.id,
               organizationId,
@@ -209,7 +209,7 @@ async function main() {
         })
         const messengerC = await tx.parentMessenger.create({
           data: {
-            provider: 'VK',
+            provider: 'MAX',
             externalId: `check-${stamp}-same-day`,
             parentId: parentC.id,
             organizationId: orgC.id,
@@ -318,7 +318,7 @@ async function main() {
             select: { id: true },
           })
           const messenger = await tx.parentMessenger.create({
-            data: { provider: 'VK', externalId, parentId: parent.id, organizationId: orgA.id },
+            data: { provider: 'MAX', externalId, parentId: parent.id, organizationId: orgA.id },
             select: { id: true },
           })
           return tx.notificationOutbox.create({
@@ -341,7 +341,7 @@ async function main() {
 
         const sender: Sender = async (externalId) => {
           if (externalId.startsWith('drain-blocked')) {
-            return { ok: false, retryable: false, blocked: true, error: 'VK 901' }
+            return { ok: false, retryable: false, blocked: true, error: 'MAX 403' }
           }
           if (externalId.startsWith('drain-retry') || externalId.startsWith('drain-last')) {
             return { ok: false, retryable: true, error: 'сеть' }
@@ -350,7 +350,7 @@ async function main() {
         }
 
         const now = new Date('2026-09-10T18:05:00Z')
-        await drainOutbox(tx, { VK: sender }, { now, pauseMs: 0 })
+        await drainOutbox(tx, { MAX: sender }, { now, pauseMs: 0 })
 
         const state = (id: number) =>
           tx.notificationOutbox.findFirstOrThrow({

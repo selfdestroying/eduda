@@ -11,56 +11,10 @@ import { normalizePhone } from './phone'
  * обычный `prisma`, в проверке — транзакция, которая в конце откатывается.
  */
 
-/**
- * `Parent.accessToken` — колонка типа `uuid`, и Postgres падает на любой строке,
- * которая на uuid не похожа. `ref` приходит из ссылки, то есть от кого угодно,
- * поэтому форму проверяем до запроса, а не отдаём драйверу.
- */
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 export type BoundParent = { parentId: number; firstName: string }
 
 /**
- * Привязка по персональной ссылке `vk.me/…?ref=<Parent.accessToken>`.
- *
- * Отдельного секрета у привязки нет намеренно: этот же токен открывает
- * `/cabinet/{token}` со всеми данными ребёнка, так что владение ссылкой уже
- * равно доступу. Новый секрет добавил бы вторую дверь к той же комнате.
- *
- * `null` — токен не наш или испорчен; звать школу, а не гадать.
- */
-export async function bindByRef(
-  db: Prisma.TransactionClient,
-  ref: string,
-  externalId: string,
-): Promise<BoundParent | null> {
-  if (!UUID.test(ref)) return null
-
-  const parent = await db.parent.findUnique({
-    where: { accessToken: ref },
-    select: { id: true, firstName: true, organizationId: true },
-  })
-  if (!parent) return null
-
-  await db.parentMessenger.upsert({
-    where: {
-      provider_externalId_parentId: { provider: 'VK', externalId, parentId: parent.id },
-    },
-    create: {
-      provider: 'VK',
-      externalId,
-      parentId: parent.id,
-      organizationId: parent.organizationId,
-    },
-    // Повторный переход по ссылке — это «включите обратно», а не ошибка.
-    update: { unsubscribedAt: null },
-  })
-
-  return { parentId: parent.id, firstName: parent.firstName }
-}
-
-/**
- * Привязка по телефону — путь MAX. Номер приходит от самой платформы через
+ * Привязка по телефону. Номер приходит от самой платформы через
  * `request_contact`, то есть уже подтверждён ею; спрашивать код сверх этого
  * нечего и негде.
  *
@@ -125,9 +79,9 @@ export async function unsubscribeAll(
 }
 
 /**
- * VK присылает `message_allow`, когда родитель разрешил сообщения из настроек
- * сообщества, — это ровно противоположный `message_deny` сигнал, и обрабатывать
- * надо оба, иначе разрешение обратно ничего не включает.
+ * Возврат подписки: `/resume` или кнопка «Вернуть» под напоминанием. Трогает
+ * только погашенные привязки, и число возвращённых боту нужно: ноль — это
+ * «напоминания и так приходят», а не «вернул».
  */
 export async function resubscribeAll(
   db: Prisma.TransactionClient,

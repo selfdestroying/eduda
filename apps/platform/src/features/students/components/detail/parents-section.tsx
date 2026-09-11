@@ -39,7 +39,7 @@ import {
 } from '@/src/features/parents/schemas'
 import { ParentWithStudents } from '@/src/features/parents/types'
 import { studentKeys } from '@/src/features/students/queries'
-import { cn, maxBotUrl, parentCabinetUrl, vkBotUrl } from '@/src/lib/utils'
+import { cn, maxBotUrl, parentCabinetUrl } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -153,8 +153,6 @@ function ParentCard({
 }) {
   const parentEditUrl = parentCabinetUrl(parent.accessToken)
 
-  // Ссылка на бота — тот же токен, что и у кабинета: он и есть «этот родитель».
-  const botLink = vkBotUrl(parent.accessToken)
   const connected = (provider: string) =>
     (parent.messengers ?? []).some((row) => row.provider === provider)
 
@@ -227,10 +225,9 @@ function ParentCard({
           />
         </div>
 
-        {(botLink || maxBotUrl()) && (
+        {maxBotUrl() && (
           <div className="flex gap-1.5">
-            {botLink && <BotBadge name="VK" connected={connected('VK')} />}
-            {maxBotUrl() && <BotBadge name="MAX" connected={connected('MAX')} />}
+            <BotBadge name="MAX" connected={connected('MAX')} />
           </div>
         )}
       </div>

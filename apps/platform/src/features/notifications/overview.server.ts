@@ -76,7 +76,7 @@ const PARENT_ORDER_BY: Record<
 
 export function buildParentWhere(
   organizationId: number,
-  input: Pick<ReminderParentListSchemaType, 'search' | 'providers' | 'connection'>,
+  input: Pick<ReminderParentListSchemaType, 'search' | 'connection'>,
 ): Prisma.ParentWhereInput {
   return {
     organizationId,
@@ -84,11 +84,6 @@ export function buildParentWhere(
       ...parentSearchWhere(input.search),
       ...(input.connection.length > 0
         ? [{ OR: input.connection.map((key) => CONNECTION_WHERE[key]) }]
-        : []),
-      // Канал спрашивают про живую привязку: отписавшийся «во ВКонтакте» — это
-      // ответ на вопрос про статус, а не про канал.
-      ...(input.providers.length > 0
-        ? [{ messengers: { some: { provider: { in: input.providers }, unsubscribedAt: null } } }]
         : []),
     ],
   }
@@ -165,9 +160,6 @@ export async function readReminderLog(
     organizationId,
     ...(createdAt && { createdAt }),
     ...(input.statuses.length > 0 && { status: { in: input.statuses } }),
-    ...(input.providers.length > 0 && {
-      parentMessenger: { provider: { in: input.providers } },
-    }),
     AND: parentSearchWhere(input.search).map((clause) => ({ parentMessenger: { parent: clause } })),
   }
 

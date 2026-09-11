@@ -19,7 +19,6 @@ import {
 } from '@tanstack/react-table'
 import { ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { MessengerIcon, MESSENGER_NAME } from './messenger-icon'
 import { useReminderLogQuery } from '../queries'
 import type { ReminderLogItem } from '../types'
 
@@ -31,18 +30,12 @@ import type { ReminderLogItem } from '../types'
 
 const COLUMN_WIDTH = 130
 const NUMERIC = 'tabular-nums'
-const TABLE_FILTERS = { status: 'string', channel: 'string' } as const
+const TABLE_FILTERS = { status: 'string' } as const
 
 const STATUS_OPTIONS = [
   { label: 'Отправлено', value: 'SENT' },
   { label: 'В очереди', value: 'PENDING' },
   { label: 'Не доставлено', value: 'FAILED' },
-]
-
-// В галочках фильтра значку места нет — `options[].label` принимает только строку.
-const PROVIDER_OPTIONS = [
-  { label: MESSENGER_NAME.VK, value: 'VK' },
-  { label: MESSENGER_NAME.MAX, value: 'MAX' },
 ]
 
 function StatusBadge({ row }: { row: ReminderLogItem }) {
@@ -100,15 +93,6 @@ function buildColumns(tz: string): ColumnDef<ReminderLogItem>[] {
       cell: ({ row }) => <StatusBadge row={row.original} />,
       meta: { title: 'Статус', variant: 'multiSelect', options: STATUS_OPTIONS },
       enableHiding: false,
-    },
-    {
-      id: 'channel',
-      header: 'Канал',
-      accessorFn: (row) => row.parentMessenger.provider,
-      size: 90,
-      enableSorting: false,
-      cell: ({ row }) => <MessengerIcon provider={row.original.parentMessenger.provider} />,
-      meta: { title: 'Канал', variant: 'multiSelect', options: PROVIDER_OPTIONS },
     },
     {
       id: 'createdAt',
@@ -174,7 +158,6 @@ export default function ReminderLogTable() {
       from: period.from ?? undefined,
       to: period.to ?? undefined,
       statuses: filterValues(columnFilters, 'status') as ('PENDING' | 'SENT' | 'FAILED')[],
-      providers: filterValues(columnFilters, 'channel') as ('VK' | 'MAX')[],
     }),
     [pagination, sorting, t.search, period, columnFilters],
   )

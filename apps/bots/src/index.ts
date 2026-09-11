@@ -4,7 +4,6 @@ import { ensureCommands } from './providers/max'
 import type { Reply, RouteRequest } from './route'
 import { handleDispatch } from './routes/dispatch'
 import { handleMax } from './routes/max'
-import { handleVk } from './routes/vk'
 
 /**
  * Приём вебхуков и крон-роут. Не Next: рендерить здесь нечего, а четвёртая
@@ -17,7 +16,6 @@ import { handleVk } from './routes/vk'
  */
 
 const routes: Record<string, (req: RouteRequest) => Promise<Reply>> = {
-  'POST /vk': handleVk,
   'POST /max': handleMax,
   'GET /dispatch': handleDispatch,
   // И корень тоже: деплой считает приложение живым, если оно отвечает на `/`,
@@ -72,8 +70,8 @@ const server = createServer((req, res) => {
     .then((body) => handler({ body, url, header }))
     .then(send)
     .catch((error) => {
-      // Ошибку глотать нельзя: и VK, и MAX на неудачный ответ просто перестают
-      // слать события, каждый по-своему тихо.
+      // Ошибку глотать нельзя: на неудачные ответы MAX молча перестаёт слать
+      // события, а через восемь часов без успешных снимает подписку.
       console.error(route, error)
       send({ status: 500, text: 'error' })
     })

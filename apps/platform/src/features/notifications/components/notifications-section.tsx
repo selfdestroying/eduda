@@ -1,6 +1,6 @@
 'use client'
 
-import { maxBotUrl, vkBotUrl } from '@/src/lib/utils'
+import { maxBotUrl } from '@/src/lib/utils'
 import { Badge } from '@repo/ui/components/badge'
 import { Button } from '@repo/ui/components/button'
 import {
@@ -19,7 +19,7 @@ import { useCabinetMessengersQuery, useDisconnectMessengerMutation } from '../qu
  * Подключение напоминаний в кабинете родителя.
  *
  * Ничего не «настраивает»: включает и выключает. Что именно приходит и когда —
- * решает школа, а родителю остаётся выбор канала и возможность отписаться.
+ * решает школа, а родителю остаётся подключиться или отписаться.
  */
 export default function NotificationsSection({ token }: { token: string }) {
   const { data, isPending, isError } = useCabinetMessengersQuery(token)
@@ -31,11 +31,10 @@ export default function NotificationsSection({ token }: { token: string }) {
   // показываем: это не то, ради чего родитель открыл кабинет.
   if (isError || !data) return null
 
-  const vkLink = vkBotUrl(token)
   const maxLink = maxBotUrl()
 
-  // Ни один бот не заведён — показывать нечего.
-  if (!vkLink && !maxLink) return null
+  // Бот не заведён — показывать нечего.
+  if (!maxLink) return null
 
   return (
     <div className="space-y-3">
@@ -45,31 +44,18 @@ export default function NotificationsSection({ token }: { token: string }) {
       </div>
 
       <ItemGroup className="gap-2">
-        {vkLink && (
-          <Channel
-            name="ВКонтакте"
-            connected={data.vk}
-            href={vkLink}
-            hint="Откроется чат с ботом. Нажмите «Начать» — этого достаточно, ссылка уже персональная."
-            onDisconnect={() => disconnect.mutate({ token, provider: 'VK' })}
-            disabled={disconnect.isPending}
-          />
-        )}
-
-        {maxLink && (
-          <Channel
-            name="MAX"
-            connected={data.max}
-            href={data.hasPhone ? maxLink : null}
-            hint={
-              data.hasPhone
-                ? 'Откроется чат с ботом. Нажмите «Отправить номер» — по нему я найду вашего ребёнка.'
-                : 'В школе не записан ваш номер телефона — без него подключить MAX не получится. Укажите его выше или попросите администратора.'
-            }
-            onDisconnect={() => disconnect.mutate({ token, provider: 'MAX' })}
-            disabled={disconnect.isPending}
-          />
-        )}
+        <Channel
+          name="MAX"
+          connected={data.max}
+          href={data.hasPhone ? maxLink : null}
+          hint={
+            data.hasPhone
+              ? 'Откроется чат с ботом. Нажмите «Отправить номер» — по нему я найду вашего ребёнка.'
+              : 'В школе не записан ваш номер телефона — без него подключить MAX не получится. Укажите его выше или попросите администратора.'
+          }
+          onDisconnect={() => disconnect.mutate({ token })}
+          disabled={disconnect.isPending}
+        />
       </ItemGroup>
     </div>
   )

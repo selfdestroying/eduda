@@ -8,10 +8,10 @@ model ParentMessenger {
     id       Int               @id @default(autoincrement())
     provider MessengerProvider
     /// user_id в мессенджере. Строкой: идентификаторы чужие, арифметики над ними
-    /// нет, а диапазоны у VK и MAX разные.
+    /// нет.
     externalId String
-    /// Только MAX: верифицированный номер из `request_contact`. Нужен, чтобы
-    /// потом было видно, по какому номеру привязались. VK телефона не даёт вовсе.
+    /// Верифицированный номер из `request_contact`. Нужен, чтобы потом было
+    /// видно, по какому номеру привязались.
     phone     String?
     createdAt DateTime @default(now())
     /// Отписка не удаляет строку: иначе повторная привязка выглядит как первая,

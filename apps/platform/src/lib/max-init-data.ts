@@ -92,8 +92,8 @@ function parseUser(raw: string | undefined): MaxInitData {
   }
 
   const user = parsed as { id?: unknown; first_name?: unknown }
-  // Идентификатор храним строкой — как `ParentMessenger.externalId`: диапазоны
-  // у VK и MAX разные, а арифметики над ними нет.
+  // Идентификатор храним строкой — как `ParentMessenger.externalId`:
+  // арифметики над ним нет.
   const id = typeof user.id === 'number' || typeof user.id === 'string' ? String(user.id) : ''
   if (!id) return { ok: false, reason: 'у пользователя в строке запуска нет id' }
 

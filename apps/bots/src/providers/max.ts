@@ -1,5 +1,5 @@
 import { env } from '../env'
-import type { SendResult } from './vk'
+import type { SendResult } from '../drain'
 
 /**
  * MAX Bot API. Четыре места, где он не такой, как ожидается:
@@ -214,7 +214,7 @@ const COMMANDS = [
  * за запуск процесса, а не каждым проходом крона, как подписка.
  *
  * Ошибку только пишем в лог: бот без меню работает, а падать на старте из-за
- * недоступного MAX значит уронить заодно и VK-половину.
+ * недоступного MAX значит уронить заодно и крон-роут.
  */
 export async function ensureCommands(): Promise<void> {
   if (!env.max) return

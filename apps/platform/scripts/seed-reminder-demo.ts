@@ -14,7 +14,7 @@
 import './load-env'
 
 import { prisma } from '@repo/db'
-import type { MessengerProvider, NotificationStatus } from '@repo/db/enums'
+import type { NotificationStatus } from '@repo/db/enums'
 import { addMinutes, subDays } from 'date-fns'
 
 const MARK = 'demo-reminder'
@@ -25,23 +25,20 @@ const slug = process.argv.find((a) => a.startsWith('--org='))?.slice('--org='.le
 
 /** Привязки: по одной на каждое состояние, которое умеет показать список родителей. */
 const LINKS = [
-  { key: 'vk', provider: 'VK', unsubscribed: false },
-  { key: 'max', provider: 'MAX', unsubscribed: false },
-  // Два канала у одного родителя — в строке два бейджа.
-  { key: 'both-vk', provider: 'VK', unsubscribed: false },
-  { key: 'both-max', provider: 'MAX', unsubscribed: false },
+  { key: 'first', unsubscribed: false },
+  { key: 'second', unsubscribed: false },
+  { key: 'third', unsubscribed: false },
   // Подключался и отписался: «почему мне перестало приходить».
-  { key: 'gone', provider: 'VK', unsubscribed: true },
-  // Погашен дренажем после VK 901 — у него же в журнале лежит эта ошибка.
-  { key: 'blocked', provider: 'VK', unsubscribed: true },
-] satisfies Array<{ key: string; provider: MessengerProvider; unsubscribed: boolean }>
+  { key: 'gone', unsubscribed: true },
+  // Погашен дренажем после отказа MAX — у него же в журнале лежит эта ошибка.
+  { key: 'blocked', unsubscribed: true },
+] satisfies Array<{ key: string; unsubscribed: boolean }>
 
 /** Кому из родителей какая привязка. Индекс — в списке отобранных родителей. */
 const LINK_OWNER: Record<string, number> = {
-  vk: 0,
-  max: 1,
-  'both-vk': 2,
-  'both-max': 2,
+  first: 0,
+  second: 1,
+  third: 2,
   gone: 3,
   blocked: 4,
 }
@@ -68,13 +65,13 @@ const TAIL = ['Не сможете прийти — отметьте в каби
  * сводки — иначе «Отправлено за 7 дней» и фильтр по периоду нечем проверить.
  */
 const QUEUE = [
-  { key: 'vk', suffix: 'sent-today', status: 'SENT', daysAgo: 0, text: ONE_CHILD },
-  { key: 'max', suffix: 'sent-today-max', status: 'SENT', daysAgo: 0, text: TWO_CHILDREN },
-  { key: 'both-vk', suffix: 'sent-3d', status: 'SENT', daysAgo: 3, text: ONE_CHILD },
+  { key: 'first', suffix: 'sent-today', status: 'SENT', daysAgo: 0, text: ONE_CHILD },
+  { key: 'second', suffix: 'sent-today-two', status: 'SENT', daysAgo: 0, text: TWO_CHILDREN },
+  { key: 'third', suffix: 'sent-3d', status: 'SENT', daysAgo: 3, text: ONE_CHILD },
   // Старее окна сводки: в счётчик «за 7 дней» не попадает, в журнале виден.
-  { key: 'both-max', suffix: 'sent-40d', status: 'SENT', daysAgo: 40, text: TWO_CHILDREN },
+  { key: 'third', suffix: 'sent-40d', status: 'SENT', daysAgo: 40, text: TWO_CHILDREN },
   {
-    key: 'max',
+    key: 'second',
     suffix: 'failed-chat',
     status: 'FAILED',
     daysAgo: 1,
@@ -84,12 +81,12 @@ const QUEUE = [
   },
   {
     key: 'blocked',
-    suffix: 'failed-901',
+    suffix: 'failed-blocked',
     status: 'FAILED',
     daysAgo: 2,
     text: ONE_CHILD,
     attempts: 1,
-    error: 'VK 901: пользователь запретил сообщения от сообщества',
+    error: 'MAX 403',
   },
   {
     key: 'gone',
@@ -98,11 +95,11 @@ const QUEUE = [
     daysAgo: 4,
     text: TWO_CHILDREN,
     attempts: 1,
-    error: 'провайдер VK не подключён',
+    error: 'провайдер MAX не подключён',
   },
   // Длинная ошибка — проверка обрезки в колонке и подсказки по наведению.
   {
-    key: 'vk',
+    key: 'first',
     suffix: 'failed-long',
     status: 'FAILED',
     daysAgo: 5,
@@ -111,9 +108,9 @@ const QUEUE = [
     error:
       'TypeError: fetch failed — unable to get local issuer certificate (platform-api2.max.ru); проверьте NODE_EXTRA_CA_CERTS в записи pm2',
   },
-  { key: 'vk', suffix: 'pending-fresh', status: 'PENDING', daysAgo: 0, text: ONE_CHILD },
+  { key: 'first', suffix: 'pending-fresh', status: 'PENDING', daysAgo: 0, text: ONE_CHILD },
   {
-    key: 'both-max',
+    key: 'third',
     suffix: 'pending-retry',
     status: 'PENDING',
     daysAgo: 0,
@@ -181,13 +178,13 @@ async function main() {
     const row = await prisma.parentMessenger.upsert({
       where: {
         provider_externalId_parentId: {
-          provider: link.provider,
+          provider: 'MAX',
           externalId: `${MARK}-${link.key}`,
           parentId,
         },
       },
       create: {
-        provider: link.provider,
+        provider: 'MAX',
         externalId: `${MARK}-${link.key}`,
         parentId,
         organizationId: org.id,

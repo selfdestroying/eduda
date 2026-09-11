@@ -11,7 +11,6 @@ import { Skeleton } from '@repo/ui/components/skeleton'
 import { getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
 import Link from 'next/link'
 import { useMemo } from 'react'
-import { MessengerIcon, MESSENGER_NAME } from './messenger-icon'
 import { useReminderParentsQuery } from '../queries'
 import type { ReminderParentItem } from '../types'
 
@@ -22,18 +21,12 @@ import type { ReminderParentItem } from '../types'
  */
 
 const COLUMN_WIDTH = 130
-const TABLE_FILTERS = { channels: 'string', connection: 'string' } as const
+const TABLE_FILTERS = { connection: 'string' } as const
 
 const CONNECTION_OPTIONS = [
   { label: 'Подключены', value: 'connected' },
   { label: 'Отписались', value: 'unsubscribed' },
   { label: 'Не подключены', value: 'none' },
-]
-
-// В галочках фильтра значку места нет — `options[].label` принимает только строку.
-const PROVIDER_OPTIONS = [
-  { label: MESSENGER_NAME.VK, value: 'VK' },
-  { label: MESSENGER_NAME.MAX, value: 'MAX' },
 ]
 
 type Connection = 'connected' | 'unsubscribed' | 'none'
@@ -104,29 +97,6 @@ function buildColumns(tz: string): ColumnDef<ReminderParentItem>[] {
       meta: { title: 'Статус', variant: 'multiSelect', options: CONNECTION_OPTIONS },
     },
     {
-      id: 'channels',
-      header: 'Каналы',
-      accessorFn: (row) =>
-        row.messengers
-          .filter((m) => !m.unsubscribedAt)
-          .map((m) => m.provider)
-          .join(', '),
-      size: COLUMN_WIDTH,
-      enableSorting: false,
-      cell: ({ row }) => {
-        const active = row.original.messengers.filter((m) => !m.unsubscribedAt)
-        if (active.length === 0) return <span className="text-muted-foreground">—</span>
-        return (
-          <div className="flex gap-1.5">
-            {active.map((m) => (
-              <MessengerIcon key={m.id} provider={m.provider} />
-            ))}
-          </div>
-        )
-      },
-      meta: { title: 'Каналы', variant: 'multiSelect', options: PROVIDER_OPTIONS },
-    },
-    {
       id: 'connectedAt',
       header: 'Подключился',
       accessorFn: (row) => connectedAtOf(row),
@@ -173,7 +143,6 @@ export default function ReminderParentsTable() {
       pageSize: pagination.pageSize,
       sort: sorting[0] ?? null,
       search: t.search,
-      providers: filterValues(columnFilters, 'channels') as ('VK' | 'MAX')[],
       connection: filterValues(columnFilters, 'connection') as Connection[],
     }),
     [pagination, sorting, t.search, columnFilters],

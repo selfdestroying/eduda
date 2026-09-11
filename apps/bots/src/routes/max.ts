@@ -15,9 +15,9 @@ import type { Reply, RouteRequest } from '../route'
 import { buildBindSummary } from '../summary'
 
 /**
- * Вебхук MAX. Как и у VK: в обработчике только запись в базу, ответ родителю
- * уходит после того, как мы ответили 200 — держать вебхук на походе наружу
- * значит собирать повторы.
+ * Вебхук MAX. В обработчике только запись в базу, ответ родителю уходит после
+ * того, как мы ответили 200 — держать вебхук на походе наружу значит собирать
+ * повторы.
  *
  * Мультибота здесь нет, но эндпоинт всё равно свой: в апдейте MAX нет никакого
  * признака бота, и различать их можно только по URL.
@@ -101,7 +101,7 @@ export async function handleMax(req: RouteRequest): Promise<Reply> {
       return OK
     }
 
-    // Родитель заблокировал бота — тот же смысл, что `message_deny` у VK.
+    // Родитель заблокировал бота — это отписка.
     case 'bot_stopped': {
       const userId = userOf(update.user?.user_id)
       if (userId) await unsubscribeAll(prisma, 'MAX', userId)

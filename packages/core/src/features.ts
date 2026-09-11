@@ -133,7 +133,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureEntry> = {
   notifications: {
     label: 'Боты',
     description:
-      'Бот в VK или MAX напоминает родителям о занятиях. Родитель подключается сам, по ссылке из своего кабинета.',
+      'Бот в MAX напоминает родителям о занятиях. Родитель подключается сам, по ссылке из своего кабинета.',
     routes: ['/organization/notifications'],
   },
 }
