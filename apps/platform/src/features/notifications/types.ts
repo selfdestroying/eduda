@@ -1,3 +1,4 @@
+import { currentBotMessengerWhere } from '@repo/core/messenger'
 import type { Prisma } from '@repo/db'
 
 /**
@@ -9,16 +10,27 @@ import type { Prisma } from '@repo/db'
  * с конкретной отправкой и почему она не дошла.
  */
 
-export const REMINDER_PARENT_SELECT = {
-  id: true,
-  firstName: true,
-  lastName: true,
-  phone: true,
-  students: { select: { student: { select: { id: true, firstName: true, lastName: true } } } },
-  messengers: { select: { createdAt: true, unsubscribedAt: true } },
-} satisfies Prisma.ParentSelect
+/**
+ * Привязки в списке родителей — только к боту, которым школа рассылает сейчас:
+ * по остальным напоминаний нет, и «подключён» по ним было бы неправдой.
+ */
+export function reminderParentSelect(hasOwnBot: boolean) {
+  return {
+    id: true,
+    firstName: true,
+    lastName: true,
+    phone: true,
+    students: { select: { student: { select: { id: true, firstName: true, lastName: true } } } },
+    messengers: {
+      where: currentBotMessengerWhere(hasOwnBot),
+      select: { createdAt: true, unsubscribedAt: true },
+    },
+  } satisfies Prisma.ParentSelect
+}
 
-export type ReminderParentItem = Prisma.ParentGetPayload<{ select: typeof REMINDER_PARENT_SELECT }>
+export type ReminderParentItem = Prisma.ParentGetPayload<{
+  select: ReturnType<typeof reminderParentSelect>
+}>
 export type ReminderParentResult = { rows: ReminderParentItem[]; total: number }
 
 export const REMINDER_LOG_SELECT = {

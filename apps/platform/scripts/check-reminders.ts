@@ -27,6 +27,12 @@ import {
   validateTemplate,
 } from '@repo/core/reminder-template'
 import { subDays } from 'date-fns'
+import { readSchoolBotTokens } from '@repo/core/max-bots'
+import {
+  connectMaxBot,
+  disconnectMaxBot,
+  readMaxBot,
+} from '../src/features/notifications/bot.server'
 import {
   disconnectCabinetMessenger,
   readCabinetMessengers,
@@ -67,8 +73,8 @@ async function main() {
       // ─── Ничего не подключено ────────────────────────────────────────
       assert.deepEqual(
         await read(),
-        { max: false, hasPhone: true },
-        'у нового родителя не подключено ничего, но номер есть',
+        { max: false, hasPhone: true, botUsername: null },
+        'у нового родителя не подключено ничего, но номер есть; бот — ЕДУДА',
       )
 
       // ─── Подключение видно ───────────────────────────────────────────
@@ -96,6 +102,82 @@ async function main() {
         await tx.parentMessenger.count({ where: { parentId: parent.id } }),
         1,
         'отписка не удаляет привязку',
+      )
+
+      // ─── Свой бот школы ──────────────────────────────────────────────
+      // Токен шифруется ключом из окружения — для проверки хватит своего. Ответ
+      // MAX подставлен: проверка в сеть не ходит.
+      process.env.MAX_BOT_TOKEN_KEY ??= Buffer.alloc(32, 3).toString('base64')
+      const schoolMe = async () => ({ ok: true as const, username: 'check_school_bot' })
+
+      await assert.rejects(
+        () =>
+          connectMaxBot(tx, org.id, '123456:чужой-токен', async () => ({
+            ok: false as const,
+            status: 401,
+          })),
+        /не принял токен/,
+        'токен, который MAX не принял, не сохраняется',
+      )
+      assert.equal(await readMaxBot(tx, org.id), null, 'после отказа своего бота у школы нет')
+
+      await connectMaxBot(tx, org.id, '123456:токен-бота-школы', schoolMe)
+      assert.deepEqual(
+        await readMaxBot(tx, org.id),
+        { username: 'check_school_bot' },
+        'бот подключён под своим именем',
+      )
+
+      const stored = await tx.organizationMaxBot.findUniqueOrThrow({
+        where: { organizationId: org.id },
+        select: { tokenEnc: true },
+      })
+      assert.ok(
+        !Buffer.from(stored.tokenEnc).toString('utf8').includes('токен-бота-школы'),
+        'токен в базе не лежит открытым',
+      )
+      assert.deepEqual(
+        (await readSchoolBotTokens(tx, { organizationId: org.id })).map((bot) => bot.token),
+        ['123456:токен-бота-школы'],
+        'и читается обратно тем же ключом',
+      )
+
+      const rival = await tx.organization.create({
+        data: { name: `check-notify-rival-${stamp}`, slug: `check-notify-rival-${stamp}` },
+        select: { id: true },
+      })
+      await assert.rejects(
+        () => connectMaxBot(tx, rival.id, '654321:другой-токен', schoolMe),
+        /уже подключён к другой школе/,
+        'один бот на две школы не подключается: каждое событие пришло бы дважды',
+      )
+
+      assert.deepEqual(
+        await read(),
+        { max: false, hasPhone: true, botUsername: 'check_school_bot' },
+        'кнопка в кабинете ведёт к боту школы',
+      )
+      await tx.parentMessenger.create({
+        data: {
+          provider: 'MAX',
+          externalId: `check-cabinet-own-${stamp}`,
+          parentId: parent.id,
+          organizationId: org.id,
+          ownBot: true,
+        },
+      })
+      assert.equal((await read())?.max, true, 'подключение к боту школы видно в кабинете')
+
+      assert.equal(await disconnectMaxBot(tx, org.id), true, 'бот отключён')
+      assert.deepEqual(
+        await read(),
+        { max: false, hasPhone: true, botUsername: null },
+        'без своего бота кабинет снова ведёт к боту ЕДУДА, а привязка к боту школы не в счёт',
+      )
+      assert.equal(
+        await tx.parentMessenger.count({ where: { parentId: parent.id } }),
+        2,
+        'привязки к отключённому боту остаются',
       )
 
       // ─── Родитель без телефона ───────────────────────────────────────
@@ -301,6 +383,28 @@ async function main() {
         [connected.id],
         'слова через AND: иначе «Имя Фамилия» не сужает выборку вовсе',
       )
+
+      // ─── Экран школы со своим ботом ──────────────────────────────────
+      // Подключённым считается тот, кто подключён к боту, которым школа рассылает
+      // сейчас. У `parent` к боту школы есть живая привязка (заведена выше), у
+      // `connected` — только к боту ЕДУДА.
+      await connectMaxBot(tx, org.id, '123456:токен-бота-школы', schoolMe)
+      assert.deepEqual(
+        (await parents({ connection: ['connected'] })).rows.map((r) => r.id),
+        [parent.id],
+        'со своим ботом подключён тот, кто подключён к нему',
+      )
+      assert.deepEqual(
+        (await parents({ connection: ['none'] })).rows.map((r) => r.id).sort(),
+        [connected.id, noPhone.id].sort(),
+        'привязка к боту ЕДУДА у школы со своим ботом подключением не считается',
+      )
+      assert.deepEqual(
+        (await parents()).rows.find((r) => r.id === connected.id)?.messengers,
+        [],
+        'в строке родителя видны только привязки к текущему боту',
+      )
+      await disconnectMaxBot(tx, org.id)
 
       // ─── Экран школы: журнал ─────────────────────────────────────────
       const log = (input: Partial<ReminderLogListSchemaType> = {}) =>

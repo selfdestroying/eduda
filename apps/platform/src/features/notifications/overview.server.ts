@@ -1,10 +1,11 @@
+import { activeMessengerWhere, currentBotMessengerWhere, hasOwnMaxBot } from '@repo/core/messenger'
 import type { Prisma } from '@repo/db'
 import { addDays } from 'date-fns'
 import { startOfDayInTz, ymdToLocalDate } from '@/src/lib/timezone'
 import type { ReminderLogListSchemaType, ReminderParentListSchemaType } from './schemas'
 import {
   REMINDER_LOG_SELECT,
-  REMINDER_PARENT_SELECT,
+  reminderParentSelect,
   type ReminderLogResult,
   type ReminderParentResult,
 } from './types'
@@ -21,17 +22,23 @@ import {
 // ─── Родители ───────────────────────────────────────────────────────
 
 /**
- * Состояние привязки одного родителя. `unsubscribed` — это «строки есть, но ни
- * одной живой»: родитель подключался и отписался, и на «почему мне перестало
- * приходить» отвечает именно оно. `none` — не подключался вовсе.
+ * Состояние привязки одного родителя — к боту, которым школа рассылает сейчас.
+ * `unsubscribed` — это «строки есть, но ни одной живой»: родитель подключался и
+ * отписался, и на «почему мне перестало приходить» отвечает именно оно. `none` —
+ * к этому боту не подключался вовсе, даже если был подключён к другому.
  */
-const CONNECTION_WHERE = {
-  connected: { messengers: { some: { unsubscribedAt: null } } },
-  unsubscribed: {
-    messengers: { some: { unsubscribedAt: { not: null } }, none: { unsubscribedAt: null } },
-  },
-  none: { messengers: { none: {} } },
-} satisfies Record<string, Prisma.ParentWhereInput>
+function connectionWhere(hasOwnBot: boolean) {
+  const current = currentBotMessengerWhere(hasOwnBot)
+  const active = activeMessengerWhere(hasOwnBot)
+
+  return {
+    connected: { messengers: { some: active } },
+    unsubscribed: {
+      messengers: { some: { ...current, unsubscribedAt: { not: null } }, none: active },
+    },
+    none: { messengers: { none: current } },
+  } satisfies Record<string, Prisma.ParentWhereInput>
+}
 
 /**
  * Поиск: слова через `AND`, каждое слово — `OR` по видимым полям. Иначе
@@ -76,14 +83,17 @@ const PARENT_ORDER_BY: Record<
 
 export function buildParentWhere(
   organizationId: number,
+  hasOwnBot: boolean,
   input: Pick<ReminderParentListSchemaType, 'search' | 'connection'>,
 ): Prisma.ParentWhereInput {
+  const connection = connectionWhere(hasOwnBot)
+
   return {
     organizationId,
     AND: [
       ...parentSearchWhere(input.search),
       ...(input.connection.length > 0
-        ? [{ OR: input.connection.map((key) => CONNECTION_WHERE[key]) }]
+        ? [{ OR: input.connection.map((key) => connection[key]) }]
         : []),
     ],
   }
@@ -94,7 +104,8 @@ export async function readReminderParents(
   organizationId: number,
   input: ReminderParentListSchemaType,
 ): Promise<ReminderParentResult> {
-  const where = buildParentWhere(organizationId, input)
+  const hasOwnBot = await hasOwnMaxBot(db, organizationId)
+  const where = buildParentWhere(organizationId, hasOwnBot, input)
   const build = input.sort ? PARENT_ORDER_BY[input.sort.id] : undefined
   const orderBy: Prisma.ParentOrderByWithRelationInput[] = [
     ...(build && input.sort
@@ -108,7 +119,7 @@ export async function readReminderParents(
   const [rows, total] = await Promise.all([
     db.parent.findMany({
       where,
-      select: REMINDER_PARENT_SELECT,
+      select: reminderParentSelect(hasOwnBot),
       orderBy,
       skip: input.page * input.pageSize,
       take: input.pageSize,
@@ -148,6 +159,7 @@ export function periodBounds(
   }
 }
 
+/** Журнал — вся история отправок, каким бы ботом они ни шли. */
 export async function readReminderLog(
   db: Prisma.TransactionClient,
   organizationId: number,

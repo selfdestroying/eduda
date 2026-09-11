@@ -42,7 +42,11 @@ export const docsUrl = process.env.NEXT_PUBLIC_DOCS_URL || `${protocol}://docs.$
  */
 const maxBot = process.env.NEXT_PUBLIC_MAX_BOT
 
-export const maxBotUrl = () => (maxBot ? `https://max.ru/${maxBot}` : null)
+/** `username` — свой бот школы; без него — бот ЕДУДА. */
+export const maxBotUrl = (username?: string | null) => {
+  const name = username || maxBot
+  return name ? `https://max.ru/${name}` : null
+}
 
 /**
  * Служебные поддомены: организациями не являются. Читаются в `proxy`

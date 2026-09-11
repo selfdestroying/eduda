@@ -10,7 +10,7 @@
  */
 import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
-import { verifyInitData } from '../src/lib/max-init-data'
+import { BAD_SIGNATURE, matchInitData, verifyInitData } from '../src/lib/max-init-data'
 
 const TOKEN = 'проверочный:токен-бота'
 
@@ -66,14 +66,14 @@ function reason(initData: string, at = now): string {
     encodeURIComponent(user),
     encodeURIComponent(JSON.stringify({ id: 1, first_name: 'Не Мария' })),
   )
-  assert.equal(reason(forged), 'подпись не сошлась')
+  assert.equal(reason(forged), BAD_SIGNATURE)
   ok('подменённый пользователь не проходит')
 }
 
 {
   assert.equal(
     reason(sign({ auth_date: authDate, user }).replace(/hash=.*/, 'hash=deadbeef')),
-    'подпись не сошлась',
+    BAD_SIGNATURE,
   )
   ok('чужая подпись не проходит')
 }
@@ -131,6 +131,51 @@ function reason(initData: string, at = now): string {
   const result = verifyInitData(shuffled, TOKEN, now)
   assert.ok(result.ok, 'порядок пар в строке не должен влиять на подпись')
   ok('порядок пар в строке не влияет на подпись')
+}
+
+// ─── Какой бот подписал ───────────────────────────────────────────────
+// Мини-приложение открывают из бота ЕДУДА и из ботов школ. От того, какой бот
+// найден, зависит, чьи кабинеты отдать, — ошибка здесь открыла бы кабинеты
+// родителей другой школы.
+{
+  const candidates = [
+    { token: 'токен бота ЕДУДА', organizationId: null },
+    { token: TOKEN, organizationId: 9 },
+  ]
+  const match = matchInitData(sign({ auth_date: authDate, user }), candidates, now)
+  assert.equal(match?.candidate.organizationId, 9, 'найден тот бот, чьим токеном подписано')
+  assert.ok(match?.result.ok, 'и строка при этом проходит')
+  ok('бот находится по подписи среди нескольких')
+}
+
+{
+  const match = matchInitData(
+    sign({ auth_date: authDate, user }),
+    [{ token: 'совсем другой токен', organizationId: null }],
+    now,
+  )
+  assert.equal(match, null, 'ни один токен не подошёл — бота нет')
+  ok('строка незнакомого бота не находит никого')
+}
+
+{
+  const stale = sign({ auth_date: String(Math.floor(now / 1000) - 2 * 60 * 60), user })
+  const match = matchInitData(
+    stale,
+    [
+      { token: 'токен бота ЕДУДА', organizationId: null },
+      { token: TOKEN, organizationId: 9 },
+    ],
+    now,
+  )
+  assert.equal(match?.candidate.organizationId, 9, 'устаревшую строку подписал всё равно бот школы')
+  const result = match?.result
+  assert.equal(
+    result && !result.ok ? result.reason : '',
+    'строка запуска устарела',
+    '«устарела» не путается с «подпись не сошлась»',
+  )
+  ok('устаревшая строка остаётся устаревшей, а не чужой')
 }
 
 console.log(`\nПодпись мини-приложения MAX: ${passed} проверок прошло.`)

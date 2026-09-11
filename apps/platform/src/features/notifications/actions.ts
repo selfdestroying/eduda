@@ -3,12 +3,14 @@
 import { prisma } from '@repo/db'
 import { ForbiddenError } from '@/src/lib/error'
 import { authAction, publicAction } from '@/src/lib/safe-action'
+import { connectMaxBot, disconnectMaxBot, readMaxBot } from './bot.server'
 import { disconnectCabinetMessenger, readCabinetMessengers } from './cabinet.server'
 import { readReminderLog, readReminderParents } from './overview.server'
 import { readReminderSettings, writeReminderSettings } from './settings.server'
 import {
   CabinetMessengersSchema,
   DisconnectMessengerSchema,
+  MaxBotTokenSchema,
   ReminderLogListSchema,
   ReminderParentListSchema,
   ReminderSettingsSchema,
@@ -16,8 +18,9 @@ import {
 
 /**
  * Тонкие обёртки над ядрами: вся логика и её проверка — в `cabinet.server.ts`
- * (кабинет родителя) и `settings.server.ts` (настройки школы). Экшен из
- * проверочного скрипта не импортировать — `safe-action.ts` тянет `server-only`.
+ * (кабинет родителя), `settings.server.ts` (настройки школы) и `bot.server.ts`
+ * (свой бот школы). Экшен из проверочного скрипта не импортировать —
+ * `safe-action.ts` тянет `server-only`.
  */
 
 export const getCabinetMessengers = publicAction
@@ -44,6 +47,17 @@ function assertCanManage(memberRole: string | null | undefined) {
   }
 }
 
+/**
+ * Свой бот школы — только владельцу: токен даёт полное управление ботом, и от
+ * его имени школа говорит с родителями. Управляющий видит, какой бот работает,
+ * но подключить или отключить его не может.
+ */
+function assertOwner(memberRole: string | null | undefined) {
+  if (memberRole !== 'owner') {
+    throw new ForbiddenError('Подключать и отключать бота школы может только владелец.')
+  }
+}
+
 export const getReminderSettings = authAction
   .metadata({ actionName: 'getReminderSettings' })
   .action(async ({ ctx }) => {
@@ -57,6 +71,28 @@ export const updateReminderSettings = authAction
   .action(async ({ ctx, parsedInput }) => {
     assertCanManage(ctx.session.memberRole)
     return writeReminderSettings(prisma, ctx.session.organizationId!, parsedInput)
+  })
+
+export const getMaxBot = authAction
+  .metadata({ actionName: 'getMaxBot' })
+  .action(async ({ ctx }) => {
+    assertCanManage(ctx.session.memberRole)
+    return readMaxBot(prisma, ctx.session.organizationId!)
+  })
+
+export const connectSchoolMaxBot = authAction
+  .metadata({ actionName: 'connectSchoolMaxBot' })
+  .inputSchema(MaxBotTokenSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    assertOwner(ctx.session.memberRole)
+    return connectMaxBot(prisma, ctx.session.organizationId!, parsedInput.token)
+  })
+
+export const disconnectSchoolMaxBot = authAction
+  .metadata({ actionName: 'disconnectSchoolMaxBot' })
+  .action(async ({ ctx }) => {
+    assertOwner(ctx.session.memberRole)
+    return { disconnected: await disconnectMaxBot(prisma, ctx.session.organizationId!) }
   })
 
 // ─── Экран школы ────────────────────────────────────────────────────

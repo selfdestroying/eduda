@@ -19,6 +19,12 @@ export type MaxLaunchUser = { id: string; firstName: string | null }
 export type MaxInitData = { ok: true; user: MaxLaunchUser } | { ok: false; reason: string }
 
 /**
+ * Отказ «не тот токен». Отдельной константой, потому что по нему `matchInitData`
+ * отличает «подписал другой бот» от строки, испорченной или устаревшей.
+ */
+export const BAD_SIGNATURE = 'подпись не сошлась'
+
+/**
  * Срок годности `auth_date`. Час: строку выдают в момент запуска приложения, и
  * первое, что оно делает, — идёт с ней сюда. Ограничение нужно, чтобы утёкшая
  * строка не открывала кабинет вечно; в документации его нет, поэтому наш.
@@ -69,7 +75,7 @@ export function verifyInitData(
   const secret = createHmac('sha256', 'WebAppData').update(botToken).digest()
   const expected = createHmac('sha256', secret).update(launchParams).digest('hex')
 
-  if (!equalHex(expected, signature)) return { ok: false, reason: 'подпись не сошлась' }
+  if (!equalHex(expected, signature)) return { ok: false, reason: BAD_SIGNATURE }
 
   const authDate = Number(params.get('auth_date'))
   if (!Number.isFinite(authDate)) return { ok: false, reason: 'в строке запуска нет времени' }
@@ -78,6 +84,31 @@ export function verifyInitData(
   }
 
   return parseUser(params.get('user'))
+}
+
+/**
+ * Какой из ботов подписал строку запуска. Адрес мини-приложения один на всех,
+ * а открыть его могут из бота ЕДУДА и из бота любой школы — строка сама не
+ * говорит, из какого. Подпись сходится только с токеном того бота, из которого
+ * открыли, поэтому перебор и есть ответ.
+ *
+ * Возвращается первый кандидат, у которого отказ — не «подпись не сошлась»:
+ * испорченная или устаревшая строка испорчена для всех ботов одинаково. `null` —
+ * не подошёл ни один токен.
+ *
+ * ponytail: перебор токенов, по HMAC на бота. Сотни ботов — id школы в адресе
+ * мини-приложения и проверка одним токеном.
+ */
+export function matchInitData<T extends { token: string }>(
+  initData: string,
+  candidates: T[],
+  now: number = Date.now(),
+): { candidate: T; result: MaxInitData } | null {
+  for (const candidate of candidates) {
+    const result = verifyInitData(initData, candidate.token, now)
+    if (result.ok || result.reason !== BAD_SIGNATURE) return { candidate, result }
+  }
+  return null
 }
 
 /** `user` приезжает одним параметром — JSON внутри строки, как у Telegram. */

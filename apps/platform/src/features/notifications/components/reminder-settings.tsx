@@ -12,7 +12,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@repo/ui/components/button'
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -41,8 +40,11 @@ import { ToggleGroup, ToggleGroupItem } from '@repo/ui/components/toggle-group'
 import { Loader, Plus } from 'lucide-react'
 import { useRef } from 'react'
 import { Controller, useForm, type UseFormReturn } from 'react-hook-form'
-import { useReminderSettingsQuery, useUpdateReminderSettingsMutation } from '../queries'
-import BotLinks from './bot-links'
+import {
+  useMaxBotQuery,
+  useReminderSettingsQuery,
+  useUpdateReminderSettingsMutation,
+} from '../queries'
 import {
   REMINDER_LEAD_OPTIONS,
   ReminderSettingsSchema,
@@ -50,9 +52,9 @@ import {
 } from '../schemas'
 
 /**
- * Настройки ботов школы: ссылки на самих ботов в шапке и расписание рассылки.
- * Рассылает её бот из `apps/bots`; здесь только четыре поля, которыми школа
- * решает, включено ли это и когда приходит.
+ * Настройки рассылки: включена ли она, когда приходит и что в ней написано.
+ * Рассылает её бот из `apps/bots`; каким именно ботом — ЕДУДА или своим ботом
+ * школы — решает соседняя карточка «Бот MAX».
  *
  * Режим выбирается карточками, а его настройка живёт внутри карточки: «за день
  * до занятия» и «в день занятия» — не два значения одного числа, а два разных
@@ -151,6 +153,7 @@ function TemplateField({
   isDayBefore: boolean
 }) {
   const { data: session } = useSessionQuery()
+  const { data: bot } = useMaxBotQuery()
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const lineRef = useRef<HTMLTextAreaElement>(null)
 
@@ -235,20 +238,26 @@ function TemplateField({
       <div className="flex flex-col gap-2">
         <p className="text-muted-foreground text-xs font-medium">Что получит родитель</p>
         <Message>
-          {/* Отправитель у обоих ботов один — ЕДУДА, и аватарка та же: родитель
-              видит в чате именно её, а не название школы. */}
+          {/* Отправитель — бот, которым школа рассылает: ЕДУДА или её собственный.
+              Аватарки своего бота у нас нет, поэтому у него первая буква имени. */}
           <MessageAvatar>
             <Avatar>
               {/* Фон именно белый, а не `bg-background`: аватарка бота в
                   мессенджере одна и та же, а тема дашборда к ней отношения не
                   имеет. */}
-              <AvatarFallback className="text-primary bg-white" aria-label="ЕДУДА">
-                <Logo className="size-8" />
-              </AvatarFallback>
+              {bot ? (
+                <AvatarFallback className="text-primary bg-white">
+                  {bot.username.slice(0, 1).toUpperCase()}
+                </AvatarFallback>
+              ) : (
+                <AvatarFallback className="text-primary bg-white" aria-label="ЕДУДА">
+                  <Logo className="size-8" />
+                </AvatarFallback>
+              )}
             </Avatar>
           </MessageAvatar>
           <MessageContent>
-            <MessageHeader>ЕДУДА</MessageHeader>
+            <MessageHeader>{bot ? `@${bot.username}` : 'ЕДУДА'}</MessageHeader>
             <Bubble variant="muted">
               <BubbleContent className="text-sm whitespace-pre-line">{preview}</BubbleContent>
             </Bubble>
@@ -287,18 +296,12 @@ function SettingsForm({ settings }: { settings: ReminderSettingsSchemaType }) {
   return (
     <form onSubmit={submit}>
       <Card>
-        {/* На узком экране шапка — колонка: сетка `CardHeader` отдаёт кнопкам
-            колонку по содержимому, и на телефоне заголовку с описанием
-            оставалось около сотни пикселей, то есть по слову в строке. */}
-        <CardHeader className="flex flex-col gap-2 sm:grid sm:gap-1">
-          <CardTitle>Настройка ботов</CardTitle>
+        <CardHeader>
+          <CardTitle>Напоминания родителям</CardTitle>
           <CardDescription>
             Бот пишет родителю перед занятием ребёнка. Подключается родитель сам — ссылка есть в его
             личном кабинете.
           </CardDescription>
-          <CardAction>
-            <BotLinks />
-          </CardAction>
         </CardHeader>
 
         <CardContent>

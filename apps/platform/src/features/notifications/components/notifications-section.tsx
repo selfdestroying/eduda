@@ -31,7 +31,7 @@ export default function NotificationsSection({ token }: { token: string }) {
   // показываем: это не то, ради чего родитель открыл кабинет.
   if (isError || !data) return null
 
-  const maxLink = maxBotUrl()
+  const maxLink = maxBotUrl(data.botUsername)
 
   // Бот не заведён — показывать нечего.
   if (!maxLink) return null

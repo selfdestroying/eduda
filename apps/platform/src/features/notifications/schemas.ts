@@ -20,6 +20,18 @@ export const DisconnectMessengerSchema = z.object({
 export type CabinetMessengersSchemaType = z.infer<typeof CabinetMessengersSchema>
 export type DisconnectMessengerSchemaType = z.infer<typeof DisconnectMessengerSchema>
 
+// ─── Свой бот школы ─────────────────────────────────────────────────
+
+/**
+ * Токен бота из раздела интеграции на платформе MAX для партнёров. Форму не
+ * сужаем: MAX её не документирует, а проверяет токен сам при подключении.
+ */
+export const MaxBotTokenSchema = z.object({
+  token: z.string().trim().min(10, 'Это не похоже на токен бота').max(512),
+})
+
+export type MaxBotTokenSchemaType = z.infer<typeof MaxBotTokenSchema>
+
 // ─── Настройки школы ────────────────────────────────────────────────
 
 /** `HH:mm` в поясе школы — тот же формат, что у `Lesson.time`. */

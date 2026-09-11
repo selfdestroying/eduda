@@ -1,4 +1,5 @@
 import { isOrgFeatureDisabled } from '@repo/core/features-db'
+import { activeMessengerWhere } from '@repo/core/messenger'
 import type { Prisma } from '@repo/db'
 import { NotFoundError } from '@/src/lib/error'
 
@@ -16,9 +17,12 @@ import { NotFoundError } from '@/src/lib/error'
  */
 
 export type CabinetMessengers = {
+  /** Подключён к боту, которым школа рассылает сейчас. */
   max: boolean
   /** Без номера в базе привязка по телефону невозможна — кнопку MAX не показываем. */
   hasPhone: boolean
+  /** Свой бот школы — к нему и ведёт кнопка подключения; `null` — бот ЕДУДА. */
+  botUsername: string | null
 }
 
 async function parentByToken(db: Prisma.TransactionClient, token: string) {
@@ -39,18 +43,29 @@ export async function readCabinetMessengers(
 
   if (await isOrgFeatureDisabled(db, parent.organizationId, 'notifications')) return null
 
+  const bot = await db.organizationMaxBot.findUnique({
+    where: { organizationId: parent.organizationId },
+    select: { username: true },
+  })
+  // Подключение к боту ЕДУДА у школы со своим ботом «подключено» не считается:
+  // напоминаний по нему нет, и кнопка должна вести к боту школы.
   const connected = await db.parentMessenger.count({
-    where: { parentId: parent.id, provider: 'MAX', unsubscribedAt: null },
+    where: { parentId: parent.id, ...activeMessengerWhere(bot !== null) },
   })
 
-  return { max: connected > 0, hasPhone: Boolean(parent.phone) }
+  return {
+    max: connected > 0,
+    hasPhone: Boolean(parent.phone),
+    botUsername: bot?.username ?? null,
+  }
 }
 
 /**
  * Гасит канал, а не удаляет строку: она — единственный ответ на вопрос «почему
  * мне перестало приходить». Тем же способом отписывают сами боты.
  *
- * Все привязки родителя разом: «отключить» в кабинете значит «не пишите мне».
+ * Все привязки родителя разом, к любому боту: «отключить» в кабинете значит
+ * «не пишите мне».
  */
 export async function disconnectCabinetMessenger(
   db: Prisma.TransactionClient,

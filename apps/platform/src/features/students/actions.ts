@@ -3,6 +3,7 @@
 import { Prisma } from '@repo/db'
 import { CoinTxReason } from '@repo/db/enums'
 
+import { activeMessengerWhere, hasOwnMaxBot } from '@repo/core/messenger'
 import { prisma } from '@repo/db'
 import { getUnpaidLessonsOfStudent } from '@/src/features/finances/unpaid.server'
 import { recordCoins } from '@/src/lib/coins'
@@ -245,18 +246,21 @@ export const getStudentDetail = authAction
   .metadata({ actionName: 'getStudentDetail' })
   .inputSchema(z.object({ id: z.number().int().positive() }))
   .action(async ({ ctx, parsedInput }) => {
+    const hasOwnBot = await hasOwnMaxBot(prisma, ctx.session.organizationId!)
+
     return await prisma.student.findFirst({
       where: { id: parsedInput.id, organizationId: ctx.session.organizationId! },
       include: {
         account: true,
         parents: {
           include: {
-            // Активные привязки мессенджеров: по ним в карточке видно, дошли
-            // ли до родителя напоминания или ссылку он так и не открыл.
+            // Живые привязки к боту, которым школа рассылает сейчас: по ним в
+            // карточке видно, дошли ли до родителя напоминания или ссылку он
+            // так и не открыл.
             parent: {
               include: {
                 messengers: {
-                  where: { unsubscribedAt: null },
+                  where: activeMessengerWhere(hasOwnBot),
                   select: { provider: true },
                 },
               },

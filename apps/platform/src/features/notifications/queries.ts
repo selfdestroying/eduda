@@ -1,8 +1,11 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
+  connectSchoolMaxBot,
   disconnectMessenger,
+  disconnectSchoolMaxBot,
   getCabinetMessengers,
+  getMaxBot,
   getReminderLog,
   getReminderParents,
   getReminderSettings,
@@ -10,14 +13,17 @@ import {
 } from './actions'
 import type {
   DisconnectMessengerSchemaType,
+  MaxBotTokenSchemaType,
   ReminderLogListSchemaType,
   ReminderParentListSchemaType,
   ReminderSettingsSchemaType,
 } from './schemas'
 
 export const notificationKeys = {
+  all: ['notifications'] as const,
   messengers: (token: string) => ['notifications', token, 'messengers'] as const,
   settings: () => ['notifications', 'settings'] as const,
+  maxBot: () => ['notifications', 'max-bot'] as const,
   overview: ['notifications', 'overview'] as const,
 }
 
@@ -74,6 +80,59 @@ export const useUpdateReminderSettingsMutation = () => {
       toast.success('Настройки напоминаний сохранены.')
     },
     onError: () => toast.error('Не удалось сохранить настройки. Попробуйте ещё раз.'),
+  })
+}
+
+// ─── Свой бот школы ─────────────────────────────────────────────────
+
+export const useMaxBotQuery = () => {
+  return useQuery({
+    queryKey: notificationKeys.maxBot(),
+    queryFn: async () => {
+      const { data, serverError } = await getMaxBot()
+      if (serverError) throw serverError
+      return data ?? null
+    },
+  })
+}
+
+/**
+ * После смены бота сбрасывается всё про уведомления: от бота зависят и ссылки,
+ * и превью, и то, кто на экране школы считается подключённым.
+ */
+export const useConnectMaxBotMutation = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (values: MaxBotTokenSchemaType) => {
+      const { data, serverError } = await connectSchoolMaxBot(values)
+      // Текст отказа здесь по делу — «MAX не принял токен», «бот уже у другой
+      // школы», — поэтому он и уходит в тост, а не общее «не удалось».
+      if (serverError) throw new Error(serverError)
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all })
+      toast.success('Бот школы подключён.')
+    },
+    onError: (error) =>
+      toast.error(error.message || 'Не удалось подключить бота. Попробуйте ещё раз.'),
+  })
+}
+
+export const useDisconnectMaxBotMutation = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data, serverError } = await disconnectSchoolMaxBot()
+      if (serverError) throw new Error(serverError)
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all })
+      toast.success('Напоминания снова идут через бота ЕДУДА.')
+    },
+    onError: (error) =>
+      toast.error(error.message || 'Не удалось отключить бота. Попробуйте ещё раз.'),
   })
 }
 

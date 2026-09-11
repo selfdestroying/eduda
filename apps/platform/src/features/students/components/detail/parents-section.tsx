@@ -39,7 +39,7 @@ import {
 } from '@/src/features/parents/schemas'
 import { ParentWithStudents } from '@/src/features/parents/types'
 import { studentKeys } from '@/src/features/students/queries'
-import { cn, maxBotUrl, parentCabinetUrl } from '@/src/lib/utils'
+import { cn, parentCabinetUrl } from '@/src/lib/utils'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -225,11 +225,9 @@ function ParentCard({
           />
         </div>
 
-        {maxBotUrl() && (
-          <div className="flex gap-1.5">
-            <BotBadge name="MAX" connected={connected('MAX')} />
-          </div>
-        )}
+        <div className="flex gap-1.5">
+          <BotBadge name="MAX" connected={connected('MAX')} />
+        </div>
       </div>
     </div>
   )
