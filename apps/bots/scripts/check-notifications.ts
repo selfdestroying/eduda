@@ -310,6 +310,8 @@ async function main() {
         )
 
         // ─── Дренаж ───────────────────────────────────────────────────────
+        const now = new Date('2026-09-10T18:05:00Z')
+
         const outbox = async (externalId: string, attempts = 0) => {
           // Своя привязка на каждую строку: `blocked` гасит привязку, и общая
           // на всех подменяла бы результат соседних проверок.
@@ -329,6 +331,10 @@ async function main() {
               organizationId: orgA.id,
               parentMessengerId: messenger.id,
               attempts,
+              // Срок явно, до прохода. По умолчанию у строки `now()` настоящего
+              // времени, а проход здесь датирован 10.09 — и начиная с 11.09
+              // строки просто не попадали в выборку.
+              nextAttemptAt: new Date(now.getTime() - 60_000),
             },
             select: { id: true, parentMessengerId: true },
           })
@@ -349,8 +355,7 @@ async function main() {
           return { ok: true }
         }
 
-        const now = new Date('2026-09-10T18:05:00Z')
-        await drainOutbox(tx, { MAX: sender }, { now, pauseMs: 0 })
+        await drainOutbox(tx, { MAX: sender }, { clock: () => now, pauseMs: 0 })
 
         const state = (id: number) =>
           tx.notificationOutbox.findFirstOrThrow({
@@ -380,9 +385,65 @@ async function main() {
         assert.equal(exhausted.attempts, 5, 'попытки не теряются')
 
         // ─── Провайдер не подключён ───────────────────────────────────────
-        await drainOutbox(tx, {}, { now, pauseMs: 0 })
+        await drainOutbox(tx, {}, { clock: () => now, pauseMs: 0 })
         const orphan = await state(retryRow.id)
         assert.equal(orphan.status, 'PENDING', 'срок ещё не подошёл, строку не трогали')
+
+        // ─── Бронь строки ─────────────────────────────────────────────────
+        // Два прохода по одной очереди: пока первый отправляет строку, вторую
+        // забирает соседний проход. Первый обязан её пропустить — иначе у MAX,
+        // где нет ключа идемпотентности, родитель получит сообщение дважды.
+        //
+        // Часы идут по двадцать минут на каждое обращение: так проход длиннее
+        // брони, и бронь, отсчитанная от начала прохода, а не от момента
+        // захвата, истекла бы раньше, чем её поставили.
+        const firstRow = await outbox(`drain-first-${stamp}`)
+        const stolenRow = await outbox(`drain-stolen-${stamp}`)
+        const ours = new Set([`drain-first-${stamp}`, `drain-stolen-${stamp}`])
+
+        let tick = 0
+        let lastTick = now
+        const clock = () => (lastTick = new Date(now.getTime() + (tick += 1) * 20 * 60_000))
+
+        const called: string[] = []
+        const racing: Sender = async (externalId) => {
+          called.push(externalId)
+          if (!ours.has(externalId)) return { ok: true }
+
+          const claimed = await tx.notificationOutbox.findFirstOrThrow({
+            where: { parentMessenger: { externalId } },
+            select: { nextAttemptAt: true },
+          })
+          assert.ok(
+            claimed.nextAttemptAt > lastTick,
+            'бронь отсчитана от момента захвата, а не от начала прохода',
+          )
+
+          if (externalId === `drain-first-${stamp}`) {
+            // Бронь соседа — на сутки вперёд, а не на его пятнадцать минут:
+            // часы проверки прыгают на двадцать минут за обращение, и обычная
+            // бронь истекла бы раньше, чем проход до неё дойдёт.
+            await tx.notificationOutbox.update({
+              where: { id: stolenRow.id },
+              data: { nextAttemptAt: new Date(lastTick.getTime() + 24 * 60 * 60_000) },
+            })
+          }
+          return { ok: true }
+        }
+
+        await drainOutbox(tx, { MAX: racing }, { clock, pauseMs: 0 })
+
+        assert.ok(called.includes(`drain-first-${stamp}`), 'первая строка отправлена')
+        assert.ok(
+          !called.includes(`drain-stolen-${stamp}`),
+          'строку, взятую соседним проходом, второй раз не отправляют',
+        )
+        assert.equal((await state(firstRow.id)).status, 'SENT', 'отправленная закрыта')
+        assert.equal(
+          (await state(stolenRow.id)).status,
+          'PENDING',
+          'взятая соседом остаётся за ним',
+        )
 
         throw new Rollback()
       },
